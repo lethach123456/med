@@ -1,0 +1,6 @@
+# Instance-specific credentials
+/config/database.runtime.php
+
+# Local machine files and recoverable copies
+.DS_Store
+/backups/

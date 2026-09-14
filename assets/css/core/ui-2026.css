@@ -1,0 +1,599 @@
+/* Hệ giao diện dùng chung: MedReview 2026 */
+:root{
+  --ui-font:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --ui-ink:#10213d;
+  --ui-muted:#64748b;
+  --ui-line:rgba(148,163,184,.22);
+  --ui-blue:#2563eb;
+  --ui-blue-strong:#1d4ed8;
+  --ui-focus:rgba(37,99,235,.34);
+  --ui-soft:#f5f8ff;
+  --ui-surface:#fff;
+  --ui-radius:20px;
+  --ui-radius-sm:14px;
+  --ui-shadow-sm:0 8px 22px rgba(15,35,66,.055);
+  --ui-shadow:0 14px 34px rgba(15,35,66,.07);
+  --ui-ease:cubic-bezier(.2,.8,.2,1);
+}
+
+html{scroll-behavior:smooth;scroll-padding-top:96px}
+body{
+  overflow-x:hidden;
+  color:var(--ui-ink);
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+button,input,textarea,select{font:inherit}
+
+/* Keyboard navigation remains visible without changing page-specific links. */
+:where(.medical-header,.medical-footer,.site-typo) :where(a,button,input,textarea,select,summary):focus-visible{
+  outline:3px solid var(--ui-focus);
+  outline-offset:3px;
+}
+
+:where(.medical-header,.medical-footer) :where(a,button){
+  -webkit-tap-highlight-color:transparent;
+}
+
+.medical-header{
+  font-family:var(--ui-font);
+  font-synthesis:none;
+  letter-spacing:-.012em;
+  background:rgba(255,255,255,.78)!important;
+  border-bottom-color:rgba(226,232,240,.78)!important;
+  backdrop-filter:blur(20px) saturate(1.35);
+  -webkit-backdrop-filter:blur(20px) saturate(1.35);
+}
+.medical-footer{
+  font-family:var(--ui-font);
+  font-synthesis:none;
+  letter-spacing:-.012em;
+}
+/* Header/footer are included after each page template. Give their inner
+   container a stable width even on standalone pages that do not declare
+   a generic `.container` utility of their own. */
+.medical-header > .container,
+.medical-footer > .container,
+.medical-footer .footer-cta > .container{
+  width:min(1320px,calc(100% - 48px));
+  margin-inline:auto;
+}
+@media (max-width:720px){
+  .medical-header > .container,
+  .medical-footer > .container,
+  .medical-footer .footer-cta > .container{
+    width:calc(100% - 28px);
+  }
+}
+.medical-header .header-shell{min-height:74px!important;gap:24px!important}
+.medical-header .brand-mark{width:40px!important;height:40px!important;border-radius:13px!important}
+.medical-header .brand-copy strong{font-size:20px!important}
+.medical-header .brand-copy small{padding:3px 8px!important;font-size:9px!important}
+.medical-header .header-nav{gap:4px!important}
+.medical-header .header-nav a{
+  position:relative;
+  padding:9px 10px!important;
+  border-radius:10px!important;
+  font-size:12px!important;
+}
+.medical-header .header-nav a.is-active::after{
+  content:"";
+  position:absolute;
+  right:10px;
+  bottom:3px;
+  left:10px;
+  height:2px;
+  border-radius:999px;
+  background:currentColor;
+}
+.medical-header .header-search{height:42px!important;min-width:194px!important;border-radius:13px!important}
+.medical-header .header-login{height:42px!important;padding:0 14px!important;border-radius:12px!important}
+.medical-header .header-search,
+.medical-header .header-login,
+.medical-header .lang-switch,
+.medical-footer .footer-cta-btn,
+.medical-footer .social-row a{
+  transition:transform 180ms var(--ui-ease),box-shadow 180ms var(--ui-ease),background-color 180ms var(--ui-ease),border-color 180ms var(--ui-ease),color 180ms var(--ui-ease);
+}
+
+@media (hover:hover){
+  .medical-header .header-login:hover,
+  .medical-footer .footer-cta-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 16px 30px rgba(37,99,235,.24);
+  }
+  .medical-header .header-search:focus-within{
+    border-color:rgba(59,130,246,.48)!important;
+    box-shadow:0 0 0 4px rgba(37,99,235,.09),0 12px 26px rgba(15,23,42,.05)!important;
+  }
+}
+
+.medical-footer{margin-top:64px!important}
+.medical-footer .footer-cta-inner{padding:28px 0!important}
+.medical-footer .footer-main{padding-top:42px!important}
+.medical-footer .footer-cta-btn{border-radius:12px!important}
+
+/* Trang chủ: bề mặt nhẹ, card có thứ bậc rõ ràng. */
+.med-home .hero-wrap,
+.med-home .home-card{border-radius:var(--ui-radius)!important}
+.med-home .home-card{border-color:var(--ui-line)!important;box-shadow:var(--ui-shadow)!important}
+.med-home .section-head h2{letter-spacing:-.04em}
+.med-home .section-link{font-weight:800}
+.med-home .category-card{transition:transform .2s ease,box-shadow .2s ease}
+@media (hover:hover){
+  .med-home .category-card:hover,
+  .med-home .facility-card:hover,
+  .med-home .review-card:hover{transform:translateY(-3px)}
+}
+
+/* Danh sách cơ sở, bác sĩ, review và toplist dùng cùng một nhịp bố cục. */
+.facility-page,.review-page,.toplist-page,.categories-page{padding-top:30px!important}
+.facility-page .hero-head,.review-page .hero-head,.toplist-page .hero-head{
+  padding:22px 0 6px;
+}
+.facility-page .hero-head h1,.review-page .hero-head h1,.toplist-page .hero-head h1{
+  font-size:clamp(30px,3.2vw,46px)!important;
+  letter-spacing:-.055em!important;
+}
+.facility-page .hero-sub,.review-page .hero-sub,.toplist-page .hero-sub{font-size:14px!important;max-width:66ch}
+.facility-page .hero-note,.review-page .hero-note,.toplist-page .hero-note{
+  border-radius:18px!important;
+  border-color:var(--ui-line)!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+.facility-page .filter-bar,.review-page .filter-bar,.toplist-page .filter-bar{
+  margin-top:22px!important;
+  padding:14px!important;
+  border-radius:20px!important;
+  border-color:var(--ui-line)!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+.facility-page .filter-input,.facility-page .filter-select,.review-page .filter-input,.review-page .filter-select,.toplist-page .filter-input,.toplist-page .filter-select{
+  border-radius:13px!important;
+  border-color:rgba(148,163,184,.24)!important;
+  background:#fbfcff!important;
+}
+.facility-page .content-grid,.review-page .content-grid,.toplist-page .content-grid{gap:18px!important;margin-top:18px!important}
+.facility-page .facility-card,.review-page .review-card,.toplist-page .panel{
+  border-radius:20px!important;
+  border-color:var(--ui-line)!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+.facility-page .facility-card{padding:12px!important}
+.facility-page .facility-media{border-radius:15px!important}
+.facility-page .detail-btn,.review-page .detail-btn,.toplist-page .btn-primary{
+  min-height:42px;
+  border-radius:12px!important;
+}
+.facility-page .sidebar,.review-page .sidebar{gap:14px!important}
+.facility-page .summary-card,.facility-page .utility-card,.facility-page .customer-box,
+.review-page .summary-card,.review-page .utility-card,.review-page .customer-box,
+.toplist-page .side-card{border-radius:18px!important;border-color:var(--ui-line)!important;box-shadow:var(--ui-shadow)!important}
+.review-page .review-card{padding:14px!important}
+.review-page .review-media,.review-page .review-shot{border-radius:15px!important;overflow:hidden}
+.toplist-page .post{padding:16px!important;gap:20px!important}
+.toplist-page .post-media{border-radius:15px!important}
+.toplist-page .post h3{font-size:clamp(20px,2vw,25px)!important}
+.toplist-page .cat-item,.toplist-page .stat-item{border-radius:13px!important}
+.categories-page .category-card{
+  border-color:var(--ui-line)!important;
+  border-radius:20px!important;
+  box-shadow:var(--ui-shadow)!important;
+}
+
+/* Các trang giới thiệu/liên hệ vẫn dùng component cũ, được đồng bộ bo góc và khoảng thở. */
+body > .hero{border-radius:0 0 28px 28px;isolation:isolate}
+body > .section .card{border-radius:20px!important;border-color:var(--ui-line)!important;box-shadow:var(--ui-shadow)!important}
+
+@media (max-width:980px){
+  .medical-header .header-shell{min-height:68px!important}
+  .medical-header .header-mobile[open] .mobile-panel{
+    position:fixed!important;
+    top:80px!important;
+    right:12px!important;
+    left:12px!important;
+    max-height:calc(100dvh - 96px);
+    overflow:auto;
+    padding:12px!important;
+    border-radius:18px!important;
+  }
+  .medical-header .mobile-panel a{min-height:46px;display:flex!important;align-items:center}
+  .medical-header .mobile-search{min-height:46px}
+  .facility-page .hero-head,.review-page .hero-head,.toplist-page .hero-head{padding-top:14px}
+  .facility-page .content-grid,.review-page .content-grid,.toplist-page .content-grid{gap:16px!important}
+}
+
+@media (max-width:720px){
+  .container{width:min(100% - 24px,var(--max))!important}
+  .medical-header .brand-copy span,.medical-header .brand-copy small{display:none!important}
+  .medical-header .brand-copy strong{font-size:18px!important}
+  .medical-header .brand-link{gap:9px!important}
+  .medical-header .brand-mark{width:38px!important;height:38px!important}
+  .medical-header .mobile-summary{width:40px!important;height:40px!important;border-radius:12px!important}
+  .medical-footer{margin-top:44px!important}
+  .medical-footer .footer-cta-inner{padding:22px 0!important}
+  .medical-footer .footer-cta-copy strong{font-size:19px!important}
+  .medical-footer .footer-main{padding-top:30px!important}
+
+  .med-home .hero-wrap{border-radius:18px!important}
+  .med-home .hero-copy h1{font-size:clamp(31px,9vw,38px)!important;line-height:1.1!important}
+  .med-home .hero-search-row{padding:4px!important;border-radius:14px!important}
+  .med-home .hero-search-btn{min-height:46px!important}
+  .med-home .section-head{gap:10px}
+  .med-home .section-head h2{font-size:20px!important;line-height:1.28}
+  .med-home .category-grid,.med-home .facility-grid,.med-home .review-grid,.med-home .partner-grid{gap:12px!important}
+  .med-home .category-card{min-height:132px!important;padding:15px 10px 12px!important}
+  .med-home .category-icon{width:52px!important;height:52px!important;margin-bottom:10px!important;border-radius:16px!important}
+  .med-home .category-card h3{font-size:14px!important}
+  .med-home .community-banner{padding:22px!important;border-radius:18px!important}
+  .med-home .community-stats strong{font-size:26px!important}
+
+  .facility-page,.review-page,.toplist-page,.categories-page{padding-top:20px!important;padding-bottom:44px!important}
+  .breadcrumb{font-size:11px!important;gap:7px!important;overflow:hidden;white-space:nowrap}
+  .facility-page .hero-head,.review-page .hero-head,.toplist-page .hero-head{gap:14px!important;padding:12px 0 2px}
+  .facility-page .hero-head h1,.review-page .hero-head h1,.toplist-page .hero-head h1{font-size:30px!important;line-height:1.08!important}
+  .facility-page .hero-sub,.review-page .hero-sub,.toplist-page .hero-sub{font-size:13px!important;line-height:1.65!important}
+  .facility-page .hero-note,.review-page .hero-note,.toplist-page .hero-note{padding:13px!important;border-radius:15px!important}
+  .title-pill{font-size:11px!important}
+
+  .facility-page .filter-bar,.review-page .filter-bar,.toplist-page .filter-bar{
+    display:flex!important;
+    gap:10px!important;
+    margin-right:-12px!important;
+    padding:12px!important;
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    scroll-snap-type:inline proximity;
+    border-radius:18px 0 0 18px!important;
+  }
+  .facility-page .filter-item,.review-page .filter-item,.toplist-page .filter-item{min-width:214px;flex:0 0 214px;scroll-snap-align:start}
+  .facility-page .filter-bar::-webkit-scrollbar,.review-page .filter-bar::-webkit-scrollbar,.toplist-page .filter-bar::-webkit-scrollbar{display:none}
+  .facility-page .facility-card,.review-page .review-card,.toplist-page .post{padding:12px!important;border-radius:17px!important}
+  .facility-page .facility-media{height:190px!important}
+  .facility-page .facility-title h3{font-size:17px!important}
+  .facility-page .score-col,.facility-page .service-col,.facility-page .price-col,.facility-page .cta-col{padding-top:4px!important}
+  .facility-page .detail-btn,.review-page .detail-btn{width:100%}
+  .review-page .review-shot{height:170px!important}
+  .review-page .review-title h3{font-size:20px!important;line-height:1.3!important}
+  .review-page .review-footer{padding-top:4px}
+  .toplist-page .post{gap:14px!important}
+  .toplist-page .post-media{height:190px!important}
+  .toplist-page .post-actions{gap:8px!important}
+  .toplist-page .post-actions .btn{width:100%}
+  .categories-page .page-head h1{font-size:32px!important;letter-spacing:-.05em}
+  .categories-page .category-card{min-height:132px!important;padding:16px 12px!important}
+
+  body > .hero{border-radius:0 0 20px 20px}
+  body > .hero .hero-inner{min-height:auto!important;padding-top:76px!important;padding-bottom:46px!important}
+  body > .hero .hero-copy{padding:18px!important;border-radius:18px!important}
+  body > .hero .hero-copy h1{font-size:31px!important}
+  body > .section{padding:24px 0!important}
+}
+
+@media (max-width:420px){
+  .med-home .category-grid,.med-home .facility-grid,.med-home .review-grid,.med-home .partner-grid{grid-template-columns:1fr!important}
+  .facility-page .filter-item,.review-page .filter-item,.toplist-page .filter-item{min-width:82vw;flex-basis:82vw}
+  .review-page .review-media{grid-template-columns:1fr!important}
+  .review-page .review-shot{height:210px!important}
+}
+
+/* Respect user motion and contrast preferences without disabling functionality. */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  :where(.medical-header,.medical-footer,.site-typo) *,
+  :where(.medical-header,.medical-footer,.site-typo) *::before,
+  :where(.medical-header,.medical-footer,.site-typo) *::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+  }
+}
+
+@media (prefers-contrast:more){
+  :root{--ui-line:rgba(71,85,105,.45)}
+  .medical-header{border-bottom-color:rgba(71,85,105,.38)!important}
+  .facility-page .facility-card,.review-page .review-card,.toplist-page .panel,.categories-page .category-card{
+    border-color:rgba(71,85,105,.34)!important;
+  }
+}
+
+/*
+ * Cohesion for the medical directories and profile pages.  The rules remain
+ * deliberately scoped to public page roots: local page CSS still owns the
+ * composition, while common surfaces, metadata and anchors feel related.
+ */
+:where(.facility-directory,.facility-detail,.doctor-detail,.review-page,.review-detail,.toplist-page,.facility-page).site-typo{
+  min-width:0;
+}
+
+:where(.facility-directory,.facility-detail,.doctor-detail,.review-page,.review-detail,.toplist-page,.facility-page).site-typo
+:where(.container,.directory-container,.content-grid,.hero-grid,.page-grid,.facility-reading-layout,.main-stack,.review-shell,.doctor-review-shell){
+  min-width:0;
+}
+
+.facility-detail :is(.side-card,.summary-box,.review-feed),
+.doctor-detail :is(.side-card,.section-card,.review-summary-card,.review-feed),
+.review-detail :is(.side-card,.comment-box),
+.facility-directory :is(.directory-filter,.aside-card,.directory-source),
+.review-page :is(.summary-card,.utility-card,.customer-box),
+.toplist-page .side-card{
+  border-color:rgba(148,163,184,.24);
+  box-shadow:var(--ui-shadow-sm);
+}
+
+.facility-detail :is(.section,.facility-subsection),
+.doctor-detail .section-card,
+.review-detail .section,
+.review-page .review-card,
+.toplist-page .post,
+.facility-page .facility-card,
+.facility-directory .facility-card{
+  scroll-margin-top:104px;
+}
+
+:where(.facility-detail,.doctor-detail,.review-detail,.review-page,.toplist-page,.facility-page).site-typo
+:where(.rating-main,.score-number,.summary-score strong,.review-score strong,.rating-large strong,.price-value,.rating-value){
+  font-variant-numeric:tabular-nums;
+}
+
+:where(.facility-detail,.doctor-detail,.review-detail,.review-page,.toplist-page,.facility-page).site-typo
+:where(.rating-meta,.meta-line,.review-date,.review-meta,.meta-row,.price-caption){
+  line-height:1.45;
+}
+
+@media (hover:hover){
+  .facility-detail :is(.service-card,.contact-item),
+  .doctor-detail :is(.service-card,.cert-card,.assoc-card,.doctor-side-card,.clinic-card),
+  .review-detail :is(.related-item,.process-card),
+  .review-page .review-card,
+  .toplist-page .post{
+    transition:border-color 180ms var(--ui-ease),box-shadow 180ms var(--ui-ease),transform 180ms var(--ui-ease);
+  }
+
+  .facility-detail :is(.service-card,.contact-item):hover,
+  .doctor-detail :is(.service-card,.cert-card,.assoc-card,.doctor-side-card,.clinic-card):hover,
+  .review-detail :is(.related-item,.process-card):hover{
+    border-color:rgba(96,165,250,.58);
+    box-shadow:0 12px 26px rgba(30,64,175,.09);
+    transform:translateY(-1px);
+  }
+}
+
+@media (max-width:720px){
+  .facility-detail :is(.hero-grid,.facility-reading-layout,.review-shell),
+  .doctor-detail :is(.page-grid,.doctor-review-shell),
+  .review-detail .content-grid{
+    gap:14px;
+  }
+
+  .facility-detail :is(.detail-nav,.review-feed-toolbar),
+  .doctor-detail :is(.tabs,.review-feed-toolbar),
+  .review-page .filter-bar,
+  .toplist-page .filter-bar{
+    scrollbar-width:none;
+    overscroll-behavior-inline:contain;
+  }
+
+  .facility-detail :is(.detail-nav,.review-feed-toolbar)::-webkit-scrollbar,
+  .doctor-detail :is(.tabs,.review-feed-toolbar)::-webkit-scrollbar,
+  .review-page .filter-bar::-webkit-scrollbar,
+  .toplist-page .filter-bar::-webkit-scrollbar{
+    display:none;
+  }
+}
+
+@media (max-width:560px){
+  .facility-detail :is(.panel,.summary-box,.review-feed),
+  .doctor-detail :is(.hero-card,.section-card,.side-card,.review-summary-card,.review-feed),
+  .review-detail :is(.panel,.side-card,.comment-box),
+  .facility-directory :is(.directory-hero,.directory-filter,.facility-card){
+    border-radius:16px;
+  }
+}
+
+/*
+ * Static and editorial pages (Giới thiệu, Liên hệ, Tin tức, bài viết).
+ * These older templates do not expose a dedicated page-root class, so each
+ * selector is gated by a component unique to its template.  This keeps the
+ * directory, profile and toplist compositions outside this visual layer.
+ */
+body:has(.story),
+body:not(:has(.facility-detail)):has(.contact-item),
+body:has(.layout > .panel),
+body:has(.article .content){
+  background:
+    radial-gradient(760px 360px at 8% 4%,rgba(96,165,250,.13),transparent 68%),
+    radial-gradient(680px 360px at 96% 24%,rgba(45,212,191,.08),transparent 70%),
+    linear-gradient(180deg,#fbfdff 0%,#f5f8ff 48%,#fff 100%)!important;
+}
+
+body:has(.story) :is(.section-head h2,.quote-box blockquote,.cta h2),
+body:not(:has(.facility-detail)):has(.contact-item) :is(.hero-copy h1,.section h2),
+body:has(.layout > .panel) :is(.hero-copy h1,.post h3),
+body:has(.article .content) :is(.hero-copy h1,.suggest-head h2,.content h1,.content h2,.content h3){
+  font-family:var(--ui-font);
+  letter-spacing:-.038em;
+}
+
+/* Keep editorial links and actions visually deliberate after shared header/footer styles load. */
+body:has(.story) :is(.hero-actions a,.expertise-actions a,.cta a,.contact-panel a),
+body:not(:has(.facility-detail)):has(.contact-item) :is(.hero-actions a,.card a,.form button),
+body:has(.layout > .panel) :is(.hero-actions a,.cat-item,.post .actions a,.page),
+body:has(.article .content) :is(.hero-actions a,.suggest-link,.suggest-card a,.content a){
+  text-decoration:none;
+}
+
+body:has(.story) :is(.card,.value-card,.journey-card,.facility-card,.expertise-card,.quote-box,.contact-panel,.cta),
+body:not(:has(.facility-detail)):has(.contact-item) :is(.card,.map),
+body:has(.layout > .panel) :is(.panel,.post),
+body:has(.article .content) :is(.article,.suggest-box,.suggest-card){
+  border-color:var(--ui-line)!important;
+  box-shadow:var(--ui-shadow-sm)!important;
+}
+
+body:has(.story) :is(.card,.value-card,.journey-card,.facility-card,.expertise-card,.quote-box,.contact-panel),
+body:not(:has(.facility-detail)):has(.contact-item) :is(.card,.map),
+body:has(.layout > .panel) :is(.panel,.post),
+body:has(.article .content) :is(.article,.suggest-box,.suggest-card){
+  border-radius:var(--ui-radius)!important;
+}
+
+body:has(.story) .section,
+body:not(:has(.facility-detail)):has(.contact-item) .section,
+body:has(.layout > .panel) .section,
+body:has(.article .content) .section{
+  position:relative;
+}
+
+body:has(.story) .section-head p,
+body:has(.story) :is(.story-copy p,.value-card p,.journey-card p,.facility-card p,.expertise-card p),
+body:not(:has(.facility-detail)):has(.contact-item) :is(.contact-text span,.field label),
+body:has(.layout > .panel) :is(.excerpt,.tips p,.meta),
+body:has(.article .content) :is(.content,.suggest-head p,.suggest-card p,.suggest-meta,.meta){
+  color:var(--ui-muted);
+}
+
+body:not(:has(.facility-detail)):has(.contact-item) :is(input,textarea){
+  border-color:rgba(148,163,184,.3);
+  border-radius:13px;
+}
+
+body:not(:has(.facility-detail)):has(.contact-item) :is(input,textarea):focus{
+  border-color:rgba(37,99,235,.62);
+  box-shadow:0 0 0 4px rgba(37,99,235,.1);
+}
+
+@media (hover:hover){
+  body:has(.story) :is(.value-card,.journey-card,.facility-card,.expertise-card,.customer-photo),
+  body:not(:has(.facility-detail)):has(.contact-item) :is(.card,.map),
+  body:has(.layout > .panel) :is(.panel,.post),
+  body:has(.article .content) :is(.suggest-card,.suggest-box){
+    transition:transform 180ms var(--ui-ease),box-shadow 180ms var(--ui-ease),border-color 180ms var(--ui-ease);
+  }
+
+  body:has(.story) :is(.value-card,.journey-card,.facility-card,.expertise-card,.customer-photo):hover,
+  body:not(:has(.facility-detail)):has(.contact-item) :is(.card,.map):hover,
+  body:has(.layout > .panel) :is(.panel,.post):hover,
+  body:has(.article .content) :is(.suggest-card,.suggest-box):hover{
+    transform:translateY(-2px);
+    border-color:rgba(96,165,250,.48)!important;
+    box-shadow:0 14px 30px rgba(15,35,66,.1)!important;
+  }
+}
+
+@media (max-width:720px){
+  body:has(.story) .hero-inner,
+  body:not(:has(.facility-detail)):has(.contact-item) .hero-inner,
+  body:has(.layout > .panel) .hero-inner,
+  body:has(.article .content) .hero-inner{
+    min-height:auto!important;
+    padding-top:76px!important;
+    padding-bottom:46px!important;
+  }
+
+  body:has(.story) .hero-copy,
+  body:not(:has(.facility-detail)):has(.contact-item) .hero-copy,
+  body:has(.layout > .panel) .hero-copy,
+  body:has(.article .content) .hero-copy{
+    padding:18px!important;
+    border-radius:18px!important;
+  }
+
+  body:has(.story) .hero-copy h1,
+  body:not(:has(.facility-detail)):has(.contact-item) .hero-copy h1,
+  body:has(.layout > .panel) .hero-copy h1,
+  body:has(.article .content) .hero-copy h1{
+    font-size:clamp(29px,8.5vw,36px)!important;
+    line-height:1.1!important;
+  }
+
+  body:has(.story) .section,
+  body:not(:has(.facility-detail)):has(.contact-item) .section,
+  body:has(.layout > .panel) .section,
+  body:has(.article .content) .section{
+    padding:28px 0!important;
+  }
+
+  body:has(.story) :is(.story,.highlight-grid,.cta-grid),
+  body:not(:has(.facility-detail)):has(.contact-item) .grid,
+  body:has(.layout > .panel) .layout,
+  body:has(.article .content) .suggest-grid{
+    gap:14px!important;
+  }
+
+  body:not(:has(.facility-detail)):has(.contact-item) .map{height:260px!important}
+  body:has(.layout > .panel) .post .img{min-height:190px!important}
+  body:has(.article .content) :is(.article .body,.suggest-head,.suggest-list){padding:15px!important}
+}
+
+/* -------------------------------------------------------------------------
+ * Public-page motion baseline
+ * -------------------------------------------------------------------------
+ * This is deliberately a small CSS-only layer.  The header's motion script
+ * adds `med-motion-ready` once the document is available, so pages that do
+ * not have a bespoke motion block still get a calm first-frame entrance and
+ * consistent press/hover feedback.  It never changes layout or waits on
+ * network work, and all effects are disabled for reduced-motion users. */
+@keyframes medical-global-main-in{
+  from{opacity:0;transform:translate3d(0,8px,0)}
+  to{opacity:1;transform:none}
+}
+
+@keyframes medical-public-hero-in{
+  from{opacity:0;transform:translate3d(0,10px,0);filter:saturate(.92)}
+  to{opacity:1;transform:none;filter:saturate(1)}
+}
+
+@keyframes medical-public-section-in{
+  from{opacity:0;transform:translate3d(0,12px,0)}
+  to{opacity:1;transform:none}
+}
+
+html.med-motion-ready body > main{
+  min-width:0;
+}
+
+@media (prefers-reduced-motion:no-preference){
+  html.med-motion-ready body > .hero{
+    animation:medical-public-hero-in .46s var(--ui-ease) both;
+  }
+  html.med-motion-ready body > .section{
+    animation:medical-public-section-in .42s var(--ui-ease) both;
+  }
+  html.med-motion-ready body > .section:nth-of-type(3){
+    animation-delay:.06s;
+  }
+
+  html.med-motion-ready body > main:not(.med-home):not(.facility-detail):not(.page){
+    animation:medical-global-main-in .34s var(--ui-ease) both;
+  }
+
+  html.med-motion-ready body > main :where(a,button,[role="button"],summary,input[type="submit"],input[type="button"]){
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+
+  html.med-motion-ready body > main :where(button,[role="button"],input[type="submit"],input[type="button"],.btn,.button,.detail-btn,.section-link):active{
+    transform:scale(.978);
+    transition:transform .14s var(--ui-ease),box-shadow .14s ease,background-color .14s ease;
+  }
+
+  @media (hover:hover) and (pointer:fine){
+    html.med-motion-ready body > main :where(.card,.panel,.section-card,.article,.post,.story-card,.value-card,.journey-card,.expertise-card,.contact-panel,.map,.suggest-card,.suggest-box,.related-card):hover{
+      transform:translate3d(0,-2px,0);
+      box-shadow:0 14px 30px rgba(15,35,66,.095);
+    }
+    html.med-motion-ready body > main :where(.btn,.button,.detail-btn,.section-link,.page,.pager a):hover{
+      transform:translate3d(0,-1px,0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  html.med-motion-ready body > .hero,
+  html.med-motion-ready body > .section{animation:none!important}
+  html.med-motion-ready body > main:not(.med-home):not(.facility-detail):not(.page){animation:none!important}
+  html.med-motion-ready body > main :where(a,button,[role="button"],summary,input,select,textarea){transition-duration:.01ms!important}
+}

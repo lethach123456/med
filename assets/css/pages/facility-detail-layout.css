@@ -1,0 +1,255 @@
+/* Reading order: identity, gallery, article/contact, full-width reviews. */
+.facility-detail .hero-grid{display:flex;flex-direction:column;gap:18px}
+.facility-detail .hero-main{display:block;width:100%;padding:28px}
+.facility-detail .hero-copy{padding:0;width:100%;min-width:0}
+.facility-detail .hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.facility-detail .hero-head{min-width:0;flex:1}
+.facility-detail .hero-head h1{font-size:clamp(27px,3vw,38px);line-height:1.25;margin:12px 0}
+.facility-detail .hero-head .subtitle{max-width:850px;font-size:14px;line-height:1.8}
+.facility-detail .hero-actions{display:flex;flex-wrap:nowrap;gap:8px;flex:0 0 auto}
+.facility-detail .hero-actions .icon-btn{padding:9px 12px;font-size:12px;white-space:nowrap;min-height:38px}
+.facility-detail .rating-pill{margin-top:18px;max-width:100%;flex-wrap:wrap}
+.facility-detail .tag-row:empty{display:none}
+.facility-detail .hero-grid>.hero-gallery{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;width:100%;min-width:0}
+.facility-detail .hero-gallery .hero-image{height:360px;min-height:0;border-radius:16px;overflow:hidden}
+.facility-detail .hero-gallery .hero-image img{width:100%;height:100%;object-fit:cover}
+.facility-detail .hero-gallery .thumb-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:82px;gap:10px;padding:0;margin:0;max-height:360px;overflow:auto}
+.facility-detail .hero-gallery .thumb{width:auto;height:82px;min-width:0;border-radius:10px;overflow:hidden}
+.facility-detail .hero-gallery .thumb img{width:100%;height:100%;object-fit:cover}
+.facility-detail .hero-gallery .hero-gallery-count,.facility-detail .hero-gallery .hero-swipe-hint{display:none}
+.facility-detail .hero-gallery .hero-gallery-label{display:inline}
+.facility-detail .hero-gallery:has(.thumb-strip:empty){grid-template-columns:1fr}
+.facility-detail .hero-gallery:has(.thumb-strip:empty) .thumb-strip{display:none}
+.facility-detail .facility-reading-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:24px;align-items:start;margin-top:24px}
+.facility-detail .facility-reading-main{grid-column:1;grid-row:1;min-width:0}
+.facility-detail .facility-contact-sidebar{grid-column:2;grid-row:1;position:sticky;top:100px;min-width:0;display:grid;gap:16px}
+.facility-detail .facility-contact-sidebar .side-card{padding:20px}
+.facility-detail .contact-heading{font-size:18px;margin:0 0 18px}
+.facility-detail .contact-list{display:flex;flex-direction:column;gap:0;margin:0;padding:0;border:0;background:transparent}
+.facility-detail .contact-item{display:flex;gap:10px;align-items:flex-start;padding:13px 0;border:0;border-bottom:1px solid #edf1f6;background:transparent;min-width:0}
+.facility-detail .contact-item>div{min-width:0}
+.facility-detail .contact-item>svg{flex:0 0 18px;width:18px;height:18px;margin-top:3px;color:#2563eb}
+.facility-detail .contact-item strong{display:block;font-size:11px;color:#7b8798;margin-bottom:4px}
+.facility-detail .contact-item :is(span,a){display:block;font-size:13px;line-height:1.65;overflow-wrap:anywhere;white-space:pre-line}
+.facility-detail .contact-actions{display:grid;gap:8px;margin-top:18px}
+.facility-detail .contact-actions a{display:flex;justify-content:center;align-items:center;gap:8px;font-size:13px;min-height:42px}
+.facility-detail .contact-actions svg{width:16px;height:16px}
+.facility-detail .facility-reading-main .detail-nav{position:static;display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;padding:10px}
+.facility-detail .detail-nav a{font-size:12px;padding:8px 10px}
+.facility-detail .facility-reading-main>.section{margin-top:0;padding:28px}
+.facility-detail #gioi-thieu h2{font-size:22px;line-height:1.4}
+.facility-detail .section-copy{font-size:14px;line-height:1.85;overflow-wrap:anywhere}
+.facility-detail .section-copy img{max-width:100%;height:auto}
+.facility-detail .facility-subsection{margin-top:26px;padding-top:22px;border-top:1px solid #e7edf5;scroll-margin-top:100px}
+.facility-detail .facility-subsection ul{margin:12px 0 0;padding-left:20px;list-style:disc}
+.facility-detail .facility-subsection li{font-family:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:400;line-height:1.85;letter-spacing:-.015em;color:#475569;overflow-wrap:anywhere;margin:0 0 8px}
+.facility-detail .facility-subsection li::marker{color:#64748b;font-size:12px}
+.facility-detail .service-chips{display:flex;flex-wrap:wrap;gap:8px}
+.facility-detail .service-chips span{padding:7px 11px;border-radius:8px;background:#eff6ff;color:#2456a4;font-size:12px}
+.facility-detail #danh-gia{margin-top:28px;width:100%;min-width:0}
+@media(max-width:980px){
+ .facility-detail .facility-reading-layout{grid-template-columns:minmax(0,1fr)}
+ .facility-detail .facility-contact-sidebar{grid-column:1;grid-row:1;position:static;grid-template-columns:1fr}
+ .facility-detail .facility-reading-main{grid-column:1;grid-row:2}
+ .facility-detail .hero-top{flex-direction:column;gap:14px}
+ .facility-detail .hero-gallery{position:static}
+ .facility-detail .hero-gallery .hero-image{height:300px}
+ .facility-detail .hero-gallery .thumb-strip{max-height:300px}
+}
+@media(max-width:600px){
+ .facility-detail .hero-main{padding:20px}
+ .facility-detail .hero-grid>.hero-gallery{grid-template-columns:minmax(0,1fr)}
+ .facility-detail .hero-gallery .hero-image{height:240px}
+ .facility-detail .hero-gallery .thumb-strip{display:flex;overflow-x:auto;gap:8px}
+ .facility-detail .hero-gallery .thumb{flex:0 0 76px;height:62px}
+ .facility-detail .hero-actions{width:100%}
+ .facility-detail .hero-actions .icon-btn{flex:1;justify-content:center;padding:8px;font-size:12px}
+ .facility-detail .facility-reading-main>.section{padding:20px}
+ .facility-detail .facility-reading-layout{gap:18px;margin-top:18px}
+ .facility-detail #gioi-thieu h2{font-size:20px}
+}
+
+/* Phone pass: protect readable type, tap targets and horizontal overflow. */
+@media(max-width:767px){
+ html,body{overflow-x:hidden}
+ .facility-detail{padding:14px 0 36px}
+ .facility-detail .container{width:min(100% - 24px,var(--max))}
+ .facility-detail .breadcrumb{min-width:0;overflow-x:auto;white-space:nowrap;padding-bottom:2px;font-size:11px;scrollbar-width:none}
+ .facility-detail .breadcrumb::-webkit-scrollbar{display:none}
+ .facility-detail .hero-grid{gap:14px}
+ .facility-detail .hero-main{padding:20px 16px}
+ .facility-detail .hero-top{position:relative;display:block;min-height:38px}
+ .facility-detail .facility-eyebrow{padding-right:128px}
+ .facility-detail .hero-head h1{margin:8px 0 10px;font-size:clamp(25px,8vw,31px);line-height:1.2}
+ .facility-detail .hero-head .subtitle{font-size:13px;line-height:1.7}
+ .facility-detail .facility-eyebrow{font-size:10px}
+ .facility-detail .verified-mark{margin:0 0 0 4px}
+ .facility-detail .hero-actions{position:absolute;top:0;right:0;display:flex;width:auto;gap:6px}
+ .facility-detail .hero-actions .icon-btn{width:36px;min-width:36px;height:36px;min-height:36px;padding:0;justify-content:center;font-size:0;line-height:1}
+ .facility-detail .hero-actions .icon-btn svg{width:17px;height:17px;flex:0 0 auto}
+ .facility-detail .rating-pill{margin-top:16px;padding:10px 11px;gap:7px}
+ .facility-detail .rating-main{font-size:22px}
+ .facility-detail .rating-stars-text{font-size:15px;letter-spacing:1px}
+ .facility-detail .rating-meta{font-size:11px;line-height:1.45}
+ .facility-detail .tag-row{margin-top:10px}
+ .facility-detail .tag{font-size:10px}
+ .facility-detail .hero-grid>.hero-gallery{gap:8px}
+ .facility-detail .hero-gallery .hero-image{height:min(66vw,300px);min-height:220px;border-radius:14px}
+ .facility-detail .hero-gallery .thumb-strip{padding-bottom:2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+ .facility-detail .hero-gallery .thumb{flex:0 0 82px;height:64px;scroll-snap-align:start;border-radius:9px}
+ .facility-detail .hero-gallery .hero-image[data-hero-gallery-carousel]{touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none}
+ .facility-detail .hero-gallery .hero-image[data-hero-gallery-carousel]:active{cursor:grabbing}
+ .facility-detail .hero-gallery .hero-image[data-hero-gallery-carousel] img{transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
+ .facility-detail .hero-gallery .hero-image[data-hero-gallery-carousel].is-changing img{opacity:.35;transform:scale(1.018)}
+ .facility-detail .hero-gallery .thumb.is-active{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.26)}
+ .facility-detail .hero-gallery .hero-gallery-count{display:inline;font-variant-numeric:tabular-nums}
+ .facility-detail .hero-gallery .hero-gallery-label{display:none}
+ .facility-detail .hero-gallery .hero-swipe-hint{display:inline;color:rgba(255,255,255,.83)}
+ .facility-detail .view-all{left:10px;bottom:10px;padding:7px 10px;font-size:11px}
+ .facility-detail .facility-reading-layout{gap:14px;margin-top:14px}
+ .facility-detail .facility-contact-sidebar{gap:12px}
+ .facility-detail .facility-contact-sidebar .side-card{padding:17px 16px;border-radius:15px}
+ .facility-detail .contact-heading{font-size:17px;margin-bottom:12px}
+ .facility-detail .contact-item{padding:11px 0;gap:9px}
+ .facility-detail .contact-item :is(span,a){font-size:12px;line-height:1.55}
+ .facility-detail .contact-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:15px}
+ .facility-detail .contact-actions a{min-height:42px;padding:8px;font-size:12px;white-space:nowrap}
+ .facility-detail .facility-reading-main .detail-nav{flex-wrap:nowrap;overflow-x:auto;margin-bottom:14px;padding:6px;scrollbar-width:none}
+ .facility-detail .facility-reading-main .detail-nav::-webkit-scrollbar{display:none}
+ .facility-detail .detail-nav a{flex:0 0 auto;padding:8px 10px;font-size:11px}
+ .facility-detail .facility-reading-main>.section{padding:20px 16px;border-radius:15px}
+ .facility-detail #gioi-thieu h2{font-size:19px;margin-bottom:13px}
+ .facility-detail .section-copy{font-size:14px;line-height:1.78}
+ .facility-detail .section-copy h2,.facility-detail .section-copy h3{font-size:17px!important;line-height:1.45}
+ .facility-detail .facility-subsection{margin-top:22px;padding-top:18px}
+ .facility-detail .facility-subsection li{font-size:14px;line-height:1.72}
+ .facility-detail .service-chips{gap:7px}
+ .facility-detail .service-chips span{padding:7px 9px;font-size:11px}
+ .facility-detail .facility-price-table{margin-top:20px!important;padding-bottom:0;overflow:visible!important}
+ .facility-detail .facility-price-table table{width:100%;min-width:0!important;table-layout:fixed;font-size:11px}
+ .facility-detail .facility-price-table :is(th,td){padding:9px 7px;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+ .facility-detail .facility-price-table thead th{font-size:9px;line-height:1.35;letter-spacing:.02em}
+ .facility-detail .facility-price-table table:has(thead th:nth-child(2)):not(:has(thead th:nth-child(3))) th:first-child{width:42%}
+ .facility-detail .facility-price-table table:has(thead th:nth-child(3)) th:nth-child(1){width:23%}
+ .facility-detail .facility-price-table table:has(thead th:nth-child(3)) th:nth-child(2){width:46%}
+ .facility-detail .facility-price-table table:has(thead th:nth-child(3)) th:nth-child(3){width:31%}
+ .facility-detail #danh-gia{margin-top:18px;padding:20px 0 0;background:transparent;border:0;box-shadow:none}
+ .facility-detail #danh-gia>.section-head{padding:0 2px;margin-bottom:12px}
+ .facility-detail #danh-gia .section-head h2{font-size:19px}
+ .facility-detail #danh-gia .review-shell{grid-template-columns:minmax(0,1fr)!important;gap:14px}
+ .facility-detail #danh-gia .summary-box{padding:20px 18px;border-radius:16px}
+ .facility-detail #danh-gia .summary-score strong{font-size:48px}
+ .facility-detail #danh-gia .rating-row{grid-template-columns:38px minmax(0,1fr) 34px;font-size:11px}
+ .facility-detail #danh-gia .review-feed{border-radius:16px}
+ .facility-detail #danh-gia .review-feed-toolbar{align-items:stretch;padding:12px;gap:10px}
+ .facility-detail #danh-gia .review-toolbar-group{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;width:100%}
+ .facility-detail #danh-gia :is(.review-filter-pill,.review-sort-pill){width:100%;min-width:0;padding:0 9px;font-size:11px}
+ .facility-detail #danh-gia :is(.review-filter-pill,.review-sort-pill) select{min-width:0;width:100%;font-size:11px}
+ .facility-detail #danh-gia .review-switch{justify-content:space-between;width:100%;gap:12px;font-size:11px;line-height:1.4}
+ .facility-detail #danh-gia .review-row{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:none!important;gap:12px;padding:16px!important}
+ .facility-detail #danh-gia :is(.review-author,.review-body,.review-meta){grid-area:auto!important}
+ .facility-detail #danh-gia .review-author{gap:10px}
+ .facility-detail #danh-gia .review-content-top{gap:8px}
+ .facility-detail #danh-gia .review-content{font-size:13px;line-height:1.7}
+ .facility-detail #danh-gia .review-date{font-size:10px;white-space:nowrap}
+ .facility-detail #danh-gia .mini-gallery{grid-template-columns:repeat(3,minmax(0,82px));justify-content:start;width:auto!important;gap:7px}
+ .facility-detail #danh-gia .mini-gallery:empty{display:none}
+ .facility-detail #danh-gia .mini-gallery span{height:64px}
+ .facility-detail #danh-gia .review-meta{justify-content:flex-start;gap:14px}
+ .facility-detail #danh-gia .review-more{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 12px 14px}
+ .facility-detail #danh-gia .review-more a{justify-content:center;min-width:0;padding:0 10px;min-height:42px;font-size:11px;text-align:center}
+ /* A compact score card leaves the phone viewport for actual reviews. */
+ .facility-detail #danh-gia .summary-box{
+   display:grid;
+   grid-template-columns:112px minmax(0,1fr);
+   column-gap:14px;
+   align-items:center;
+   padding:15px!important;
+   border-radius:16px;
+ }
+ .facility-detail #danh-gia .summary-box>h3,
+ .facility-detail #danh-gia .summary-box>p{display:none}
+ .facility-detail #danh-gia .summary-score{grid-column:1;margin:0;gap:4px;align-self:end}
+ .facility-detail #danh-gia .summary-score strong{font-size:43px;letter-spacing:-.055em}
+ .facility-detail #danh-gia .summary-score small{padding-bottom:5px;font-size:13px}
+ .facility-detail #danh-gia .summary-stars{grid-column:1;margin:2px 0 0!important;font-size:16px;letter-spacing:1px;line-height:1.1}
+ .facility-detail #danh-gia .summary-caption{grid-column:1;margin:5px 0 0;font-size:11px;line-height:1.35}
+ .facility-detail #danh-gia .rating-bars{grid-column:2;grid-row:1 / span 3;align-self:stretch;margin:0;gap:5px}
+ .facility-detail #danh-gia .rating-row{grid-template-columns:30px minmax(0,1fr) 28px;gap:6px;font-size:10px;line-height:1.25}
+ .facility-detail #danh-gia .bar{height:5px}
+ .facility-detail #danh-gia .summary-verified{
+   grid-column:1 / -1;
+   display:grid;
+   grid-template-columns:auto minmax(0,1fr);
+   column-gap:10px;
+   align-items:center;
+   margin:14px 0 0;
+   padding:10px 12px;
+   border-radius:12px;
+ }
+ .facility-detail #danh-gia .summary-verified strong{grid-row:span 2;font-size:27px;letter-spacing:-.045em}
+ .facility-detail #danh-gia .summary-verified span{margin:0;font-size:11px;line-height:1.3}
+ .facility-detail #danh-gia .summary-verified small{margin:2px 0 0;font-size:10px;line-height:1.4}
+ .facility-detail #danh-gia .review-feed-toolbar{padding:11px 12px;gap:9px}
+ .facility-detail #danh-gia .review-switch{padding-top:8px;border-top:1px solid #edf2f8}
+ .facility-detail #danh-gia .review-row{gap:10px;padding:14px!important}
+ .facility-detail #danh-gia .avatar{width:40px;height:40px;font-size:13px}
+ .facility-detail #danh-gia .review-author strong{font-size:12px}
+ .facility-detail #danh-gia .review-author .meta-line{margin-top:2px;font-size:10px}
+ .facility-detail #danh-gia .review-badge{margin-top:4px;font-size:10px}
+ .facility-detail #danh-gia .review-content{margin-top:6px;font-size:12px;line-height:1.62}
+ .facility-detail #danh-gia .review-detail-row{margin-top:8px;gap:5px}
+ .facility-detail #danh-gia :is(.review-service,.review-source){padding:4px 7px;font-size:9px}
+ .facility-detail #danh-gia .mini-gallery{margin-top:9px}
+ .facility-detail #danh-gia .mini-gallery span{height:58px}
+ /* Use the empty horizontal space in each phone review for its rating. */
+ .facility-detail #danh-gia .review-row{
+   grid-template-columns:minmax(0,1fr) auto!important;
+   grid-template-areas:
+     "author rating"
+     "content content"
+     "details details"
+     "gallery gallery"
+     "meta meta"!important;
+   column-gap:10px;
+   row-gap:8px;
+ }
+ .facility-detail #danh-gia .review-author{grid-area:author!important;min-width:0}
+ .facility-detail #danh-gia .review-body{display:contents}
+ .facility-detail #danh-gia .review-content-top{grid-area:rating;justify-content:flex-end;align-self:start;min-width:0;margin:1px 0 0}
+ .facility-detail #danh-gia .review-content{grid-area:content;margin:0!important}
+ .facility-detail #danh-gia .review-detail-row{grid-area:details}
+ .facility-detail #danh-gia .mini-gallery{grid-area:gallery}
+ .facility-detail #danh-gia .review-meta{grid-area:meta}
+ .facility-detail #danh-gia .review-rating{gap:4px;font-size:12px}
+ .facility-detail #danh-gia .review-stars{font-size:14px}
+ /* When the service select is absent, the two remaining controls share one row. */
+ .facility-detail #danh-gia .review-feed-toolbar:has(.review-toolbar-group > .review-sort-pill:only-child){grid-template-columns:minmax(0,156px) minmax(0,1fr);align-items:center}
+ .facility-detail #danh-gia .review-toolbar-group:has(> .review-sort-pill:only-child){display:block;width:100%}
+ .facility-detail #danh-gia .review-feed-toolbar:has(.review-toolbar-group > .review-sort-pill:only-child) .review-switch{justify-content:flex-end;gap:8px;padding-top:0;border-top:0;white-space:nowrap}
+ .facility-detail .feature-row{grid-template-columns:1fr;gap:10px;margin-top:16px}
+ .facility-detail .feature-item{padding:15px}
+ .facility-detail .cta-banner{display:grid;padding:19px 17px;gap:15px;border-radius:16px}
+ .facility-detail .cta-copy{align-items:flex-start;gap:11px}
+ .facility-detail .cta-icon{flex:0 0 42px;width:42px;height:42px;border-radius:12px}
+ .facility-detail .cta-copy strong{font-size:16px;line-height:1.4}
+ .facility-detail .cta-copy span{font-size:12px;line-height:1.6}
+ .facility-detail .cta-banner a{width:100%;min-width:0;height:43px;font-size:13px}
+}
+@media(max-width:380px){
+ .facility-detail .container{width:min(100% - 20px,var(--max))}
+ .facility-detail .hero-main{padding:18px 14px}
+ .facility-detail .facility-eyebrow{padding-right:118px}
+ .facility-detail .hero-actions{gap:5px}
+ .facility-detail .hero-actions .icon-btn{width:34px;min-width:34px;height:34px;min-height:34px}
+ .facility-detail .rating-pill{align-items:center}
+ .facility-detail .rating-meta{width:100%}
+ .facility-detail .contact-actions{grid-template-columns:1fr}
+ .facility-detail #danh-gia .review-toolbar-group{grid-template-columns:1fr}
+ .facility-detail #danh-gia .review-feed-toolbar:has(.review-toolbar-group > .review-sort-pill:only-child){grid-template-columns:1fr;align-items:stretch}
+ .facility-detail #danh-gia .review-feed-toolbar:has(.review-toolbar-group > .review-sort-pill:only-child) .review-switch{justify-content:space-between;gap:12px;padding-top:8px;border-top:1px solid #edf2f8}
+ .facility-detail #danh-gia .review-more{grid-template-columns:1fr}
+ .facility-detail #danh-gia .mini-gallery{grid-template-columns:repeat(3,minmax(0,1fr));width:100%!important}
+ .facility-detail .facility-price-table table{font-size:10px}
+ .facility-detail .facility-price-table :is(th,td){padding:8px 5px}
+}

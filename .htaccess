@@ -1,0 +1,35 @@
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^builder/([0-9]+)/?$ builder/builder.php?id=$1 [QSA,L]
+
+# Medical directory: canonical public routes. These rules must precede the
+# generic single-slug route below.
+RewriteRule ^co-so-y-te/?$ co-so-y-te.php [QSA,L]
+RewriteRule ^co-so-y-te/([^/]+)/?$ co-so-y-te-chi-tiet.php?slug=$1 [QSA,L]
+
+RewriteRule ^toplist/?$ toplist.php [QSA,L]
+RewriteRule ^toplist/([^/]+)/?$ toplist-chi-tiet-mau.php?slug=$1 [QSA,L]
+
+RewriteRule ^du-an/?$ du-an.php [QSA,L]
+RewriteRule ^du-an/([^/]+)/?$ du-an-chi-tiet.php?slug=$1 [QSA,L]
+
+RewriteRule ^san-pham/?$ san-pham.php [QSA,L]
+RewriteRule ^san-pham/([^/]+)/?$ san-pham.php?slug=$1 [QSA,L]
+
+RewriteRule ^blog/?$ blog.php [QSA,L]
+RewriteRule ^blog/([^/]+)/?$ blog-chi-tiet.php?slug=$1&route=blog [QSA,L]
+RewriteRule ^news/?$ news.php [QSA,L]
+RewriteRule ^news/([^/]+)/?$ blog-chi-tiet.php?slug=$1&route=blog [QSA,L]
+
+RewriteRule ^dich-vu/?$ dich-vu.php [QSA,L]
+RewriteRule ^services/?$ services-en.php [QSA,L]
+RewriteRule ^about-us/?$ about-us.php [QSA,L]
+RewriteRule ^contact-us/?$ contact-us.php [QSA,L]
+RewriteRule ^rang-su-dang-hot-girl-da-nang/?$ rang-su-dang-hot-girl-da-nang.php [QSA,L]
+RewriteRule ^porcelain-crowns-da-nang/?$ porcelain-crowns-da-nang.php [QSA,L]
+
+RewriteRule ^([^/]+)/?$ route.php?slug=$1 [QSA,L]

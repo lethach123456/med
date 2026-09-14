@@ -1,0 +1,57 @@
+/*
+ * Typographic baseline for data-heavy public pages.  These selectors stay
+ * scoped to `.site-typo`, so editorial/landing-page styles can keep their
+ * own visual direction while directory, review and detail pages remain
+ * consistent.
+ */
+:root{
+  --med-font-sans:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --med-focus-ring:rgba(37,99,235,.34);
+  --med-focus-ink:#1d4ed8;
+}
+
+.site-typo{
+  color:#10213d;
+  font-family:var(--med-font-sans);
+  font-synthesis:none;
+  letter-spacing:-.012em;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+.site-typo :where(input,button,textarea,select){
+  font-family:inherit;
+  letter-spacing:inherit;
+}
+
+.site-typo :where(h1,h2,h3,h4,h5,h6){
+  font-family:inherit;
+  font-weight:700;
+  letter-spacing:-.035em;
+  text-wrap:balance;
+}
+
+.site-typo :where(p,li,dd,blockquote){
+  text-wrap:pretty;
+}
+
+.site-typo :where(a){
+  text-decoration-thickness:1.5px;
+  text-underline-offset:.16em;
+}
+
+.site-typo :where(a,button,input,textarea,select,summary):focus-visible{
+  outline:3px solid var(--med-focus-ring);
+  outline-offset:3px;
+}
+
+.site-typo :where(input,textarea,select):focus-visible{
+  border-color:var(--med-focus-ink);
+}
+
+@media (prefers-reduced-motion:reduce){
+  .site-typo{
+    scroll-behavior:auto;
+  }
+}
