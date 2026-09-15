@@ -2887,6 +2887,7 @@ function medical_directory_facility_from_row(array $row): array
         'images_label' => (string) ($row['images_label'] ?? ''),
         'image' => (string) ($row['image_url'] ?? ''),
         'image_url' => (string) ($row['image_url'] ?? ''),
+        'ai_image_url' => (string) ($row['ai_image_url'] ?? ''),
         'tags' => medical_directory_json_decode((string) ($row['tags_json'] ?? ''), []),
         'gallery' => medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), []),
         'price_table_html' => (string) ($row['price_table_html'] ?? ''),

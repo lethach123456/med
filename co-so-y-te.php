@@ -394,78 +394,78 @@ function facility_page_card(array $item): string
     @media (max-width: 560px) {
       .directory-container,
       .medical-header .container,
-      .medical-footer .container { width: calc(100% - 24px); }
-      .facility-directory { padding: 14px 0 40px; }
-      .directory-breadcrumb { font-size: 12px; margin-bottom: 14px; }
-      .directory-hero { padding: 18px; gap: 16px; border-radius: 18px; }
-      .directory-hero h1 { font-size: 26px; line-height: 1.22; margin: 12px 0 10px; }
-      .directory-hero p { font-size: 13px; line-height: 1.6; }
-      .directory-kicker { font-size: 10px; padding: 6px 9px; }
+      .medical-footer .container { width: calc(100% - 20px); }
+      .facility-directory { padding: 8px 0 28px; }
+      .directory-breadcrumb { font-size: 11px; margin-bottom: 8px; }
+      .directory-hero { padding: 12px 10px; gap: 10px; border-radius: 14px; }
+      .directory-hero h1 { font-size: 20px; line-height: 1.22; margin: 6px 0 4px; }
+      .directory-hero p { font-size: 12px; line-height: 1.5; }
+      .directory-kicker { font-size: 9.5px; padding: 4px 8px; }
       .directory-kicker i { flex-shrink: 0; }
-      .directory-stats { gap: 8px; }
-      .directory-stat { padding: 12px; border-radius: 12px; }
-      .directory-stat strong { font-size: 22px; }
-      .directory-stat span { font-size: 11px; line-height: 1.45; }
+      .directory-stats { display: flex; gap: 6px; margin-top: 4px; }
+      .directory-stat { flex: 1; padding: 7px 10px; border-radius: 10px; }
+      .directory-stat strong { font-size: 17px; }
+      .directory-stat span { font-size: 10px; line-height: 1.35; }
 
-      .directory-filter { margin-top: 14px; padding: 10px; border-radius: 16px; }
+      .directory-filter { margin-top: 10px; padding: 7px; border-radius: 14px; }
       .filter-search-row {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 8px;
+        gap: 6px;
       }
-      .filter-search { grid-column: 1 / -1; width: 100%; height: 46px; padding: 0 12px; }
-      .filter-search input { width: 100%; font-size: 16px; }
-      .filter-toggle { justify-self: start; height: 44px; padding: 0 12px; font-size: 13px; }
-      .filter-submit { min-width: 0; height: 44px; padding: 0 16px; font-size: 13px; }
-      .filter-options { padding: 12px; border-radius: 12px; }
-      .filter-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-      .filter-field label { font-size: 11px; }
-      .filter-select-wrap select { height: 44px; font-size: 16px; }
-      .filter-reset { height: 44px; font-size: 13px; }
+      .filter-search { grid-column: 1 / -1; width: 100%; height: 40px; padding: 0 10px; }
+      .filter-search input { width: 100%; font-size: 14px; }
+      .filter-toggle { justify-self: start; height: 38px; padding: 0 10px; font-size: 12px; }
+      .filter-submit { min-width: 0; height: 38px; padding: 0 14px; font-size: 12px; }
+      .filter-options { padding: 10px; border-radius: 10px; }
+      .filter-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .filter-field label { font-size: 10.5px; }
+      .filter-select-wrap select { height: 38px; font-size: 14px; }
+      .filter-reset { height: 38px; font-size: 12px; }
 
-      .directory-content { margin-top: 18px; gap: 18px; }
-      .result-count { font-size: 13px; }
-      .facility-list { gap: 12px; }
+      .directory-content { margin-top: 12px; gap: 12px; }
+      .result-count { font-size: 12px; }
+      .facility-list { gap: 10px; }
       .facility-card {
-        grid-template-columns: 94px minmax(0, 1fr) auto;
+        grid-template-columns: 82px minmax(0, 1fr) auto;
         grid-template-areas: "photo info info" "score score action";
-        gap: 12px;
-        padding: 13px;
-        border-radius: 17px;
+        gap: 9px;
+        padding: 10px;
+        border-radius: 14px;
       }
       .facility-card:hover { transform: none; }
-      .facility-media { height: 94px; border-radius: 12px; }
+      .facility-media { height: 82px; border-radius: 10px; }
       .facility-media img { display: block; }
-      .media-label { left: 5px; bottom: 5px; padding: 4px 6px; font-size: 8.5px; }
-      .media-label i { font-size: 10px; }
-      .facility-eyebrow { gap: 4px; font-size: 10px; }
-      .facility-name-row { gap: 5px; margin-top: 5px; }
-      .facility-name-row h2 { font-size: 16px; line-height: 1.4; }
+      .media-label { left: 4px; bottom: 4px; padding: 3px 5px; font-size: 8px; }
+      .media-label i { font-size: 9px; }
+      .facility-eyebrow { gap: 4px; font-size: 9.5px; }
+      .facility-name-row { gap: 4px; margin-top: 3px; }
+      .facility-name-row h2 { font-size: 15px; line-height: 1.35; }
       .facility-subtitle { display: none; }
-      .facility-details { margin-top: 7px; }
-      .facility-details span { font-size: 12px; line-height: 1.5; }
-      .facility-details i { font-size: 14px; }
-      .service-tags { margin-top: 8px; }
-      .service-tags .service-tag { padding: 4px 6px; font-size: 10px; }
-      .service-tags-more { height: 25px; padding: 0 7px; font-size: 10px; }
-      .facility-score { padding-top: 10px; border-top: 1px solid #edf2f8; gap: 7px; }
-      .score-number { font-size: 19px; }
-      .score-stars { font-size: 13px; }
-      .facility-score > span { font-size: 12px; }
+      .facility-details { margin-top: 5px; }
+      .facility-details span { font-size: 11.5px; line-height: 1.45; }
+      .facility-details i { font-size: 13px; }
+      .service-tags { margin-top: 6px; }
+      .service-tags .service-tag { padding: 3px 5px; font-size: 9.5px; }
+      .service-tags-more { height: 22px; padding: 0 6px; font-size: 9.5px; }
+      .facility-score { padding-top: 8px; border-top: 1px solid #edf2f8; gap: 6px; }
+      .score-number { font-size: 17px; }
+      .score-stars { font-size: 12px; }
+      .facility-score > span { font-size: 11px; }
       .detail-button {
-        min-width: 98px;
-        height: 38px;
+        min-width: 86px;
+        height: 34px;
         margin: 0;
-        padding: 0 10px;
+        padding: 0 8px;
         border-color: #bfd5fb;
-        border-radius: 12px;
+        border-radius: 10px;
         background: linear-gradient(135deg, #f8fbff, #eef5ff);
-        box-shadow: 0 7px 16px rgba(37, 99, 235, .08);
-        font-size: 13px;
+        box-shadow: 0 5px 12px rgba(37, 99, 235, .08);
+        font-size: 12px;
       }
-      .detail-button i { font-size: 16px; }
-      .pagination { gap: 5px; margin-top: 18px; }
-      .empty-state { padding: 30px 16px; }
+      .detail-button i { font-size: 14px; }
+      .pagination { gap: 4px; margin-top: 14px; }
+      .empty-state { padding: 24px 12px; }
     }
 
     @media (max-width: 360px) {

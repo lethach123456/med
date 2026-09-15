@@ -331,6 +331,78 @@ function facility_detail_normalize(array $item): array
   ]);
 }
 
+function facility_detail_is_logo_asset(string $url): bool
+{
+  $path = (string) (parse_url($url, PHP_URL_PATH) ?? $url);
+  return preg_match('/(?:^|[\\/_-])(logo|logotype|brand)(?:[\\/_.-]|$)/i', $path) === 1;
+}
+
+function facility_detail_preferred_cover_image(array $item): string
+{
+  $gallery = (array) ($item['gallery'] ?? []);
+  $frontImage = '';
+  $otherImage = '';
+
+  foreach ($gallery as $entry) {
+    $url = is_array($entry)
+      ? trim((string) ($entry['url'] ?? $entry['src'] ?? ''))
+      : trim((string) $entry);
+    if ($url === '' || facility_detail_is_logo_asset($url)) {
+      continue;
+    }
+    $meta = is_array($entry)
+      ? mb_strtolower(trim((string) ($entry['angle'] ?? '') . ' ' . (string) ($entry['caption'] ?? '')), 'UTF-8')
+      : '';
+    if ($frontImage === '' && (str_contains($meta, 'mặt tiền') || str_contains($meta, 'biển hiệu'))) {
+      $frontImage = $url;
+    }
+    if ($otherImage === '') {
+      $otherImage = $url;
+    }
+  }
+
+  if ($frontImage !== '') {
+    return $frontImage;
+  }
+
+  $imageUrl = trim((string) ($item['image_url'] ?? $item['image'] ?? ''));
+  if ($imageUrl !== '' && !facility_detail_is_logo_asset($imageUrl)) {
+    return $imageUrl;
+  }
+
+  if ($otherImage !== '') {
+    return $otherImage;
+  }
+
+  $aiImage = trim((string) ($item['ai_image_url'] ?? ''));
+  if ($aiImage !== '') {
+    return $aiImage;
+  }
+
+  return $imageUrl;
+}
+
+function facility_detail_string_list(mixed $values): array
+{
+  if (!is_array($values)) {
+    $values = [$values];
+  }
+  $result = [];
+  foreach ($values as $value) {
+    $value = trim(is_scalar($value) ? (string) $value : '');
+    if ($value !== '' && !in_array($value, $result, true)) {
+      $result[] = $value;
+    }
+  }
+  return $result;
+}
+
+function facility_detail_safe_url(string $url): string
+{
+  $url = trim($url);
+  return filter_var($url, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $url) ? $url : '';
+}
+
 $facilityIndex = [];
 foreach ($facilities as $item) {
   $facilityIndex[$item['slug']] = $item;
@@ -348,7 +420,10 @@ $relatedFacilities = array_values(array_filter($facilities, static function (arr
 $dbFacility = medical_directory_facility_row_by_slug($slug, true);
 if (is_array($dbFacility) && $dbFacility !== []) {
   $dbFacility['verified'] = !empty($dbFacility['is_verified']);
-  $dbFacility['hero_image'] = (string) ($dbFacility['image_url'] ?? '');
+  // Logo is useful as an identity image but makes a weak cover. Prefer a real
+  // facility photo (frontage when available), then use the local AI visual only
+  // as a last fallback.
+  $dbFacility['hero_image'] = facility_detail_preferred_cover_image($dbFacility);
   // Use services supplied for this facility. `services_detail` is an old
   // presentation fallback and must not seed review filters with sample data.
   $dbFacility['services'] = (array) ($dbFacility['services'] ?? []);
@@ -385,6 +460,92 @@ foreach ((array) ($facility['reviews_list'] ?? []) as $facilityReview) {
     $facilityReviewServices[] = $service;
   }
 }
+
+$facilityLegalFacts = [];
+if (trim((string) ($facility['medical_operation_license'] ?? '')) !== '') {
+  $facilityLegalFacts[] = ['label' => 'Giấy phép hoạt động', 'value' => (string) $facility['medical_operation_license'], 'icon' => 'badge-check'];
+}
+if (trim((string) ($facility['business_license'] ?? '')) !== '') {
+  $facilityLegalFacts[] = ['label' => 'Thông tin pháp nhân', 'value' => (string) $facility['business_license'], 'icon' => 'building-2'];
+}
+if (!empty($facility['established_year'])) {
+  $facilityLegalFacts[] = ['label' => 'Năm thành lập', 'value' => (string) $facility['established_year'], 'icon' => 'calendar-days'];
+}
+if (!empty($facility['branch_count'])) {
+  $facilityLegalFacts[] = ['label' => 'Số chi nhánh', 'value' => (string) $facility['branch_count'], 'icon' => 'git-branch'];
+}
+
+$facilityVisitFacts = [];
+if (trim((string) ($facility['parking_info'] ?? '')) !== '') {
+  $facilityVisitFacts[] = ['label' => 'Gửi xe', 'value' => (string) $facility['parking_info'], 'icon' => 'car-front'];
+}
+if (trim((string) ($facility['nearby_landmarks'] ?? '')) !== '') {
+  $facilityVisitFacts[] = ['label' => 'Khu vực lân cận', 'value' => (string) $facility['nearby_landmarks'], 'icon' => 'map-pinned'];
+}
+if (trim((string) ($facility['emergency_hotline'] ?? '')) !== '') {
+  $facilityVisitFacts[] = ['label' => 'Hotline hỗ trợ', 'value' => (string) $facility['emergency_hotline'], 'icon' => 'phone-call'];
+}
+
+$facilityInsurance = $facility['insurance_accepted'] ?? '';
+if (is_array($facilityInsurance)) {
+  $facilityInsurance = implode(' · ', facility_detail_string_list($facilityInsurance));
+}
+$facilityInsurance = trim((string) $facilityInsurance);
+$facilityPaymentMethods = facility_detail_string_list($facility['payment_methods'] ?? []);
+$facilityLanguages = facility_detail_string_list($facility['languages_supported'] ?? []);
+$facilityWarranty = trim((string) ($facility['warranty_policy'] ?? ''));
+$facilityEquipment = facility_detail_string_list($facility['equipment_mentioned'] ?? []);
+
+$facilityDoctors = [];
+foreach ((array) ($facility['doctors'] ?? []) as $doctor) {
+  if (!is_array($doctor)) {
+    continue;
+  }
+  $name = trim((string) ($doctor['name'] ?? ''));
+  if ($name === '') {
+    continue;
+  }
+  $facilityDoctors[] = [
+    'name' => $name,
+    'title' => trim((string) ($doctor['title'] ?? '')),
+    'specialty' => trim((string) ($doctor['specialty'] ?? $doctor['specialties'] ?? '')),
+  ];
+}
+
+$facilityRatingSources = [];
+foreach ((array) ($facility['aggregate_ratings'] ?? []) as $ratingSource) {
+  if (!is_array($ratingSource) || trim((string) ($ratingSource['source'] ?? '')) === '') {
+    continue;
+  }
+  $facilityRatingSources[] = [
+    'source' => trim((string) $ratingSource['source']),
+    'score' => is_numeric($ratingSource['score'] ?? null) ? number_format((float) $ratingSource['score'], 1, '.', '') : '',
+    'count' => is_numeric($ratingSource['count'] ?? null) ? (int) $ratingSource['count'] : 0,
+    'recommend_percent' => is_numeric($ratingSource['recommend_percent'] ?? null) ? (int) $ratingSource['recommend_percent'] : 0,
+  ];
+}
+
+$facilityMapUrl = facility_detail_safe_url((string) ($facility['google_maps_url'] ?? ''));
+if ($facilityMapUrl === '' && trim((string) ($facility['address'] ?? '')) !== '') {
+  $facilityMapUrl = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode((string) $facility['name'] . ' ' . (string) $facility['address']);
+}
+$facilityBookingUrl = facility_detail_safe_url((string) ($facility['booking_url'] ?? ''));
+$facilityVideos = [];
+foreach (facility_detail_string_list($facility['video_urls'] ?? []) as $videoUrl) {
+  $safeUrl = facility_detail_safe_url($videoUrl);
+  if ($safeUrl !== '') {
+    $facilityVideos[] = $safeUrl;
+  }
+}
+$facilitySocialLinks = [];
+$socialLabels = ['facebook' => 'Facebook', 'zalo' => 'Zalo', 'tiktok' => 'TikTok', 'youtube' => 'YouTube', 'instagram' => 'Instagram'];
+foreach ((array) ($facility['social_links'] ?? []) as $network => $link) {
+  $safeUrl = facility_detail_safe_url((string) $link);
+  if ($safeUrl !== '') {
+    $facilitySocialLinks[] = ['label' => $socialLabels[(string) $network] ?? ucfirst((string) $network), 'url' => $safeUrl];
+  }
+}
+
 $facilityRatingValue = max(0, min(5, (float) ($facility['rating'] ?? 0)));
 $facilityRatingStars = str_repeat('★', (int) round($facilityRatingValue)) . str_repeat('☆', 5 - (int) round($facilityRatingValue));
 $facilitySummaryRatingValue = max(0, min(5, (float) ($facilityReviewSummary['rating'] ?? 0)));
@@ -1447,6 +1608,44 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .facility-price-table tbody tr:hover td{background:#eef6ff}
       .facility-price-table p{margin:12px 2px 0;color:#94a3b8;font-size:12px}
       @media (max-width:560px){.facility-price-table table{font-size:13px;min-width:620px}.facility-price-table{overflow-x:auto;padding-bottom:4px}.facility-price-table thead th,.facility-price-table tbody td{padding:11px 12px}}
+      .facility-info-area{margin-top:22px}
+      .facility-info-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 2px 12px}
+      .facility-info-kicker{display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+      .facility-info-kicker svg{width:14px;height:14px;stroke-width:2.5}
+      .facility-info-heading h2{margin:5px 0 0;color:#13284a;font-size:1.34em;letter-spacing:-.03em}
+      .facility-info-heading>p{max-width:400px;margin:0;color:#7a8ca7;font-size:12px;line-height:1.55;text-align:right}
+      .facility-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .facility-info-card{padding:18px;background:linear-gradient(145deg,#fff,#f8fbff)}
+      .facility-info-card--wide{grid-column:1/-1}
+      .facility-info-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px}
+      .facility-info-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 auto;border:1px solid #dceafe;border-radius:11px;color:#2563eb;background:linear-gradient(145deg,#eef6ff,#e4efff)}
+      .facility-info-icon svg{width:18px;height:18px;stroke-width:2.15}
+      .facility-info-card-head h3{margin:1px 0 3px;color:#1d3153;font-size:14px;letter-spacing:-.015em}
+      .facility-info-card-head p{margin:0;color:#8292aa;font-size:11px;line-height:1.45}
+      .facility-fact-list{display:grid;gap:0;margin:0}
+      .facility-fact-list>div{padding:10px 0;border-top:1px solid #e8eff8}
+      .facility-fact-list dt{display:flex;align-items:center;gap:6px;margin:0;color:#7b8da7;font-size:10px;font-weight:800;letter-spacing:.035em;text-transform:uppercase}
+      .facility-fact-list dt svg{width:13px;height:13px;color:#4f8af5;stroke-width:2.2}
+      .facility-fact-list dd{margin:5px 0 0;color:#405673;font-size:12px;line-height:1.55}
+      .facility-fact-list--compact dd{max-width:100%}
+      .facility-info-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin-top:14px;padding:0 11px;border:1px solid #bfdbfe;border-radius:10px;background:#fff;color:#2165d7;font-size:11px;font-weight:800;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+      .facility-info-action svg{width:14px;height:14px;stroke-width:2.2}.facility-info-action svg:last-child{width:12px;height:12px}
+      .facility-info-action:hover{background:#eff6ff;box-shadow:0 8px 18px rgba(37,99,235,.10);transform:translateY(-1px)}
+      .facility-info-note{display:flex;align-items:flex-start;gap:9px;padding:10px 11px;border:1px solid #dbeafe;border-radius:11px;background:#f5f9ff;color:#48617e}
+      .facility-info-note+.facility-info-group,.facility-info-group+.facility-info-group,.facility-info-group+.facility-info-note{margin-top:12px}
+      .facility-info-note>svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px;color:#3b82f6;stroke-width:2.1}
+      .facility-info-note strong{display:block;color:#34557f;font-size:11px}.facility-info-note span{display:block;margin-top:3px;font-size:11px;line-height:1.55}
+      .facility-info-note--soft{border-color:#e1e9f5;background:#fbfcff}
+      .facility-info-group>strong,.facility-column-title{display:block;margin:0 0 7px;color:#657b99;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+      .facility-chip-list{display:flex;flex-wrap:wrap;gap:6px}.facility-chip-list span{padding:5px 8px;border-radius:999px;background:#ecf5ff;color:#2962b7;font-size:10px;font-weight:750;line-height:1.35}.facility-chip-list--muted span{background:#f1f5f9;color:#596d87}
+      .facility-link-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.facility-link-row .facility-info-action{margin-top:0}
+      .facility-social-link{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 10px;border:1px solid #e0e8f4;border-radius:10px;background:#fff;color:#58708f;font-size:10px;font-weight:800}.facility-social-link svg{width:11px;height:11px}
+      .facility-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.facility-source-item{display:grid;gap:2px;padding:11px;border:1px solid #e1eaf7;border-radius:11px;background:#fff}.facility-source-item strong{color:#506683;font-size:10px}.facility-source-item b{color:#f59e0b;font-size:20px;line-height:1.15;letter-spacing:-.04em}.facility-source-item b small{margin-left:2px;color:#90a0b6;font-size:10px;letter-spacing:0}.facility-source-item span{color:#8190a7;font-size:10px}
+      .facility-team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.facility-team-column+.facility-team-column{padding-left:20px;border-left:1px solid #e7eef8}
+      .facility-doctor-list{display:grid;gap:8px}.facility-doctor-list article{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid #e4ecf7;border-radius:11px;background:#fff}.facility-doctor-list article>span{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;flex:0 0 auto;border-radius:9px;background:#eaf3ff;color:#2f78e7}.facility-doctor-list article>span svg{width:14px;height:14px}.facility-doctor-list article strong{display:block;color:#385170;font-size:12px}.facility-doctor-list article p{margin:2px 0 0;color:#6b7f99;font-size:10px;line-height:1.45}.facility-doctor-list article small{display:block;margin-top:3px;color:#3b82f6;font-size:10px;line-height:1.45}
+      .facility-equipment-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}.facility-equipment-list li{display:flex;gap:8px;color:#506783;font-size:11px;line-height:1.55}.facility-equipment-list svg{width:14px;height:14px;flex:0 0 auto;margin-top:1px;color:#4f8af5;stroke-width:2.2}.facility-video-links{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.facility-video-links a{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:9px;background:#f1f6ff;color:#2864c4;font-size:10px;font-weight:800}.facility-video-links a svg{width:13px;height:13px}.facility-video-links a svg:last-child{width:10px;height:10px}
+      @media (max-width:760px){.facility-info-heading{display:block;margin:0 0 10px}.facility-info-heading>p{max-width:none;margin-top:6px;text-align:left}.facility-info-grid{grid-template-columns:1fr}.facility-info-card--wide{grid-column:auto}.facility-team-grid{grid-template-columns:1fr;gap:14px}.facility-team-column+.facility-team-column{padding:14px 0 0;border-top:1px solid #e7eef8;border-left:0}}
+      @media (max-width:560px){.facility-info-area{margin-top:12px}.facility-info-card{padding:12px;border-radius:12px}.facility-info-heading h2{font-size:1.15em}.facility-info-card-head{margin-bottom:10px}.facility-info-note{padding:8px 10px}.facility-source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.facility-source-item{padding:8px 9px}}
       .thumb-strip{gap:6px}
       .thumb{height:42px;border-radius:9px}
       .view-all{left:8px;bottom:8px;padding:6px 9px;font-size:11px}
@@ -1788,6 +1987,71 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
 
           </div>
         </div>
+
+        <?php if ($facilityLegalFacts !== [] || $facilityVisitFacts !== [] || $facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityDoctors !== [] || $facilityEquipment !== [] || $facilityRatingSources !== []): ?>
+          <section class="facility-info-area" aria-label="Thông tin chi tiết về cơ sở">
+            <div class="facility-info-heading">
+              <div>
+                <span class="facility-info-kicker"><i data-lucide="circle-check-big"></i>Hồ sơ tham khảo</span>
+                <h2>Thông tin thêm về <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
+              </div>
+              <p>Thông tin được tổng hợp từ dữ liệu công khai và hồ sơ do cơ sở cung cấp.</p>
+            </div>
+
+            <div class="facility-info-grid">
+              <?php if ($facilityLegalFacts !== []): ?>
+                <article class="panel facility-info-card" id="thong-tin-ho-so">
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="shield-check"></i></span><div><h3>Hồ sơ &amp; pháp lý</h3><p>Thông tin nhận diện cơ sở</p></div></div>
+                  <dl class="facility-fact-list">
+                    <?php foreach ($facilityLegalFacts as $fact): ?>
+                      <div><dt><i data-lucide="<?php echo htmlspecialchars($fact['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i><?php echo htmlspecialchars($fact['label'], ENT_QUOTES, 'UTF-8'); ?></dt><dd><?php echo htmlspecialchars($fact['value'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
+                    <?php endforeach; ?>
+                  </dl>
+                </article>
+              <?php endif; ?>
+
+              <?php if ($facilityVisitFacts !== [] || $facilityMapUrl !== ''): ?>
+                <article class="panel facility-info-card" id="trai-nghiem-den-kham">
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="map-pin"></i></span><div><h3>Đến khám thuận tiện</h3><p>Chỉ dẫn thực tế trước khi ghé cơ sở</p></div></div>
+                  <?php if ($facilityVisitFacts !== []): ?><dl class="facility-fact-list facility-fact-list--compact"><?php foreach ($facilityVisitFacts as $fact): ?><div><dt><i data-lucide="<?php echo htmlspecialchars($fact['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i><?php echo htmlspecialchars($fact['label'], ENT_QUOTES, 'UTF-8'); ?></dt><dd><?php echo htmlspecialchars($fact['value'], ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endforeach; ?></dl><?php endif; ?>
+                  <?php if ($facilityMapUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityMapUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="navigation"></i>Mở chỉ đường<i data-lucide="arrow-up-right"></i></a><?php endif; ?>
+                </article>
+              <?php endif; ?>
+
+              <?php if ($facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityBookingUrl !== '' || $facilitySocialLinks !== []): ?>
+                <article class="panel facility-info-card" id="thanh-toan-ho-tro">
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="wallet-cards"></i></span><div><h3>Thanh toán &amp; hỗ trợ</h3><p>Những thông tin hữu ích trước khi đặt lịch</p></div></div>
+                  <?php if ($facilityInsurance !== ''): ?><div class="facility-info-note"><i data-lucide="receipt-text"></i><div><strong>Bảo hiểm</strong><span><?php echo htmlspecialchars($facilityInsurance, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
+                  <?php if ($facilityPaymentMethods !== []): ?><div class="facility-info-group"><strong>Hình thức thanh toán</strong><div class="facility-chip-list"><?php foreach ($facilityPaymentMethods as $paymentMethod): ?><span><?php echo htmlspecialchars($paymentMethod, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
+                  <?php if ($facilityLanguages !== []): ?><div class="facility-info-group"><strong>Ngôn ngữ hỗ trợ</strong><div class="facility-chip-list facility-chip-list--muted"><?php foreach ($facilityLanguages as $language): ?><span><?php echo htmlspecialchars($language, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
+                  <?php if ($facilityWarranty !== ''): ?><div class="facility-info-note facility-info-note--soft"><i data-lucide="award"></i><div><strong>Chính sách bảo hành</strong><span><?php echo htmlspecialchars($facilityWarranty, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
+                  <?php if ($facilityBookingUrl !== '' || $facilitySocialLinks !== []): ?><div class="facility-link-row"><?php if ($facilityBookingUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityBookingUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="calendar-check-2"></i>Đặt lịch<i data-lucide="arrow-up-right"></i></a><?php endif; ?><?php foreach (array_slice($facilitySocialLinks, 0, 3) as $social): ?><a class="facility-social-link" href="<?php echo htmlspecialchars($social['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($social['label'], ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?>
+                </article>
+              <?php endif; ?>
+
+              <?php if ($facilityRatingSources !== []): ?>
+                <article class="panel facility-info-card">
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="star"></i></span><div><h3>Điểm theo nguồn đánh giá</h3><p>Các nguồn được ghi nhận trong hồ sơ</p></div></div>
+                  <div class="facility-source-grid">
+                    <?php foreach ($facilityRatingSources as $source): ?>
+                      <div class="facility-source-item"><strong><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($source['score'] !== ''): ?><b><?php echo htmlspecialchars($source['score'], ENT_QUOTES, 'UTF-8'); ?><small>/5</small></b><?php endif; ?><span><?php echo $source['count'] > 0 ? number_format($source['count'], 0, ',', '.') . ' đánh giá' : ($source['recommend_percent'] > 0 ? $source['recommend_percent'] . '% đề xuất' : 'Đang cập nhật'); ?></span></div>
+                    <?php endforeach; ?>
+                  </div>
+                </article>
+              <?php endif; ?>
+
+              <?php if ($facilityDoctors !== [] || $facilityEquipment !== [] || $facilityVideos !== []): ?>
+                <article class="panel facility-info-card facility-info-card--wide" id="doi-ngu-cong-nghe">
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="stethoscope"></i></span><div><h3>Đội ngũ &amp; công nghệ</h3><p>Thông tin chuyên môn được cơ sở công bố</p></div></div>
+                  <div class="facility-team-grid">
+                    <?php if ($facilityDoctors !== []): ?><div class="facility-team-column"><strong class="facility-column-title">Đội ngũ bác sĩ</strong><div class="facility-doctor-list"><?php foreach ($facilityDoctors as $doctor): ?><article><span><i data-lucide="user-round"></i></span><div><strong><?php echo htmlspecialchars($doctor['name'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($doctor['title'] !== ''): ?><p><?php echo htmlspecialchars($doctor['title'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?><?php if ($doctor['specialty'] !== ''): ?><small><?php echo htmlspecialchars($doctor['specialty'], ENT_QUOTES, 'UTF-8'); ?></small><?php endif; ?></div></article><?php endforeach; ?></div></div><?php endif; ?>
+                    <?php if ($facilityEquipment !== [] || $facilityVideos !== []): ?><div class="facility-team-column"><strong class="facility-column-title">Thiết bị &amp; tài liệu</strong><?php if ($facilityEquipment !== []): ?><ul class="facility-equipment-list"><?php foreach ($facilityEquipment as $equipment): ?><li><i data-lucide="scan-line"></i><?php echo htmlspecialchars($equipment, ENT_QUOTES, 'UTF-8'); ?></li><?php endforeach; ?></ul><?php endif; ?><?php if ($facilityVideos !== []): ?><div class="facility-video-links"><?php foreach (array_slice($facilityVideos, 0, 3) as $videoUrl): ?><a href="<?php echo htmlspecialchars($videoUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="play-circle"></i>Xem video giới thiệu<i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?></div><?php endif; ?>
+                  </div>
+                </article>
+              <?php endif; ?>
+            </div>
+          </section>
+        <?php endif; ?>
 
         <section class="panel section" id="danh-gia">
           <div class="section-head">

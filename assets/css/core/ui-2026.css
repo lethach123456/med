@@ -63,7 +63,7 @@ button,input,textarea,select{font:inherit}
   .medical-header > .container,
   .medical-footer > .container,
   .medical-footer .footer-cta > .container{
-    width:calc(100% - 28px);
+    width:calc(100% - 20px);
   }
 }
 .medical-header .header-shell{min-height:74px!important;gap:24px!important}
@@ -205,69 +205,74 @@ body > .section .card{border-radius:20px!important;border-color:var(--ui-line)!i
 }
 
 @media (max-width:720px){
-  .container{width:min(100% - 24px,var(--max))!important}
+  html{scroll-padding-top:64px}
+  .container{width:min(100% - 20px,var(--max))!important}
+  .medical-header .header-shell{min-height:54px!important;gap:12px!important}
   .medical-header .brand-copy span,.medical-header .brand-copy small{display:none!important}
-  .medical-header .brand-copy strong{font-size:18px!important}
-  .medical-header .brand-link{gap:9px!important}
-  .medical-header .brand-mark{width:38px!important;height:38px!important}
-  .medical-header .mobile-summary{width:40px!important;height:40px!important;border-radius:12px!important}
-  .medical-footer{margin-top:44px!important}
-  .medical-footer .footer-cta-inner{padding:22px 0!important}
-  .medical-footer .footer-cta-copy strong{font-size:19px!important}
-  .medical-footer .footer-main{padding-top:30px!important}
+  .medical-header .brand-copy strong{font-size:16px!important}
+  .medical-header .brand-link{gap:8px!important}
+  .medical-header .brand-mark{width:32px!important;height:32px!important;border-radius:9px!important;font-size:16px!important}
+  .medical-header .brand-mark::after{width:13px!important;height:13px!important;font-size:9px!important}
+  .medical-header .mobile-summary{width:34px!important;height:34px!important;border-radius:9px!important}
+  .medical-header .mobile-language summary{width:34px!important;height:34px!important;border-radius:9px!important;font-size:16px!important}
+  .medical-footer{margin-top:32px!important}
+  .medical-footer .footer-cta-inner{padding:18px 0!important}
+  .medical-footer .footer-cta-copy strong{font-size:17px!important}
+  .medical-footer .footer-main{padding-top:22px!important}
 
-  .med-home .hero-wrap{border-radius:18px!important}
-  .med-home .hero-copy h1{font-size:clamp(31px,9vw,38px)!important;line-height:1.1!important}
-  .med-home .hero-search-row{padding:4px!important;border-radius:14px!important}
-  .med-home .hero-search-btn{min-height:46px!important}
-  .med-home .section-head{gap:10px}
-  .med-home .section-head h2{font-size:20px!important;line-height:1.28}
-  .med-home .category-grid,.med-home .facility-grid,.med-home .review-grid,.med-home .partner-grid{gap:12px!important}
-  .med-home .category-card{min-height:132px!important;padding:15px 10px 12px!important}
-  .med-home .category-icon{width:52px!important;height:52px!important;margin-bottom:10px!important;border-radius:16px!important}
-  .med-home .category-card h3{font-size:14px!important}
-  .med-home .community-banner{padding:22px!important;border-radius:18px!important}
-  .med-home .community-stats strong{font-size:26px!important}
+  .med-home .hero-wrap{border-radius:14px!important}
+  .med-home .hero-copy h1{font-size:clamp(26px,8vw,32px)!important;line-height:1.15!important}
+  .med-home .hero-search-row{padding:3px!important;border-radius:12px!important}
+  .med-home .hero-search-btn{min-height:42px!important}
+  .med-home .section-head{gap:8px}
+  .med-home .section-head h2{font-size:18px!important;line-height:1.25}
+  .med-home .category-grid,.med-home .facility-grid,.med-home .review-grid,.med-home .partner-grid{gap:10px!important}
+  .med-home .category-card{min-height:116px!important;padding:12px 8px 10px!important}
+  .med-home .category-icon{width:44px!important;height:44px!important;margin-bottom:8px!important;border-radius:12px!important}
+  .med-home .category-card h3{font-size:13px!important}
+  .med-home .community-banner{padding:16px!important;border-radius:14px!important}
+  .med-home .community-stats strong{font-size:22px!important}
 
-  .facility-page,.review-page,.toplist-page,.categories-page{padding-top:20px!important;padding-bottom:44px!important}
-  .breadcrumb{font-size:11px!important;gap:7px!important;overflow:hidden;white-space:nowrap}
-  .facility-page .hero-head,.review-page .hero-head,.toplist-page .hero-head{gap:14px!important;padding:12px 0 2px}
-  .facility-page .hero-head h1,.review-page .hero-head h1,.toplist-page .hero-head h1{font-size:30px!important;line-height:1.08!important}
-  .facility-page .hero-sub,.review-page .hero-sub,.toplist-page .hero-sub{font-size:13px!important;line-height:1.65!important}
-  .facility-page .hero-note,.review-page .hero-note,.toplist-page .hero-note{padding:13px!important;border-radius:15px!important}
-  .title-pill{font-size:11px!important}
+  .facility-page,.review-page,.toplist-page,.categories-page{padding-top:12px!important;padding-bottom:32px!important}
+  .breadcrumb{font-size:10.5px!important;gap:5px!important;overflow:hidden;white-space:nowrap;margin-bottom:8px!important}
+  .facility-page .hero-head,.review-page .hero-head,.toplist-page .hero-head{gap:8px!important;padding:8px 0 2px}
+  .facility-page .hero-head h1,.review-page .hero-head h1,.toplist-page .hero-head h1{font-size:24px!important;line-height:1.15!important}
+  .facility-page .hero-sub,.review-page .hero-sub,.toplist-page .hero-sub{font-size:12.5px!important;line-height:1.55!important}
+  .facility-page .hero-note,.review-page .hero-note,.toplist-page .hero-note{padding:10px!important;border-radius:12px!important}
+  .title-pill{font-size:10px!important}
 
   .facility-page .filter-bar,.review-page .filter-bar,.toplist-page .filter-bar{
     display:flex!important;
-    gap:10px!important;
-    margin-right:-12px!important;
-    padding:12px!important;
+    gap:8px!important;
+    margin-top:14px!important;
+    margin-right:-10px!important;
+    padding:9px!important;
     overflow-x:auto;
     overscroll-behavior-inline:contain;
     scroll-snap-type:inline proximity;
-    border-radius:18px 0 0 18px!important;
+    border-radius:14px 0 0 14px!important;
   }
-  .facility-page .filter-item,.review-page .filter-item,.toplist-page .filter-item{min-width:214px;flex:0 0 214px;scroll-snap-align:start}
+  .facility-page .filter-item,.review-page .filter-item,.toplist-page .filter-item{min-width:180px;flex:0 0 180px;scroll-snap-align:start}
   .facility-page .filter-bar::-webkit-scrollbar,.review-page .filter-bar::-webkit-scrollbar,.toplist-page .filter-bar::-webkit-scrollbar{display:none}
-  .facility-page .facility-card,.review-page .review-card,.toplist-page .post{padding:12px!important;border-radius:17px!important}
-  .facility-page .facility-media{height:190px!important}
-  .facility-page .facility-title h3{font-size:17px!important}
-  .facility-page .score-col,.facility-page .service-col,.facility-page .price-col,.facility-page .cta-col{padding-top:4px!important}
-  .facility-page .detail-btn,.review-page .detail-btn{width:100%}
-  .review-page .review-shot{height:170px!important}
-  .review-page .review-title h3{font-size:20px!important;line-height:1.3!important}
-  .review-page .review-footer{padding-top:4px}
-  .toplist-page .post{gap:14px!important}
-  .toplist-page .post-media{height:190px!important}
-  .toplist-page .post-actions{gap:8px!important}
-  .toplist-page .post-actions .btn{width:100%}
-  .categories-page .page-head h1{font-size:32px!important;letter-spacing:-.05em}
-  .categories-page .category-card{min-height:132px!important;padding:16px 12px!important}
+  .facility-page .facility-card,.review-page .review-card,.toplist-page .post{padding:10px!important;border-radius:14px!important}
+  .facility-page .facility-media{height:160px!important}
+  .facility-page .facility-title h3{font-size:16px!important}
+  .facility-page .score-col,.facility-page .service-col,.facility-page .price-col,.facility-page .cta-col{padding-top:3px!important}
+  .facility-page .detail-btn,.review-page .detail-btn{width:100%;height:38px!important;font-size:12px!important}
+  .review-page .review-shot{height:150px!important}
+  .review-page .review-title h3{font-size:17px!important;line-height:1.25!important}
+  .review-page .review-footer{padding-top:3px}
+  .toplist-page .post{gap:10px!important}
+  .toplist-page .post-media{height:160px!important}
+  .toplist-page .post-actions{gap:6px!important}
+  .toplist-page .post-actions .btn{width:100%;height:38px!important;font-size:12px!important}
+  .categories-page .page-head h1{font-size:26px!important;letter-spacing:-.04em}
+  .categories-page .category-card{min-height:116px!important;padding:12px 10px!important}
 
-  body > .hero{border-radius:0 0 20px 20px}
-  body > .hero .hero-inner{min-height:auto!important;padding-top:76px!important;padding-bottom:46px!important}
-  body > .hero .hero-copy{padding:18px!important;border-radius:18px!important}
-  body > .hero .hero-copy h1{font-size:31px!important}
+  body > .hero{border-radius:0 0 16px 16px}
+  body > .hero .hero-inner{min-height:auto!important;padding-top:60px!important;padding-bottom:36px!important}
+  body > .hero .hero-copy{padding:14px!important;border-radius:14px!important}
+  body > .hero .hero-copy h1{font-size:26px!important}
   body > .section{padding:24px 0!important}
 }
 
