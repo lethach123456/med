@@ -56,7 +56,7 @@ Website PHP thuần cho MedReview, tập trung vào việc giới thiệu và đ
 
 ## Việc nên xử lý trước production
 
-- Bảo vệ `admin/api/setup.php` bằng xác thực; endpoint này hiện có thể tạo bảng/tài khoản mặc định.
+- Setup Admin đã được gỡ khỏi giao diện; `admin/api/setup.php`, `admin/api/test-db.php` và `admin/api/tables/list.php` hiện trả 410 để không còn khởi tạo hoặc dò DB qua web.
 - Dùng biến môi trường thật cho kết nối DB, không dựa vào fallback trong mã nguồn.
 - Giữ các tiện ích/debug ở `scripts/debug/` và seed ở `scripts/seeds/`; không expose chúng qua public web root khi triển khai production.
 - Thêm bảo vệ CSRF cho các thao tác ghi/xóa ở admin nếu triển khai internet công khai.

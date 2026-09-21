@@ -289,6 +289,7 @@ if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'He
     .med-home .hero-terms a:hover{transform:translateY(-1px);border-color:#93c5fd;background:#fff}
   }
   @media (max-width:540px){.med-home .hero-inner{padding:30px 18px}.med-home .hero-search-row{grid-template-columns:1fr}.med-home .hero-search-btn{height:48px}.med-home .hero-metrics{gap:12px}.med-home .hero-metric{padding-right:12px}.med-home .hero-metric strong{font-size:18px}.med-home .facility-grid,.med-home .toplist-grid{grid-template-columns:1fr}.med-home .category-grid{gap:9px}.med-home .category-card{min-height:82px;padding:12px;gap:10px}.med-home .category-icon{flex-basis:40px;width:40px;height:40px;font-size:21px}.med-home .data-band-copy,.med-home .data-stat{padding:19px 16px}.med-home .panel{min-width:0;padding:18px}.med-home .section-link{font-size:12px}.med-home .section-head h2{font-size:23px}}
+  @media (min-width:1181px){body.site-home .med-home .hero-search-row{grid-template-columns:minmax(0,1fr) 48px}body.site-home .med-home .hero-search-btn{display:grid;width:48px;min-width:48px;height:48px;place-items:center;padding:0}body.site-home .med-home .hero-search-btn>i{font-size:19px}body.site-home .med-home .hero-search-btn-label{display:none}}
 </style>
 
 <main class="med-home site-typo">
@@ -308,7 +309,7 @@ if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'He
               <div class="medical-search-shell hero-search-shell" data-medical-search>
                 <form action="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>" method="get" class="hero-search-row">
                   <label class="hero-search-field"><i class="ph ph-magnifying-glass"></i><input name="q" data-medical-search-input autocomplete="off" placeholder="<?= htmlspecialchars($labels['placeholder'], ENT_QUOTES, 'UTF-8') ?>"></label>
-                  <button class="hero-search-btn" type="submit"><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></button>
+                  <button class="hero-search-btn" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span class="hero-search-btn-label"><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></span></button>
                 </form>
                 <div class="medical-search-results" data-medical-search-results hidden></div>
               </div>

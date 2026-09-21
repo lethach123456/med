@@ -700,6 +700,12 @@ function facility_page_card(array $item): string
       .directory-stats { max-width: none; }
       .directory-stat { min-height: 76px; }
     }
+    @media (min-width: 1181px) {
+      .directory-search .filter-search-row { grid-template-columns: minmax(0, 1fr) 48px; }
+      .directory-search .filter-submit { display: grid; width: 48px; min-width: 48px; height: 48px; place-items: center; gap: 0; padding: 0; }
+      .directory-search .filter-submit i { font-size: 19px; }
+      .directory-search .filter-submit span { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -715,7 +721,7 @@ function facility_page_card(array $item): string
         <form class="directory-filter directory-search" id="facilityDirectoryFilter" method="get" action="/co-so-y-te" novalidate>
           <div class="filter-search-row">
             <label class="filter-search" for="facilitySearch"><i class="ph ph-magnifying-glass"></i><input id="facilitySearch" name="q" value="<?php echo htmlspecialchars($filters['q'], ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" placeholder="Ví dụ: nha khoa Đà Nẵng, spa Huế..." aria-label="Tìm cơ sở y tế"></label>
-            <button class="filter-submit" type="submit"><i class="ph ph-magnifying-glass"></i><span>Tìm kiếm</span></button>
+            <button class="filter-submit" type="submit" aria-label="Tìm kiếm"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Tìm kiếm</span></button>
           </div>
         </form>
       </div>
