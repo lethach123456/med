@@ -25,6 +25,9 @@ $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
 $brandName = site_title('MedReview');
+$brandIconUrl = site_icon_href('');
+$hasBrandIcon = $brandIconUrl !== '';
+$isMedReviewWordmark = strcasecmp($brandName, 'MedReview') === 0;
 $brandTagline = $isEnglish ? 'Verified medical review community' : 'Cộng đồng review y tế đáng tin cậy';
 $desktopMenuLabel = $isEnglish ? 'Main navigation' : 'Điều hướng chính';
 $mobileMenuLabel = $isEnglish ? 'Mobile navigation' : 'Điều hướng di động';
@@ -146,6 +149,23 @@ $navItems = $isEnglish
     font-weight: 800;
     letter-spacing: 0.02em;
   }
+  .medical-header .brand-mark.is-image{
+    overflow:hidden;
+    background:transparent;
+    border-color:transparent;
+    box-shadow:none;
+  }
+  .medical-header .brand-mark.is-image::after{display:none}
+  .medical-header .brand-mark.is-image i{display:none}
+  .medical-header .brand-mark img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+  .medical-header .brand-wordmark{display:inline-flex;align-items:baseline}
+  .medical-header .brand-wordmark-med{color:#0f2747}
+  .medical-header .brand-wordmark-review{color:#2563ff}
   .medical-header .header-center{
     display: flex;
     align-items: center;
@@ -532,6 +552,14 @@ $navItems = $isEnglish
     background:linear-gradient(145deg,#fff 8%,#e9f2ff 100%);
     box-shadow:0 10px 22px rgba(37,99,235,.1),inset 0 1px 0 rgba(255,255,255,.9);
   }
+  .medical-header .brand-mark.is-image{
+    width:48px!important;
+    height:48px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
   .medical-header .brand-copy{gap:1px}
   .medical-header .brand-copy strong{
     font-size:21px!important;
@@ -648,6 +676,7 @@ $navItems = $isEnglish
   @media (max-width:720px){
     .medical-header .header-shell{min-height:68px!important;gap:9px!important}
     .medical-header .brand-mark{width:38px!important;height:38px!important;border-radius:13px!important}
+    .medical-header .brand-mark.is-image{width:42px!important;height:42px!important;border-radius:0!important}
     .medical-header .brand-copy strong{font-size:19px!important}
     .medical-header .brand-copy span{display:none!important}
     /* Keep the three compact controls together at the far right on phones. */
@@ -1246,9 +1275,12 @@ $navItems = $isEnglish
   <div class="container">
     <div class="header-shell">
       <a class="brand-link" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
-        <span class="brand-mark" aria-hidden="true"><i class="ph ph-heart"></i></span>
+        <span class="brand-mark<?php echo $hasBrandIcon ? ' is-image' : ''; ?>" aria-hidden="true">
+          <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.remove();this.parentElement.classList.remove('is-image');"><?php endif; ?>
+          <i class="ph ph-heart"></i>
+        </span>
         <span class="brand-copy">
-          <strong><?php echo htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?></strong>
+          <strong><?php if ($isMedReviewWordmark): ?><span class="brand-wordmark"><span class="brand-wordmark-med">Med</span><span class="brand-wordmark-review">Review</span></span><?php else: ?><?php echo htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?></strong>
           <span><?php echo htmlspecialchars($brandTagline, ENT_QUOTES, 'UTF-8'); ?></span>
           <small><i class="ph-fill ph-seal-check"></i> <?php echo $isEnglish ? 'Verified reviews' : 'Review xác thực'; ?></small>
         </span>
