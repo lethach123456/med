@@ -79,15 +79,21 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = front_editor_page_seo('blog', [
-        'title' => 'Top Dental Clinic • Tin tức & Kiến thức',
-        'description' => 'Tin tức, kiến thức và bài viết mới nhất về răng sứ, thẩm mỹ nha khoa và xu hướng nụ cười đẹp tại Top Dental.',
+        'title' => 'Tin tức và kiến thức y tế | MedReview',
+        'description' => 'Khám phá bài viết, hướng dẫn và thông tin chăm sóc sức khỏe được chọn lọc trên MedReview.',
       ]);
+      if (stripos((string) ($seo['title'] ?? ''), 'Top Dental') !== false) {
+        $seo['title'] = 'Tin tức và kiến thức y tế | MedReview';
+      }
+      if (stripos((string) ($seo['description'] ?? ''), 'Top Dental') !== false) {
+        $seo['description'] = 'Khám phá bài viết, hướng dẫn và thông tin chăm sóc sức khỏe được chọn lọc trên MedReview.';
+      }
       $seoKeywords = (string) ($seo['keywords'] ?? '');
     ?>
     <title><?php echo htmlspecialchars((string) ($seo['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars((string) ($seo['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/blog'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url((string) ($seo['canonical_path'] ?? '/blog')), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

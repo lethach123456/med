@@ -120,7 +120,7 @@ function doctor_directory_card(array $item): string
   <title><?php echo $escape($title); ?></title>
   <meta name="description" content="<?php echo $escape($description); ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
-  <link rel="canonical" href="<?php echo $escape($canonicalPath); ?>">
+  <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

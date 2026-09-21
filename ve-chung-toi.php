@@ -81,7 +81,7 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?php echo $escape($seoTitle); ?></title>
   <meta name="description" content="<?php echo $escape($seoDescription); ?>">
-  <link rel="canonical" href="<?php echo $escape($canonicalPath); ?>">
+  <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

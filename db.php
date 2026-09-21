@@ -111,6 +111,77 @@ function medical_public_toplist_path(string $slug = ''): string
     return $slug === '' ? '/toplist' : '/toplist/' . rawurlencode($slug);
 }
 
+/** Stable HTTPS origin used by canonical tags and XML sitemaps. */
+function site_canonical_origin(): string
+{
+    static $origin = null;
+    if (is_string($origin)) {
+        return $origin;
+    }
+
+    $configured = trim((string) (getenv('SITE_CANONICAL_ORIGIN') ?: 'https://medreview.vn'));
+    $configured = rtrim($configured, '/');
+    if (preg_match('~^https://[a-z0-9.-]+(?::[0-9]{1,5})?$~i', $configured) !== 1) {
+        $configured = 'https://medreview.vn';
+    }
+    $origin = $configured;
+    return $origin;
+}
+
+/** Convert an internal route to the site's one canonical absolute URL. */
+function site_absolute_url(string $path): string
+{
+    $path = trim($path);
+    if ($path === '') {
+        $path = '/';
+    }
+    if (preg_match('~^[a-z][a-z0-9+.-]*://~i', $path) === 1 || str_starts_with($path, '//')) {
+        return site_canonical_origin() . '/';
+    }
+    return site_canonical_origin() . '/' . ltrim($path, '/');
+}
+
+/** Convert a stored media URL or site-relative asset path to an absolute URL. */
+function site_absolute_media_url(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+    if (preg_match('~^https?://~i', $value) === 1) {
+        return $value;
+    }
+    if (str_starts_with($value, '//')) {
+        return 'https:' . $value;
+    }
+    if (preg_match('~^[a-z][a-z0-9+.-]*:~i', $value) === 1) {
+        return '';
+    }
+    return site_absolute_url($value);
+}
+
+/** Produce a plain-text meta description within the recommended snippet length. */
+function site_meta_description(string $value, int $maxLength = 160): string
+{
+    $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = preg_replace('/\\s+/u', ' ', trim($value)) ?? trim($value);
+    $maxLength = max(80, $maxLength);
+    if (mb_strlen($value, 'UTF-8') <= $maxLength) {
+        return $value;
+    }
+    return rtrim(mb_substr($value, 0, $maxLength - 1, 'UTF-8'), " \t\n\r,.;:-") . '…';
+}
+
+/** Safely serialize Schema.org JSON-LD for use in a page head. */
+function site_json_ld(array $schema): string
+{
+    $json = json_encode(
+        $schema,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+    return is_string($json) ? '<script type="application/ld+json">' . $json . '</script>' : '';
+}
+
 /**
  * Moves a legacy .php URL to its public route while retaining allowed filters.
  * This only runs for a direct legacy request; internally rewritten pretty URLs
@@ -1155,9 +1226,15 @@ function front_editor_page_seo(string $pageKey, array $defaults = []): array
     }
     return [
         'title' => trim((string) ($profile['seo_title'] ?? '')) !== '' ? (string) $profile['seo_title'] : $defaultTitle,
-        'description' => trim((string) ($profile['seo_description'] ?? '')) !== '' ? (string) $profile['seo_description'] : $defaultDescription,
+        'description' => site_meta_description(
+            trim((string) ($profile['seo_description'] ?? '')) !== ''
+                ? (string) $profile['seo_description']
+                : $defaultDescription
+        ),
         'keywords' => trim((string) ($profile['seo_keywords'] ?? '')),
-        'canonical_path' => front_editor_page_public_path($pageKey),
+        'canonical_path' => trim((string) ($defaults['canonical_path'] ?? '')) !== ''
+            ? (string) $defaults['canonical_path']
+            : front_editor_page_public_path($pageKey),
         'profile' => $profile,
     ];
 }

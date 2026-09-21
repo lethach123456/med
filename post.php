@@ -21,7 +21,7 @@ $pdo = db();
 
 $post = null;
 if ($slug !== '') {
-    $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.updated_at, p.template,
+    $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.seo_title, p.seo_description, p.updated_at, p.template,
                    p.status, c.name AS category_name, c.slug AS category_slug
             FROM posts p
             LEFT JOIN categories c ON c.id = p.category_id
@@ -37,7 +37,7 @@ if ($slug !== '') {
     $stmt->execute([':slug' => $slug]);
     $post = $stmt->fetch();
 } elseif ($id > 0) {
-    $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.updated_at, p.template,
+    $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.seo_title, p.seo_description, p.updated_at, p.template,
                    p.status, c.name AS category_name, c.slug AS category_slug
             FROM posts p
             LEFT JOIN categories c ON c.id = p.category_id
@@ -85,6 +85,50 @@ $isEnglishPost = $postCategorySlug === 'blog-en'
     || $routeContext === 'news'
     || preg_match('~^/news/[^/]+/?$~', $requestPath) === 1;
 $htmlLang = $isEnglishPost ? 'en' : 'vi';
+$seoTitle = trim((string) ($post['seo_title'] ?? '')) !== '' ? (string) $post['seo_title'] : $title;
+$featuredImageAbsolute = site_absolute_media_url($featured);
+$descriptionSource = trim((string) ($post['seo_description'] ?? ''));
+if ($descriptionSource === '') {
+    $descriptionSource = $excerpt !== '' ? $excerpt : $content;
+}
+$seoDescription = site_meta_description($descriptionSource !== '' ? $descriptionSource : $title . ' — bài viết trên MedReview.');
+$isIndexableArticle = is_array($post) && (string) ($post['status'] ?? '') === 'published' && !$canEditTemplate;
+$articleCanonicalPath = '';
+if ($isIndexableArticle) {
+    $articleSlug = rawurlencode((string) ($post['slug'] ?? ''));
+    if ($postCategorySlug === 'blog-en') {
+        $articleCanonicalPath = '/news/' . $articleSlug;
+    } elseif ($postCategorySlug === 'blog') {
+        $articleCanonicalPath = '/blog/' . $articleSlug;
+    } else {
+        $articleCanonicalPath = $requestPath !== '' && $requestPath !== '/' ? $requestPath : '/' . $articleSlug;
+    }
+}
+$articleSchema = [];
+if ($isIndexableArticle) {
+    $articleCanonicalUrl = site_absolute_url($articleCanonicalPath);
+    $articleModified = '';
+    try {
+        $articleModified = (new DateTimeImmutable((string) ($post['updated_at'] ?? '')))->format(DATE_ATOM);
+    } catch (Throwable $e) {
+        $articleModified = '';
+    }
+    $articleSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Article',
+        'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $articleCanonicalUrl],
+        'headline' => $seoTitle,
+        'description' => $seoDescription,
+        'inLanguage' => $htmlLang === 'en' ? 'en' : 'vi-VN',
+        'publisher' => ['@type' => 'Organization', 'name' => 'MedReview', 'url' => site_absolute_url('/')],
+    ];
+    if ($featuredImageAbsolute !== '') {
+        $articleSchema['image'] = $featuredImageAbsolute;
+    }
+    if ($articleModified !== '') {
+        $articleSchema['dateModified'] = $articleModified;
+    }
+}
 $GLOBALS['site_page_key'] = $isServicePost
     ? ($isEnglishPost ? 'services-en' : 'dich-vu')
     : ($isEnglishPost ? 'blog-en' : 'blog');
@@ -119,6 +163,13 @@ if (!$post) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo $safeTitle; ?></title>
+    <?php if (!$isIndexableArticle): ?><meta name="robots" content="noindex,follow"><?php else: ?>
+    <meta name="description" content="<?php echo htmlspecialchars($seoDescription, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($articleCanonicalPath), ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:type" content="article"><meta property="og:title" content="<?php echo htmlspecialchars($seoTitle, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($seoDescription, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($featuredImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($featuredImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php echo site_json_ld($articleSchema); ?>
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

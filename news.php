@@ -79,15 +79,21 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = front_editor_page_seo('blog-en', [
-        'title' => 'Top Dental Clinic • News & Insights',
-        'description' => 'Latest updates, dental insights, and articles on porcelain smiles, cosmetic dentistry, and modern smile trends at Top Dental Clinic.',
+        'title' => 'Healthcare News and Guides | MedReview',
+        'description' => 'Explore health articles, practical guides, and carefully selected information from MedReview.',
       ]);
+      if (stripos((string) ($seo['title'] ?? ''), 'Top Dental') !== false) {
+        $seo['title'] = 'Healthcare News and Guides | MedReview';
+      }
+      if (stripos((string) ($seo['description'] ?? ''), 'Top Dental') !== false) {
+        $seo['description'] = 'Explore health articles, practical guides, and carefully selected information from MedReview.';
+      }
       $seoKeywords = (string) ($seo['keywords'] ?? '');
     ?>
     <title><?php echo htmlspecialchars((string) ($seo['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars((string) ($seo['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/news'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url((string) ($seo['canonical_path'] ?? '/news')), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

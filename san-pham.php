@@ -42,6 +42,7 @@ if ($isDetail) {
   try {
     $st = $pdo->prepare(
       "SELECT p.id, p.category_id, p.name, p.slug, p.featured_image_url, p.short_description, p.content, p.price_int, p.price_text, p.gallery_json,
+              p.seo_title, p.seo_description, p.seo_keywords,
               c.name AS category_name, c.slug AS category_slug
        FROM products p
        LEFT JOIN product_categories c ON c.id = p.category_id
@@ -56,8 +57,10 @@ if ($isDetail) {
 
   if (!$detail) {
     http_response_code(404);
-    $isDetail = false;
-    $productSlug = '';
+    $notFoundTitle = 'Không tìm thấy sản phẩm';
+    $notFoundDescription = 'Sản phẩm không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+    require __DIR__ . '/Tem/public-404.php';
+    exit;
   } else {
     $detailCatSlug = (string) ($detail['category_slug'] ?? '');
     if ($detailCatSlug !== '' && isset($cats[$detailCatSlug])) {
@@ -119,17 +122,36 @@ function money_vnd_text(?int $value, ?string $text): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = !$isDetail ? front_editor_page_seo('products', [
-        'title' => 'Top Dental Clinic • Sản phẩm',
-        'description' => 'Trang sản phẩm và giải pháp nổi bật tại Top Dental Clinic.',
+        'title' => 'Sản phẩm y tế • MedReview',
+        'description' => 'Khám phá sản phẩm và giải pháp chăm sóc sức khỏe được giới thiệu trên MedReview.',
       ]) : ['title' => '', 'description' => '', 'keywords' => '', 'canonical_path' => ''];
-      $pageTitle = $isDetail && $detail ? (string) ($detail['name'] ?? 'Sản phẩm') : (string) (($seo['title'] ?? '') !== '' ? $seo['title'] : 'Top Dental Clinic • Sản phẩm');
-      $pageDescription = !$isDetail ? (string) ($seo['description'] ?? '') : '';
-      $seoKeywords = !$isDetail ? (string) ($seo['keywords'] ?? '') : '';
+      $detailTitle = trim((string) ($detail['seo_title'] ?? ''));
+      $pageTitle = $isDetail && $detail
+        ? ($detailTitle !== '' ? $detailTitle : (string) ($detail['name'] ?? 'Sản phẩm') . ' • MedReview')
+        : (string) (($seo['title'] ?? '') !== '' ? $seo['title'] : 'Sản phẩm y tế • MedReview');
+      $detailDescriptionSource = trim((string) ($detail['seo_description'] ?? ''));
+      if ($detailDescriptionSource === '' && $isDetail && $detail) {
+        $detailDescriptionSource = trim((string) ($detail['short_description'] ?? ''));
+        if ($detailDescriptionSource === '') $detailDescriptionSource = (string) ($detail['content'] ?? '');
+        if (trim($detailDescriptionSource) === '') {
+          $detailDescriptionSource = trim((string) ($detail['name'] ?? 'Sản phẩm'))
+            . ' — thông tin sản phẩm và giải pháp chăm sóc sức khỏe trên MedReview.';
+        }
+      }
+      $pageDescription = $isDetail
+        ? site_meta_description($detailDescriptionSource)
+        : (string) ($seo['description'] ?? '');
+      $seoKeywords = $isDetail ? (string) ($detail['seo_keywords'] ?? '') : (string) ($seo['keywords'] ?? '');
+      $canonicalPath = $isDetail && $detail
+        ? '/san-pham/' . rawurlencode((string) $detail['slug'])
+        : (string) ($seo['canonical_path'] ?? '/san-pham');
+      $detailImageAbsolute = $isDetail && $detail ? site_absolute_media_url((string) ($detail['featured_image_url'] ?? '')) : '';
     ?>
     <title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
     <?php if ($pageDescription !== ''): ?><meta name="description" content="<?php echo htmlspecialchars($pageDescription, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <?php if (!$isDetail && (string) ($seo['canonical_path'] ?? '') !== ''): ?><link rel="canonical" href="<?php echo htmlspecialchars((string) $seo['canonical_path'], ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if ($canonicalPath !== ''): ?><link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if ($isDetail && $detail): ?><meta property="og:type" content="product"><meta property="og:title" content="<?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($pageDescription, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:url" content="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>"><?php if ($detailImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($detailImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

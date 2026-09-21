@@ -7,6 +7,14 @@ if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 $slug = isset($_GET['slug']) ? trim((string) $_GET['slug']) : '';
 $doctor = medical_directory_doctor_row_by_slug($slug, true);
+$doctorNotFound = !is_array($doctor) || $doctor === [];
+if ($doctorNotFound) {
+    http_response_code(404);
+    $notFoundTitle = 'Không tìm thấy hồ sơ bác sĩ';
+    $notFoundDescription = 'Hồ sơ bác sĩ không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+    require __DIR__ . '/Tem/public-404.php';
+    exit;
+}
 $facility = null;
 $relatedReviews = [];
 $relatedDoctors = [];
@@ -24,31 +32,15 @@ if (is_array($doctor) && $doctor !== []) {
     $relatedDoctors = array_slice($relatedDoctors, 0, 3);
 }
 
-if (!is_array($doctor) || $doctor === []) {
-    http_response_code(404);
-    $doctor = [
-        'name' => 'ThS.BS Phạm Hoàng Nam',
-        'title_text' => 'Chuyên khoa Răng Hàm Mặt',
-        'specialty_text' => 'Răng Hàm Mặt',
-        'specialties' => [],
-        'bio' => [],
-        'gallery' => [],
-        'image_url' => 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=900&q=80',
-        'rating' => '4.9',
-        'reviews' => '1.248 đánh giá',
-        'reviews_count' => 1248,
-        'followers' => '2.500+',
-        'hours_text' => '08:00 - 17:00',
-        'price_text' => '300.000đ',
-        'city' => 'Quận 1, TP.HCM',
-        'verified' => 'Đã xác thực',
-        'facility_name' => 'Nha khoa Kim',
-        'facility_slug' => '',
-    ];
-}
-
 $title = (string) ($doctor['name'] ?? 'Bác sĩ') . ' • MedReview';
 $description = trim((string) ($doctor['title_text'] ?? ''));
+if ($description === '') {
+    $specialtyForDescription = trim((string) ($doctor['specialty_text'] ?? ''));
+    $description = trim((string) ($doctor['name'] ?? 'Bác sĩ'))
+        . ($specialtyForDescription !== '' ? ' — ' . $specialtyForDescription : '')
+        . ' trên MedReview. Xem hồ sơ và đánh giá liên quan.';
+}
+$description = site_meta_description($description);
 $heroImage = trim((string) ($doctor['image_url'] ?? ''));
 $specialties = array_values(array_filter((array) ($doctor['specialties'] ?? []), static function ($item): bool {
     return trim((string) $item) !== '';
@@ -98,6 +90,23 @@ $facilityPhone = (string) ($facility['phone_text'] ?? '1900 6899');
 $facilityWebsite = (string) ($facility['website_url'] ?? 'www.nhakhoakim.com');
 $facilityRating = (string) ($facility['rating'] ?? '4.8');
 $followersText = (string) ($doctor['followers'] ?? '2.500+');
+$doctorCanonicalUrl = site_absolute_url('/bac-si-chi-tiet.php?slug=' . rawurlencode((string) $doctor['slug']));
+$heroImageAbsolute = site_absolute_media_url($heroImage);
+$doctorSchema = [
+    '@context' => 'https://schema.org',
+    '@type' => 'Physician',
+    '@id' => $doctorCanonicalUrl . '#physician',
+    'name' => (string) ($doctor['name'] ?? ''),
+    'url' => $doctorCanonicalUrl,
+    'description' => $description,
+    'medicalSpecialty' => (string) ($doctor['specialty_text'] ?? ''),
+];
+if ($heroImageAbsolute !== '') {
+    $doctorSchema['image'] = $heroImageAbsolute;
+}
+if ($facilityName !== '') {
+    $doctorSchema['worksFor'] = ['@type' => 'MedicalClinic', 'name' => $facilityName];
+}
 
 $profileFacts = [
     ['icon' => 'fa-solid fa-user-doctor', 'label' => 'Học vị', 'value' => 'Thạc sĩ Răng Hàm Mặt'],
@@ -262,6 +271,7 @@ unset($item);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($doctorNotFound): ?><meta name="robots" content="noindex,follow"><?php else: ?><link rel="canonical" href="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:type" content="profile"><meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:url" content="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php if ($heroImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($heroImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><?php echo site_json_ld($doctorSchema); ?><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

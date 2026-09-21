@@ -6,6 +6,10 @@ RewriteRule ^ - [L]
 
 RewriteRule ^builder/([0-9]+)/?$ builder/builder.php?id=$1 [QSA,L]
 
+# Dynamic XML sitemaps include only published, canonical public routes.
+RewriteRule ^sitemap\.xml$ sitemap.php?map=index [QSA,L]
+RewriteRule ^sitemap-([a-z0-9-]+)-([0-9]+)\.xml$ sitemap.php?map=$1&page=$2 [QSA,L]
+
 # Medical directory: canonical public routes. These rules must precede the
 # generic single-slug route below.
 RewriteRule ^co-so-y-te/?$ co-so-y-te.php [QSA,L]

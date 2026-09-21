@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /config/
+Disallow: /storage/
+
+Sitemap: https://medreview.vn/sitemap.xml

@@ -3208,9 +3208,7 @@ function medical_directory_facility_row_by_slug(string $slug, bool $publishedOnl
 {
     $slug = trim($slug);
     if ($slug === '') {
-        $items = medical_directory_facility_rows($publishedOnly);
-        $item = $items[0] ?? null;
-        return is_array($item) ? medical_directory_facility_with_linked_reviews($item, $publishedOnly) : null;
+        return null;
     }
     $pdo = db();
     if (!medical_directory_table_exists($pdo, 'medical_facilities')) {
@@ -3220,8 +3218,7 @@ function medical_directory_facility_row_by_slug(string $slug, bool $publishedOnl
                 return medical_directory_facility_with_linked_reviews($item, $publishedOnly);
             }
         }
-        $fallback = $items[0] ?? null;
-        return is_array($fallback) ? medical_directory_facility_with_linked_reviews($fallback, $publishedOnly) : null;
+        return null;
     }
     $sql = "SELECT * FROM medical_facilities WHERE slug = :slug";
     if ($publishedOnly) {
@@ -3234,9 +3231,7 @@ function medical_directory_facility_row_by_slug(string $slug, bool $publishedOnl
     if (is_array($row)) {
         return medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($row), $publishedOnly);
     }
-    $items = medical_directory_facility_rows($publishedOnly);
-    $item = $items[0] ?? null;
-    return is_array($item) ? medical_directory_facility_with_linked_reviews($item, $publishedOnly) : null;
+    return null;
 }
 
 function medical_directory_review_rows(bool $publishedOnly = true, ?int $limit = null): array
@@ -3270,8 +3265,7 @@ function medical_directory_review_row_by_slug(string $slug, bool $publishedOnly 
 {
     $slug = trim($slug);
     if ($slug === '') {
-        $items = medical_directory_review_rows($publishedOnly);
-        return $items[0] ?? null;
+        return null;
     }
     $pdo = db();
     if (!medical_directory_table_exists($pdo, 'medical_reviews')) {
@@ -3281,7 +3275,7 @@ function medical_directory_review_row_by_slug(string $slug, bool $publishedOnly 
                 return $item;
             }
         }
-        return $items[0] ?? null;
+        return null;
     }
     $sql = "SELECT * FROM medical_reviews WHERE slug = :slug";
     if ($publishedOnly) {
@@ -3294,8 +3288,7 @@ function medical_directory_review_row_by_slug(string $slug, bool $publishedOnly 
     if (is_array($row)) {
         return medical_directory_review_from_row($row);
     }
-    $items = medical_directory_review_rows($publishedOnly);
-    return $items[0] ?? null;
+    return null;
 }
 
 function medical_directory_doctor_rows(bool $publishedOnly = true): array
@@ -3321,8 +3314,7 @@ function medical_directory_doctor_row_by_slug(string $slug, bool $publishedOnly 
 {
     $slug = trim($slug);
     if ($slug === '') {
-        $items = medical_directory_doctor_rows($publishedOnly);
-        return $items[0] ?? null;
+        return null;
     }
 
     $pdo = db();
@@ -3333,7 +3325,7 @@ function medical_directory_doctor_row_by_slug(string $slug, bool $publishedOnly 
                 return $item;
             }
         }
-        return $items[0] ?? null;
+        return null;
     }
 
     $sql = "SELECT * FROM medical_doctors WHERE slug = :slug";
@@ -3347,8 +3339,7 @@ function medical_directory_doctor_row_by_slug(string $slug, bool $publishedOnly 
     if (is_array($row)) {
         return medical_directory_doctor_from_row($row);
     }
-    $items = medical_directory_doctor_rows($publishedOnly);
-    return $items[0] ?? null;
+    return null;
 }
 
 function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilitySlug): void

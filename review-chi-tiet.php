@@ -394,6 +394,14 @@ $relatedReviews = array_values(array_filter($reviews, static function (array $it
 $relatedReviews = array_slice($relatedReviews, 0, 3);
 
 $dbReview = medical_directory_review_row_by_slug($slug, true);
+$reviewNotFound = !is_array($dbReview) || $dbReview === [];
+if ($reviewNotFound) {
+  http_response_code(404);
+  $notFoundTitle = 'Không tìm thấy bài review';
+  $notFoundDescription = 'Bài review không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+  require __DIR__ . '/Tem/public-404.php';
+  exit;
+}
 if (is_array($dbReview) && $dbReview !== []) {
   $dbFacility = medical_directory_facility_row_by_slug((string) ($dbReview['facility_slug'] ?? ''), true);
   $dbReview['verified'] = !empty($dbReview['is_verified']) ? 'Đã xác minh' : '';
@@ -432,6 +440,10 @@ $seo = front_editor_page_seo('review-chi-tiet', [
 ]);
 $title = (string) ($seo['title'] ?? ($review['title'] . ' • MedReview'));
 $description = (string) ($seo['description'] ?? '');
+if (trim($description) === '') {
+  $description = (string) (($review['story'][0] ?? '') ?: ($review['title'] . ' — đánh giá y tế trên MedReview.'));
+}
+$description = site_meta_description($description);
 $canonicalPath = (string) ($seo['canonical_path'] ?? '/review-chi-tiet.php');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
 ?>
@@ -444,7 +456,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars($canonicalPath, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($reviewNotFound): ?><meta name="robots" content="noindex,follow"><?php else: ?><link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

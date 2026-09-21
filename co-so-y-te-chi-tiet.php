@@ -630,6 +630,14 @@ $relatedFacilities = array_values(array_filter($facilities, static function (arr
 }));
 
 $dbFacility = medical_directory_facility_row_by_slug($slug, true);
+$facilityNotFound = !is_array($dbFacility) || $dbFacility === [];
+if ($facilityNotFound) {
+  http_response_code(404);
+  $notFoundTitle = 'Không tìm thấy hồ sơ cơ sở y tế';
+  $notFoundDescription = 'Hồ sơ này không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+  require __DIR__ . '/Tem/public-404.php';
+  exit;
+}
 if (is_array($dbFacility) && $dbFacility !== []) {
   $dbFacility['verified'] = !empty($dbFacility['is_verified']);
   // Logo is useful as an identity image but makes a weak cover. Prefer a real
@@ -775,19 +783,53 @@ $title = trim((string) ($facility['seo_title'] ?? '')) !== ''
 $description = trim((string) ($facility['seo_description'] ?? '')) !== ''
   ? (string) $facility['seo_description']
   : (string) ($seo['description'] ?? '');
+if (trim($description) === '') {
+  $description = preg_replace('/\s+/u', ' ', trim(strip_tags((string) ($facility['subtitle'] ?? $facility['content'] ?? '')))) ?? '';
+}
+if (trim($description) === '') {
+  $description = trim((string) ($facility['name'] ?? 'Cơ sở y tế')) . ' — xem thông tin hồ sơ, dịch vụ, giá tham khảo và đánh giá trên MedReview.';
+}
+$description = site_meta_description($description);
 $canonicalPath = medical_public_facility_path((string) $facility['slug']);
-$requestHost = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
-$forwardedProto = strtolower(trim(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
-$requestIsHttps = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') || $forwardedProto === 'https';
-$canonicalUrl = preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $requestHost)
-  ? (($requestIsHttps ? 'https://' : 'http://') . $requestHost . $canonicalPath)
-  : $canonicalPath;
+$canonicalUrl = site_absolute_url($canonicalPath);
 $seoKeywords = trim((string) ($facility['seo_keywords'] ?? '')) !== ''
   ? (string) $facility['seo_keywords']
   : (string) ($seo['keywords'] ?? '');
 $seoImage = trim((string) ($facility['hero_image'] ?? ''));
 if ($seoImage === '') {
   $seoImage = trim((string) ($facility['image_url'] ?? ''));
+}
+$seoImageAbsolute = site_absolute_media_url($seoImage);
+$facilitySchema = [
+  '@context' => 'https://schema.org',
+  '@type' => 'MedicalClinic',
+  '@id' => $canonicalUrl . '#medical-clinic',
+  'name' => (string) ($facility['name'] ?? ''),
+  'url' => $canonicalUrl,
+  'description' => $description,
+  'address' => [
+    '@type' => 'PostalAddress',
+    'streetAddress' => (string) ($facility['address'] ?? $facility['address_text'] ?? ''),
+    'addressLocality' => (string) ($facility['city'] ?? ''),
+    'addressCountry' => 'VN',
+  ],
+];
+$facilityTelephone = trim((string) ($facility['phone'] ?? $facility['phone_text'] ?? ''));
+if ($facilityTelephone !== '') {
+  $facilitySchema['telephone'] = $facilityTelephone;
+}
+if ($seoImageAbsolute !== '') {
+  $facilitySchema['image'] = $seoImageAbsolute;
+}
+$facilityReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
+if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
+  $facilitySchema['aggregateRating'] = [
+    '@type' => 'AggregateRating',
+    'ratingValue' => $facilityRatingValue,
+    'bestRating' => 5,
+    'worstRating' => 1,
+    'reviewCount' => $facilityReviewCount,
+  ];
 }
 ?>
 <!doctype html>
@@ -798,17 +840,19 @@ if ($seoImage === '') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($facilityNotFound): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if (!$facilityNotFound): ?><link rel="canonical" href="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <meta property="og:type" content="website">
     <meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:url" content="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($seoImage !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($seoImage, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if ($seoImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($seoImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if (!$facilityNotFound): ?><?php echo site_json_ld($facilitySchema); ?><?php endif; ?>
     <meta name="twitter:card" content="<?php echo $seoImage !== '' ? 'summary_large_image' : 'summary'; ?>">
     <meta name="twitter:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($seoImage !== ''): ?><meta name="twitter:image" content="<?php echo htmlspecialchars($seoImage, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if ($seoImageAbsolute !== ''): ?><meta name="twitter:image" content="<?php echo htmlspecialchars($seoImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
