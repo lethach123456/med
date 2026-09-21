@@ -638,6 +638,10 @@ $navItems = $isEnglish
   .medical-header .lang-switch{background:#f8fafc;border-color:rgba(203,213,225,.76)}
   .medical-header .lang-switch a{font-weight:850}
   .medical-header .lang-switch a.is-active{background:linear-gradient(135deg,#347bf1,#2563eb);box-shadow:0 4px 10px rgba(37,99,235,.18)}
+  @media (min-width:1181px){
+    .medical-header .brand-copy > .brand-tagline{max-width:300px;font-size:12px}
+    .medical-header .header-search input{font-size:14px}
+  }
   .medical-search-results{
     border-color:rgba(191,219,254,.92);
     box-shadow:0 24px 58px rgba(15,35,66,.16),0 4px 15px rgba(37,99,235,.06);

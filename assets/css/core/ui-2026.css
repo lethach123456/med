@@ -75,7 +75,7 @@ button,input,textarea,select{font:inherit}
   position:relative;
   padding:9px 10px!important;
   border-radius:10px!important;
-  font-size:12px!important;
+  font-size:13px!important;
 }
 .medical-header .header-nav a.is-active::after{
   content:"";
@@ -302,6 +302,173 @@ body > .section .card{border-radius:20px!important;border-color:var(--ui-line)!i
   .facility-page .facility-card,.review-page .review-card,.toplist-page .panel,.categories-page .category-card{
     border-color:rgba(71,85,105,.34)!important;
   }
+}
+
+/* Desktop reading scale: improve scanability on wide screens without changing
+   the intentionally compact tablet and phone layouts. */
+@media (min-width:1181px){
+  .medical-header .header-search input{font-size:14px!important}
+  .medical-header .header-login{font-size:14px!important}
+  .medical-header .lang-switch a{font-size:12px!important}
+
+  body.site-home .med-home .section-kicker{font-size:11px}
+  body.site-home .med-home .section-head p{font-size:14px;line-height:1.7}
+  body.site-home .med-home .section-link{font-size:13px}
+  body.site-home .med-home .category-card strong{font-size:15px}
+  body.site-home .med-home .category-card small{font-size:12px}
+  body.site-home .med-home .facility-body h3{font-size:18px}
+  body.site-home .med-home .facility-subtitle{font-size:14px;line-height:1.6}
+  body.site-home .med-home .facility-info{font-size:13px}
+  body.site-home .med-home .toplist-card h3{font-size:20px}
+
+  .facility-page.site-typo:not(.page) .hero-sub{font-size:15px!important;line-height:1.7!important}
+  .facility-page.site-typo:not(.page) .hero-note strong{font-size:13px}
+  .facility-page.site-typo:not(.page) .hero-note span:last-child{font-size:12px}
+  .facility-page.site-typo:not(.page) .facility-title h2{font-size:19px;line-height:1.4}
+  .facility-page.site-typo:not(.page) .facility-sub{font-size:14px;line-height:1.65}
+  .facility-page.site-typo:not(.page) .meta-row{font-size:13px}
+  .facility-page.site-typo:not(.page) .score-meta{font-size:12px}
+  .facility-page.site-typo:not(.page) .cta-col strong{font-size:13px}
+  .facility-page.site-typo:not(.page) .detail-btn{font-size:13px}
+  .facility-page.site-typo:not(.page) .summary-card p,
+  .facility-page.site-typo:not(.page) .utility-item p{font-size:13px;line-height:1.65}
+  .facility-page.site-typo:not(.page) .utility-item strong{font-size:13px}
+
+  .facility-directory .directory-hero p,
+  .doctor-directory .doctor-hero p{font-size:15px;line-height:1.72}
+  .facility-directory .directory-kicker,
+  .doctor-directory .doctor-kicker{font-size:11px}
+  .facility-directory .directory-stat span,
+  .doctor-directory .doctor-stat span{font-size:12px;line-height:1.45}
+  .facility-directory .filter-search input,
+  .doctor-directory .doctor-search-field input{font-size:15px}
+  .facility-directory .filter-field label,
+  .doctor-directory .doctor-filter-field label{font-size:11px}
+  .facility-directory .filter-select-wrap select,
+  .doctor-directory .doctor-select-wrap select{font-size:13px}
+  .facility-directory .filter-toggle{font-size:13px}
+  .facility-directory .filter-reset,
+  .doctor-directory .doctor-filter-reset{font-size:12px}
+  .doctor-directory .doctor-filter-toggle{font-size:12px}
+  .facility-directory .result-count,
+  .doctor-directory .doctor-result-count{font-size:14px}
+  .facility-directory .result-count strong,
+  .doctor-directory .doctor-result-count strong{font-size:17px}
+  .facility-directory .result-sort-copy,
+  .doctor-directory .doctor-source{font-size:12px}
+
+  .facility-directory .facility-card{
+    grid-template-columns:184px minmax(260px,1fr) 110px 160px 120px;
+    gap:16px;
+    padding:12px;
+  }
+  .facility-directory .facility-media{height:154px}
+  .facility-directory .media-label{font-size:11px}
+  .facility-directory .facility-eyebrow{font-size:11px}
+  .facility-directory .facility-name-row h2{font-size:19px;line-height:1.35}
+  .facility-directory .facility-subtitle{font-size:13px;line-height:1.6}
+  .facility-directory .facility-details span{font-size:12px;line-height:1.5}
+  .facility-directory .service-tags span{font-size:11px;padding:5px 8px}
+  .facility-directory .score-number{font-size:25px}
+  .facility-directory .score-number small{font-size:11px}
+  .facility-directory .score-stars{font-size:13px}
+  .facility-directory .facility-score>span{font-size:11px}
+  .facility-directory .facility-price span{font-size:10px}
+  .facility-directory .facility-price strong{font-size:12px;line-height:1.5}
+  .facility-directory .detail-button{font-size:12px}
+  .facility-directory .aside-card p,
+  .facility-directory .guide-list li{font-size:12px;line-height:1.65}
+  .facility-directory .directory-source strong{font-size:13px}
+  .facility-directory .directory-source span{font-size:11px}
+
+  .doctor-directory .doctor-card{
+    grid-template-columns:168px minmax(260px,1fr) 108px 158px 120px;
+    gap:16px;
+    padding:12px;
+  }
+  .doctor-directory .doctor-media{height:154px}
+  .doctor-directory .doctor-eyebrow{font-size:10.5px}
+  .doctor-directory .doctor-name-row h2{font-size:19px;line-height:1.35}
+  .doctor-directory .doctor-verified{font-size:10px}
+  .doctor-directory .doctor-subtitle{font-size:13px;line-height:1.6}
+  .doctor-directory .doctor-details span{font-size:12px;line-height:1.5}
+  .doctor-directory .doctor-tag{font-size:11px;padding:5px 8px}
+  .doctor-directory .doctor-score strong{font-size:25px}
+  .doctor-directory .doctor-score strong small{font-size:11px}
+  .doctor-directory .doctor-stars{font-size:13px}
+  .doctor-directory .doctor-score>span:last-child{font-size:11px}
+  .doctor-directory .doctor-price span{font-size:10px}
+  .doctor-directory .doctor-price strong{font-size:12px;line-height:1.5}
+  .doctor-directory .doctor-action{font-size:12px}
+  .doctor-directory .doctor-aside-card h2{font-size:14px}
+  .doctor-directory .doctor-aside-card p,
+  .doctor-directory .doctor-guide li{font-size:12px;line-height:1.65}
+  .doctor-directory .doctor-source-card strong{font-size:12px}
+  .doctor-directory .doctor-source-card span{font-size:11px}
+
+  .facility-detail .hero-head .subtitle{font-size:16px;line-height:1.75}
+  .facility-detail .contact-item strong{font-size:12px}
+  .facility-detail .contact-item :is(span,a){font-size:14px;line-height:1.65}
+  .facility-detail .contact-actions a{font-size:14px}
+  .facility-detail .detail-nav a{font-size:13px}
+  .facility-detail .section-copy{font-size:15px;line-height:1.8}
+  .facility-detail .section-copy p{max-width:90ch}
+  .facility-detail .facility-subsection li{font-size:15px;line-height:1.75}
+  .facility-detail .service-chips span{font-size:13px}
+  .facility-detail #danh-gia .review-author strong{font-size:14px}
+  .facility-detail #danh-gia .review-content{font-size:14px;line-height:1.7}
+  .facility-detail #danh-gia :is(.review-date,.review-source,.review-service){font-size:12px}
+
+  .doctor-detail .breadcrumbs{font-size:12px}
+  .doctor-detail .hero-name p,
+  .doctor-detail .hero-desc,
+  .doctor-detail .intro-text p{font-size:15px;line-height:1.75}
+  .doctor-detail .mini-stat strong{font-size:16px}
+  .doctor-detail .mini-stat span,
+  .doctor-detail .fact-item strong,
+  .doctor-detail .cert-card span,
+  .doctor-detail .assoc-card span{font-size:12px}
+  .doctor-detail .section-head h2{font-size:18px}
+  .doctor-detail .section-head a,
+  .doctor-detail .tab{font-size:13px}
+  .doctor-detail .fact-item span,
+  .doctor-detail .highlight-item span:last-child{font-size:14px;line-height:1.6}
+  .doctor-detail .service-card strong{font-size:14px}
+  .doctor-detail .service-card .sub,
+  .doctor-detail .service-card .meta{font-size:12px}
+  .doctor-detail .service-card .price{font-size:16px}
+  .doctor-detail .review-content p{font-size:14px;line-height:1.7}
+  .doctor-detail .review-author .meta-line,
+  .doctor-detail .review-date,
+  .doctor-detail .review-source{font-size:12px}
+  .doctor-detail .side-card h3{font-size:17px}
+  .doctor-detail .schedule-row,
+  .doctor-detail .contact-row{font-size:13px}
+
+  .page.site-typo{font-size:15px;line-height:1.72}
+  .page.site-typo .hero p,
+  .page.site-typo :is(.intro,.facility-content) p{font-size:15px;line-height:1.78}
+  .page.site-typo :is(.intro,.facility-content) p{max-width:78ch}
+  .page.site-typo .section-head span,
+  .page.site-typo .facility-profile-eyebrow{font-size:12px!important}
+  .page.site-typo .facility .facility-title .subtitle{font-size:15px!important}
+  .page.site-typo .facts{gap:12px}
+  .page.site-typo .fact{padding:16px}
+  .page.site-typo .fact small{font-size:11px}
+  .page.site-typo :is(.fact strong,.fact a){font-size:13px;line-height:1.6}
+  .page.site-typo .price-box table{font-size:14px}
+  .page.site-typo .price-box :is(th,td){padding:15px 17px;line-height:1.65}
+  .page.site-typo .price-box th{font-size:13px}
+  .page.site-typo .toplist-quick-compare th{font-size:12px!important}
+  .page.site-typo .toplist-quick-compare td{font-size:13px!important;line-height:1.65}
+  .page.site-typo .quick-services span{font-size:11px}
+  .page.site-typo .review-summary-row{font-size:13px}
+  .page.site-typo .review-author strong{font-size:14px}
+  .page.site-typo .review-content p{font-size:14px;line-height:1.7}
+  .page.site-typo .review-source,
+  .page.site-typo .review-actions,
+  .page.site-typo .compare-meta{font-size:12px}
+  .page.site-typo .toc a{font-size:13px}
 }
 
 /*

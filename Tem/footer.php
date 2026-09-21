@@ -253,6 +253,17 @@ $escape = static fn (?string $value): string => htmlspecialchars((string) $value
   }
   .medical-footer .footer-bottom-note{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
   .medical-footer .footer-bottom-note i{color:#75a9ff;font-size:15px}
+  @media (min-width:1181px){
+    .medical-footer .footer-cta-copy p{font-size:14px;line-height:1.7}
+    .medical-footer .footer-cta-btn{font-size:14px}
+    .medical-footer .footer-brand-label{font-size:11px}
+    .medical-footer .footer-intro{font-size:14px;line-height:1.75}
+    .medical-footer .footer-section h3{font-size:13px}
+    .medical-footer .footer-links a{font-size:14px}
+    .medical-footer .footer-contact-copy{font-size:13px}
+    .medical-footer .footer-contact-copy small{font-size:10px}
+    .medical-footer .footer-bottom{font-size:12px}
+  }
   @media (max-width:1040px){
     .medical-footer .footer-grid{grid-template-columns:minmax(260px,1.35fr) minmax(150px,.8fr) minmax(200px,1fr);gap:31px}
     .medical-footer .footer-brand{grid-column:span 3;max-width:570px}
