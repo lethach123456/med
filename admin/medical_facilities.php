@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete' && $id > 0) {
         $stmt = $pdo->prepare('DELETE FROM medical_facilities WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $id]);
+        medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã xoá cơ sở y tế.', 'fa-solid fa-circle-check');
         header('Location: /admin/medical_facilities.php');
         exit;

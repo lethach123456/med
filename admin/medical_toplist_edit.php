@@ -54,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (int) $pdo->lastInsertId();
             $isEdit = true;
         }
+        // The article itself has been written even if synchronizing the
+        // selected facilities subsequently fails.
+        medical_search_cache_invalidate();
         toplist_directory_sync_facilities($pdo, $id, $selectedIds);
         flash_toast_set('success', 'Đã lưu bài Toplist và thứ hạng cơ sở.', 'fa-solid fa-circle-check');
         header('Location: /admin/medical_toplist_edit.php?id=' . $id);

@@ -220,6 +220,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':display_order' => (int) $values['display_order'],
                 ':id' => $id,
             ]);
+            // This facility row is already persisted. Invalidate before the
+            // follow-up review synchronization so an exception there cannot
+            // leave public search showing the old profile until TTL expiry.
+            medical_search_cache_invalidate();
 
             if ($values['slug'] !== '' && $values['slug'] !== $oldSlug) {
                 $stmt = $pdo->prepare('UPDATE medical_reviews SET facility_slug = :new_slug, facility_name = :facility_name WHERE facility_slug = :old_slug');
@@ -282,6 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':display_order' => (int) $values['display_order'],
         ]);
         $newId = (int) $pdo->lastInsertId();
+        medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã tạo cơ sở y tế.', 'fa-solid fa-circle-check');
         header('Location: /admin/medical_facility_edit.php?id=' . $newId);
         exit;

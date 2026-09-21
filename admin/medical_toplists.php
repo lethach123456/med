@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     $id = (int) ($_POST['id'] ?? 0);
     if ($id > 0) {
         $pdo->prepare('DELETE FROM medical_toplists WHERE id = :id LIMIT 1')->execute([':id' => $id]);
+        medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã xoá bài Toplist.', 'fa-solid fa-circle-check');
     }
     header('Location: /admin/medical_toplists.php');
@@ -94,6 +95,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
             }
             toplist_directory_sync_facilities($pdo, $toplistId, $facilityIds);
             $pdo->commit();
+            // The helper also marks the cache stale, but it runs inside this
+            // transaction. Invalidate once more after commit so a concurrent
+            // rebuild can never snapshot the pre-commit relationship rows.
+            medical_search_cache_invalidate();
             flash_toast_set('success', 'Đã nhập Toplist và tạo ' . count($facilityIds) . ' cơ sở mới.', 'fa-solid fa-circle-check');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();

@@ -186,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $params[':id'] = $id;
             $stmt->execute($params);
+            medical_search_cache_invalidate();
             flash_toast_set('success', 'Đã lưu bác sĩ.', 'fa-solid fa-circle-check');
             header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $id);
             exit;
@@ -204,6 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $stmt->execute($params);
         $newId = (int) $pdo->lastInsertId();
+        medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã tạo bác sĩ.', 'fa-solid fa-circle-check');
         header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $newId);
         exit;

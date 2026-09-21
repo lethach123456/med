@@ -158,6 +158,12 @@ try {
         $updatedToplists[] = $toplistId;
     }
     $pdo->commit();
+    // `toplist_directory_sync_facilities()` runs before the transaction is
+    // committed. Mark it stale again after commit to close the tiny race in
+    // which a cache rebuild could otherwise read the old relationships.
+    if ($updatedToplists !== [] || $createdFacilities !== []) {
+        medical_search_cache_invalidate();
+    }
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     json_response([

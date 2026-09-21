@@ -4,3 +4,10 @@
 # Local machine files and recoverable copies
 .DS_Store
 /backups/
+
+# Runtime JSON search indexes. The directory itself remains in Git so a fresh
+# deployment has a writable, predictable cache location.
+/storage/cache/*.json
+/storage/cache/*.lock
+/storage/cache/*.invalidated
+!/storage/cache/.gitkeep

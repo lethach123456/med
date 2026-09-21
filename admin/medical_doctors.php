@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete' && $id > 0) {
         $stmt = $pdo->prepare('DELETE FROM medical_doctors WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $id]);
+        medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã xoá bác sĩ.', 'fa-solid fa-circle-check');
         header('Location: ' . admin_url('medical_doctors.php'));
         exit;

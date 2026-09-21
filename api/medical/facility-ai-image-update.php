@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/../../medical_search_cache.php';
 
 $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
 $allowedOrigins = ['https://chatgpt.com', 'https://grok.com', 'https://x.com', 'https://www.x.com'];
@@ -211,6 +212,9 @@ foreach ($items as $index => $item) {
 }
 
 $status = $updated === [] && $errors !== [] ? 422 : 200;
+if ($updated !== []) {
+    medical_search_cache_invalidate();
+}
 json_response([
     'ok' => $updated !== [],
     'updated_count' => count($updated),

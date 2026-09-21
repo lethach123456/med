@@ -68,4 +68,5 @@ foreach ($facilities as $index => $facility) {
     ]);
 }
 
+medical_search_cache_invalidate();
 echo 'Đã thêm hoặc cập nhật ' . count($facilities) . " cơ sở y tế.\n";

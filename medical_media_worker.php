@@ -329,6 +329,10 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
             $params[':gallery_json'] = json_encode($galleryResult['value'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         $pdo->prepare("UPDATE {$table} SET " . implode(', ', $set) . ' WHERE id = :id')->execute($params);
+        // The public directory/search snapshot also carries cover and gallery
+        // URLs. A worker may finish long after the article API returned, so
+        // its successful local rewrite needs its own cache invalidation.
+        medical_search_cache_invalidate();
         return ['changed' => true];
     }
 

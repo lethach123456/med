@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/../../medical_search_cache.php';
 // The worker module is optional during deployment.  Article updates must keep
 // working even if the background image worker has not been installed yet.
 $medicalMediaWorker = __DIR__ . '/../../medical_media_worker.php';
@@ -386,6 +387,15 @@ try { foreach ($items as $item) {
         }
     }
 } } catch (Throwable $e) {
+    // A later item can fail after earlier facilities have already been
+    // persisted. Mark the snapshot stale before returning that partial
+    // failure so public search cannot keep showing the prior values.
+    if ($updated !== []) {
+        medical_search_cache_invalidate();
+    }
     json_response(['ok' => false, 'message' => 'Cập nhật thất bại: ' . $e->getMessage(), 'updated_ids' => $updated, 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems], 500);
+}
+if ($updated !== []) {
+    medical_search_cache_invalidate();
 }
 json_response(['ok' => true, 'updated_ids' => $updated, 'updated_count' => count($updated), 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems, 'errors' => $errors]);

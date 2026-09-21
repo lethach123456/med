@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/medical_search_cache.php';
 
 function medical_directory_table_exists(PDO $pdo, string $table): bool
 {
@@ -3369,4 +3370,5 @@ function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilit
         ':rating' => $rating,
         ':slug' => $facilitySlug,
     ]);
+    medical_search_cache_invalidate();
 }

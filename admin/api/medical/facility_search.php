@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $slug = unique_slug($pdo, 'medical_facilities', $name . '-' . $address);
     $stmt = $pdo->prepare("INSERT INTO medical_facilities (slug, name, category, address_text, city, status) VALUES (:slug, :name, :category, :address, '', 'published')");
     $stmt->execute([':slug' => $slug, ':name' => $name, ':category' => $category, ':address' => $address]);
+    medical_search_cache_invalidate();
     $facility = ['id' => (int) $pdo->lastInsertId(), 'name' => $name, 'city' => '', 'address_text' => $address, 'image_url' => '', 'rating' => '0.0', 'reviews_count' => 0];
     json_response(['ok' => true, 'item' => $facility]);
 }

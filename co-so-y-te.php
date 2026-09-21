@@ -162,27 +162,42 @@ $services = [];
 $directoryStats = ['facilities' => 0, 'reviews' => 0];
 
 try {
-    $pdo = db();
-    if (medical_directory_table_exists($pdo, 'medical_facilities')) {
-        $initial = facility_page_query($pdo, $filters, $requestedPage);
-        $directoryStats['facilities'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published'")->fetchColumn();
-        $directoryStats['reviews'] = medical_directory_table_exists($pdo, 'medical_reviews')
-            ? (int) $pdo->query("SELECT COUNT(*) FROM medical_reviews WHERE status = 'published' AND rating > 0")->fetchColumn()
-            : 0;
-        $cities = $pdo->query("SELECT city FROM medical_facilities WHERE status = 'published' AND city <> '' GROUP BY city ORDER BY COUNT(*) DESC, city ASC LIMIT 60")->fetchAll(PDO::FETCH_COLUMN) ?: [];
-        $categories = $pdo->query("SELECT category FROM medical_facilities WHERE status = 'published' AND category <> '' GROUP BY category ORDER BY COUNT(*) DESC, category ASC LIMIT 40")->fetchAll(PDO::FETCH_COLUMN) ?: [];
-        $serviceRows = $pdo->query("SELECT featured_services_json, services_json FROM medical_facilities WHERE status = 'published' AND (featured_services_json IS NOT NULL OR services_json IS NOT NULL) LIMIT 1200")->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        foreach ($serviceRows as $serviceRow) {
-            foreach (array_merge(facility_page_list_values($serviceRow['featured_services_json'] ?? ''), facility_page_list_values($serviceRow['services_json'] ?? '')) as $service) {
-                $services[$service] = true;
-            }
+    // The page shell, facets and first page use the same JSON snapshot as the
+    // AJAX endpoint. MySQL is only touched when the TTL has expired or an
+    // editor/API update invalidates the snapshot.
+    $cache = medical_search_cache_index();
+    $index = $cache['index'];
+    $directory = medical_search_cache_directory_search($index, $filters + ['page' => $requestedPage, 'limit' => 12]);
+    $initial = [
+        'items' => $directory['items'],
+        'total' => (int) $directory['paging']['total'],
+        'page' => (int) $directory['paging']['page'],
+        'total_pages' => (int) $directory['paging']['total_pages'],
+    ];
+
+    $cityCounts = [];
+    $categoryCounts = [];
+    foreach ((array) ($index['facilities'] ?? []) as $facility) {
+        if (!is_array($facility)) continue;
+        $directoryStats['facilities']++;
+        $directoryStats['reviews'] += max(0, (int) ($facility['reviews_count'] ?? 0));
+        $city = trim((string) ($facility['city'] ?? ''));
+        $category = trim((string) ($facility['category'] ?? ''));
+        if ($city !== '') $cityCounts[$city] = ($cityCounts[$city] ?? 0) + 1;
+        if ($category !== '') $categoryCounts[$category] = ($categoryCounts[$category] ?? 0) + 1;
+        foreach ((array) ($facility['services'] ?? []) as $service) {
+            $service = trim((string) $service);
+            if ($service !== '') $services[$service] = true;
         }
-        $services = array_slice(array_keys($services), 0, 50);
-        natcasesort($services);
-        $services = array_values($services);
     }
+    arsort($cityCounts); arsort($categoryCounts);
+    $cities = array_slice(array_keys($cityCounts), 0, 60);
+    $categories = array_slice(array_keys($categoryCounts), 0, 40);
+    $services = array_slice(array_keys($services), 0, 50);
+    natcasesort($services);
+    $services = array_values($services);
 } catch (Throwable $e) {
-    // Render the page shell even if the database is temporarily unavailable.
+    // Render the page shell even if cache storage and DB are both unavailable.
 }
 
 function facility_page_card(array $item): string
@@ -195,7 +210,7 @@ function facility_page_card(array $item): string
     $stars = $rating > 0 ? '★★★★★' : '☆☆☆☆☆';
     ob_start(); ?>
     <article class="facility-card">
-      <a class="facility-media" href="/co-so-y-te-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>" aria-label="Xem <?php echo $escape($item['name']); ?>">
+      <a class="facility-media" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>" aria-label="Xem <?php echo $escape($item['name']); ?>">
         <?php if ($image !== ''): ?>
           <img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name']); ?>" loading="lazy">
         <?php else: ?>
@@ -206,7 +221,7 @@ function facility_page_card(array $item): string
       <div class="facility-body">
         <div class="facility-eyebrow"><span><?php echo $escape($item['category']); ?></span><?php if (!empty($item['city'])): ?><span class="eyebrow-dot">•</span><span><?php echo $escape($item['city']); ?></span><?php endif; ?></div>
         <div class="facility-name-row">
-          <h2><a href="/co-so-y-te-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>"><?php echo $escape($item['name']); ?></a></h2>
+          <h2><a href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>"><?php echo $escape($item['name']); ?></a></h2>
           <?php if (!empty($item['verified'])): ?><span class="verified-badge" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span><?php endif; ?>
         </div>
         <?php if (!empty($item['subtitle'])): ?><p class="facility-subtitle"><?php echo $escape($item['subtitle']); ?></p><?php endif; ?>
@@ -235,7 +250,7 @@ function facility_page_card(array $item): string
         <span>Giá tham khảo</span>
         <strong><?php echo !empty($item['price']) ? $escape($item['price']) : 'Liên hệ cập nhật'; ?></strong>
       </div>
-      <a class="detail-button" href="/co-so-y-te-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a>
+      <a class="detail-button" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a>
     </article>
     <?php return trim((string) ob_get_clean());
 }

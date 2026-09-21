@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/medical_search_cache.php';
+
 function toplist_directory_ensure_tables(PDO $pdo): void
 {
     $pdo->exec(
@@ -47,6 +49,7 @@ function toplist_directory_sync_facilities(PDO $pdo, int $toplistId, array $faci
 
     $pdo->prepare('DELETE FROM medical_toplist_facilities WHERE toplist_id = :toplist_id')->execute([':toplist_id' => $toplistId]);
     if ($ids === []) {
+        medical_search_cache_invalidate();
         return;
     }
 
@@ -59,4 +62,5 @@ function toplist_directory_sync_facilities(PDO $pdo, int $toplistId, array $faci
         }
         $insertStmt->execute([':toplist_id' => $toplistId, ':facility_id' => $facilityId, ':rank_order' => $rank + 1]);
     }
+    medical_search_cache_invalidate();
 }
