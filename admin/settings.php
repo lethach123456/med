@@ -55,10 +55,12 @@ require __DIR__ . '/_layout_start.php';
                             <input id="siteTitle" class="form-control" required>
                           </div>
                           <div class="invalid-feedback">Vui lòng nhập tiêu đề.</div>
+                          <div class="form-text">Dùng làm tên thương hiệu trên header/footer và tiêu đề mặc định của trang chủ. SEO riêng của từng trang vẫn được ưu tiên.</div>
                         </div>
                         <div class="col-12">
                           <label class="form-label" for="siteDescription">Mô tả</label>
                           <textarea id="siteDescription" class="form-control" rows="3"></textarea>
+                          <div class="form-text">Dùng làm mô tả mặc định của trang chủ khi chưa có SEO Description riêng.</div>
                         </div>
                         <div class="col-12">
                           <label class="form-label" for="siteIconHref">Icon</label>
@@ -66,7 +68,7 @@ require __DIR__ . '/_layout_start.php';
                             <span class="input-group-text"><i class="fa-solid fa-image"></i></span>
                             <input id="siteIconHref" class="form-control mono" placeholder="https://... hoặc data:image/svg+xml,...">
                           </div>
-                          <div class="form-text">Nhập URL/data URI hoặc upload/chọn từ thư viện.</div>
+                          <div class="form-text">Favicon dùng chung trên toàn bộ trang. Hỗ trợ URL HTTPS, đường dẫn nội bộ hoặc data URI ảnh.</div>
                         </div>
                         <div class="col-12">
                           <div class="d-flex flex-wrap gap-2 align-items-center">

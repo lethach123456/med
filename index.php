@@ -11,16 +11,15 @@ $title = $seo['title'];
 $description = $seo['description'];
 $canonicalPath = (string) ($seo['canonical_path'] ?? '/');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
-$icon = '';
 $locale = site_page_locale('home');
 ?>
 <!doctype html>
 <html lang="<?php echo $locale === 'en' ? 'en' : 'vi'; ?>">
   <head>
+    <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
-    <?php if ($icon): ?><link rel="icon" href="<?php echo htmlspecialchars($icon, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="canonical" href="<?php echo htmlspecialchars($canonicalPath, ENT_QUOTES, 'UTF-8'); ?>">

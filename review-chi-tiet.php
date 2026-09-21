@@ -438,6 +438,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
 <!doctype html>
 <html lang="vi">
   <head>
+    <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>

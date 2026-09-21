@@ -24,7 +24,7 @@ $uiStylesheetVersion = is_file($uiStylesheetPath) ? (string) filemtime($uiStyles
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
-$brandName = 'MedReview';
+$brandName = site_title('MedReview');
 $brandTagline = $isEnglish ? 'Verified medical review community' : 'Cộng đồng review y tế đáng tin cậy';
 $desktopMenuLabel = $isEnglish ? 'Main navigation' : 'Điều hướng chính';
 $mobileMenuLabel = $isEnglish ? 'Mobile navigation' : 'Điều hướng di động';

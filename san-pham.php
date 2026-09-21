@@ -114,6 +114,7 @@ function money_vnd_text(?int $value, ?string $text): string {
 <!doctype html>
 <html lang="vi">
   <head>
+    <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php

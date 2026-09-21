@@ -467,6 +467,45 @@ function site_hotline(string $default = '0988 123 456'): string
     return site_setting('site_hotline', $default);
 }
 
+function site_title(string $default = 'MedReview'): string
+{
+    $value = trim(site_setting('site_title', ''));
+    return $value !== '' ? $value : $default;
+}
+
+function site_description(string $default = ''): string
+{
+    $value = trim(site_setting('site_description', ''));
+    return $value !== '' ? $value : $default;
+}
+
+function site_icon_href(string $default = ''): string
+{
+    $value = trim(site_setting('site_icon_href', ''));
+    if ($value === '') {
+        return $default;
+    }
+    if (
+        str_starts_with($value, '/')
+        || preg_match('#^https?://#i', $value) === 1
+        || preg_match('#^data:image/(?:png|jpeg|jpg|gif|webp|svg\+xml|x-icon);#i', $value) === 1
+    ) {
+        return $value;
+    }
+    return $default;
+}
+
+function site_favicon_tags(): string
+{
+    $href = site_icon_href('');
+    if ($href === '') {
+        return '';
+    }
+    $escaped = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
+    return '<link rel="icon" href="' . $escaped . '">' . "\n"
+        . '<link rel="apple-touch-icon" href="' . $escaped . '">';
+}
+
 function site_email(string $default = 'info@example.com'): string
 {
     return site_setting('site_email', $default);
@@ -1108,9 +1147,15 @@ function site_service_menu_links(?string $locale = null): array
 function front_editor_page_seo(string $pageKey, array $defaults = []): array
 {
     $profile = front_editor_page_profile($pageKey);
+    $defaultTitle = (string) ($defaults['title'] ?? '');
+    $defaultDescription = (string) ($defaults['description'] ?? '');
+    if ($pageKey === 'home') {
+        $defaultTitle = site_title($defaultTitle);
+        $defaultDescription = site_description($defaultDescription);
+    }
     return [
-        'title' => trim((string) ($profile['seo_title'] ?? '')) !== '' ? (string) $profile['seo_title'] : (string) ($defaults['title'] ?? ''),
-        'description' => trim((string) ($profile['seo_description'] ?? '')) !== '' ? (string) $profile['seo_description'] : (string) ($defaults['description'] ?? ''),
+        'title' => trim((string) ($profile['seo_title'] ?? '')) !== '' ? (string) $profile['seo_title'] : $defaultTitle,
+        'description' => trim((string) ($profile['seo_description'] ?? '')) !== '' ? (string) $profile['seo_description'] : $defaultDescription,
         'keywords' => trim((string) ($profile['seo_keywords'] ?? '')),
         'canonical_path' => front_editor_page_public_path($pageKey),
         'profile' => $profile,

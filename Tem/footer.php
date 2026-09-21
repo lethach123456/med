@@ -11,6 +11,7 @@ $address = site_address($isEnglish ? '123 Nguyen Van Linh, Da Nang' : '123 Nguye
 $facebook = site_facebook('#');
 $instagram = site_instagram('#');
 $zalo = site_zalo('#');
+$brandName = site_title('MedReview');
 $blogPath = front_editor_page_public_path($isEnglish ? 'blog-en' : 'blog');
 $aboutPath = $isEnglish ? front_editor_page_public_path('about-en') : '/ve-chung-toi.php';
 $contactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');
@@ -311,11 +312,11 @@ $escape = static fn (?string $value): string => htmlspecialchars((string) $value
 
   <div class="container footer-main">
     <div class="footer-grid">
-      <section class="footer-brand" aria-label="MedReview">
-        <a class="footer-brand-link" href="/" aria-label="MedReview">
+      <section class="footer-brand" aria-label="<?php echo $escape($brandName); ?>">
+        <a class="footer-brand-link" href="/" aria-label="<?php echo $escape($brandName); ?>">
           <span class="footer-brand-icon"><i class="ph-fill ph-heartbeat" aria-hidden="true"></i></span>
           <span>
-            <strong class="footer-brand-name">MedReview</strong>
+            <strong class="footer-brand-name"><?php echo $escape($brandName); ?></strong>
             <small class="footer-brand-label"><?php echo $escape($platformLabel); ?></small>
           </span>
         </a>
@@ -370,7 +371,7 @@ $escape = static fn (?string $value): string => htmlspecialchars((string) $value
   </div>
 
   <div class="container footer-bottom">
-    <span>&copy; <?php echo date('Y'); ?> MedReview. <?php echo $escape($copyright); ?></span>
+    <span>&copy; <?php echo date('Y'); ?> <?php echo $escape($brandName); ?>. <?php echo $escape($copyright); ?></span>
     <span class="footer-bottom-note"><i class="ph-fill ph-shield-check" aria-hidden="true"></i><?php echo $escape($platformLabel); ?></span>
   </div>
 </footer>
