@@ -694,7 +694,16 @@ $navItems = $isEnglish
     .medical-header .brand-mark{width:38px!important;height:38px!important;border-radius:13px!important}
     .medical-header .brand-mark.is-image{width:42px!important;height:42px!important;border-radius:0!important}
     .medical-header .brand-copy strong{font-size:21px!important}
-    .medical-header .brand-copy > .brand-tagline{display:none!important}
+    .medical-header .brand-copy > .brand-tagline{
+      display:block!important;
+      width:fit-content;
+      max-width:clamp(112px, calc(100vw - 190px), 230px);
+      font-size:clamp(8px, 2.55vw, 10px)!important;
+      line-height:1.2!important;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
     /* Keep the three compact controls together at the far right on phones. */
     .medical-header .header-actions{
       grid-column:3;
