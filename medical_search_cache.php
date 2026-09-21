@@ -287,11 +287,10 @@ function medical_search_cache_facilities(PDO $pdo): array
 function medical_search_cache_doctors(PDO $pdo): array
 {
     try {
+        // Keep this tolerant of installations whose optional doctor columns
+        // differ slightly; the normalizer below treats absent values as blank.
         $rows = $pdo->query(
-            "SELECT id, slug, name, title_text, specialty_text, city, facility_name, image_url,
-                    verified, rating, reviews_count, tags_json, specialties_json, bio_json, display_order, updated_at
-             FROM medical_doctors
-             WHERE status = 'published'"
+            "SELECT * FROM medical_doctors WHERE status = 'published'"
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable) {
         return [];
@@ -303,6 +302,11 @@ function medical_search_cache_doctors(PDO $pdo): array
             medical_search_cache_json_strings($row['specialties_json'] ?? ''),
             medical_search_cache_json_strings($row['specialty_text'] ?? '')
         )));
+        $gallery = medical_search_cache_gallery_urls($row['gallery_json'] ?? '');
+        $image = trim((string) ($row['image_url'] ?? ''));
+        if ($image === '' && $gallery !== []) {
+            $image = $gallery[0];
+        }
         $searchable = array_merge([
             (string) ($row['name'] ?? ''),
             (string) ($row['title_text'] ?? ''),
@@ -321,10 +325,13 @@ function medical_search_cache_doctors(PDO $pdo): array
             'specialty_text' => trim((string) ($row['specialty_text'] ?? '')),
             'city' => trim((string) ($row['city'] ?? '')),
             'facility_name' => trim((string) ($row['facility_name'] ?? '')),
-            'image_url' => trim((string) ($row['image_url'] ?? '')),
+            'image_url' => $image,
             'verified' => (bool) ((int) ($row['verified'] ?? 0)),
             'rating' => (float) ($row['rating'] ?? 0),
             'reviews_count' => (int) ($row['reviews_count'] ?? 0),
+            'followers_count' => (int) ($row['followers_count'] ?? 0),
+            'hours' => trim((string) ($row['hours_text'] ?? '')),
+            'price' => trim((string) ($row['price_text'] ?? '')),
             'services' => $specialties,
             'name_key' => medical_search_cache_normalize((string) ($row['name'] ?? '')),
             'category_key' => medical_search_cache_normalize((string) ($row['specialty_text'] ?? '')),
@@ -782,6 +789,138 @@ function medical_search_cache_directory_search(array $index, array $filters): ar
     $page = min($page, $totalPages);
     $offset = ($page - 1) * $limit;
     $items = array_map('medical_search_cache_directory_item', array_slice($matches, $offset, $limit));
+
+    return [
+        'items' => $items,
+        'paging' => [
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'total_pages' => $totalPages,
+            'has_next' => $page < $totalPages,
+            'has_prev' => $page > 1,
+        ],
+        'meta' => ['city' => $cityKey],
+    ];
+}
+
+/** @return array<string,mixed> */
+function medical_search_cache_doctor_directory_item(array $item): array
+{
+    return [
+        'id' => (int) ($item['id'] ?? 0),
+        'slug' => (string) ($item['slug'] ?? ''),
+        'url' => (string) ($item['url'] ?? ''),
+        'name' => (string) ($item['name'] ?? ''),
+        'title_text' => (string) ($item['title_text'] ?? ''),
+        'specialty_text' => (string) ($item['specialty_text'] ?? ''),
+        'city' => (string) ($item['city'] ?? ''),
+        'facility_name' => (string) ($item['facility_name'] ?? ''),
+        'image' => (string) ($item['image_url'] ?? ''),
+        'verified' => (bool) ($item['verified'] ?? false),
+        'rating' => number_format((float) ($item['rating'] ?? 0), 1, '.', ''),
+        'reviews_count' => (int) ($item['reviews_count'] ?? 0),
+        'followers_count' => (int) ($item['followers_count'] ?? 0),
+        'hours' => (string) ($item['hours'] ?? ''),
+        'price' => (string) ($item['price'] ?? ''),
+        'services' => array_slice(array_values((array) ($item['services'] ?? [])), 0, 8),
+    ];
+}
+
+/**
+ * Search and paginate doctors from the shared JSON TTL index.
+ *
+ * @param array<string,mixed> $filters
+ * @return array{items:array<int,array<string,mixed>>,paging:array<string,int|bool>,meta:array<string,string>}
+ */
+function medical_search_cache_doctor_directory_search(array $index, array $filters): array
+{
+    $page = max(1, (int) ($filters['page'] ?? 1));
+    $limit = min(24, max(6, (int) ($filters['limit'] ?? 12)));
+    $query = trim((string) ($filters['q'] ?? ''));
+    $city = trim((string) ($filters['city'] ?? ''));
+    $specialty = trim((string) ($filters['specialty'] ?? ''));
+    $minRating = (float) ($filters['min_rating'] ?? 0);
+    $minRating = in_array($minRating, [0.0, 4.0, 4.5], true) ? $minRating : 0.0;
+    $sort = (string) ($filters['sort'] ?? 'recommended');
+
+    $queryKey = medical_search_cache_normalize($query);
+    $terms = array_values(array_diff(medical_search_cache_terms($query), ['bac', 'si', 'bs', 'dr']));
+    $cityKey = medical_search_cache_normalize($city);
+    if ($cityKey === '' && $queryKey !== '') {
+        $cityKey = medical_search_cache_detect_city((array) ($index['cities'] ?? []), $queryKey)['key'];
+    }
+    $specialtyKey = medical_search_cache_normalize($specialty);
+    $matches = [];
+
+    foreach ((array) ($index['doctors'] ?? []) as $doctor) {
+        if (!is_array($doctor) || trim((string) ($doctor['search_text'] ?? '')) === '') {
+            continue;
+        }
+        if ($cityKey !== '' && (string) ($doctor['city_key'] ?? '') !== $cityKey) {
+            continue;
+        }
+        if ($specialtyKey !== '') {
+            $hasSpecialty = str_contains((string) ($doctor['category_key'] ?? ''), $specialtyKey);
+            if (!$hasSpecialty) {
+                foreach ((array) ($doctor['services'] ?? []) as $candidate) {
+                    if (str_contains(medical_search_cache_normalize((string) $candidate), $specialtyKey)) {
+                        $hasSpecialty = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasSpecialty) {
+                continue;
+            }
+        }
+        if ($minRating > 0 && (float) ($doctor['rating'] ?? 0) < $minRating) {
+            continue;
+        }
+        $matchesQuery = true;
+        foreach ($terms as $term) {
+            if (!str_contains((string) $doctor['search_text'], $term)) {
+                $matchesQuery = false;
+                break;
+            }
+        }
+        if ($matchesQuery) {
+            $matches[] = $doctor;
+        }
+    }
+
+    usort($matches, static function (array $left, array $right) use ($sort): int {
+        $leftRating = (float) ($left['rating'] ?? 0);
+        $rightRating = (float) ($right['rating'] ?? 0);
+        $leftReviews = (int) ($left['reviews_count'] ?? 0);
+        $rightReviews = (int) ($right['reviews_count'] ?? 0);
+        if ($sort === 'newest') {
+            $newest = strcmp((string) ($right['updated_at'] ?? ''), (string) ($left['updated_at'] ?? ''));
+            return $newest !== 0 ? $newest : ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
+        }
+        if ($sort === 'reviews') {
+            $reviews = $rightReviews <=> $leftReviews;
+            return $reviews !== 0 ? $reviews : ($rightRating <=> $leftRating);
+        }
+        $rating = $rightRating <=> $leftRating;
+        if ($rating !== 0) {
+            return $rating;
+        }
+        $reviews = $rightReviews <=> $leftReviews;
+        if ($reviews !== 0) {
+            return $reviews;
+        }
+        $order = ((int) ($left['display_order'] ?? 0)) <=> ((int) ($right['display_order'] ?? 0));
+        return $order !== 0 ? $order : ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
+    });
+
+    $total = count($matches);
+    $totalPages = max(1, (int) ceil($total / $limit));
+    $page = min($page, $totalPages);
+    $items = array_map(
+        'medical_search_cache_doctor_directory_item',
+        array_slice($matches, ($page - 1) * $limit, $limit)
+    );
 
     return [
         'items' => $items,
