@@ -559,7 +559,8 @@ $navItems = $isEnglish
     min-height:76px!important;
     gap:20px!important;
   }
-  .medical-header .brand-link{gap:11px}
+  /* The configured pin artwork has a wider visual footprint than the fallback icon. */
+  .medical-header .brand-link.has-image-brand{gap:4px!important}
   .medical-header .brand-mark{
     width:42px!important;
     height:42px!important;
@@ -1289,7 +1290,7 @@ $navItems = $isEnglish
 <header class="medical-header">
   <div class="container">
     <div class="header-shell">
-      <a class="brand-link" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
+      <a class="brand-link<?php echo $hasBrandIcon ? ' has-image-brand' : ''; ?>" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
         <span class="brand-mark<?php echo $hasBrandIcon ? ' is-image' : ''; ?>" aria-hidden="true">
           <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.remove();this.parentElement.classList.remove('is-image');"><?php endif; ?>
           <i class="ph ph-heart"></i>
