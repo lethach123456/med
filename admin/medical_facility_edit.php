@@ -13,6 +13,7 @@ medical_directory_seed_defaults($pdo);
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
 $oldSlug = '';
+$originalGalleryItems = [];
 
 function facility_pretty_json($value): string
 {
@@ -41,6 +42,68 @@ function facility_text_to_lines(string $value): array
         if ($line !== '') {
             $result[] = $line;
         }
+    }
+    return $result;
+}
+
+function facility_gallery_normalize_url(string $url): string
+{
+    $url = trim($url);
+    if (preg_match('~^\\[([^]]+)]\\((https?://[^)]+)\\)$~u', $url, $matches)) {
+        $url = trim((string) $matches[2]);
+    }
+    return str_starts_with($url, 'uploads/') ? '/' . $url : $url;
+}
+
+/** Flatten legacy URLs and rich {url, angle, ...} entries for the URL-only gallery picker. */
+function facility_gallery_items_to_text(array $items): string
+{
+    if (array_key_exists('url', $items) || array_key_exists('src', $items)) {
+        $items = [$items];
+    }
+
+    $urls = [];
+    foreach ($items as $item) {
+        $url = is_array($item) ? ($item['url'] ?? $item['src'] ?? '') : $item;
+        if (!is_string($url) && !is_numeric($url)) {
+            continue;
+        }
+        $url = facility_gallery_normalize_url((string) $url);
+        if ($url !== '' && !in_array($url, $urls, true)) {
+            $urls[] = $url;
+        }
+    }
+
+    return facility_lines_to_text($urls);
+}
+
+/** Preserve angle/caption/source metadata for URLs that were already in the gallery. */
+function facility_gallery_items_from_text(string $value, array $previousItems): array
+{
+    if (array_key_exists('url', $previousItems) || array_key_exists('src', $previousItems)) {
+        $previousItems = [$previousItems];
+    }
+
+    $previousByUrl = [];
+    foreach ($previousItems as $item) {
+        $url = is_array($item) ? ($item['url'] ?? $item['src'] ?? '') : $item;
+        if (is_string($url) || is_numeric($url)) {
+            $normalizedUrl = facility_gallery_normalize_url((string) $url);
+            if ($normalizedUrl !== '') {
+                $previousByUrl[$normalizedUrl] = $item;
+            }
+        }
+    }
+
+    $result = [];
+    $seen = [];
+    foreach (facility_text_to_lines($value) as $url) {
+        $url = facility_gallery_normalize_url($url);
+        if ($url === '' || isset($seen[$url])) {
+            continue;
+        }
+        $seen[$url] = true;
+        $result[] = $previousByUrl[$url] ?? ['url' => $url];
     }
     return $result;
 }
@@ -100,6 +163,7 @@ if ($isEdit) {
         exit;
     }
     $oldSlug = (string) ($row['slug'] ?? '');
+    $originalGalleryItems = medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), []);
     $item = medical_directory_facility_from_row($row);
     $values = [
         'name' => (string) $item['name'],
@@ -125,7 +189,7 @@ if ($isEdit) {
         'images_label' => (string) $item['images_label'],
         'featured_services_lines' => facility_lines_to_text((array) $item['featured_services']),
         'tags_lines' => facility_lines_to_text((array) $item['tags']),
-        'gallery_lines' => facility_lines_to_text((array) $item['gallery']),
+        'gallery_lines' => facility_gallery_items_to_text((array) $item['gallery']),
         'intro_lines' => (string) ($row['content'] ?? ''),
         'utilities_lines' => facility_lines_to_text((array) $item['utilities']),
         'status' => (string) $item['status'],
@@ -172,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $featuredServices = facility_text_to_lines($values['featured_services_lines']);
     $tags = facility_text_to_lines($values['tags_lines']);
-    $gallery = facility_text_to_lines($values['gallery_lines']);
+    $gallery = facility_gallery_items_from_text($values['gallery_lines'], $originalGalleryItems);
     $intro = facility_text_to_lines($values['intro_lines']);
     $utilities = facility_text_to_lines($values['utilities_lines']);
 

@@ -83,10 +83,10 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
   <link rel="canonical" href="<?php echo $escape($canonicalPath); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{--about-ink:#12203b;--about-muted:#64748b;--about-blue:#2563eb;--about-line:#dbe7fb;--about-surface:#fff}
-    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:#f6f9ff;color:var(--about-ink);font-family:var(--ui-font,"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif)}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:#f6f9ff;color:var(--about-ink);font-family:var(--ui-font,"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif)}
     .about-page{overflow:hidden}.about-shell{width:min(1180px,calc(100% - 48px));margin:0 auto}.about-page a{text-decoration:none}.about-page button{font:inherit}
     .about-breadcrumb{display:flex;align-items:center;gap:8px;padding:24px 0 17px;color:#7183a3;font-size:13px;font-weight:700}.about-breadcrumb a{color:#7183a3}.about-breadcrumb i{font-size:14px;color:#9aaccc}.about-breadcrumb strong{color:#2563eb}
     .about-hero{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr);gap:44px;align-items:center;min-height:520px;padding:58px clamp(30px,5vw,66px);overflow:hidden;border:1px solid #d7e6ff;border-radius:32px;background:linear-gradient(135deg,#fff 0%,#f4f8ff 53%,#e9f2ff 100%);box-shadow:0 22px 62px rgba(37,99,235,.1)}

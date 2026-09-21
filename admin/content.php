@@ -69,6 +69,11 @@ function front_editor_content_meta(): array
     $catalog = function_exists('front_editor_page_catalog') ? front_editor_page_catalog() : [];
     $notes = [
         'home' => 'Trang gốc `/` chỉ hỗ trợ tối ưu SEO, không đổi slug công khai từ màn này.',
+        'co-so-y-te' => 'Trang danh sách cơ sở y tế. Chỉnh metadata SEO tại đây; route và bộ lọc tìm kiếm được giữ nguyên.',
+        'bac-si' => 'Trang danh sách bác sĩ. Chỉnh metadata SEO tại đây; route và chức năng tìm kiếm được giữ nguyên.',
+        'review' => 'Trang danh sách review. Chỉnh metadata SEO tại đây; route và phân trang được giữ nguyên.',
+        'danh-muc-y-te' => 'Trang danh mục y tế. Chỉnh metadata SEO tại đây; route công khai được giữ nguyên.',
+        'toplist' => 'Trang danh sách Toplist. Chỉnh metadata SEO tại đây; route và dữ liệu danh sách được giữ nguyên.',
         'products' => 'Có thể đổi slug listing sang route khác không đuôi `.php`. Route cũ vẫn được chuyển hướng để giữ SEO.',
         'projects' => 'Có thể đổi slug listing sang route khác không đuôi `.php`. Route cũ vẫn được chuyển hướng để giữ SEO.',
         'blog' => 'Có thể đổi slug listing blog sang route khác không đuôi `.php`. Chi tiết bài viết vẫn giữ routing riêng.',
@@ -153,9 +158,11 @@ if (is_array($projectCategories)) {
 }
 
 $frontEditorRows = [];
-$frontEditorPages = function_exists('front_editor_allowed_pages') ? front_editor_allowed_pages() : [];
+$frontEditorFiles = function_exists('front_editor_allowed_pages') ? front_editor_allowed_pages() : [];
+$frontEditorPages = function_exists('front_editor_page_catalog') ? front_editor_page_catalog() : [];
 $frontEditorMeta = front_editor_content_meta();
-foreach ($frontEditorPages as $pageKey => $filePath) {
+foreach ($frontEditorPages as $pageKey => $pageConfig) {
+    $filePath = (string) ($frontEditorFiles[$pageKey] ?? '');
     $meta = $frontEditorMeta[$pageKey] ?? [];
     $profile = function_exists('front_editor_page_profile') ? front_editor_page_profile((string) $pageKey) : [];
     $route = function_exists('front_editor_page_public_path')
@@ -166,9 +173,7 @@ foreach ($frontEditorPages as $pageKey => $filePath) {
     $updatedAt = is_array($profile) && trim((string) ($profile['updated_at'] ?? '')) !== ''
         ? (string) ($profile['updated_at'] ?? '')
         : (($fileModifiedAt !== false) ? date('Y-m-d H:i:s', (int) $fileModifiedAt) : '');
-    $defaultRoute = function_exists('front_editor_page_catalog')
-        ? (string) ((front_editor_page_catalog()[$pageKey]['default_route'] ?? $route))
-        : $route;
+    $defaultRoute = (string) ($pageConfig['default_route'] ?? $route);
     $frontEditorRows[] = [
         'page_key' => (string) $pageKey,
         'title' => $title,
@@ -231,7 +236,7 @@ usort($allRows, static function (array $a, array $b): int {
               </li>
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="tab-front-editor" data-bs-toggle="pill" data-bs-target="#pane-front-editor" type="button" role="tab" aria-controls="pane-front-editor" aria-selected="false">
-                  <i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Front editor
+                  <i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Trang &amp; SEO
                   <span class="badge text-bg-light text-dark ms-2"><?php echo is_array($frontEditorRows) ? count($frontEditorRows) : 0; ?></span>
                 </button>
               </li>
@@ -469,7 +474,7 @@ usort($allRows, static function (array $a, array $b): int {
             <div class="tab-pane fade" id="pane-front-editor" role="tabpanel" aria-labelledby="tab-front-editor" tabindex="0">
               <div class="p-3 border-bottom bg-light-subtle">
                 <div class="small text-secondary">
-                  Danh sách này lấy từ `front_editor_allowed_pages()`. Bạn có thể mở trang để sửa trực tiếp ngoài giao diện, hoặc bấm nút `SEO/slug` để mở popup tối ưu SEO riêng cho trang front editor. Slug mới sẽ chạy không đuôi `.php`; các route cũ mặc định sẽ được chuyển hướng về slug mới để hỗ trợ SEO tốt hơn.
+                  Danh sách gồm trang chủ, các trang danh sách y tế và các trang front editor. Bấm nút cài đặt để chỉnh SEO Title, Description, Keywords; chỉ những trang hỗ trợ slug mới có thể đổi đường dẫn. Cấu hình này không thay đổi dữ liệu hay chức năng của trang.
                 </div>
               </div>
               <div class="table-responsive">
@@ -504,7 +509,7 @@ usort($allRows, static function (array $a, array $b): int {
                                 <div class="fw-semibold"><?php echo htmlspecialchars((string) ($row['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                                 <div class="small text-secondary">
                                   key: <code><?php echo htmlspecialchars((string) ($row['page_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></code>
-                                  • file: <?php echo htmlspecialchars(basename((string) ($row['file_path'] ?? '')), ENT_QUOTES, 'UTF-8'); ?>
+                                  • <?php echo trim((string) ($row['file_path'] ?? '')) !== '' ? 'file: ' . htmlspecialchars(basename((string) $row['file_path']), ENT_QUOTES, 'UTF-8') : 'trang SEO'; ?>
                                 </div>
                                 <?php if (trim((string) ($row['note'] ?? '')) !== ''): ?>
                                   <div class="small text-secondary mt-1"><?php echo htmlspecialchars((string) ($row['note'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
@@ -534,7 +539,7 @@ usort($allRows, static function (array $a, array $b): int {
                               </div>
                             <?php else: ?>
                               <div class="fw-semibold text-secondary">Chưa có hồ sơ SEO</div>
-                              <div class="small text-secondary">Có thể mở popup để lưu SEO title, SEO description, keywords và slug riêng cho trang này.</div>
+                              <div class="small text-secondary">Có thể mở popup để lưu SEO title, description và keywords<?php echo $supportsSlug ? ', cùng slug riêng cho trang này.' : ' cho trang này.'; ?></div>
                             <?php endif; ?>
                           </td>
                           <td class="text-secondary small"><?php echo htmlspecialchars(fmt_dt((string) ($row['updated_at'] ?? '')), ENT_QUOTES, 'UTF-8'); ?></td>
@@ -855,7 +860,7 @@ usort($allRows, static function (array $a, array $b): int {
       <form id="frontEditorSeoForm">
         <div class="modal-body">
           <input type="hidden" name="page_key" id="frontEditorSeoPageKey">
-          <div class="alert alert-light border mb-3 small">
+          <div class="alert alert-light border mb-3 small" id="frontEditorSeoSlugNotice">
             Slug mới sẽ chạy không đuôi `.php`. Khi đã lưu slug riêng, route mặc định cũ của trang sẽ được chuyển hướng về route mới để tối ưu SEO.
           </div>
           <div class="row g-3">
@@ -905,6 +910,7 @@ usort($allRows, static function (array $a, array $b): int {
     const frontEditorSeoPageKeyEl = document.getElementById("frontEditorSeoPageKey");
     const frontEditorSeoSlugEl = document.getElementById("frontEditorSeoSlug");
     const frontEditorSeoSlugHintEl = document.getElementById("frontEditorSeoSlugHint");
+    const frontEditorSeoSlugNoticeEl = document.getElementById("frontEditorSeoSlugNotice");
     const frontEditorSeoCurrentRouteEl = document.getElementById("frontEditorSeoCurrentRoute");
     const frontEditorSeoTitleEl = document.getElementById("frontEditorSeoTitle");
     const frontEditorSeoDescriptionEl = document.getElementById("frontEditorSeoDescription");
@@ -957,6 +963,9 @@ usort($allRows, static function (array $a, array $b): int {
       frontEditorSeoDescriptionEl.value = seoDescription;
       frontEditorSeoKeywordsEl.value = seoKeywords;
       frontEditorSeoSlugEl.disabled = !supportsSlug;
+      frontEditorSeoSlugNoticeEl.textContent = supportsSlug
+        ? "Slug mới sẽ chạy không đuôi .php. Route mặc định cũ sẽ được chuyển hướng về slug mới sau khi lưu."
+        : "Trang này chỉ cập nhật SEO Title, Description và Keywords; route công khai được giữ nguyên.";
       if (supportsSlug) {
         const defaultSlug = defaultRoute.replace(/^\/+/, "");
         frontEditorSeoSlugEl.placeholder = defaultSlug || "vi-du: nha-khoa-rang-su-da-nang";

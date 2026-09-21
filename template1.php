@@ -6,7 +6,7 @@
     <title>RB Concept • Template 1</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -75,7 +75,7 @@
         line-height: 1.1;
       }
       .brand-title strong{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         letter-spacing: -0.02em;
         font-weight: 700;
       }
@@ -208,7 +208,7 @@
       }
       .hero-copy h1{
         margin: 0 0 10px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-weight: 700;
         letter-spacing: -0.03em;
         line-height: 1.1;
@@ -249,7 +249,7 @@
         gap: 10px;
       }
       .hero-card b{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-weight: 700;
       }
       .hero-card p{
@@ -298,7 +298,7 @@
       }
       .intro-card h3{
         margin: 0 0 6px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         letter-spacing: -0.02em;
         font-size: 18px;
       }
@@ -355,7 +355,7 @@
       .section h2{
         margin: 0 0 14px;
         text-align:center;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: 22px;
         letter-spacing: -0.02em;
       }
@@ -423,7 +423,7 @@
       }
       .contact h3{
         margin: 0 0 8px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: 18px;
       }
       .contact .line{
@@ -483,7 +483,7 @@
         flex-wrap: wrap;
       }
       .footer-cta-inner b{
-        font-family:"Playfair Display", serif;
+        font-family:inherit;
         font-weight: 600;
         color: rgba(255,255,255,0.92);
       }

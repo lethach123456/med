@@ -131,7 +131,7 @@ function money_vnd_text(?int $value, ?string $text): string {
     <?php if (!$isDetail && (string) ($seo['canonical_path'] ?? '') !== ''): ?><link rel="canonical" href="<?php echo htmlspecialchars((string) $seo['canonical_path'], ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -196,7 +196,7 @@ function money_vnd_text(?int $value, ?string $text): string {
       }
       .brand-title{ line-height: 1.1; }
       .brand-title strong{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         letter-spacing: -0.02em;
         font-weight: 700;
       }
@@ -325,7 +325,7 @@ function money_vnd_text(?int $value, ?string $text): string {
       .crumbs a:hover{ color: rgba(255,255,255,0.98); }
       .hero-copy h1{
         margin: 10px 0 8px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-weight: 700;
         letter-spacing: -0.03em;
         line-height: 1.1;
@@ -394,7 +394,7 @@ function money_vnd_text(?int $value, ?string $text): string {
         padding: 12px 14px;
       }
       .assist b{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: 16px;
       }
       .assist p{
@@ -538,7 +538,7 @@ function money_vnd_text(?int $value, ?string $text): string {
         flex-wrap: wrap;
       }
       .footer-cta-inner b{
-        font-family:"Playfair Display", serif;
+        font-family:inherit;
         font-weight: 600;
         color: rgba(255,255,255,0.92);
       }
@@ -687,7 +687,7 @@ function money_vnd_text(?int $value, ?string $text): string {
                     <div class="img" aria-hidden="true" style="height:280px;<?php echo $img !== '' ? "background-image:url('".htmlspecialchars($img, ENT_QUOTES, 'UTF-8')."')" : ""; ?>"></div>
                   </div>
                   <div>
-                    <div style="font-family:'Playfair Display',serif; font-weight:700; font-size:22px; letter-spacing:-0.02em; margin-bottom: 6px;"><?php echo htmlspecialchars((string) ($detail['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div style="font-family:Inter,system-ui,sans-serif; font-weight:700; font-size:22px; letter-spacing:-0.02em; margin-bottom: 6px;"><?php echo htmlspecialchars((string) ($detail['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                     <div class="price <?php echo $priceInt === null ? 'is-quote' : ''; ?>" style="font-size:18px;"><?php echo htmlspecialchars($price, ENT_QUOTES, 'UTF-8'); ?></div>
                     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                       <a class="btn btn-primary" href="/lien-he.php"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Nhận tư vấn</a>

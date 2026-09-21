@@ -587,6 +587,36 @@ function front_editor_page_catalog(): array
             'aliases' => ['/'],
             'supports_slug' => false,
         ],
+        'co-so-y-te' => [
+            'title' => 'Danh sách cơ sở y tế',
+            'default_route' => '/co-so-y-te',
+            'aliases' => ['/co-so-y-te', '/co-so-y-te.php'],
+            'supports_slug' => false,
+        ],
+        'bac-si' => [
+            'title' => 'Danh sách bác sĩ',
+            'default_route' => '/bac-si.php',
+            'aliases' => ['/bac-si.php'],
+            'supports_slug' => false,
+        ],
+        'review' => [
+            'title' => 'Danh sách review',
+            'default_route' => '/review.php',
+            'aliases' => ['/review.php'],
+            'supports_slug' => false,
+        ],
+        'danh-muc-y-te' => [
+            'title' => 'Danh mục y tế',
+            'default_route' => '/danh-muc-y-te.php',
+            'aliases' => ['/danh-muc-y-te.php'],
+            'supports_slug' => false,
+        ],
+        'toplist' => [
+            'title' => 'Danh sách Toplist',
+            'default_route' => '/toplist',
+            'aliases' => ['/toplist', '/toplist.php'],
+            'supports_slug' => false,
+        ],
         'products' => [
             'title' => 'Trang sản phẩm',
             'default_route' => '/san-pham',

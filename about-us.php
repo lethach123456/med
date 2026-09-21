@@ -117,7 +117,7 @@ try {
     <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/about-us'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -157,7 +157,7 @@ try {
       .brand-mark{ width: 44px; height: 44px; border-radius: 14px; background: radial-gradient(18px 18px at 30% 25%, rgba(255,255,255,0.8), transparent 60%), linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 18px 50px rgba(37,99,235,0.25); display: flex; align-items: center; justify-content: center; }
       .brand-mark i{ color: #fff; font-size: 20px; }
       .brand-title{ line-height: 1.1; }
-      .brand-title strong{ font-family: "Playfair Display", serif; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
+      .brand-title strong{ font-family:inherit; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
       .brand-title span{ display:block; margin-top: 2px; font-size: 12px; color: var(--muted); }
       .navlinks{ display:flex; align-items:center; gap: 16px; }
       .navlinks a{ font-size: 14px; color: var(--muted); padding: 10px 10px; border-radius: var(--radius); transition: background 160ms ease, color 160ms ease; }
@@ -253,7 +253,7 @@ try {
       }
       .hero-copy h1{
         margin: 12px 0 12px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: clamp(34px, 4vw, 54px);
         line-height: 1.08;
         letter-spacing: -0.03em;
@@ -297,7 +297,7 @@ try {
         border: 1px solid rgba(255,255,255,0.14);
       }
       .hero-stat strong{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: 28px;
         line-height: 1;
       }
@@ -343,7 +343,7 @@ try {
       }
       h2{
         margin: 0;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: clamp(26px, 2.6vw, 38px);
         letter-spacing: -0.03em;
       }
@@ -583,7 +583,7 @@ try {
       }
       .quote-box blockquote{
         margin: 0;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: clamp(24px, 2.8vw, 34px);
         line-height: 1.35;
         letter-spacing: -0.03em;
@@ -649,7 +649,7 @@ try {
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display",serif; font-weight:600; color: rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color: rgba(255,255,255,0.92); }
       .footer-main{ padding:18px 0 10px; }
       .footer-cols{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:18px; }
       .footer-col h4{ margin:0 0 10px; font-size:14px; font-weight:700; color: rgba(255,255,255,0.92); padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.10); }

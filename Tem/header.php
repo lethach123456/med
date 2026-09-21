@@ -1555,4 +1555,4 @@ $navItems = $isEnglish
     else decoratePublicInteractions();
   })();
 </script>
-<script src="/medical-global-search.js" defer></script>
+<script src="/assets/js/medical-global-search.js" defer></script>

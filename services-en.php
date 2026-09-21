@@ -65,7 +65,7 @@ try {
     <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -105,7 +105,7 @@ try {
       .brand-mark{ width: 44px; height: 44px; border-radius: 14px; background: radial-gradient(18px 18px at 30% 25%, rgba(255,255,255,0.8), transparent 60%), linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 18px 50px rgba(37,99,235,0.25); display: flex; align-items: center; justify-content: center; }
       .brand-mark i{ color: #fff; font-size: 20px; }
       .brand-title{ line-height: 1.1; }
-      .brand-title strong{ font-family: "Playfair Display", serif; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
+      .brand-title strong{ font-family:inherit; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
       .brand-title span{ display:block; margin-top: 2px; font-size: 12px; color: var(--muted); }
       .navlinks{ display:flex; align-items:center; gap: 16px; }
       .navlinks a{ font-size: 14px; color: var(--muted); padding: 10px 10px; border-radius: var(--radius); transition: background 160ms ease, color 160ms ease; }
@@ -133,12 +133,12 @@ try {
       .hero-copy{ padding: 22px 20px; border-radius: var(--radius); background: rgba(0,0,0,0.26); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 28px 80px rgba(0,0,0,0.22); color: rgba(255,255,255,0.96); backdrop-filter: blur(12px); }
       .hero-kicker{ display:inline-flex; align-items:center; gap: 10px; font-weight: 600; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.86); }
       .hero-kicker .dot{ width: 8px; height: 8px; border-radius: 999px; background: var(--brand-2); box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
-      .hero-copy h1{ margin: 0 0 10px; font-family: "Playfair Display", serif; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
+      .hero-copy h1{ margin: 0 0 10px; font-family:inherit; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
       .hero-copy p{ margin:0; color: rgba(255,255,255,0.82); line-height: 1.7; max-width: 62ch; }
       .hero-actions{ margin-top:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
       .hero-actions .btn-ghost{ border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.94); }
       .section{ padding: 34px 0; }
-      .section h2{ margin:0 0 14px; text-align:center; font-family:"Playfair Display",serif; font-size:22px; letter-spacing:-0.02em; }
+      .section h2{ margin:0 0 14px; text-align:center; font-family:inherit; font-size:22px; letter-spacing:-0.02em; }
       .section-lead{ text-align:center; color:var(--muted); max-width:70ch; margin:0 auto 16px; line-height:1.7; font-size:14px; }
       .grid{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:14px; }
       .card{ border-radius: var(--radius); border:1px solid var(--border); background: var(--surface-2); box-shadow: var(--shadow); overflow:hidden; transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease; }
@@ -156,7 +156,7 @@ try {
       .about-content p{ color:var(--muted); line-height:1.7; font-size:14px; margin-bottom:12px; }
       .about-stats{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; margin-top:16px; }
       .stat-item{ text-align:center; padding:16px; border-radius:var(--radius); background:#fff; border:1px solid var(--border); box-shadow:0 4px 12px rgba(37,99,235,0.1); }
-      .stat-item h3{ font-family:"Playfair Display",serif; font-size:28px; color:var(--brand); margin:0 0 4px; }
+      .stat-item h3{ font-family:inherit; font-size:28px; color:var(--brand); margin:0 0 4px; }
       .stat-item span{ color:var(--muted); font-size:13px; }
       /* Services Scroll */
       .services-scroll-container{ width:100%; }
@@ -248,7 +248,7 @@ try {
       }
       .quote-panel blockquote{
         margin:0;
-        font-family:"Playfair Display",serif;
+        font-family:inherit;
         font-size: clamp(24px, 2.2vw, 32px);
         line-height:1.35;
         letter-spacing:-0.03em;
@@ -266,7 +266,7 @@ try {
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display",serif; font-weight:600; color:rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color:rgba(255,255,255,0.92); }
       .footer-cta .btn-ghost{ border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); }
       .footer-cta .btn-ghost:hover{ background: rgba(255,255,255,0.16); }
       .footer-main{ padding:18px 0 10px; }

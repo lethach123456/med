@@ -89,7 +89,7 @@ try {
     <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/news'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -129,7 +129,7 @@ try {
       .brand-mark{ width: 44px; height: 44px; border-radius: 14px; background: radial-gradient(18px 18px at 30% 25%, rgba(255,255,255,0.8), transparent 60%), linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 18px 50px rgba(37,99,235,0.25); display: flex; align-items: center; justify-content: center; }
       .brand-mark i{ color: #fff; font-size: 20px; }
       .brand-title{ line-height: 1.1; }
-      .brand-title strong{ font-family: "Playfair Display", serif; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
+      .brand-title strong{ font-family:inherit; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
       .brand-title span{ display:block; margin-top: 2px; font-size: 12px; color: var(--muted); }
       .navlinks{ display:flex; align-items:center; gap: 16px; }
       .navlinks a{ font-size: 14px; color: var(--muted); padding: 10px 10px; border-radius: var(--radius); transition: background 160ms ease, color 160ms ease; }
@@ -212,7 +212,7 @@ try {
       .crumbs a:hover{ color: rgba(255,255,255,0.98); }
       .hero-copy h1{
         margin: 10px 0 8px;
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-weight: 700;
         letter-spacing: -0.03em;
         line-height: 1.1;
@@ -283,7 +283,7 @@ try {
         padding: 12px 14px;
       }
       .tips b{
-        font-family: "Playfair Display", serif;
+        font-family:inherit;
         font-size: 16px;
       }
       .tips p{
@@ -378,7 +378,7 @@ try {
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display", serif; font-weight:600; color: rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color: rgba(255,255,255,0.92); }
       .footer-cta .btn-ghost{ border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.94); }
       .footer-cta .btn-ghost:hover{ background: rgba(255,255,255,0.16); }
       .footer-main{ padding:18px 0 10px; }

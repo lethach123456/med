@@ -42,7 +42,7 @@ $heroSlides = [
     <link rel="canonical" href="<?php echo htmlspecialchars((string) ($seo['canonical_path'] ?? '/lien-he'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -82,7 +82,7 @@ $heroSlides = [
       .brand-mark{ width: 44px; height: 44px; border-radius: 14px; background: radial-gradient(18px 18px at 30% 25%, rgba(255,255,255,0.8), transparent 60%), linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 18px 50px rgba(37,99,235,0.25); display: flex; align-items: center; justify-content: center; }
       .brand-mark i{ color: #fff; font-size: 20px; }
       .brand-title{ line-height: 1.1; }
-      .brand-title strong{ font-family: "Playfair Display", serif; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
+      .brand-title strong{ font-family:inherit; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
       .brand-title span{ display:block; margin-top: 2px; font-size: 12px; color: var(--muted); }
       .navlinks{ display:flex; align-items:center; gap: 16px; }
       .navlinks a{ font-size: 14px; color: var(--muted); padding: 10px 10px; border-radius: var(--radius); transition: background 160ms ease, color 160ms ease; }
@@ -107,12 +107,12 @@ $heroSlides = [
       .hero-slider-dot.active{ background: white; transform: scale(1.3); box-shadow: 0 0 10px rgba(255,255,255,0.8); }
       .hero-inner{ position: relative; padding: 110px 0 72px; min-height: 78vh; display:flex; align-items:center; }
       .hero-copy{ padding: 22px 20px; border-radius: var(--radius); background: rgba(0,0,0,0.26); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 28px 80px rgba(0,0,0,0.22); color: rgba(255,255,255,0.96); backdrop-filter: blur(12px); }
-      .hero-copy h1{ margin: 0 0 10px; font-family: "Playfair Display", serif; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
+      .hero-copy h1{ margin: 0 0 10px; font-family:inherit; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
       .hero-copy p{ margin:0; color: rgba(255,255,255,0.82); line-height: 1.7; max-width: 62ch; }
       .hero-actions{ margin-top:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
       .hero-actions .btn-ghost{ border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); }
       .section{ padding: 34px 0; }
-      .section h2{ margin:0 0 14px; text-align:center; font-family:"Playfair Display",serif; font-size:22px; letter-spacing:-0.02em; }
+      .section h2{ margin:0 0 14px; text-align:center; font-family:inherit; font-size:22px; letter-spacing:-0.02em; }
       .section-lead{ text-align:center; color:var(--muted); max-width:70ch; margin:0 auto 16px; line-height:1.7; font-size:14px; }
       .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:start; }
       .card{ border-radius: var(--radius); border:1px solid var(--border); background: var(--surface-2); box-shadow: var(--shadow); overflow:hidden; }
@@ -141,7 +141,7 @@ $heroSlides = [
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display",serif; font-weight:600; color: rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color: rgba(255,255,255,0.92); }
       .footer-cta .btn-ghost{ border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); }
       .footer-cta .btn-ghost:hover{ background: rgba(255,255,255,0.16); }
       .footer-main{ padding:18px 0 10px; }

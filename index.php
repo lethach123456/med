@@ -26,7 +26,7 @@ $locale = site_page_locale('home');
     <link rel="canonical" href="<?php echo htmlspecialchars($canonicalPath, ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
     <style>
@@ -50,7 +50,7 @@ $locale = site_page_locale('home');
       body{ min-height: 100%; }
       body{
         margin: 0;
-        font-family: var(--ui-font, "Plus Jakarta Sans", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial);
+        font-family: var(--ui-font, "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial);
         color: var(--text);
         background:
           radial-gradient(900px 520px at 15% 0%, rgba(59,130,246,0.10), transparent 62%),
@@ -191,7 +191,7 @@ $locale = site_page_locale('home');
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display",serif; font-weight:600; color:rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color:rgba(255,255,255,0.92); }
       .footer-main{ padding:18px 0 10px; }
       .footer-cols{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:18px; }
       .footer-col h4{ margin:0 0 10px; font-size:14px; font-weight:700; color: rgba(255,255,255,0.92); padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.10); }

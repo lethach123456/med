@@ -120,7 +120,7 @@ if (!$post) {
     <title><?php echo $safeTitle; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
       :root{
@@ -159,7 +159,7 @@ if (!$post) {
       .brand-mark{ width: 40px; height: 40px; border-radius: 14px; background: radial-gradient(18px 18px at 30% 25%, rgba(255,255,255,0.72), transparent 60%), linear-gradient(135deg, var(--brand-2), var(--brand)); box-shadow: 0 18px 50px rgba(37,99,235,0.25); display: flex; align-items: center; justify-content: center; }
       .brand-mark i{ color: #fff; font-size: 20px; }
       .brand-title{ line-height: 1.1; }
-      .brand-title strong{ font-family: "Playfair Display", serif; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
+      .brand-title strong{ font-family:inherit; letter-spacing: -0.02em; font-weight: 700; color: var(--brand); }
       .brand-title span{ display:block; margin-top: 2px; font-size: 12px; color: var(--muted); }
       .navlinks{ display:flex; align-items:center; gap: 16px; }
       .navlinks a{ font-size: 14px; color: var(--muted); padding: 10px 10px; border-radius: var(--radius); transition: background 160ms ease, color 160ms ease; }
@@ -180,7 +180,7 @@ if (!$post) {
       .crumbs{ display:flex; gap: 10px; flex-wrap: wrap; align-items:center; font-size: 13px; color: rgba(255,255,255,0.82); }
       .crumbs a{ color: rgba(255,255,255,0.90); }
       .crumbs a:hover{ color: rgba(255,255,255,0.98); }
-      .hero-copy h1{ margin: 10px 0 10px; font-family: "Playfair Display", serif; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
+      .hero-copy h1{ margin: 10px 0 10px; font-family:inherit; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-size: clamp(30px, 3.0vw, 44px); }
       .hero-copy p{ margin: 0; color: rgba(255,255,255,0.82); line-height: 1.7; max-width: 70ch; }
       .hero-actions{ margin-top: 18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
       .section{ padding: 28px 0 38px; }
@@ -227,7 +227,7 @@ if (!$post) {
       .footer-layer{ position:relative; z-index:1; }
       .footer-cta{ border-bottom:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.34); }
       .footer-cta-inner{ padding:14px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .footer-cta-inner b{ font-family:"Playfair Display",serif; font-weight:600; color:rgba(255,255,255,0.92); }
+      .footer-cta-inner b{ font-family:inherit; font-weight:600; color:rgba(255,255,255,0.92); }
       .footer-main{ padding:18px 0 10px; }
       .footer-cols{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:18px; }
       .footer-col h4{ margin:0 0 10px; font-size:14px; font-weight:700; color: rgba(255,255,255,0.92); padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.10); }
