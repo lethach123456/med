@@ -157,7 +157,7 @@ function doctor_directory_card(array $item): string
         <form class="doctor-search" id="doctorDirectoryFilter" method="get" action="/bac-si.php" novalidate>
           <div class="doctor-search-row">
             <label class="doctor-search-field" for="doctorSearch"><i class="ph ph-magnifying-glass"></i><input id="doctorSearch" name="q" value="<?php echo $escape($filters['q']); ?>" autocomplete="off" placeholder="Ví dụ: bác sĩ da liễu Hà Nội..." aria-label="Tìm bác sĩ theo tên, chuyên khoa hoặc khu vực"></label>
-            <button class="doctor-search-submit" type="submit" aria-label="Tìm kiếm"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+            <button class="doctor-search-submit" type="submit" aria-label="Tìm kiếm" title="Tìm kiếm"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i></button>
           </div>
         </form>
       </div>

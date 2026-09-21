@@ -191,11 +191,13 @@ if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'He
   .med-home .hero-search{max-width:720px;margin-top:28px}
   .med-home .hero-search-shell{position:relative;z-index:30}
   .med-home .hero-search-shell .medical-search-results{top:calc(100% + 10px);width:100%;max-height:min(510px,calc(100vh - 120px))}
-  .med-home .hero-search-row{display:grid;grid-template-columns:1fr 150px;gap:6px;padding:5px;border:1px solid rgba(191,219,254,.85);border-radius:17px;background:#fff;box-shadow:0 16px 34px rgba(15,23,42,.09)}
+  .med-home .hero-search-row{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:6px;padding:5px;border:1px solid rgba(191,219,254,.85);border-radius:17px;background:#fff;box-shadow:0 16px 34px rgba(15,23,42,.09)}
   .med-home .hero-search-field{display:flex;align-items:center;gap:10px;min-width:0;padding:0 14px;color:#94a3b8}
   .med-home .hero-search-field i{font-size:21px;color:#2563eb}
   .med-home .hero-search-field input{width:100%;min-width:0;height:50px;border:0;outline:0;background:transparent;color:#10203d;font:inherit;font-size:14px;font-weight:600}
-  .med-home .hero-search-btn{height:50px;border:0;border-radius:13px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);box-shadow:0 12px 22px rgba(37,99,235,.24);color:#fff;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  .med-home .hero-search-btn{display:grid;width:48px;min-width:48px;height:48px;place-items:center;padding:0;border:0;border-radius:13px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);box-shadow:0 12px 22px rgba(37,99,235,.24);color:#fff;font:inherit;cursor:pointer}
+  .med-home .hero-search-btn>i{font-size:19px;line-height:1}
+  .med-home .hero-search-btn-label{display:none}
   .med-home .hero-terms{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:15px;color:#64748b;font-size:12px;font-weight:700}
   .med-home .hero-terms a{padding:6px 10px;border:1px solid rgba(191,219,254,.78);border-radius:999px;background:rgba(255,255,255,.72);color:#2563eb;font-size:11px;font-weight:800}
   .med-home .category-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
@@ -288,8 +290,8 @@ if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'He
     .med-home .hero-terms a{transition:transform .16s ease,background .16s ease,border-color .16s ease}
     .med-home .hero-terms a:hover{transform:translateY(-1px);border-color:#93c5fd;background:#fff}
   }
-  @media (max-width:540px){.med-home .hero-inner{padding:30px 18px}.med-home .hero-search-row{grid-template-columns:1fr}.med-home .hero-search-btn{height:48px}.med-home .hero-metrics{gap:12px}.med-home .hero-metric{padding-right:12px}.med-home .hero-metric strong{font-size:18px}.med-home .facility-grid,.med-home .toplist-grid{grid-template-columns:1fr}.med-home .category-grid{gap:9px}.med-home .category-card{min-height:82px;padding:12px;gap:10px}.med-home .category-icon{flex-basis:40px;width:40px;height:40px;font-size:21px}.med-home .data-band-copy,.med-home .data-stat{padding:19px 16px}.med-home .panel{min-width:0;padding:18px}.med-home .section-link{font-size:12px}.med-home .section-head h2{font-size:23px}}
-  @media (min-width:1181px){body.site-home .med-home .hero-search-row{grid-template-columns:minmax(0,1fr) 48px}body.site-home .med-home .hero-search-btn{display:grid;width:48px;min-width:48px;height:48px;place-items:center;padding:0}body.site-home .med-home .hero-search-btn>i{font-size:19px}body.site-home .med-home .hero-search-btn-label{display:none}}
+  @media (max-width:540px){.med-home .hero-inner{padding:30px 18px}.med-home .hero-search-row{grid-template-columns:minmax(0,1fr) 48px}.med-home .hero-search-btn{width:48px;min-width:48px;height:48px}.med-home .hero-metrics{gap:12px}.med-home .hero-metric{padding-right:12px}.med-home .hero-metric strong{font-size:18px}.med-home .facility-grid,.med-home .toplist-grid{grid-template-columns:1fr}.med-home .category-grid{gap:9px}.med-home .category-card{min-height:82px;padding:12px;gap:10px}.med-home .category-icon{flex-basis:40px;width:40px;height:40px;font-size:21px}.med-home .data-band-copy,.med-home .data-stat{padding:19px 16px}.med-home .panel{min-width:0;padding:18px}.med-home .section-link{font-size:12px}.med-home .section-head h2{font-size:23px}}
+  @media (max-width:820px){.med-home .hero-search-shell{scroll-margin-top:90px}}
 </style>
 
 <main class="med-home site-typo">
@@ -309,7 +311,7 @@ if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'He
               <div class="medical-search-shell hero-search-shell" data-medical-search>
                 <form action="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>" method="get" class="hero-search-row">
                   <label class="hero-search-field"><i class="ph ph-magnifying-glass"></i><input name="q" data-medical-search-input autocomplete="off" placeholder="<?= htmlspecialchars($labels['placeholder'], ENT_QUOTES, 'UTF-8') ?>"></label>
-                  <button class="hero-search-btn" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span class="hero-search-btn-label"><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></span></button>
+                  <button class="hero-search-btn" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span class="hero-search-btn-label"><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></span></button>
                 </form>
                 <div class="medical-search-results" data-medical-search-results hidden></div>
               </div>

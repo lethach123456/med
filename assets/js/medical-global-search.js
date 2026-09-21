@@ -124,6 +124,7 @@
     results.innerHTML = '';
     shell.classList.remove('is-open');
     shell.closest('.hero-wrap')?.classList.remove('medical-search-active');
+    shell.dataset.homeSearchAutoScrolled = 'false';
     input.removeAttribute('aria-activedescendant');
     setExpanded(input, false);
   };
@@ -145,6 +146,19 @@
     let controller = null;
     let requestNumber = 0;
     let activeIndex = -1;
+    const scrollHomeSearchNearHeader = () => {
+      if (!shell.classList.contains('hero-search-shell') || !window.matchMedia('(max-width: 767px)').matches || shell.dataset.homeSearchAutoScrolled === 'true') return;
+      shell.dataset.homeSearchAutoScrolled = 'true';
+      window.requestAnimationFrame(() => {
+        const header = document.querySelector('.medical-header');
+        const headerHeight = header ? header.getBoundingClientRect().height : 0;
+        const target = window.scrollY + shell.getBoundingClientRect().top - headerHeight - 10;
+        window.scrollTo({
+          top: Math.max(0, target),
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+        });
+      });
+    };
     const options = () => [...results.querySelectorAll('.medical-search-item')];
     const setActive = (nextIndex) => {
       const items = options();
@@ -175,6 +189,7 @@
         shell.classList.add('is-open');
         shell.closest('.hero-wrap')?.classList.add('medical-search-active');
         setExpanded(input, true);
+        scrollHomeSearchNearHeader();
         try {
           const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&limit=3`, {signal: controller.signal, headers: {Accept: 'application/json'}});
           const data = await response.json();
