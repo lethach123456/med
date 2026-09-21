@@ -641,6 +641,19 @@ $navItems = $isEnglish
   @media (min-width:1181px){
     .medical-header .brand-copy > .brand-tagline{max-width:300px;font-size:12px}
     .medical-header .header-search input{font-size:14px}
+    /* Keep the search control inside the actions row; its 100%-wide input and
+       horizontal padding must not spill over the language switch. */
+    .medical-header .header-actions{min-width:0;flex-wrap:nowrap}
+    .medical-header .header-actions > .header-search-shell{
+      box-sizing:border-box;
+      flex:0 1 340px;
+      width:clamp(220px,20vw,340px);
+      min-width:220px;
+    }
+    .medical-header .header-search-shell .header-search{box-sizing:border-box}
+    .medical-header .header-search-shell .header-search input{min-width:0;flex:1 1 0}
+    .medical-header .header-actions > .lang-switch,
+    .medical-header .header-actions > .header-login{flex:0 0 auto}
   }
   .medical-search-results{
     border-color:rgba(191,219,254,.92);
