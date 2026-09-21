@@ -2038,6 +2038,19 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       }
       .facility-detail .facility-price-table tbody tr{transition:background-color .18s ease}
       .facility-detail .facility-price-table tbody tr:hover td{background:#f2f7ff}
+      /* Keep the compact two-column card layout on phones; give desktop tables
+         a little more breathing room and a stable price/notes balance. */
+      @media (min-width:981px){
+        .facility-detail .facility-price-table :is(th,td){padding:8px 12px!important;line-height:1.4}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))){table-layout:fixed}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) thead th:nth-child(1){width:16%}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) thead th:nth-child(2){width:38%}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) thead th:nth-child(3){width:16%}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) thead th:nth-child(4){width:30%}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) tbody td:nth-child(2){white-space:normal;overflow-wrap:break-word;word-break:normal}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) tbody td:nth-child(3){white-space:nowrap;overflow-wrap:normal}
+        .facility-detail .facility-price-table table:has(>thead th:nth-child(4)):not(:has(>thead th:nth-child(5))) tbody td:nth-child(4){font-size:11px;line-height:1.45}
+      }
       body.facility-page-exiting .facility-detail{opacity:0;transition:opacity .16s ease}
       @media (hover:hover) and (pointer:fine){
         .facility-detail .hero-main:hover{border-color:#cfe0ff;box-shadow:0 14px 34px rgba(37,99,235,.075)}
