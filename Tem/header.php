@@ -130,7 +130,7 @@ $navItems = $isEnglish
     color: #2563eb;
     font-weight: 800;
   }
-  .medical-header .brand-copy span{
+  .medical-header .brand-copy > .brand-tagline{
     font-size: 11px;
     line-height: 1.45;
     color: rgba(15,23,42,0.55);
@@ -163,9 +163,24 @@ $navItems = $isEnglish
     height:100%;
     object-fit:contain;
   }
-  .medical-header .brand-wordmark{display:inline-flex;align-items:baseline}
-  .medical-header .brand-wordmark-med{color:#0f2747}
-  .medical-header .brand-wordmark-review{color:#2563ff}
+  /* The wordmark has nested spans, so never let the tagline rule style or hide it. */
+  .medical-header .brand-copy strong .brand-wordmark{
+    display:inline-flex!important;
+    align-items:baseline;
+    white-space:nowrap;
+    font:inherit;
+    line-height:inherit;
+    letter-spacing:inherit;
+  }
+  .medical-header .brand-copy strong .brand-wordmark-med,
+  .medical-header .brand-copy strong .brand-wordmark-review{
+    display:inline!important;
+    font:inherit;
+    line-height:inherit;
+    letter-spacing:inherit;
+  }
+  .medical-header .brand-copy strong .brand-wordmark-med{color:#0f2747!important}
+  .medical-header .brand-copy strong .brand-wordmark-review{color:#2563ff!important}
   .medical-header .header-center{
     display: flex;
     align-items: center;
@@ -459,9 +474,9 @@ $navItems = $isEnglish
       gap: 12px;
     }
     .medical-header .brand-copy strong{
-      font-size: 20px;
+      font-size: 21px;
     }
-    .medical-header .brand-copy span{
+    .medical-header .brand-copy > .brand-tagline{
       display: none;
     }
   }
@@ -562,10 +577,10 @@ $navItems = $isEnglish
   }
   .medical-header .brand-copy{gap:1px}
   .medical-header .brand-copy strong{
-    font-size:21px!important;
+    font-size:23px!important;
     letter-spacing:-.055em;
   }
-  .medical-header .brand-copy span{
+  .medical-header .brand-copy > .brand-tagline{
     max-width:230px;
     color:rgba(51,65,85,.68);
     font-size:10.5px;
@@ -677,8 +692,8 @@ $navItems = $isEnglish
     .medical-header .header-shell{min-height:68px!important;gap:9px!important}
     .medical-header .brand-mark{width:38px!important;height:38px!important;border-radius:13px!important}
     .medical-header .brand-mark.is-image{width:42px!important;height:42px!important;border-radius:0!important}
-    .medical-header .brand-copy strong{font-size:19px!important}
-    .medical-header .brand-copy span{display:none!important}
+    .medical-header .brand-copy strong{font-size:21px!important}
+    .medical-header .brand-copy > .brand-tagline{display:none!important}
     /* Keep the three compact controls together at the far right on phones. */
     .medical-header .header-actions{
       grid-column:3;
@@ -1281,7 +1296,7 @@ $navItems = $isEnglish
         </span>
         <span class="brand-copy">
           <strong><?php if ($isMedReviewWordmark): ?><span class="brand-wordmark"><span class="brand-wordmark-med">Med</span><span class="brand-wordmark-review">Review</span></span><?php else: ?><?php echo htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?><?php endif; ?></strong>
-          <span><?php echo htmlspecialchars($brandTagline, ENT_QUOTES, 'UTF-8'); ?></span>
+          <span class="brand-tagline"><?php echo htmlspecialchars($brandTagline, ENT_QUOTES, 'UTF-8'); ?></span>
           <small><i class="ph-fill ph-seal-check"></i> <?php echo $isEnglish ? 'Verified reviews' : 'Review xác thực'; ?></small>
         </span>
       </a>
