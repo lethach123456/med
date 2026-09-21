@@ -18,7 +18,9 @@
 
 html{scroll-behavior:smooth;scroll-padding-top:96px}
 body{
-  overflow-x:hidden;
+  /* `hidden` creates a scroll container and breaks sticky headers on mobile.
+     `clip` prevents horizontal spill without changing the vertical scrollport. */
+  overflow-x:clip;
   color:var(--ui-ink);
   text-rendering:optimizeLegibility;
   -webkit-font-smoothing:antialiased;

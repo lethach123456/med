@@ -71,7 +71,8 @@
 
 /* Phone pass: protect readable type, tap targets and horizontal overflow. */
 @media(max-width:767px){
- html,body{overflow-x:hidden}
+ /* Keep the page clipped horizontally without trapping the sticky site header. */
+ html,body{overflow-x:clip}
  .facility-detail{padding:10px 0 28px}
  .facility-detail .container{width:min(100% - 20px,var(--max))}
  .facility-detail .breadcrumb{min-width:0;overflow-x:auto;white-space:nowrap;padding-bottom:2px;font-size:11px;margin-bottom:8px;scrollbar-width:none}
