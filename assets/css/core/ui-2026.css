@@ -769,3 +769,19 @@ html.med-motion-ready body > main{
   html.med-motion-ready body > main:not(.med-home):not(.facility-detail):not(.page){animation:none!important}
   html.med-motion-ready body > main :where(a,button,[role="button"],summary,input,select,textarea){transition-duration:.01ms!important}
 }
+
+/* iOS Safari zooms focused form controls below 16px. Keep all public search
+   inputs/selects at the safe size on phones, even when page-level legacy CSS
+   declares a smaller font later in the cascade. */
+@media (max-width:720px){
+  body.site-home .med-home .hero-search-field input,
+  .facility-directory .directory-search .filter-search input,
+  .doctor-directory .doctor-search-field input,
+  .medical-header .header-search-shell .header-search input,
+  .medical-header .mobile-search input,
+  .facility-directory .filter-select-wrap select,
+  .doctor-directory .doctor-select-wrap select{
+    font-size:16px!important;
+    line-height:1.35!important;
+  }
+}
