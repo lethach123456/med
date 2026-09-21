@@ -680,24 +680,25 @@ $navItems = $isEnglish
   /* Compact mobile controls use the same quiet motion language as the rest of
      the public interface. Panels remain in the render tree while hidden so
      both opening and closing can transition without a layout jump. */
-  .medical-header .mobile-popover-backdrop{display:none}
+  .mobile-popover-backdrop{display:none}
   .medical-header .mobile-summary,
   .medical-header .mobile-summary i,
   .medical-header .mobile-language summary,
   .medical-header .mobile-language summary i{transition:transform .2s var(--ui-ease),background-color .2s var(--ui-ease),border-color .2s var(--ui-ease),box-shadow .2s var(--ui-ease),color .2s var(--ui-ease)}
   .medical-header .mobile-search-trigger{display:none}
+  .medical-header .mobile-search-close{display:none}
   @media (max-width:1180px){
-    .medical-header .mobile-popover-backdrop{
+    .mobile-popover-backdrop{
       display:block;
       position:fixed;
-      z-index:1;
+      z-index:999;
       inset:76px 0 0;
       background:rgba(15,35,66,.16);
       opacity:0;
       pointer-events:none;
       transition:opacity .2s ease;
     }
-    .medical-header.has-mobile-popover .mobile-popover-backdrop{opacity:1;pointer-events:auto}
+    .medical-header.has-mobile-popover + .mobile-popover-backdrop{opacity:1;pointer-events:auto}
     .medical-header .header-shell{position:relative;z-index:2}
     .medical-header .header-mobile .mobile-panel{
       display:grid!important;
@@ -788,7 +789,7 @@ $navItems = $isEnglish
     .medical-header .mobile-language[open] summary i{transform:rotate(-12deg) scale(1.05)}
   }
   @media (max-width:720px){
-    .medical-header .mobile-popover-backdrop{inset:68px 0 0}
+    .mobile-popover-backdrop{inset:68px 0 0}
     .medical-header .header-mobile .mobile-panel{top:80px;right:12px;left:12px;max-height:calc(100dvh - 96px);padding:12px;border-radius:18px}
     .medical-header .header-search-shell{position:relative}
     .medical-header .header-search-shell .mobile-search-trigger{
@@ -836,8 +837,26 @@ $navItems = $isEnglish
       box-shadow:0 18px 42px rgba(15,35,66,.18),0 0 0 4px rgba(59,130,246,.1);
       transition-delay:0s;
     }
+    .medical-header .header-search-shell.is-mobile-search-open .mobile-search-close{
+      display:inline-flex;
+      flex:0 0 34px;
+      align-items:center;
+      justify-content:center;
+      width:34px;
+      height:34px;
+      padding:0;
+      border:1px solid rgba(203,213,225,.8);
+      border-radius:11px;
+      background:#f1f5f9;
+      color:#52627a;
+      font-size:17px;
+      cursor:pointer;
+      transition:background .16s ease,color .16s ease,transform .16s ease;
+    }
+    .medical-header .header-search-shell.is-mobile-search-open .mobile-search-close:active{transform:scale(.93);background:#e2e8f0}
+    .medical-header .header-search-shell.is-mobile-search-open .mobile-search-close:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
     .medical-header .header-search-shell.is-mobile-search-open > .header-search > i{margin-right:10px}
-    .medical-header .header-search-shell.is-mobile-search-open > .header-search input{position:static;width:100%;height:auto;opacity:1;pointer-events:auto}
+    .medical-header .header-search-shell.is-mobile-search-open > .header-search input{position:static;flex:1;min-width:0;width:0;height:auto;opacity:1;pointer-events:auto}
     .medical-header .header-search-shell.is-mobile-search-open .medical-search-results{
       position:fixed;
       z-index:22;
@@ -853,7 +872,7 @@ $navItems = $isEnglish
      than a conventional dropdown. These rules intentionally stay below the
      tablet breakpoint so the compact iPad header keeps its current layout. */
   @media (max-width:720px){
-    .medical-header .mobile-popover-backdrop{
+    .mobile-popover-backdrop{
       background:
         radial-gradient(circle at 86% 8%,rgba(96,165,250,.28),transparent 31%),
         radial-gradient(circle at 10% 104%,rgba(45,212,191,.12),transparent 38%),
@@ -861,6 +880,11 @@ $navItems = $isEnglish
       backdrop-filter:blur(11px) saturate(1.12);
       -webkit-backdrop-filter:blur(11px) saturate(1.12);
       transition:opacity .26s ease;
+    }
+    .medical-header.has-mobile-search + .mobile-popover-backdrop{
+      background:rgba(10,24,46,.38);
+      backdrop-filter:blur(14px) saturate(.86);
+      -webkit-backdrop-filter:blur(14px) saturate(.86);
     }
     .medical-header .header-mobile .mobile-panel{
       top:80px!important;
@@ -1187,6 +1211,16 @@ $navItems = $isEnglish
   .medical-search-toplist-count i,.medical-search-updated i{color:#3b82f6;font-size:11px;}
   .medical-search-arrow{align-self:center;flex:0 0 auto;margin-left:2px;}
   @media (max-width:720px){
+    /* Search, language and menu stay on one consistent 40px touch target. */
+    .medical-header .header-search-shell,
+    .medical-header .header-search-shell .mobile-search-trigger,
+    .medical-header .mobile-language summary,
+    .medical-header .mobile-summary{
+      width:40px!important;
+      height:40px!important;
+      flex:0 0 40px!important;
+      border-radius:12px!important;
+    }
     .medical-search-results{width:min(100%,calc(100vw - 24px));}
     .medical-search-item{padding:8px;gap:8px;}
     .medical-search-thumb{flex-basis:38px;width:38px;height:38px;border-radius:11px;}
@@ -1209,7 +1243,6 @@ $navItems = $isEnglish
   }
 </style>
 <header class="medical-header">
-  <span class="mobile-popover-backdrop" aria-hidden="true"></span>
   <div class="container">
     <div class="header-shell">
       <a class="brand-link" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
@@ -1231,10 +1264,11 @@ $navItems = $isEnglish
       <div class="header-actions">
         <div class="medical-search-shell header-search-shell" data-medical-search>
           <button class="mobile-search-trigger" type="button" aria-label="<?php echo $isEnglish ? 'Open search' : 'Mở tìm kiếm'; ?>" aria-expanded="false" aria-controls="medical-header-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
-          <label class="header-search" id="medical-header-search" aria-label="Search">
+          <div class="header-search" id="medical-header-search">
             <i class="ph ph-magnifying-glass"></i>
-            <input type="search" data-medical-search-input autocomplete="off" placeholder="<?php echo htmlspecialchars($searchPlaceholder, ENT_QUOTES, 'UTF-8'); ?>">
-          </label>
+            <input type="search" data-medical-search-input aria-label="<?php echo $isEnglish ? 'Search services, doctors, and clinics' : 'Tìm cơ sở y tế, bác sĩ và dịch vụ'; ?>" autocomplete="off" placeholder="<?php echo htmlspecialchars($searchPlaceholder, ENT_QUOTES, 'UTF-8'); ?>">
+            <button class="mobile-search-close" type="button" aria-label="<?php echo $isEnglish ? 'Close search' : 'Đóng tìm kiếm'; ?>"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </div>
           <div class="medical-search-results" data-medical-search-results hidden></div>
         </div>
         <span class="lang-switch" aria-label="Language switch">
@@ -1285,6 +1319,7 @@ $navItems = $isEnglish
     </div>
   </div>
 </header>
+<span class="mobile-popover-backdrop" aria-hidden="true"></span>
 <script>
   (function(){
     var header = document.querySelector('.medical-header');
@@ -1294,9 +1329,10 @@ $navItems = $isEnglish
     var language = header.querySelector('[data-mobile-language]');
     var searchShell = header.querySelector('.header-search-shell[data-medical-search]');
     var searchTrigger = searchShell ? searchShell.querySelector('.mobile-search-trigger') : null;
+    var searchClose = searchShell ? searchShell.querySelector('.mobile-search-close') : null;
     var searchInput = searchShell ? searchShell.querySelector('[data-medical-search-input]') : null;
     var searchResults = searchShell ? searchShell.querySelector('[data-medical-search-results]') : null;
-    var backdrop = header.querySelector('.mobile-popover-backdrop');
+    var backdrop = document.querySelector('.mobile-popover-backdrop');
     var mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
 
     function isPhone(){
@@ -1317,7 +1353,9 @@ $navItems = $isEnglish
       }
     }
     function syncBackdrop(){
-      var hasPopover = Boolean((mobile && mobile.hasAttribute('open')) || (language && language.hasAttribute('open')) || (searchShell && searchShell.classList.contains('is-mobile-search-open')));
+      var searchOpen = Boolean(searchShell && searchShell.classList.contains('is-mobile-search-open'));
+      var hasPopover = Boolean((mobile && mobile.hasAttribute('open')) || (language && language.hasAttribute('open')) || searchOpen);
+      header.classList.toggle('has-mobile-search', searchOpen);
       header.classList.toggle('has-mobile-popover', hasPopover);
     }
     function closeSearch(){
@@ -1376,6 +1414,13 @@ $navItems = $isEnglish
         event.preventDefault();
         if (searchShell && searchShell.classList.contains('is-mobile-search-open')) closeSearch();
         else openSearch();
+      });
+    }
+    if (searchClose) {
+      searchClose.addEventListener('click', function(event){
+        event.preventDefault();
+        closeSearch();
+        if (searchTrigger) searchTrigger.focus({preventScroll:true});
       });
     }
     if (searchInput) {
