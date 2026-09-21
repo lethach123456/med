@@ -403,6 +403,60 @@ function facility_detail_safe_url(string $url): string
   return filter_var($url, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $url) ? $url : '';
 }
 
+/**
+ * Remove presentation-only spacing from AI/editor supplied price HTML so
+ * inline heights, cell padding, and blank spacer rows cannot stretch mobile
+ * tables. Keep content and non-layout formatting intact.
+ */
+function facility_detail_compact_price_html(string $html): string
+{
+  $html = trim($html);
+  if ($html === '') {
+    return '';
+  }
+
+  $html = preg_replace('~<style\b[^>]*>.*?</style\s*>~is', '', $html) ?? $html;
+  $html = preg_replace_callback('/<([a-z][a-z0-9:-]*)\b([^>]*)>/iu', static function (array $match): string {
+    $tag = strtolower($match[1]);
+    $attributes = $match[2];
+
+    if (in_array($tag, ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'], true)) {
+      $attributes = preg_replace('/\s+(?:height|width)\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/iu', '', $attributes) ?? $attributes;
+    }
+
+    $attributes = preg_replace_callback('/\sstyle\s*=\s*(["\'])(.*?)\1/isu', static function (array $styleMatch): string {
+      $keptDeclarations = [];
+      foreach (explode(';', $styleMatch[2]) as $declaration) {
+        $declaration = trim($declaration);
+        if ($declaration === '' || !str_contains($declaration, ':')) {
+          continue;
+        }
+        [$property] = explode(':', $declaration, 2);
+        $property = strtolower(trim($property));
+        if (preg_match('/^(?:height|min-height|max-height|line-height|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?)$/i', $property)) {
+          continue;
+        }
+        $keptDeclarations[] = $declaration;
+      }
+
+      if ($keptDeclarations === []) {
+        return '';
+      }
+      $quote = $styleMatch[1];
+      return ' style=' . $quote . implode(';', $keptDeclarations) . $quote;
+    }, $attributes) ?? $attributes;
+
+    return '<' . $tag . $attributes . '>';
+  }, $html) ?? $html;
+
+  // These bounded substitutions do not scan from one cell start to a later
+  // closing tag, so malformed/unclosed cells cannot make this quadratic.
+  $html = preg_replace('~<p\b[^>]*>(?:\s|&nbsp;|&#0*160;|&#x0*a0;|<br\b[^>]*>)*</p\s*>~iu', '', $html) ?? $html;
+  $html = preg_replace('~(?:\s*<br\b[^>]*>\s*){2,}~iu', '<br>', $html) ?? $html;
+
+  return $html;
+}
+
 $facilityIndex = [];
 foreach ($facilities as $item) {
   $facilityIndex[$item['slug']] = $item;
@@ -448,6 +502,7 @@ if (is_array($dbFacility) && $dbFacility !== []) {
     $facility['reviews'] = (string) ($facility['review_summary']['reviews'] ?? $facility['reviews'] ?? '0 đánh giá');
   }
 $relatedFacilities = array_map('facility_detail_normalize', $relatedFacilities);
+$facilityPriceTableHtml = facility_detail_compact_price_html((string) ($facility['price_table_html'] ?? ''));
 
 $facilityReviewSummary = (array) ($facility['review_summary'] ?? []);
 $facilityReviewCount = (int) ($facilityReviewSummary['count'] ?? 0);
@@ -1595,19 +1650,30 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .contact-item{min-height:72px;padding:10px;border-radius:12px}
       .section#gioi-thieu{padding:26px 30px;background:linear-gradient(160deg,#fff 0%,#f8fbff 100%)}
       .section#gioi-thieu h2{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #e8eef7}
+      .facility-detail .section#gioi-thieu h2.facility-price-heading{margin:12px 0 6px!important;padding:0!important;border:0!important;color:#17345f;scroll-margin-top:100px}
       .section#gioi-thieu .section-copy{max-width:none;display:block;color:#334155;font-size:15px;line-height:1.85}
       .section#gioi-thieu .section-copy p{margin:0 0 14px}
       .section#gioi-thieu .section-copy h2,.section#gioi-thieu .section-copy h3{margin:20px 0 8px;color:#123b78;font-size:1.08em}
-      .facility-price-table{margin-top:24px!important;padding-top:20px;border-top:1px solid #e8eef7}
-      .facility-price-table table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #dbe7f5;border-radius:14px;background:#fff;color:#334155;font-size:14px;line-height:1.45}
-      .facility-price-table thead th{padding:13px 16px;text-align:left;background:#eff6ff;color:#174ea6;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid #dbe7f5}
-      .facility-price-table tbody td{padding:13px 16px;border-bottom:1px solid #edf2f8;vertical-align:top}
+      .facility-detail .facility-price-table{margin:0!important;padding-top:6px;border-top:1px solid #e8eef7}
+      .facility-detail .facility-price-table table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #dbe7f5;border-radius:14px;background:#fff;color:#334155;font-size:12px;line-height:1.25}
+      .facility-detail .facility-price-table table,.facility-detail .facility-price-table table :is(thead,tbody,tfoot,tr,th,td),.facility-detail .facility-price-table table *{height:auto!important;min-height:0!important;max-height:none!important}
+      .facility-detail .facility-price-table td *{margin-block:0!important;padding-block:0!important;line-height:1.3!important}
+      .facility-detail .facility-price-table thead th{padding:6px 10px!important;text-align:left;background:#eff6ff;color:#174ea6;font-size:10px;font-weight:800;letter-spacing:.035em;text-transform:uppercase;border-bottom:1px solid #dbe7f5}
+      .facility-detail .facility-price-table :is(th,td){padding:5px 10px!important;vertical-align:top}
+      .facility-detail .facility-price-table tbody td{border-bottom:1px solid #edf2f8}
       .facility-price-table tbody tr:last-child td{border-bottom:0}
       .facility-price-table tbody tr:nth-child(even) td{background:#f8fbff}
       .facility-price-table tbody td:nth-child(2){color:#1d4ed8;font-weight:750;white-space:nowrap}
       .facility-price-table tbody tr:hover td{background:#eef6ff}
-      .facility-price-table p{margin:12px 2px 0;color:#94a3b8;font-size:12px}
-      @media (max-width:560px){.facility-price-table table{font-size:13px;min-width:620px}.facility-price-table{overflow-x:auto;padding-bottom:4px}.facility-price-table thead th,.facility-price-table tbody td{padding:11px 12px}}
+      .facility-detail .facility-price-table>p{margin:7px 2px 0;color:#94a3b8;font-size:11px}
+      .facility-detail .facility-price-table :is(th,td){overflow-wrap:anywhere}
+      .facility-detail .facility-price-table td p{margin:0!important;padding:0;line-height:1.3}
+      .facility-detail .facility-price-table td p+p{margin-top:2px!important}
+      .facility-detail .facility-price-table td :is(ul,ol){margin:0;padding-left:16px}
+      .facility-detail .facility-price-table td li{margin-bottom:2px!important}
+      .facility-detail .facility-price-table td>:first-child{margin-top:0!important}
+      .facility-detail .facility-price-table td>:last-child{margin-bottom:0!important}
+      @media (max-width:560px){.facility-detail .facility-price-table{margin:0!important;padding-top:6px;overflow:visible;padding-bottom:0}.facility-detail .facility-price-table table{width:100%;min-width:0!important;max-width:100%;table-layout:fixed;font-size:11px}.facility-detail .facility-price-table :is(th,td){padding:5px 5px!important;overflow-wrap:anywhere}.facility-detail .facility-price-table thead th{font-size:9px;letter-spacing:0}.facility-detail .facility-price-table tbody td:nth-child(2){white-space:normal}}
       .facility-info-area{margin-top:22px}
       .facility-info-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 2px 12px}
       .facility-info-kicker{display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
@@ -1978,9 +2044,9 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
           </section>
           <?php endif; ?>
 
-          <?php if (trim((string) ($facility['price_table_html'] ?? '')) !== ''): ?>
-            <h2 id="bang-gia" class="facility-subsection">Bảng giá dịch vụ</h2>
-            <div class="facility-price-table" style="margin-top:28px;overflow:auto;"><?php echo $facility['price_table_html']; ?></div>
+          <?php if ($facilityPriceTableHtml !== ''): ?>
+            <h2 id="bang-gia" class="facility-price-heading">Bảng giá dịch vụ</h2>
+            <div class="facility-price-table"><?php echo $facilityPriceTableHtml; ?></div>
           <?php endif; ?>
 
         </section>
