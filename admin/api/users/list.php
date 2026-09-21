@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../_bootstrap.php';
 
-admin_require_login();
+admin_require_admin_json();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['ok' => false, 'message' => 'Method not allowed.'], 405);
@@ -17,11 +17,12 @@ try {
     json_response([
         'ok' => true,
         'users' => $users,
+        'current_user_id' => (int) ($_SESSION['admin_user_id'] ?? 0),
     ]);
 } catch (Throwable $e) {
+    error_log('Admin user list failed: ' . $e->getMessage());
     json_response([
         'ok' => false,
-        'message' => 'Không lấy được danh sách user: ' . $e->getMessage(),
+        'message' => 'Không thể tải danh sách người dùng. Vui lòng thử lại.',
     ], 500);
 }
-

@@ -8,6 +8,8 @@ if (strpos($adminPageTitle, 'Admin • ') === 0) {
 $adminHeaderTitle = isset($adminHeaderTitle) ? (string) $adminHeaderTitle : $adminPageTitle;
 $adminHeaderSubtitle = isset($adminHeaderSubtitle) ? (string) $adminHeaderSubtitle : '';
 $adminActive = isset($adminActive) ? (string) $adminActive : '';
+$adminSettingsActive = in_array($adminActive, ['settings', 'medical-ai-prompts', 'medical-media-worker', 'cron', 'users'], true);
+$adminCanManageSystem = function_exists('admin_is_admin') && admin_is_admin();
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -127,6 +129,17 @@ $adminActive = isset($adminActive) ? (string) $adminActive : '';
         box-shadow: inset 3px 0 0 #8cb9ff, 0 8px 18px rgba(4, 37, 103, .18);
       }
       .sidebar .nav-link.active i { color: #fff; }
+      .admin-nav-group { margin: 0; padding: 0; }
+      .admin-nav-group > summary { list-style: none; cursor: pointer; }
+      .admin-nav-group > summary::-webkit-details-marker { display: none; }
+      .admin-nav-summary-main { display: inline-flex; min-width: 0; align-items: center; gap: .72rem; }
+      .admin-nav-summary-main > i { width: 18px; color: rgba(173, 199, 244, .78); text-align: center; }
+      .admin-nav-caret { width: auto !important; margin-left: auto; color: rgba(192, 213, 248, .66) !important; font-size: .67rem; transition: transform .18s ease; }
+      .admin-nav-group[open] > summary .admin-nav-caret { transform: rotate(180deg); }
+      .admin-nav-group[open] > summary .admin-nav-summary-main > i { color: #fff; }
+      .sidebar .admin-nav-submenu { display: grid; gap: .14rem; margin: .22rem .12rem .38rem 1.52rem; padding: .14rem 0 .14rem .48rem; border-left: 1px solid rgba(175, 204, 251, .18); }
+      .sidebar .admin-nav-submenu .nav-link { min-height: 34px; padding: .46rem .56rem; border-radius: 8px; font-size: .78rem; font-weight: 650; }
+      .sidebar .admin-nav-submenu .nav-link i { width: 15px; font-size: .72rem; }
       .sidebar .muted { color: rgba(216, 229, 249, .52); }
       .admin-account {
         padding: .82rem;
@@ -177,6 +190,15 @@ $adminActive = isset($adminActive) ? (string) $adminActive : '';
       .admin-offcanvas .nav-link:hover { color: var(--admin-blue-dark); background: #f0f6ff; }
       .admin-offcanvas .nav-link.active { color: var(--admin-blue-dark); border-color: #cee0ff; background: #eaf3ff; }
       .admin-offcanvas .nav-link.active i { color: var(--admin-blue); }
+      .admin-offcanvas .admin-nav-group > summary { display:flex; align-items:center; list-style: none; cursor: pointer; }
+      .admin-offcanvas .admin-nav-group > summary::-webkit-details-marker { display: none; }
+      .admin-offcanvas .admin-nav-summary-main { display: inline-flex; align-items: center; gap: .5rem; }
+      .admin-offcanvas .admin-nav-summary-main > i { width: 20px; color: #6d82a5; text-align: center; }
+      .admin-offcanvas .admin-nav-caret { margin-left: auto; color: #8191a8 !important; }
+      .admin-offcanvas .admin-nav-group[open] > summary .admin-nav-caret { transform: rotate(180deg); }
+      .admin-offcanvas .admin-nav-submenu { display: grid; gap: .16rem; margin: .25rem 0 .38rem 1.44rem; padding: .15rem 0 .15rem .48rem; border-left: 1px solid #dbe6f5; }
+      .admin-offcanvas .admin-nav-submenu .nav-link { display:flex; align-items:center; gap:.5rem; min-height: 36px; padding: .47rem .58rem; font-size: .8rem; }
+      .admin-offcanvas .admin-nav-submenu .nav-link i { width: 17px; font-size: .73rem; }
 
       /* Common page primitives. Page-specific rules still override these safely. */
       .admin-content main.container-fluid { max-width: 1760px; }
@@ -314,13 +336,24 @@ $adminActive = isset($adminActive) ? (string) $adminActive : '';
           <a class="nav-link <?php echo ($adminActive === 'content') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('content.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span>Quản lý nội dung</span></a>
           <a class="nav-link <?php echo ($adminActive === 'medical-facilities') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_facilities.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-hospital" aria-hidden="true"></i><span>Cơ sở y tế</span></a>
           <a class="nav-link <?php echo ($adminActive === 'medical-toplists') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_toplists.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i><span>Toplist y tế</span></a>
-          <a class="nav-link <?php echo ($adminActive === 'medical-ai-prompts') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_ai_prompts.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Prompt AI y tế</span></a>
           <a class="nav-link <?php echo ($adminActive === 'medical-doctors') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_doctors.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-user-doctor" aria-hidden="true"></i><span>Bác sĩ</span></a>
           <a class="nav-link <?php echo ($adminActive === 'medical-reviews') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_reviews.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-star-half-stroke" aria-hidden="true"></i><span>Review y tế</span></a>
           <a class="nav-link <?php echo ($adminActive === 'library') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('library.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-photo-film" aria-hidden="true"></i><span>Thư viện</span></a>
-          <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span>Worker ảnh y tế</span></a>
-          <a class="nav-link <?php echo ($adminActive === 'settings') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('settings.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Cài đặt trang</span></a>
-          <a class="nav-link <?php echo ($adminActive === 'setup') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('setup.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i><span>Setup</span></a>
+          <details class="admin-nav-group"<?php echo $adminSettingsActive ? ' open' : ''; ?>>
+            <summary class="nav-link <?php echo $adminSettingsActive ? 'active' : ''; ?>">
+              <span class="admin-nav-summary-main"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Cài đặt</span></span>
+              <i class="fa-solid fa-chevron-down admin-nav-caret" aria-hidden="true"></i>
+            </summary>
+            <div class="admin-nav-submenu">
+              <a class="nav-link <?php echo ($adminActive === 'settings') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('settings.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Trang web</span></a>
+              <a class="nav-link <?php echo ($adminActive === 'medical-ai-prompts') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_ai_prompts.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Prompt AI y tế</span></a>
+              <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span>Worker ảnh y tế</span></a>
+              <?php if ($adminCanManageSystem): ?>
+                <a class="nav-link <?php echo ($adminActive === 'cron') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('cron.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Cron &amp; Cache</span></a>
+                <a class="nav-link <?php echo ($adminActive === 'users') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('users.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-users-gear" aria-hidden="true"></i><span>Quản lý người dùng</span></a>
+              <?php endif; ?>
+            </div>
+          </details>
         </nav>
 
         <div class="mt-auto pt-3 border-top border-light border-opacity-10">
@@ -379,13 +412,24 @@ $adminActive = isset($adminActive) ? (string) $adminActive : '';
               <a class="nav-link <?php echo ($adminActive === 'content') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('content.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-pen-to-square me-2" aria-hidden="true"></i>Quản lý nội dung</a>
               <a class="nav-link <?php echo ($adminActive === 'medical-facilities') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_facilities.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-hospital me-2" aria-hidden="true"></i>Cơ sở y tế</a>
               <a class="nav-link <?php echo ($adminActive === 'medical-toplists') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_toplists.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-ranking-star me-2" aria-hidden="true"></i>Toplist y tế</a>
-              <a class="nav-link <?php echo ($adminActive === 'medical-ai-prompts') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_ai_prompts.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Prompt AI y tế</a>
               <a class="nav-link <?php echo ($adminActive === 'medical-doctors') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_doctors.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-user-doctor me-2" aria-hidden="true"></i>Bác sĩ</a>
               <a class="nav-link <?php echo ($adminActive === 'medical-reviews') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_reviews.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-star-half-stroke me-2" aria-hidden="true"></i>Review y tế</a>
               <a class="nav-link <?php echo ($adminActive === 'library') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('library.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-photo-film me-2" aria-hidden="true"></i>Thư viện</a>
-              <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate me-2" aria-hidden="true"></i>Worker ảnh y tế</a>
-              <a class="nav-link <?php echo ($adminActive === 'settings') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('settings.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Cài đặt trang</a>
-              <a class="nav-link <?php echo ($adminActive === 'setup') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('setup.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-screwdriver-wrench me-2" aria-hidden="true"></i>Setup</a>
+              <details class="admin-nav-group"<?php echo $adminSettingsActive ? ' open' : ''; ?>>
+                <summary class="nav-link <?php echo $adminSettingsActive ? 'active' : ''; ?>">
+                  <span class="admin-nav-summary-main"><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Cài đặt</span></span>
+                  <i class="fa-solid fa-chevron-down admin-nav-caret" aria-hidden="true"></i>
+                </summary>
+                <div class="admin-nav-submenu">
+                  <a class="nav-link <?php echo ($adminActive === 'settings') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('settings.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-sliders" aria-hidden="true"></i>Trang web</a>
+                  <a class="nav-link <?php echo ($adminActive === 'medical-ai-prompts') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_ai_prompts.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Prompt AI y tế</a>
+                  <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>Worker ảnh y tế</a>
+                  <?php if ($adminCanManageSystem): ?>
+                    <a class="nav-link <?php echo ($adminActive === 'cron') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('cron.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Cron &amp; Cache</a>
+                    <a class="nav-link <?php echo ($adminActive === 'users') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('users.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-users-gear" aria-hidden="true"></i>Quản lý người dùng</a>
+                  <?php endif; ?>
+                </div>
+              </details>
               <div class="border-top my-2"></div>
               <?php if (function_exists('admin_is_logged_in') && admin_is_logged_in()): ?>
                 <a class="nav-link" href="<?php echo htmlspecialchars(admin_url('logout.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-right-from-bracket me-2" aria-hidden="true"></i>Đăng xuất</a>

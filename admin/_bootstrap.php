@@ -20,11 +20,120 @@ function admin_is_logged_in(): bool
     return isset($_SESSION['admin_user_id']) && is_int($_SESSION['admin_user_id']);
 }
 
+/** Only an administrator may manage accounts or inspect server cron paths. */
+function admin_is_admin(): bool
+{
+    return admin_is_logged_in() && (string) ($_SESSION['admin_role'] ?? '') === 'admin';
+}
+
+function admin_refresh_session_user(): ?array
+{
+    if (!admin_is_logged_in()) {
+        return null;
+    }
+
+    $stmt = db()->prepare('SELECT id, username, role FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => (int) $_SESSION['admin_user_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($user)) {
+        return null;
+    }
+
+    $_SESSION['admin_user_id'] = (int) $user['id'];
+    $_SESSION['admin_username'] = (string) $user['username'];
+    $_SESSION['admin_role'] = (string) $user['role'];
+    return $user;
+}
+
+function admin_auth_error(bool $json, string $message, int $status): void
+{
+    if ($json) {
+        json_response(['ok' => false, 'message' => $message], $status);
+    }
+    http_response_code($status);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!doctype html><html lang="vi"><meta charset="utf-8"><title>Không thể xác thực</title><p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p></html>';
+    exit;
+}
+
 function admin_require_login(): void
 {
     if (!admin_is_logged_in()) {
         header('Location: /admin/login.php');
         exit;
+    }
+
+    $isJsonRequest = str_contains(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')), '/api/');
+    try {
+        $user = admin_refresh_session_user();
+    } catch (Throwable $e) {
+        error_log('Admin session validation failed: ' . $e->getMessage());
+        admin_auth_error($isJsonRequest, 'Không thể xác minh phiên đăng nhập lúc này. Vui lòng thử lại.', 503);
+    }
+
+    if ($user === null) {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+        if ($isJsonRequest) {
+            admin_auth_error(true, 'Tài khoản không còn tồn tại hoặc phiên đăng nhập đã hết hạn.', 401);
+        }
+        header('Location: /admin/login.php');
+        exit;
+    }
+}
+
+function admin_require_admin(): void
+{
+    admin_require_login();
+    if (!admin_is_admin()) {
+        http_response_code(403);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><meta charset="utf-8"><title>Không có quyền</title><p>Bạn không có quyền truy cập khu vực này.</p>';
+        exit;
+    }
+}
+
+/** JSON counterpart used by account-management endpoints. */
+function admin_require_admin_json(): void
+{
+    if (!admin_is_logged_in()) {
+        json_response(['ok' => false, 'message' => 'Phiên đăng nhập đã hết hạn.'], 401);
+    }
+
+    try {
+        $user = admin_refresh_session_user();
+    } catch (Throwable $e) {
+        error_log('Admin role validation failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'message' => 'Không thể xác minh quyền truy cập lúc này.'], 503);
+    }
+    if ($user === null) {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+        json_response(['ok' => false, 'message' => 'Tài khoản không còn tồn tại hoặc phiên đăng nhập đã hết hạn.'], 401);
+    }
+    if ((string) $user['role'] !== 'admin') {
+        json_response(['ok' => false, 'message' => 'Chỉ quản trị viên mới có quyền thực hiện thao tác này.'], 403);
+    }
+}
+
+function admin_csrf_token(): string
+{
+    if (!isset($_SESSION['admin_csrf_token']) || !is_string($_SESSION['admin_csrf_token']) || strlen($_SESSION['admin_csrf_token']) < 32) {
+        $_SESSION['admin_csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return (string) $_SESSION['admin_csrf_token'];
+}
+
+function admin_require_csrf_json(): void
+{
+    $expected = (string) ($_SESSION['admin_csrf_token'] ?? '');
+    $provided = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    if ($expected === '' || $provided === '' || !hash_equals($expected, $provided)) {
+        json_response(['ok' => false, 'message' => 'Yêu cầu không hợp lệ hoặc đã hết hạn. Tải lại trang rồi thử lại.'], 403);
     }
 }
 

@@ -179,21 +179,6 @@ if (admin_is_logged_in()) {
       .login-kicker { margin: 0 0 9px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: .095em; text-transform: uppercase; }
       .login-title { margin: 0; color: var(--ink); font-size: 31px; font-weight: 790; letter-spacing: -.045em; }
       .login-subtitle { margin: 10px 0 30px; color: var(--ink-soft); font-size: 15px; line-height: 1.55; }
-      .setup-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        margin-left: auto;
-        padding: 7px 10px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        color: #5d6f8a;
-        font-size: 12px;
-        font-weight: 700;
-        text-decoration: none;
-        transition: .18s ease;
-      }
-      .setup-link:hover { border-color: #b8cdf6; color: var(--brand); background: #f5f8ff; }
       .alert { border-radius: 12px; border-width: 1px; font-size: 14px; }
       .form-label { margin-bottom: 8px; color: #31435f; font-size: 13px; font-weight: 750; }
       .field-wrap { position: relative; }
@@ -333,9 +318,6 @@ if (admin_is_logged_in()) {
                 <p class="login-kicker">MedReview Admin</p>
                 <h2 class="login-title">Chào mừng trở lại</h2>
               </div>
-              <a class="setup-link" href="/admin/setup.php" title="Thiết lập hệ thống">
-                <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i><span>Setup</span>
-              </a>
             </div>
             <p class="login-subtitle">Đăng nhập bằng tài khoản quản trị để tiếp tục làm việc.</p>
 
@@ -377,7 +359,7 @@ if (admin_is_logged_in()) {
 
             <div class="login-footer">
               <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-              <span>Chưa có dữ liệu người dùng? Mở <a href="/admin/setup.php">Setup</a> để hoàn tất thiết lập tài khoản quản trị.</span>
+              <span>Chưa có tài khoản quản trị? Hãy liên hệ người quản lý hệ thống để được cấp quyền truy cập.</span>
             </div>
           </div>
         </section>

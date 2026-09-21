@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../_bootstrap.php';
 
-admin_require_login();
+admin_require_admin_json();
+admin_require_csrf_json();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['ok' => false, 'message' => 'Method not allowed.'], 405);
@@ -18,7 +19,7 @@ if ($username === '' || $password === '') {
     json_response(['ok' => false, 'message' => 'Thiếu username hoặc password.'], 422);
 }
 
-if (strlen($username) > 50) {
+if (mb_strlen($username, 'UTF-8') > 50) {
     json_response(['ok' => false, 'message' => 'Username quá dài (tối đa 50 ký tự).'], 422);
 }
 
@@ -49,6 +50,6 @@ try {
     if (stripos($msg, 'Duplicate') !== false || stripos($msg, 'uniq_users_username') !== false) {
         json_response(['ok' => false, 'message' => 'Username đã tồn tại.'], 409);
     }
-    json_response(['ok' => false, 'message' => 'Tạo user thất bại: ' . $msg], 500);
+    error_log('Admin user create failed: ' . $msg);
+    json_response(['ok' => false, 'message' => 'Không thể tạo tài khoản. Vui lòng thử lại.'], 500);
 }
-

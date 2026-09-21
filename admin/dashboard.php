@@ -7,7 +7,7 @@ admin_require_login();
 
 /**
  * Dashboard only reads optional medical tables. A fresh installation can still
- * open this page before Setup has created every newer medical table.
+ * open this page before schema migrations create every newer medical table.
  */
 function medreview_dashboard_table_exists(?PDO $pdo, string $table): bool
 {
