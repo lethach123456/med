@@ -513,8 +513,8 @@ function facility_detail_compact_price_html(string $html): string
           }
         }
 
-        // Preserve the source headings as labels when the table becomes a
-        // two-column mobile card grid. This keeps notes and prices explicit.
+        // Preserve source headings and the actual column count so mobile keeps
+        // the original HTML table with equal-width columns.
         $tables = [];
         foreach ($fragment->getElementsByTagName('table') as $table) {
           $tables[] = $table;
@@ -559,6 +559,7 @@ function facility_detail_compact_price_html(string $html): string
           }
 
           $labels = [];
+          $columnCount = 0;
           if ($headerRow instanceof DOMElement) {
             foreach ($headerRow->childNodes as $cell) {
               if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
@@ -566,11 +567,22 @@ function facility_detail_compact_price_html(string $html): string
               }
               $label = trim(preg_replace('/\s+/u', ' ', $cell->textContent ?? '') ?? '');
               $labels[] = $label !== '' ? $label : ($fallbackLabels[count($labels)] ?? ('Thông tin ' . (count($labels) + 1)));
+              $columnCount += max(1, (int) $cell->getAttribute('colspan'));
             }
           }
           if ($labels === []) {
-            $labels = $fallbackLabels;
+            foreach ($bodyRows as $row) {
+              $rowColumnCount = 0;
+              foreach ($row->childNodes as $cell) {
+                if ($cell instanceof DOMElement && in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                  $rowColumnCount += max(1, (int) $cell->getAttribute('colspan'));
+                }
+              }
+              $columnCount = max($columnCount, $rowColumnCount);
+            }
+            $labels = array_slice($fallbackLabels, 0, max(1, $columnCount));
           }
+          $table->setAttribute('data-mobile-columns', (string) max(1, $columnCount ?: count($labels)));
 
           foreach ($bodyRows as $row) {
             $cellIndex = 0;
@@ -1825,18 +1837,6 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .facility-detail .facility-price-table td li{margin-bottom:2px!important}
       .facility-detail .facility-price-table td>:first-child{margin-top:0!important}
       .facility-detail .facility-price-table td>:last-child{margin-bottom:0!important}
-      @media (max-width:560px){
-        .facility-detail .facility-price-table{margin:0!important;padding:6px 0 0;overflow:visible!important}
-        .facility-detail .facility-price-table table{display:block!important;width:100%!important;min-width:0!important;max-width:100%;border:0;border-radius:0;background:transparent;overflow:visible;font-size:12px;line-height:1.35}
-        .facility-detail .facility-price-table thead{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-        .facility-detail .facility-price-table tbody{display:grid!important;grid-template-columns:minmax(0,1fr);gap:9px;width:100%}
-        .facility-detail .facility-price-table tbody tr{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px;margin:0;padding:0;border:0;background:transparent!important;overflow:visible}
-        .facility-detail .facility-price-table tbody tr:last-child{margin-bottom:0}
-        .facility-detail .facility-price-table tbody td{display:block!important;width:auto!important;min-width:0;padding:9px 10px!important;border:1px solid #e2eaf5!important;border-radius:10px;background:#fff!important;color:#334155;font-size:12px;line-height:1.4;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
-        .facility-detail .facility-price-table tbody td::before{display:block;margin:0 0 4px;color:#71839e;font-size:9px;font-weight:800;line-height:1.3;letter-spacing:.035em;text-transform:uppercase;content:attr(data-mobile-label)}
-        .facility-detail .facility-price-table tbody td:nth-child(2){color:#1d4ed8;font-weight:750}
-        .facility-detail .facility-price-table tbody td:last-child:nth-child(odd){grid-column:1/-1}
-      }
       .facility-info-area{margin-top:22px}
       .facility-info-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 2px 12px}
       .facility-info-kicker{display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
