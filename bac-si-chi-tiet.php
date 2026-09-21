@@ -857,9 +857,10 @@ unset($item);
       }
       @media (max-width:680px){
         .container{width:min(100% - 20px, var(--max))}
-        .mini-stats,.service-grid,.fact-grid,.assoc-grid,.cert-grid{grid-template-columns:1fr}
-        .tabs{padding:8px}
-        .tab{width:100%;min-height:40px;border-radius:10px}
+        .mini-stats,.service-grid,.fact-grid,.assoc-grid,.cert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .tabs{display:flex;flex-wrap:nowrap;gap:4px;padding:6px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .tabs::-webkit-scrollbar{display:none}
+        .tab{flex:0 0 auto;width:auto;min-height:42px;padding:0 12px;border-radius:10px;white-space:nowrap;scroll-snap-align:start}
         .tab.active{background:var(--brand-soft)}
         .tab.active::after{display:none}
         .bottom-cta{flex-direction:column;align-items:flex-start}
@@ -869,6 +870,19 @@ unset($item);
         .doctor-reviews-wide .review-row{padding:16px 14px}
         .review-feed-toolbar{align-items:flex-start;flex-direction:column}
         .review-media{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .hero-photo{min-height:220px;max-height:290px;padding-inline:12px}
+        .hero-photo img{max-height:270px}
+        .review-content p{font-size:14px;line-height:1.65}
+        .review-author .meta-line,.review-date,.review-source{font-size:11px}
+        .mini-stat span,.fact-item strong,.cert-card span,.assoc-card span{font-size:11px}
+        .service-card .sub,.service-card .meta{font-size:12px}
+      }
+      @media(max-width:380px){
+        .service-grid{grid-template-columns:minmax(0,1fr)}
+        .mini-stats,.fact-grid,.assoc-grid,.cert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .section-card{padding:14px}
+        .hero-photo{min-height:190px;max-height:250px}
+        .hero-photo img{max-height:230px}
       }
     </style>
   </head>

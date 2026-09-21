@@ -692,13 +692,13 @@ $navItems = $isEnglish
   @media (max-width:720px){
     .medical-header .header-shell{min-height:68px!important;gap:9px!important}
     .medical-header .brand-mark{width:38px!important;height:38px!important;border-radius:13px!important}
-    .medical-header .brand-mark.is-image{width:42px!important;height:42px!important;border-radius:0!important}
-    .medical-header .brand-copy strong{font-size:21px!important}
+    .medical-header .brand-mark.is-image{width:36px!important;height:36px!important;border-radius:0!important}
+    .medical-header .brand-copy strong{font-size:18px!important}
     .medical-header .brand-copy > .brand-tagline{
       display:block!important;
       width:fit-content;
-      max-width:clamp(112px, calc(100vw - 190px), 230px);
-      font-size:clamp(8px, 2.55vw, 10px)!important;
+      max-width:clamp(100px, calc(100vw - 220px), 230px);
+      font-size:clamp(10px, 2.7vw, 11px)!important;
       line-height:1.2!important;
       white-space:nowrap;
       overflow:hidden;
@@ -1276,11 +1276,14 @@ $navItems = $isEnglish
       border-radius:12px!important;
     }
     .medical-search-results{width:min(100%,calc(100vw - 24px));}
-    .medical-search-item{padding:8px;gap:8px;}
+    .medical-search-item{padding:9px;gap:8px;}
     .medical-search-thumb{flex-basis:38px;width:38px;height:38px;border-radius:11px;}
     .medical-search-summary{gap:5px;}
-    .medical-search-service{max-width:145px;}
-    .medical-search-facts{gap:6px;font-size:9px;}
+    .medical-search-copy .medical-search-title-row strong{font-size:14px;}
+    .medical-search-copy .medical-search-meta{font-size:11px;line-height:1.4;}
+    .medical-search-service{max-width:145px;font-size:10px!important;}
+    .medical-search-facts{gap:6px;font-size:10px;}
+    .medical-search-verified{font-size:9px;}
     .medical-search-verified span{display:none;}
   }
   /* iPad uses the compact header controls, but the menu should remain a

@@ -208,7 +208,7 @@ body > .section .card{border-radius:20px!important;border-color:var(--ui-line)!i
   html{scroll-padding-top:64px}
   .container{width:min(100% - 20px,var(--max))!important}
   .medical-header .header-shell{min-height:54px!important;gap:12px!important}
-  .medical-header .brand-copy span,.medical-header .brand-copy small{display:none!important}
+  .medical-header .brand-copy small{display:none!important}
   .medical-header .brand-copy strong{font-size:16px!important}
   .medical-header .brand-link{gap:8px!important}
   .medical-header .brand-mark{width:32px!important;height:32px!important;border-radius:9px!important;font-size:16px!important}

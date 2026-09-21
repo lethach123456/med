@@ -142,6 +142,32 @@ function doctor_directory_card(array $item): string
     @media(max-width:560px){.doctor-container{width:calc(100% - 20px)}.doctor-directory{padding:9px 0 32px}.doctor-breadcrumb{margin-bottom:9px;font-size:10px}.doctor-hero{gap:12px;padding:15px 13px;border-radius:17px}.doctor-kicker{padding:4px 8px;font-size:9px}.doctor-hero h1{margin:7px 0 5px;font-size:22px;line-height:1.22}.doctor-hero p{font-size:11px;line-height:1.5}.doctor-search{margin-top:12px;padding:5px;border-radius:13px}.doctor-search-field{height:42px;padding:0 9px;gap:7px}.doctor-search-field input{font-size:12px}.doctor-search-submit{width:42px;height:42px;border-radius:10px}.doctor-stats{gap:6px}.doctor-stat{padding:9px 10px;border-radius:12px}.doctor-stat strong{font-size:17px}.doctor-stat span{font-size:9px}.doctor-content{gap:10px;margin-top:13px}.doctor-result-topline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;margin-bottom:9px}.doctor-result-meta{grid-column:1;grid-row:1;gap:0}.doctor-result-count{overflow:hidden;font-size:11px;white-space:nowrap;text-overflow:ellipsis}.doctor-result-count strong{font-size:14px}.doctor-filter-panel{grid-column:2;grid-row:1}.doctor-filter-toggle{height:35px;padding:0 9px;font-size:10px}.doctor-filter-options{position:absolute;right:0;width:calc(100vw - 20px);margin-top:7px;padding:9px;border-radius:12px}.doctor-filter-grid{grid-template-columns:minmax(0,1fr);gap:8px}.doctor-filter-field label{font-size:9px}.doctor-select-wrap select{height:37px;font-size:12px}.doctor-filter-reset{height:34px;justify-self:start}.doctor-loading{grid-column:1/-1;font-size:10px}.doctor-card{grid-template-columns:78px minmax(0,1fr) auto;grid-template-areas:"media profile profile" "score score action";gap:8px 9px;padding:9px;border-radius:14px}.doctor-media{height:78px;border-radius:10px}.doctor-media-empty{font-size:31px}.doctor-eyebrow{gap:4px;font-size:8px}.doctor-name-row{gap:4px;margin-top:3px}.doctor-name-row h2{font-size:13px;line-height:1.3}.doctor-verified{padding:3px 4px;font-size:8px}.doctor-verified i{font-size:11px}.doctor-subtitle{display:none}.doctor-details{gap:3px;margin-top:5px}.doctor-details span{font-size:9px;line-height:1.35}.doctor-details i{font-size:11px}.doctor-tags{gap:4px;margin-top:5px}.doctor-tag{max-width:110px;padding:3px 5px;font-size:8px}.doctor-tags-more{height:20px;padding:0 5px;font-size:8px}.doctor-score{gap:5px;padding-top:7px}.doctor-score strong{font-size:16px}.doctor-score strong small{font-size:8px}.doctor-stars{font-size:10px}.doctor-score>span:last-child{font-size:9px}.doctor-action{min-width:83px;height:32px;padding:0 7px;border-radius:9px;font-size:9px}.doctor-action i{font-size:11px}.doctor-aside{display:none}.doctor-pagination{gap:4px;margin-top:13px}.doctor-pagination button{min-width:32px;height:32px;padding:0 7px;font-size:10px}.doctor-empty{padding:24px 12px}.doctor-empty h2{font-size:14px}}
     @media(max-width:360px){.doctor-card{grid-template-columns:68px minmax(0,1fr) auto}.doctor-media{height:68px}.doctor-action{min-width:76px;padding:0 5px;font-size:8px}.doctor-tags{display:none}.doctor-hero h1{font-size:20px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.doctor-card,.doctor-action,.doctor-filter-toggle,.doctor-pagination button{transition:none}.doctor-loading i{animation:none}}
+    @media(max-width:560px){
+      .doctor-hero h1{font-size:clamp(23px,6.6vw,27px);line-height:1.18}
+      .doctor-hero p{font-size:13.5px;line-height:1.6}
+      .doctor-search-field input{font-size:16px}
+      .doctor-stat span{font-size:10.5px;line-height:1.4}
+      .doctor-filter-field label{font-size:10px}
+      .doctor-select-wrap select{font-size:16px}
+      .doctor-name-row h2{font-size:15px}
+      .doctor-eyebrow{font-size:9px}
+      .doctor-details span{font-size:11px}
+      .doctor-tag{font-size:10px}
+      .doctor-score>span:last-child{font-size:10px}
+      .doctor-action{min-height:38px;font-size:10px}
+      .doctor-result-count{font-size:12px}
+    }
+    @media(max-width:360px){
+      .doctor-hero h1{font-size:22px}
+      .doctor-card{grid-template-columns:66px minmax(0,1fr) auto;gap:8px;padding:8px}
+      .doctor-media{height:66px}
+      .doctor-name-row h2{font-size:14px}
+      .doctor-details span{font-size:10.5px}
+      .doctor-tags{display:flex}
+      .doctor-tag{max-width:100px;font-size:9.5px}
+      .doctor-tags-more{height:22px;min-width:27px;font-size:9.5px}
+      .doctor-action{min-width:78px;padding-inline:6px;font-size:9px}
+    }
   </style>
 </head>
 <body>

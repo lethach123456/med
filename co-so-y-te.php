@@ -708,6 +708,31 @@ function facility_page_card(array $item): string
       .directory-stat { min-height: 76px; }
     }
   </style>
+  <style id="mobile-reading-balance">
+    @media (max-width:560px){
+      .directory-hero h1{font-size:clamp(22px,6.4vw,26px);line-height:1.2}
+      .directory-hero p{font-size:14px;line-height:1.6}
+      .directory-search .filter-search input{font-size:16px}
+      .filter-select-wrap select{font-size:16px}
+      .directory-stat span{font-size:11px}
+      .facility-name-row h2{font-size:16px}
+      .facility-details span{font-size:12px}
+      .service-tags .service-tag{font-size:10.5px}
+      .service-tags-more{font-size:10px}
+    }
+    @media (max-width:360px){
+      .directory-hero h1{font-size:21px}
+      .directory-hero{padding:16px 13px}
+      .facility-card{grid-template-columns:68px minmax(0,1fr) auto;gap:8px;padding:9px}
+      .facility-media{height:68px}
+      .facility-name-row h2{font-size:15px}
+      .facility-details span{font-size:11.5px}
+      .service-tags{display:flex;gap:4px}
+      .service-tags .service-tag{max-width:105px;font-size:10px}
+      .service-tags-more{height:22px;min-width:28px;padding:0 5px}
+    }
+    @media (prefers-reduced-motion:reduce){.directory-search .filter-search-row{transition:none}}
+  </style>
 </head>
 <body>
 <?php include __DIR__ . '/Tem/header.php'; ?>

@@ -263,26 +263,26 @@ $escape = static fn (?string $value): string => htmlspecialchars((string) $value
     .medical-footer .footer-cta{grid-template-columns:1fr;gap:16px;padding:21px 20px 19px;border-radius:20px}
     .medical-footer .footer-kicker{margin-bottom:7px;font-size:10px;letter-spacing:.055em}
     .medical-footer .footer-cta-copy strong{font-size:20px!important;line-height:1.35}
-    .medical-footer .footer-cta-copy p{font-size:12px;line-height:1.72}
+    .medical-footer .footer-cta-copy p{font-size:13px;line-height:1.65}
     .medical-footer .footer-cta-btn{width:100%;min-height:46px;font-size:13px}
     .medical-footer .footer-main{padding:32px 0 27px!important}
     .medical-footer .footer-grid{grid-template-columns:1fr 1fr;gap:28px 18px}
     .medical-footer .footer-brand{grid-column:1 / -1;max-width:none}
     .medical-footer .footer-brand-icon{width:40px;height:40px;border-radius:13px}
     .medical-footer .footer-brand-name{font-size:20px}
-    .medical-footer .footer-brand-label{font-size:10px}
-    .medical-footer .footer-intro{max-width:35rem;margin-top:14px;font-size:12px;line-height:1.72}
+    .medical-footer .footer-brand-label{font-size:11px}
+    .medical-footer .footer-intro{max-width:35rem;margin-top:14px;font-size:13px;line-height:1.65}
     .medical-footer .social-row{margin-top:16px}
     .medical-footer .social-row a{width:38px;height:38px;border-radius:12px}
-    .medical-footer .footer-section h3{margin:0 0 10px;padding-bottom:9px;font-size:10px}
+    .medical-footer .footer-section h3{margin:0 0 10px;padding-bottom:9px;font-size:11px}
     .medical-footer .footer-links{gap:3px}
-    .medical-footer .footer-links a{min-height:34px;font-size:12px;line-height:1.45}
+    .medical-footer .footer-links a{min-height:36px;font-size:13px;line-height:1.45}
     .medical-footer .footer-section-contact{grid-column:1 / -1}
     .medical-footer .footer-contact{grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:2px;padding-top:22px;border-top:1px solid rgba(186,209,245,.14)}
     .medical-footer .footer-contact-item{grid-template-columns:30px minmax(0,1fr);gap:8px}
     .medical-footer .footer-contact-icon{width:30px;height:30px}
     .medical-footer .footer-contact-copy{font-size:12px;line-height:1.55}
-    .medical-footer .footer-bottom{align-items:flex-start;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:13px 0;font-size:10px;line-height:1.45}
+    .medical-footer .footer-bottom{align-items:flex-start;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:13px 0;font-size:11px;line-height:1.5}
     .medical-footer .footer-bottom-note{white-space:normal}
   }
   @media (max-width:430px){

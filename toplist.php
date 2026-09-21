@@ -43,6 +43,45 @@ $seoCanonical = (string) ($seo['canonical_path'] ?? medical_public_toplist_path(
 @keyframes toplist-page-in{from{opacity:0;transform:translateY(8px)}}
 @keyframes toplist-surface-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .hero-head,.filter-bar,.content-grid{animation:toplist-surface-in .42s cubic-bezier(.2,.8,.2,1) both}.filter-bar{animation-delay:.055s}.content-grid{animation-delay:.1s}.list-wrap{transition:opacity .18s ease}.list-wrap.is-revealing .facility-card{animation:toplist-surface-in .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(min(var(--reveal-index,0),6) * 42ms)}.facility-card,.detail-btn,.filter-input,.filter-select,.summary-card,.utility-card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background-color .18s ease}.facility-card:focus-within{border-color:#a9c8f7;box-shadow:0 16px 34px rgba(30,64,175,.1)}.detail-btn:focus-visible{outline:3px solid rgba(37,99,235,.23);outline-offset:3px}@media(hover:hover){.facility-card:hover{transform:translateY(-2px);border-color:#c8daf5;box-shadow:0 16px 34px rgba(30,64,175,.09)}.facility-card:hover .facility-media>img{transform:scale(1.035)}.detail-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(37,99,235,.22)}.summary-card:hover,.utility-card:hover{transform:translateY(-2px);box-shadow:0 13px 28px rgba(15,23,42,.06)}}@media(hover:none){.facility-card:active,.detail-btn:active{transform:scale(.985)}.detail-btn:active{box-shadow:none}}.facility-media>img,.toplist-collage img{transition:transform .32s ease,opacity .22s ease}.toplist-collage img{opacity:0}.toplist-collage.is-ready img{opacity:1}.toplist-collage.is-ready img:nth-child(2){transition-delay:.035s}.toplist-collage.is-ready img:nth-child(3){transition-delay:.07s}.toplist-collage.is-ready img:nth-child(4){transition-delay:.105s}@media(prefers-reduced-motion:reduce){.hero-head,.filter-bar,.content-grid,.list-wrap.is-revealing .facility-card{animation:none!important}.facility-card,.detail-btn,.filter-input,.filter-select,.summary-card,.utility-card,.facility-media>img,.toplist-collage img{transition-duration:.01ms!important}}
+</style><style id="toplist-directory-mobile-balance">
+@media(max-width:560px){
+  .facility-page{padding:14px 0 36px}
+  .breadcrumb{gap:7px;font-size:11px;overflow:hidden;white-space:nowrap}
+  .hero-head{gap:12px;margin:14px 0}
+  .hero-title-row{flex-direction:row;align-items:center;flex-wrap:wrap;gap:7px}
+  .hero-head h1{font-size:23px;line-height:1.2}
+  .title-pill{padding:5px 8px;font-size:11px}
+  .hero-sub{font-size:14px;line-height:1.55}
+  .hero-note{width:100%;max-width:none;padding:10px 12px}
+  .hero-note span:last-child{font-size:12px}
+  .facility-card{grid-template-columns:88px minmax(0,1fr);grid-template-areas:"media main" "score cta";gap:0 10px;padding:9px;border-radius:15px}
+  .facility-media{grid-area:media;aspect-ratio:auto;height:88px;min-height:0;border-radius:10px}
+  .media-count{bottom:5px;left:5px;padding:4px 6px;font-size:9px}
+  .facility-main{grid-area:main;min-width:0;padding:0 2px 8px 0}
+  .facility-title{align-items:flex-start;gap:6px}
+  .rank-badge{flex:0 0 24px;width:24px;height:24px;font-size:11px}
+  .facility-title h2{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+  .facility-sub{display:-webkit-box;margin-top:4px;overflow:hidden;font-size:12px;line-height:1.45;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .meta-row{margin-top:5px;font-size:11px}
+  .score-col{grid-area:score;flex-direction:row;align-items:center;gap:6px;padding:8px 3px 2px 4px;border-top:1px solid var(--border);border-left:0}
+  .score-main{font-size:20px}
+  .score-main small{font-size:11px}
+  .score-meta{margin:0;font-size:11px}
+  .cta-col{grid-area:cta;flex-direction:row;align-items:center;justify-content:flex-end;gap:8px;padding:8px 2px 2px;border-top:1px solid var(--border);border-left:0}
+  .cta-col strong{display:none}
+  .detail-btn{min-height:36px;margin:0;padding:8px 11px;font-size:11px}
+  .sidebar{grid-template-columns:1fr}
+  .summary-card,.utility-card{padding:14px;border-radius:15px}
+  .summary-card p,.utility-item p{font-size:12px;line-height:1.55}
+}
+@media(max-width:360px){
+  .container{width:calc(100% - 20px)}
+  .hero-head h1{font-size:21px}
+  .facility-card{grid-template-columns:78px minmax(0,1fr);column-gap:8px}
+  .facility-media{height:78px}
+  .facility-title h2{font-size:13.5px}
+  .facility-sub{font-size:11.5px}
+}
 </style></head><body>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <main class="facility-page site-typo"><section class="container">

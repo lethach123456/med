@@ -266,3 +266,24 @@
  .facility-detail .facility-price-table table{font-size:10px}
  .facility-detail .facility-price-table :is(th,td){padding:5px 4px!important}
 }
+
+/* Final phone reading scale: preserve the compact layout while making body
+   copy and review metadata comfortable to scan. */
+@media(max-width:767px){
+ .facility-detail .section-copy{font-size:14px;line-height:1.68}
+ .facility-detail .facility-subsection li{font-size:14px;line-height:1.62}
+ .facility-detail .contact-item :is(span,a){font-size:12px}
+ .facility-detail #danh-gia .review-content{font-size:13px;line-height:1.65}
+ .facility-detail #danh-gia .review-date{font-size:11px}
+ .facility-detail #danh-gia .review-author strong{font-size:13px}
+ .facility-detail #danh-gia .review-author .meta-line{font-size:11px}
+ .facility-detail #danh-gia :is(.review-service,.review-source){font-size:10px;padding:4px 6px}
+ .facility-detail #danh-gia .review-switch{font-size:11.5px}
+ .facility-detail .facility-price-table table{font-size:11px}
+ .facility-detail .facility-price-table thead th{font-size:10px}
+}
+@media(max-width:380px){
+ .facility-detail .facility-price-table table{font-size:10.5px}
+ .facility-detail .facility-price-table thead th{font-size:9.5px}
+ .facility-detail .section-copy{font-size:13.5px}
+}

@@ -141,6 +141,26 @@
   .page.site-typo .price-box table { font-size: 10px; }
   .page.site-typo .price-box :is(th,td) { padding: 8px 5px; }
 }
+@media(max-width:700px) {
+  .page.site-typo .hero p,
+  .page.site-typo :is(.intro,.facility-content) p { font-size: 14px; line-height: 1.7; }
+  .page.site-typo .toplist-quick-compare h2 { font-size: 19px!important; }
+  .page.site-typo .toplist-quick-compare th { font-size: 11px!important; padding: 10px 9px; }
+  .page.site-typo .toplist-quick-compare td { font-size: 12px!important; padding: 12px 9px; }
+  .page.site-typo .price-box th { font-size: 10px; }
+  .page.site-typo .review-content p { font-size: 14px; line-height: 1.65; }
+  .page.site-typo .review-author strong { font-size: 14px; }
+  .page.site-typo .review-source,
+  .page.site-typo .review-actions { font-size: 12px; }
+  .page.site-typo .verified-tag { font-size: 11px!important; }
+  .page.site-typo .side { padding: 15px; }
+  .page.site-typo .toc a { font-size: 13px; }
+}
+@media(max-width:380px) {
+  .page.site-typo .hero h1 { font-size: 21px; }
+  .page.site-typo :is(.intro,.facility-content) p { font-size: 13.5px; }
+  .page.site-typo .toplist-quick-compare th { font-size: 10px!important; }
+}
 @media(prefers-reduced-motion:reduce) {
   .page.site-typo * { scroll-behavior: auto!important; transition: none!important; }
 }

@@ -555,18 +555,18 @@ $locale = site_page_locale('home');
           align-items:flex-start; gap:10px; margin-bottom:13px;
         }
         body.site-home .med-home .section-kicker{
-          margin-bottom:5px; font-size:9px; letter-spacing:.1em;
+          margin-bottom:5px; font-size:10px; letter-spacing:.08em;
         }
         body.site-home .med-home .section-head h2{
           font-size:21px; line-height:1.17; letter-spacing:-.048em;
         }
         body.site-home .med-home .section-head p{
           display:-webkit-box; max-width:275px; margin-top:5px; overflow:hidden;
-          font-size:11.5px; line-height:1.52; -webkit-box-orient:vertical;
+          font-size:13px; line-height:1.55; -webkit-box-orient:vertical;
           -webkit-line-clamp:2;
         }
         body.site-home .med-home .section-link{
-          flex:0 0 auto; min-height:32px; padding:7px 1px 5px; font-size:11px;
+          flex:0 0 auto; min-height:34px; padding:7px 1px 5px; font-size:12px;
         }
 
         /* Dashboard-like hero */
@@ -593,7 +593,7 @@ $locale = site_page_locale('home');
         }
         body.site-home .med-home .hero-copy p{
           max-width:298px; margin-top:13px; color:#536681!important;
-          font-size:12.5px; line-height:1.58;
+          font-size:14px; line-height:1.6;
         }
         body.site-home .med-home .hero-search{ max-width:none; margin-top:18px; }
         body.site-home .med-home .hero-search-row{
@@ -603,7 +603,7 @@ $locale = site_page_locale('home');
         }
         body.site-home .med-home .hero-search-field{ gap:8px; padding:0 10px; }
         body.site-home .med-home .hero-search-field i{ font-size:18px; }
-        body.site-home .med-home .hero-search-field input{ height:48px; font-size:12.5px; }
+        body.site-home .med-home .hero-search-field input{ height:48px; font-size:16px; }
         body.site-home .med-home .hero-search-btn{
           width:48px; min-width:48px; height:48px; border-radius:13px;
           box-shadow:0 9px 17px rgba(37,99,235,.24);
