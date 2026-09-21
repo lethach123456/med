@@ -769,10 +769,26 @@ $seo = front_editor_page_seo('co-so-y-te-chi-tiet', [
   'description' => $facility['subtitle'],
   'canonical_path' => medical_public_facility_path((string) $facility['slug']),
 ]);
-$title = (string) ($seo['title'] ?? ($facility['name'] . ' • MedReview'));
-$description = (string) ($seo['description'] ?? '');
+$title = trim((string) ($facility['seo_title'] ?? '')) !== ''
+  ? (string) $facility['seo_title']
+  : (string) ($seo['title'] ?? ($facility['name'] . ' • MedReview'));
+$description = trim((string) ($facility['seo_description'] ?? '')) !== ''
+  ? (string) $facility['seo_description']
+  : (string) ($seo['description'] ?? '');
 $canonicalPath = medical_public_facility_path((string) $facility['slug']);
-$seoKeywords = (string) ($seo['keywords'] ?? '');
+$requestHost = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+$forwardedProto = strtolower(trim(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+$requestIsHttps = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') || $forwardedProto === 'https';
+$canonicalUrl = preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $requestHost)
+  ? (($requestIsHttps ? 'https://' : 'http://') . $requestHost . $canonicalPath)
+  : $canonicalPath;
+$seoKeywords = trim((string) ($facility['seo_keywords'] ?? '')) !== ''
+  ? (string) $facility['seo_keywords']
+  : (string) ($seo['keywords'] ?? '');
+$seoImage = trim((string) ($facility['hero_image'] ?? ''));
+if ($seoImage === '') {
+  $seoImage = trim((string) ($facility['image_url'] ?? ''));
+}
 ?>
 <!doctype html>
 <html lang="vi">
@@ -782,7 +798,16 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars($canonicalPath, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:url" content="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($seoImage !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($seoImage, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <meta name="twitter:card" content="<?php echo $seoImage !== '' ? 'summary_large_image' : 'summary'; ?>">
+    <meta name="twitter:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php if ($seoImage !== ''): ?><meta name="twitter:image" content="<?php echo htmlspecialchars($seoImage, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">

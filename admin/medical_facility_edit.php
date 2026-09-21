@@ -66,6 +66,9 @@ $values = [
     'city' => '',
     'subtitle' => '',
     'content' => '',
+    'seo_title' => '',
+    'seo_description' => '',
+    'seo_keywords' => '',
     'verified' => '1',
     'rating' => '',
     'reviews_count' => '0',
@@ -105,6 +108,9 @@ if ($isEdit) {
         'city' => (string) $item['city'],
         'subtitle' => (string) $item['subtitle'],
         'content' => (string) ($row['content'] ?? ''),
+        'seo_title' => (string) ($row['seo_title'] ?? ''),
+        'seo_description' => (string) ($row['seo_description'] ?? ''),
+        'seo_keywords' => (string) ($row['seo_keywords'] ?? ''),
         'verified' => !empty($item['is_verified']) ? '1' : '0',
         'rating' => (string) $item['rating'],
         'reviews_count' => (string) $item['reviews_count'],
@@ -142,6 +148,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mb_strlen($values['name']) > 160) {
         $errors[] = 'Tên cơ sở y tế quá dài.';
     }
+    foreach ([
+        'seo_title' => ['label' => 'SEO Title', 'max' => 160],
+        'seo_description' => ['label' => 'SEO Description', 'max' => 300],
+        'seo_keywords' => ['label' => 'Từ khóa SEO', 'max' => 255],
+    ] as $seoField => $rule) {
+        if (mb_strlen($values[$seoField]) > $rule['max']) {
+            $errors[] = $rule['label'] . ' không được vượt quá ' . $rule['max'] . ' ký tự.';
+        }
+    }
 
     $values['status'] = in_array($values['status'], ['draft', 'published'], true) ? $values['status'] : 'draft';
     $values['verified'] = $values['verified'] === '1' ? '1' : '0';
@@ -171,6 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     city = :city,
                     subtitle = :subtitle,
                     content = :content,
+                    seo_title = :seo_title,
+                    seo_description = :seo_description,
+                    seo_keywords = :seo_keywords,
                     verified = :verified,
                     rating = :rating,
                     reviews_count = :reviews_count,
@@ -199,6 +217,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':city' => $values['city'],
                 ':subtitle' => $values['subtitle'],
                 ':content' => $values['content'],
+                ':seo_title' => $values['seo_title'] !== '' ? $values['seo_title'] : null,
+                ':seo_description' => $values['seo_description'] !== '' ? $values['seo_description'] : null,
+                ':seo_keywords' => $values['seo_keywords'] !== '' ? $values['seo_keywords'] : null,
                 ':verified' => (int) $values['verified'],
                 ':rating' => number_format($ratingFloat, 1, '.', ''),
                 ':reviews_count' => max(0, (int) $values['reviews_count']),
@@ -249,11 +270,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $pdo->prepare(
             "INSERT INTO medical_facilities (
-                slug, name, category, city, subtitle, content, verified, rating, reviews_count, followers_count,
+                slug, name, category, city, subtitle, content, seo_title, seo_description, seo_keywords, verified, rating, reviews_count, followers_count,
                 hours_text, address_text, phone_text, website_url, price_text, price_table_html, image_url, images_label,
                 featured_services_json, tags_json, gallery_json, intro_json, utilities_json, status, display_order
             ) VALUES (
-                :slug, :name, :category, :city, :subtitle, :content, :verified, :rating, :reviews_count, :followers_count,
+                :slug, :name, :category, :city, :subtitle, :content, :seo_title, :seo_description, :seo_keywords, :verified, :rating, :reviews_count, :followers_count,
                 :hours_text, :address_text, :phone_text, :website_url, :price_text, :price_table_html, :image_url, :images_label,
                 :featured_services_json, :tags_json, :gallery_json, :intro_json, :utilities_json, :status, :display_order
             )"
@@ -265,6 +286,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':city' => $values['city'],
             ':subtitle' => $values['subtitle'],
             ':content' => $values['content'],
+            ':seo_title' => $values['seo_title'] !== '' ? $values['seo_title'] : null,
+            ':seo_description' => $values['seo_description'] !== '' ? $values['seo_description'] : null,
+            ':seo_keywords' => $values['seo_keywords'] !== '' ? $values['seo_keywords'] : null,
             ':verified' => (int) $values['verified'],
             ':rating' => number_format($ratingFloat, 1, '.', ''),
             ':reviews_count' => max(0, (int) $values['reviews_count']),
@@ -438,6 +462,41 @@ $mediaGalleryValue = $values['gallery_lines'];
             <div class="border rounded-4 bg-white p-3">
               <div class="fw-semibold mb-2">Ảnh & media</div>
               <?php require __DIR__ . '/_media_image_field.php'; ?>
+            </div>
+            <div class="border rounded-4 bg-white p-3 mt-3" data-yoast-panel data-yoast-profile="facility" data-yoast-domain="" data-yoast-url-prefix="/co-so-y-te/">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div class="fw-semibold"><i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>SEO cơ sở</div>
+                <div class="d-flex align-items-center gap-2">
+                  <span data-yoast-title-count class="small text-secondary"></span>
+                  <span data-yoast-desc-count class="small text-secondary"></span>
+                </div>
+              </div>
+              <div class="border rounded-4 p-3 mb-3" style="background:#f8fafc;">
+                <div class="fw-semibold" style="color:#1a0dab;" data-yoast-preview-title></div>
+                <div class="small" style="color:#006621; overflow-wrap:anywhere;" data-yoast-preview-url></div>
+                <div class="small text-secondary" data-yoast-preview-desc></div>
+              </div>
+              <div class="mb-3" data-yoast-checklist></div>
+              <button class="btn btn-outline-secondary w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#seoFieldsFacilityEdit" aria-expanded="false" aria-controls="seoFieldsFacilityEdit">
+                <i class="fa-solid fa-sliders me-2" aria-hidden="true"></i>Cấu hình SEO
+              </button>
+              <div class="collapse mt-3" id="seoFieldsFacilityEdit">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label" for="seo_keywords">Từ khóa (từ khóa chính, phụ)</label>
+                    <input id="seo_keywords" name="seo_keywords" class="form-control" maxlength="255" value="<?php echo htmlspecialchars($values['seo_keywords'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="nha khoa uy tín Đà Nẵng, trồng implant">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="seo_title">SEO Title</label>
+                    <input id="seo_title" name="seo_title" class="form-control" maxlength="160" value="<?php echo htmlspecialchars($values['seo_title'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Để trống sẽ dùng tên cơ sở">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="seo_description">SEO Description</label>
+                    <textarea id="seo_description" name="seo_description" class="form-control" rows="4" maxlength="300" placeholder="Để trống sẽ dùng mô tả ngắn của cơ sở"><?php echo htmlspecialchars($values['seo_description'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                    <div class="form-text">Độ dài khuyến nghị khoảng 120–160 ký tự. Để trống trường SEO sẽ tự lấy dữ liệu hồ sơ.</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

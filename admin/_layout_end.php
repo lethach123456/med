@@ -743,12 +743,12 @@
 
             const titleInput = form.querySelector("input[name='title']") || form.querySelector("input[name='name']");
             const slugInput = form.querySelector("input[name='slug']");
-            const excerptInput = form.querySelector("textarea[name='excerpt']") || form.querySelector("textarea[name='short_description']");
+            const excerptInput = form.querySelector("textarea[name='excerpt']") || form.querySelector("textarea[name='short_description']") || form.querySelector("textarea[name='subtitle']") || form.querySelector("input[name='subtitle']");
             const seoTitleInput = form.querySelector("input[name='seo_title']");
             const seoDescInput = form.querySelector("textarea[name='seo_description']");
             const seoKeywordsInput = form.querySelector("input[name='seo_keywords']");
-            const featuredInput = form.querySelector("input[name='featured_image_url']");
-            const contentTextarea = form.querySelector("textarea[data-ckeditor-source][name='content']");
+            const featuredInput = form.querySelector("input[name='featured_image_url']") || form.querySelector("input[name='image_url']");
+            const contentTextarea = form.querySelector("textarea[data-ckeditor-source][name='content']") || form.querySelector("textarea[data-ckeditor-source][name='intro_lines']");
 
             const elPreviewTitle = panel.querySelector("[data-yoast-preview-title]");
             const elPreviewUrl = panel.querySelector("[data-yoast-preview-url]");
@@ -758,6 +758,9 @@
             const elChecklist = panel.querySelector("[data-yoast-checklist]");
 
             const defaultDomain = panel.getAttribute("data-yoast-domain") || window.location.host || "example.com";
+            const urlPrefix = panel.getAttribute("data-yoast-url-prefix") || "/";
+            const isFacilityProfile = panel.getAttribute("data-yoast-profile") === "facility";
+            const minimumWords = isFacilityProfile ? 120 : 300;
 
             function stripHtml(html) {
               const tmp = document.createElement("div");
@@ -804,7 +807,7 @@
 
               const usedTitle = seoTitle || pageTitle;
               const usedDesc = seoDesc || excerpt || contentText.slice(0, 160);
-              const urlLine = `${defaultDomain}/${pageSlug || "slug"}`;
+              const urlLine = `${defaultDomain}${urlPrefix}${pageSlug || "slug"}`;
 
               if (elPreviewTitle) elPreviewTitle.textContent = usedTitle || "(Chưa có tiêu đề)";
               if (elPreviewUrl) elPreviewUrl.textContent = urlLine;
@@ -828,7 +831,7 @@
                 const okSlug = hasKw && pageSlug.toLowerCase().includes(window.adminSlugify ? window.adminSlugify(kw) : kw);
                 const okDesc = hasKw && usedDesc.toLowerCase().includes(kw);
                 const okContent = hasKw && contentText.toLowerCase().includes(kw);
-                const okWords = wc >= 300;
+                const okWords = wc >= minimumWords;
                 const okFeatured = featured !== "";
 
                 elChecklist.innerHTML = `
@@ -853,7 +856,7 @@
                     ${scoreBadge(okContent)}
                   </div>
                   <div class="d-flex align-items-center justify-content-between gap-2 py-2 border-bottom">
-                    <div>Độ dài nội dung (≥ 300 từ)</div>
+                    <div>Độ dài nội dung (≥ ${minimumWords} từ)</div>
                     <div class="d-flex align-items-center gap-2">${scoreBadge(okWords)}<span class="small text-secondary">${wc} từ</span></div>
                   </div>
                   <div class="d-flex align-items-center justify-content-between gap-2 py-2">

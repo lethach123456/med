@@ -185,6 +185,7 @@ try { foreach ($items as $item) {
         'website' => 'website_url', 'website_url' => 'website_url',
         'email' => 'email_text', 'email_text' => 'email_text',
         'subtitle' => 'subtitle', 'content' => 'content', 'content_html' => 'content',
+        'seo_title' => 'seo_title', 'seo_description' => 'seo_description', 'seo_keywords' => 'seo_keywords',
         'price' => 'price_text', 'price_text' => 'price_text',
         'price_table_html' => 'price_table_html', 'price_source_scope' => 'price_source_scope',
         'hours' => 'hours_text', 'hours_text' => 'hours_text',
@@ -195,6 +196,7 @@ try { foreach ($items as $item) {
         'warranty_policy' => 'warranty_policy', 'notes_for_editor' => 'notes_for_editor',
     ];
     $urlColumns = array_fill_keys(['website_url', 'google_maps_url', 'booking_url'], true);
+    $seoFieldLimits = ['seo_title' => 160, 'seo_description' => 300, 'seo_keywords' => 255];
     // Keep the original AI payload intact in full_json.  In particular, image
     // URLs remain the source URLs until the independent media worker has
     // downloaded and replaced them with locally owned files.
@@ -210,7 +212,14 @@ try { foreach ($items as $item) {
         } elseif (isset($urlColumns[$column])) {
             $params[':' . $column] = medical_api_content_url($value);
         } else {
-            $params[':' . $column] = is_array($value) ? medical_api_json($value) : trim((string) $value);
+            $textValue = is_array($value) ? medical_api_json($value) : trim((string) $value);
+            if (isset($seoFieldLimits[$column])) {
+                $textValue = function_exists('mb_substr')
+                    ? mb_substr($textValue, 0, $seoFieldLimits[$column], 'UTF-8')
+                    : substr($textValue, 0, $seoFieldLimits[$column]);
+                $normalizedItem[$input] = $textValue;
+            }
+            $params[':' . $column] = $textValue;
         }
     }
 
