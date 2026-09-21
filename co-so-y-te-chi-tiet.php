@@ -513,6 +513,77 @@ function facility_detail_compact_price_html(string $html): string
           }
         }
 
+        // Preserve the source headings as labels when the table becomes a
+        // two-column mobile card grid. This keeps notes and prices explicit.
+        $tables = [];
+        foreach ($fragment->getElementsByTagName('table') as $table) {
+          $tables[] = $table;
+        }
+        $fallbackLabels = ['Nhóm dịch vụ', 'Hạng mục', 'Giá', 'Ghi chú'];
+        foreach ($tables as $table) {
+          $headerRow = null;
+          $bodyRows = [];
+          foreach ($table->childNodes as $section) {
+            if (!$section instanceof DOMElement) {
+              continue;
+            }
+            $sectionTag = strtolower($section->tagName);
+            if ($sectionTag === 'thead' && $headerRow === null) {
+              foreach ($section->childNodes as $row) {
+                if ($row instanceof DOMElement && strtolower($row->tagName) === 'tr') {
+                  $headerRow = $row;
+                  break;
+                }
+              }
+            } elseif ($sectionTag === 'tbody') {
+              foreach ($section->childNodes as $row) {
+                if ($row instanceof DOMElement && strtolower($row->tagName) === 'tr') {
+                  $bodyRows[] = $row;
+                }
+              }
+            } elseif ($sectionTag === 'tr') {
+              $bodyRows[] = $section;
+            }
+          }
+
+          if ($headerRow === null) {
+            foreach ($bodyRows as $rowIndex => $row) {
+              foreach ($row->childNodes as $cell) {
+                if ($cell instanceof DOMElement && strtolower($cell->tagName) === 'th') {
+                  $headerRow = $row;
+                  array_splice($bodyRows, $rowIndex, 1);
+                  break 2;
+                }
+              }
+            }
+          }
+
+          $labels = [];
+          if ($headerRow instanceof DOMElement) {
+            foreach ($headerRow->childNodes as $cell) {
+              if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                continue;
+              }
+              $label = trim(preg_replace('/\s+/u', ' ', $cell->textContent ?? '') ?? '');
+              $labels[] = $label !== '' ? $label : ($fallbackLabels[count($labels)] ?? ('Thông tin ' . (count($labels) + 1)));
+            }
+          }
+          if ($labels === []) {
+            $labels = $fallbackLabels;
+          }
+
+          foreach ($bodyRows as $row) {
+            $cellIndex = 0;
+            foreach ($row->childNodes as $cell) {
+              if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                continue;
+              }
+              $cell->setAttribute('data-mobile-label', $labels[$cellIndex] ?? ('Thông tin ' . ($cellIndex + 1)));
+              $cellIndex++;
+            }
+          }
+        }
+
         $serialized = '';
         foreach ($fragment->childNodes as $child) {
           $serialized .= $document->saveHTML($child);
@@ -1756,14 +1827,15 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .facility-detail .facility-price-table td>:last-child{margin-bottom:0!important}
       @media (max-width:560px){
         .facility-detail .facility-price-table{margin:0!important;padding:6px 0 0;overflow:visible!important}
-        .facility-detail .facility-price-table table{display:table!important;width:100%!important;min-width:0!important;max-width:100%;table-layout:fixed;font-size:11px;line-height:1.3}
-        .facility-detail .facility-price-table :is(th,td){display:table-cell!important;width:auto;padding:5px 5px!important;vertical-align:top!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
-        .facility-detail .facility-price-table thead th{font-size:9px;letter-spacing:0}
-        .facility-detail .facility-price-table tbody td:nth-child(2){white-space:normal!important}
-        .facility-detail .facility-price-table table:has(> thead th:nth-child(2)):not(:has(> thead th:nth-child(3))) :is(th,td){width:50%!important}
-        .facility-detail .facility-price-table table:has(> thead th:nth-child(3)):not(:has(> thead th:nth-child(4))) :is(th,td){width:33.333333%!important}
-        .facility-detail .facility-price-table table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) :is(th,td){width:25%!important}
-        .facility-detail .facility-price-table table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) :is(th,td){width:20%!important}
+        .facility-detail .facility-price-table table{display:block!important;width:100%!important;min-width:0!important;max-width:100%;border:0;border-radius:0;background:transparent;overflow:visible;font-size:12px;line-height:1.35}
+        .facility-detail .facility-price-table thead{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .facility-detail .facility-price-table tbody{display:grid!important;grid-template-columns:minmax(0,1fr);gap:9px;width:100%}
+        .facility-detail .facility-price-table tbody tr{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px;margin:0;padding:0;border:0;background:transparent!important;overflow:visible}
+        .facility-detail .facility-price-table tbody tr:last-child{margin-bottom:0}
+        .facility-detail .facility-price-table tbody td{display:block!important;width:auto!important;min-width:0;padding:9px 10px!important;border:1px solid #e2eaf5!important;border-radius:10px;background:#fff!important;color:#334155;font-size:12px;line-height:1.4;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+        .facility-detail .facility-price-table tbody td::before{display:block;margin:0 0 4px;color:#71839e;font-size:9px;font-weight:800;line-height:1.3;letter-spacing:.035em;text-transform:uppercase;content:attr(data-mobile-label)}
+        .facility-detail .facility-price-table tbody td:nth-child(2){color:#1d4ed8;font-weight:750}
+        .facility-detail .facility-price-table tbody td:last-child:nth-child(odd){grid-column:1/-1}
       }
       .facility-info-area{margin-top:22px}
       .facility-info-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 2px 12px}
