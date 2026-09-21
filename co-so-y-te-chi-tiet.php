@@ -424,7 +424,7 @@ function facility_detail_compact_price_html(string $html): string
       $attributes = preg_replace('/\s+(?:height|width)\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/iu', '', $attributes) ?? $attributes;
     }
 
-    $attributes = preg_replace_callback('/\sstyle\s*=\s*(["\'])(.*?)\1/isu', static function (array $styleMatch): string {
+    $attributes = preg_replace_callback('/\sstyle\s*=\s*(["\'])(.*?)\1/isu', static function (array $styleMatch) use ($tag): string {
       $keptDeclarations = [];
       foreach (explode(';', $styleMatch[2]) as $declaration) {
         $declaration = trim($declaration);
@@ -433,7 +433,9 @@ function facility_detail_compact_price_html(string $html): string
         }
         [$property] = explode(':', $declaration, 2);
         $property = strtolower(trim($property));
-        if (preg_match('/^(?:height|min-height|max-height|line-height|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?)$/i', $property)) {
+        $isTableStructure = in_array($tag, ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'], true);
+        $isTableLayoutOverride = $isTableStructure && preg_match('/^(?:display|position|top|right|bottom|left|inset|vertical-align)$/i', $property);
+        if ($isTableLayoutOverride || preg_match('/^(?:height|min-height|max-height|line-height|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?)$/i', $property)) {
           continue;
         }
         $keptDeclarations[] = $declaration;
@@ -453,6 +455,79 @@ function facility_detail_compact_price_html(string $html): string
   // closing tag, so malformed/unclosed cells cannot make this quadratic.
   $html = preg_replace('~<p\b[^>]*>(?:\s|&nbsp;|&#0*160;|&#x0*a0;|<br\b[^>]*>)*</p\s*>~iu', '', $html) ?? $html;
   $html = preg_replace('~(?:\s*<br\b[^>]*>\s*){2,}~iu', '<br>', $html) ?? $html;
+
+  // AI/editor HTML can contain spacer wrappers such as <div><br></div> or
+  // entire blank table rows. CSS height:auto cannot shrink those structures,
+  // so remove only nodes with no text/media content using the HTML parser.
+  if (class_exists(DOMDocument::class) && preg_match('~<table\b~i', $html)) {
+    $previousLibxmlState = libxml_use_internal_errors(true);
+    try {
+      $document = new DOMDocument('1.0', 'UTF-8');
+      $loaded = $document->loadHTML(
+        '<?xml encoding="UTF-8"><!doctype html><html><head><meta charset="utf-8"></head><body>' .
+        '<div id="facility-price-fragment">' . $html . '</div></body></html>',
+        LIBXML_NONET | LIBXML_HTML_NODEFDTD
+      );
+      $fragment = $loaded ? $document->getElementById('facility-price-fragment') : null;
+
+      if ($fragment instanceof DOMElement) {
+        $meaningfulContentCache = [];
+        $hasMeaningfulContent = null;
+        $hasMeaningfulContent = static function (DOMNode $node) use (&$hasMeaningfulContent, &$meaningfulContentCache): bool {
+          $nodeId = spl_object_id($node);
+          if (array_key_exists($nodeId, $meaningfulContentCache)) {
+            return $meaningfulContentCache[$nodeId];
+          }
+          if ($node instanceof DOMText || $node instanceof DOMCdataSection) {
+            $text = str_replace(["\xc2\xa0", "\xe2\x80\x8b", "\xef\xbb\xbf"], '', $node->nodeValue ?? '');
+            return $meaningfulContentCache[$nodeId] = trim($text) !== '';
+          }
+          if (!$node instanceof DOMElement) {
+            return $meaningfulContentCache[$nodeId] = false;
+          }
+
+          if (in_array(strtolower($node->tagName), ['img', 'svg', 'video', 'audio', 'iframe', 'object', 'canvas', 'input'], true)) {
+            return $meaningfulContentCache[$nodeId] = true;
+          }
+          foreach ($node->childNodes as $child) {
+            if ($hasMeaningfulContent($child)) {
+              return $meaningfulContentCache[$nodeId] = true;
+            }
+          }
+          return $meaningfulContentCache[$nodeId] = false;
+        };
+
+        $nodes = [];
+        foreach ($fragment->getElementsByTagName('*') as $node) {
+          $nodes[] = $node;
+        }
+        for ($index = count($nodes) - 1; $index >= 0; $index--) {
+          $node = $nodes[$index];
+          if (!$node instanceof DOMElement || !$node->parentNode) {
+            continue;
+          }
+          $tag = strtolower($node->tagName);
+          $isEmptyWrapper = in_array($tag, ['div', 'p', 'span', 'small', 'font'], true);
+          if (($isEmptyWrapper || $tag === 'tr') && !$hasMeaningfulContent($node)) {
+            $node->parentNode->removeChild($node);
+          }
+        }
+
+        $serialized = '';
+        foreach ($fragment->childNodes as $child) {
+          $serialized .= $document->saveHTML($child);
+        }
+        if ($serialized !== '') {
+          $html = $serialized;
+        }
+      }
+    } catch (Throwable) {
+      // Keep the sanitized source if a malformed fragment defeats libxml.
+    } finally {
+      libxml_clear_errors();
+      libxml_use_internal_errors($previousLibxmlState);
+    }
+  }
 
   return $html;
 }
@@ -1656,6 +1731,12 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .section#gioi-thieu .section-copy h2,.section#gioi-thieu .section-copy h3{margin:20px 0 8px;color:#123b78;font-size:1.08em}
       .facility-detail .facility-price-table{margin:0!important;padding-top:6px;border-top:1px solid #e8eef7}
       .facility-detail .facility-price-table table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #dbe7f5;border-radius:14px;background:#fff;color:#334155;font-size:12px;line-height:1.25}
+      .facility-detail .facility-price-table table{display:table!important}
+      .facility-detail .facility-price-table thead{display:table-header-group!important}
+      .facility-detail .facility-price-table tbody{display:table-row-group!important}
+      .facility-detail .facility-price-table tfoot{display:table-footer-group!important}
+      .facility-detail .facility-price-table tr{display:table-row!important}
+      .facility-detail .facility-price-table :is(th,td){display:table-cell!important}
       .facility-detail .facility-price-table table,.facility-detail .facility-price-table table :is(thead,tbody,tfoot,tr,th,td),.facility-detail .facility-price-table table *{height:auto!important;min-height:0!important;max-height:none!important}
       .facility-detail .facility-price-table td *{margin-block:0!important;padding-block:0!important;line-height:1.3!important}
       .facility-detail .facility-price-table thead th{padding:6px 10px!important;text-align:left;background:#eff6ff;color:#174ea6;font-size:10px;font-weight:800;letter-spacing:.035em;text-transform:uppercase;border-bottom:1px solid #dbe7f5}
