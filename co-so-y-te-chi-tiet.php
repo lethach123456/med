@@ -1754,7 +1754,17 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
       .facility-detail .facility-price-table td li{margin-bottom:2px!important}
       .facility-detail .facility-price-table td>:first-child{margin-top:0!important}
       .facility-detail .facility-price-table td>:last-child{margin-bottom:0!important}
-      @media (max-width:560px){.facility-detail .facility-price-table{margin:0!important;padding-top:6px;overflow:visible;padding-bottom:0}.facility-detail .facility-price-table table{width:100%;min-width:0!important;max-width:100%;table-layout:fixed;font-size:11px}.facility-detail .facility-price-table :is(th,td){padding:5px 5px!important;overflow-wrap:anywhere}.facility-detail .facility-price-table thead th{font-size:9px;letter-spacing:0}.facility-detail .facility-price-table tbody td:nth-child(2){white-space:normal}}
+      @media (max-width:560px){
+        .facility-detail .facility-price-table{margin:0!important;padding:6px 0 0;overflow:visible!important}
+        .facility-detail .facility-price-table table{display:table!important;width:100%!important;min-width:0!important;max-width:100%;table-layout:fixed;font-size:11px;line-height:1.3}
+        .facility-detail .facility-price-table :is(th,td){display:table-cell!important;width:auto;padding:5px 5px!important;vertical-align:top!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+        .facility-detail .facility-price-table thead th{font-size:9px;letter-spacing:0}
+        .facility-detail .facility-price-table tbody td:nth-child(2){white-space:normal!important}
+        .facility-detail .facility-price-table table:has(> thead th:nth-child(2)):not(:has(> thead th:nth-child(3))) :is(th,td){width:50%!important}
+        .facility-detail .facility-price-table table:has(> thead th:nth-child(3)):not(:has(> thead th:nth-child(4))) :is(th,td){width:33.333333%!important}
+        .facility-detail .facility-price-table table:has(> thead th:nth-child(4)):not(:has(> thead th:nth-child(5))) :is(th,td){width:25%!important}
+        .facility-detail .facility-price-table table:has(> thead th:nth-child(5)):not(:has(> thead th:nth-child(6))) :is(th,td){width:20%!important}
+      }
       .facility-info-area{margin-top:22px}
       .facility-info-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 2px 12px}
       .facility-info-kicker{display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
