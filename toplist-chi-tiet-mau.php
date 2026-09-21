@@ -572,9 +572,8 @@ HTML;
   })();
     </script>
 HTML;
-    // The full comparison table below the intro replaces the older compact
-    // sidebar comparison list. Keeping both made the same comparison appear twice.
-    $html = preg_replace('~<section class="side"><h3>So sánh nhanh</h3>.*?</section>~s', '', $html, 1) ?? $html;
+    // Keep the compact quick-comparison list in the right sidebar alongside
+    // the full comparison table below the intro; the two serve different layouts.
     $css = str_replace('.sidebar .side:first-child{display:none}', '', $css);
     $html = str_replace('</head>', $css . '</head>', $html);
     return str_replace('</body>', $script . '</body>', $html);
