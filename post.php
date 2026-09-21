@@ -85,6 +85,16 @@ $isEnglishPost = $postCategorySlug === 'blog-en'
     || $routeContext === 'news'
     || preg_match('~^/news/[^/]+/?$~', $requestPath) === 1;
 $htmlLang = $isEnglishPost ? 'en' : 'vi';
+if (!$post) {
+    http_response_code(404);
+    $notFoundTitle = $isEnglishPost ? 'Page not found' : 'Không tìm thấy trang';
+    $notFoundDescription = $isEnglishPost
+        ? 'The page you are looking for may have been moved or no longer exists.'
+        : 'Trang bạn tìm hiện không tồn tại hoặc đã được chuyển đi.';
+    $GLOBALS['site_page_key'] = '404';
+    require __DIR__ . '/Tem/public-404.php';
+    exit;
+}
 $seoTitle = trim((string) ($post['seo_title'] ?? '')) !== '' ? (string) $post['seo_title'] : $title;
 $featuredImageAbsolute = site_absolute_media_url($featured);
 $descriptionSource = trim((string) ($post['seo_description'] ?? ''));
