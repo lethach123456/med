@@ -2197,13 +2197,13 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             <div class="hero-gallery">
               <?php $heroGalleryIndex = array_search((string) $facility['hero_image'], (array) $facility['gallery'], true); $heroGalleryCount = count((array) $facility['gallery']); ?>
               <button class="hero-image gallery-trigger" type="button" data-hero-gallery-carousel data-gallery-index="<?php echo (int) ($heroGalleryIndex === false ? 0 : $heroGalleryIndex); ?>" aria-roledescription="Bộ sưu tập ảnh" aria-label="Xem ảnh <?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> trong bộ sưu tập của <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
-                <img src="<?php echo htmlspecialchars($facility['hero_image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                <img src="<?php echo htmlspecialchars($facility['hero_image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="eager" fetchpriority="high" decoding="async">
                 <span class="view-all"><i data-lucide="images"></i><span class="hero-gallery-count" data-hero-gallery-counter><?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> / <?php echo $heroGalleryCount; ?></span><span class="hero-gallery-label">Xem tất cả <?php echo htmlspecialchars($facility['images_label'] ?: '25+ ảnh', ENT_QUOTES, 'UTF-8'); ?></span><span class="hero-swipe-hint">Vuốt để xem</span></span>
               </button>
               <div class="thumb-strip">
                 <?php foreach (array_slice($facility['gallery'], 0, 8, true) as $imageIndex => $image): ?>
                   <button class="thumb gallery-trigger" type="button" data-gallery-index="<?php echo (int) $imageIndex; ?>" aria-label="Xem ảnh <?php echo (int) ($imageIndex + 1); ?> trong bộ sưu tập">
-                    <img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Ảnh <?php echo (int) ($imageIndex + 1); ?> của <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Ảnh <?php echo (int) ($imageIndex + 1); ?> của <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                   </button>
                 <?php endforeach; ?>
               </div>

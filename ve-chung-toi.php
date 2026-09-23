@@ -130,7 +130,7 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
         <div class="about-visual-main">
           <?php $mainImage = $featuredFacilities[0]['image_url'] ?? ''; ?>
           <?php if (trim((string) $mainImage) !== ''): ?>
-            <img src="<?php echo $escape($mainImage); ?>" alt="<?php echo $escape($featuredFacilities[0]['name'] ?? 'Cơ sở y tế trên MedReview'); ?>" loading="eager">
+            <img src="<?php echo $escape($mainImage); ?>" alt="<?php echo $escape($featuredFacilities[0]['name'] ?? 'Cơ sở y tế trên MedReview'); ?>" loading="eager" fetchpriority="high" decoding="async">
           <?php else: ?>
             <span class="about-visual-empty"><i class="ph-fill ph-heartbeat"></i></span>
           <?php endif; ?>
@@ -138,7 +138,7 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
         <?php if (count($featuredFacilities) > 1): ?>
           <div class="about-photo-stack" aria-hidden="true">
             <?php foreach (array_slice($featuredFacilities, 1, 4) as $facility): ?>
-              <div><?php if (trim((string) ($facility['image_url'] ?? '')) !== ''): ?><img src="<?php echo $escape($facility['image_url']); ?>" alt="" loading="lazy"><?php else: ?><i class="ph ph-image"></i><?php endif; ?></div>
+              <div><?php if (trim((string) ($facility['image_url'] ?? '')) !== ''): ?><img src="<?php echo $escape($facility['image_url']); ?>" alt="" loading="lazy" decoding="async"><?php else: ?><i class="ph ph-image"></i><?php endif; ?></div>
             <?php endforeach; ?>
           </div>
         <?php endif; ?>

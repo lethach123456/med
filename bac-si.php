@@ -84,7 +84,7 @@ function doctor_directory_card(array $item): string
     ob_start(); ?>
     <article class="doctor-card">
       <a class="doctor-media" href="<?php echo $escape($url); ?>" aria-label="Xem hồ sơ <?php echo $escape($item['name'] ?? 'bác sĩ'); ?>">
-        <?php if ($image !== ''): ?><img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name'] ?? ''); ?>" loading="lazy"><?php else: ?><span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span><?php endif; ?>
+        <?php if ($image !== ''): ?><img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name'] ?? ''); ?>" loading="lazy" decoding="async"><?php else: ?><span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span><?php endif; ?>
       </a>
       <div class="doctor-profile">
         <div class="doctor-eyebrow">
@@ -255,7 +255,7 @@ function doctor_directory_card(array $item): string
     const tags = services.map((value, index) => `<span class="doctor-tag${index > 2 ? ' is-extra' : ''}">${esc(value)}</span>`).join('');
     const more = services.length > 3 ? `<button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="${services.length - 3}" aria-expanded="false">+${services.length - 3}</button>` : '';
     const verified = item.verified ? '<span class="doctor-verified" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span>' : '';
-    const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy">` : '<span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span>';
+    const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : '<span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span>';
     const rating = Number(item.rating || 0);
     const score = rating > 0 ? `<strong>${rating.toFixed(1)}<small>/5</small></strong><span class="doctor-stars" aria-label="${rating.toFixed(1)} trên 5">★★★★★</span><span>${format(item.reviews_count)} đánh giá</span>` : '<strong class="score-empty">—</strong><span>Chưa có đánh giá</span>';
     const details = `${item.facility_name ? `<span><i class="ph ph-hospital"></i>${esc(item.facility_name)}</span>` : ''}${item.hours ? `<span><i class="ph ph-clock"></i>${esc(item.hours)}</span>` : ''}`;

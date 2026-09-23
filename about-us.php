@@ -864,7 +864,7 @@ try {
                 data-fe-image-target="img"
               <?php endif; ?>
             >
-              <img src="<?php echo htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Top Dental Clinic patient <?php echo $index + 1; ?>" loading="lazy">
+              <img src="<?php echo htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Top Dental Clinic patient <?php echo $index + 1; ?>" loading="lazy" decoding="async">
               <div class="customer-caption">
                 <h3<?php if ($titleSlot !== ''): ?> data-fe-text-slot="<?php echo htmlspecialchars($titleSlot, ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>><?php echo $titleSlot !== '' ? front_editor_text_slot_html('about-en', $titleSlot, $title) : htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></h3>
                 <p<?php if ($descriptionSlot !== ''): ?> data-fe-text-slot="<?php echo htmlspecialchars($descriptionSlot, ENT_QUOTES, 'UTF-8'); ?>"<?php endif; ?>><?php echo $descriptionSlot !== '' ? front_editor_text_slot_html('about-en', $descriptionSlot, $description) : htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?></p>

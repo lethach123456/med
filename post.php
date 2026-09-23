@@ -410,7 +410,7 @@ if (!$post) {
               <div class="suggest-list">
                 <?php foreach ($suggestedFacilities as $item): ?>
                   <article class="suggest-card">
-                    <img src="<?php echo htmlspecialchars((string) ($item['image_url'] ?? $item['image'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars((string) ($item['image_url'] ?? $item['image'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                     <div>
                       <h3><?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></h3>
                       <div class="suggest-meta">
@@ -433,7 +433,7 @@ if (!$post) {
               <div class="suggest-list">
                 <?php foreach ($suggestedReviews as $item): ?>
                   <article class="suggest-card">
-                    <img src="<?php echo htmlspecialchars((string) ($item['before_image_url'] ?? $item['before'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars((string) ($item['before_image_url'] ?? $item['before'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                     <div>
                       <h3><?php echo htmlspecialchars((string) ($item['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></h3>
                       <div class="suggest-meta">

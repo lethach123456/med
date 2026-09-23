@@ -957,7 +957,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
             <div class="gallery-grid">
               <?php foreach ($review['hero_images'] as $index => $image): ?>
                 <div class="gallery-card">
-                  <img src="<?php echo htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($image['label'], ENT_QUOTES, 'UTF-8'); ?>">
+                  <img src="<?php echo htmlspecialchars($image['src'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($image['label'], ENT_QUOTES, 'UTF-8'); ?>" loading="<?php echo $index === 0 ? 'eager' : 'lazy'; ?>"<?php echo $index === 0 ? ' fetchpriority="high"' : ''; ?> decoding="async">
                   <span class="gallery-label"><?php echo htmlspecialchars($image['label'], ENT_QUOTES, 'UTF-8'); ?></span>
                   <?php if ($index === 0): ?><button class="gallery-nav prev" type="button" aria-label="Previous"><i data-lucide="chevron-left"></i></button><?php endif; ?>
                   <?php if ($index === 1): ?><button class="gallery-nav next" type="button" aria-label="Next"><i data-lucide="chevron-right"></i></button><?php endif; ?>
@@ -968,7 +968,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
             <div class="thumb-row">
               <?php foreach ($review['thumbs'] as $thumbIndex => $thumb): ?>
                 <div class="thumb<?php echo $thumbIndex === 5 ? ' more' : ''; ?>">
-                  <img src="<?php echo htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8'); ?>" alt="Thumbnail <?php echo $thumbIndex + 1; ?>">
+                  <img src="<?php echo htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8'); ?>" alt="Thumbnail <?php echo $thumbIndex + 1; ?>" loading="lazy" decoding="async">
                 </div>
               <?php endforeach; ?>
             </div>
@@ -1002,7 +1002,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
                 <h3>Trước khi điều trị</h3>
                 <div class="process-grid">
                   <?php foreach ($review['process_images']['before'] as $image): ?>
-                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Before process"></div>
+                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Before process" loading="lazy" decoding="async"></div>
                   <?php endforeach; ?>
                 </div>
               </div>
@@ -1011,7 +1011,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
                 <h3>Trong quá trình điều trị</h3>
                 <div class="process-grid">
                   <?php foreach ($review['process_images']['during'] as $image): ?>
-                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="During process"></div>
+                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="During process" loading="lazy" decoding="async"></div>
                   <?php endforeach; ?>
                 </div>
               </div>
@@ -1020,7 +1020,7 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
                 <h3>Sau khi điều trị</h3>
                 <div class="process-grid">
                   <?php foreach ($review['process_images']['after'] as $image): ?>
-                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="After process"></div>
+                    <div class="process-card"><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="After process" loading="lazy" decoding="async"></div>
                   <?php endforeach; ?>
                 </div>
               </div>
@@ -1088,8 +1088,8 @@ $seoKeywords = (string) ($seo['keywords'] ?? '');
                 <?php foreach ($relatedReviews as $item): ?>
                   <a class="related-item" href="/review-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>">
                     <span class="related-thumb">
-                      <span><img src="<?php echo htmlspecialchars((string) ($item['hero_images'][0]['src'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="Before"></span>
-                      <span><img src="<?php echo htmlspecialchars((string) ($item['hero_images'][1]['src'] ?? ($item['hero_images'][0]['src'] ?? '')), ENT_QUOTES, 'UTF-8'); ?>" alt="After"></span>
+                      <span><img src="<?php echo htmlspecialchars((string) ($item['hero_images'][0]['src'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" alt="Before" loading="lazy" decoding="async"></span>
+                      <span><img src="<?php echo htmlspecialchars((string) ($item['hero_images'][1]['src'] ?? ($item['hero_images'][0]['src'] ?? '')), ENT_QUOTES, 'UTF-8'); ?>" alt="After" loading="lazy" decoding="async"></span>
                     </span>
                     <span class="related-copy">
                       <h4><?php echo htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8'); ?></h4>

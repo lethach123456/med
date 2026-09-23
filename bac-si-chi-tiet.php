@@ -959,7 +959,7 @@ unset($item);
                 </div>
 
                 <div class="hero-photo">
-                  <img src="<?php echo htmlspecialchars($heroImage, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($doctor['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                  <img src="<?php echo htmlspecialchars($heroImage, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($doctor['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" loading="eager" fetchpriority="high" decoding="async">
                 </div>
               </div>
             </section>
@@ -1047,7 +1047,7 @@ unset($item);
               <div class="service-grid">
                 <?php foreach ($serviceCards as $item): ?>
                   <article class="service-card">
-                    <img src="<?php echo htmlspecialchars((string) $item['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars((string) $item['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                     <div class="body">
                       <strong><?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?></strong>
                       <span class="sub"><?php echo htmlspecialchars((string) $item['subtitle'], ENT_QUOTES, 'UTF-8'); ?></span>
@@ -1115,7 +1115,7 @@ unset($item);
                         <div class="review-author">
                           <span class="avatar">
                             <?php if ((string) ($item['avatar'] ?? '') !== ''): ?>
-                              <img src="<?php echo htmlspecialchars((string) $item['avatar'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['author'], ENT_QUOTES, 'UTF-8'); ?>">
+                              <img src="<?php echo htmlspecialchars((string) $item['avatar'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['author'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                             <?php else: ?>
                               <?php echo htmlspecialchars(mb_substr((string) $item['author'], 0, 1), ENT_QUOTES, 'UTF-8'); ?>
                             <?php endif; ?>
@@ -1144,7 +1144,7 @@ unset($item);
                         <div class="review-media">
                           <?php foreach ((array) ($item['thumbs'] ?? []) as $thumbIndex => $thumb): ?>
                             <div class="review-media-item">
-                              <img src="<?php echo htmlspecialchars((string) $thumb, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                              <img src="<?php echo htmlspecialchars((string) $thumb, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                               <?php if ($thumbIndex === 2): ?>
                                 <span class="review-media-more">+2</span>
                               <?php endif; ?>
@@ -1242,7 +1242,7 @@ unset($item);
             <section class="card side-card">
               <h3><span class="section-icon"><i class="fa-solid fa-hospital"></i></span>Phòng khám đang công tác</h3>
               <article class="clinic-card">
-                <img src="<?php echo htmlspecialchars((string) ($facility['image_url'] ?? 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=700&q=80'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facilityName, ENT_QUOTES, 'UTF-8'); ?>">
+                <img src="<?php echo htmlspecialchars((string) ($facility['image_url'] ?? 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=700&q=80'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facilityName, ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                 <div>
                   <strong><?php echo htmlspecialchars($facilityName, ENT_QUOTES, 'UTF-8'); ?></strong>
                   <span><?php echo htmlspecialchars($facilityCity, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -1259,7 +1259,7 @@ unset($item);
               <div class="doctor-side-list">
                 <?php foreach ($relatedDoctors as $item): ?>
                   <article class="doctor-side-card">
-                    <img src="<?php echo htmlspecialchars((string) ($item['image_url'] ?? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars((string) ($item['image_url'] ?? 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80'), ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                     <div>
                       <strong><?php echo htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></strong>
                       <span><?php echo htmlspecialchars((string) ($item['specialty_text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>

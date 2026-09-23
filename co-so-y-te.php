@@ -212,7 +212,7 @@ function facility_page_card(array $item): string
     <article class="facility-card">
       <a class="facility-media" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>" aria-label="Xem <?php echo $escape($item['name']); ?>">
         <?php if ($image !== ''): ?>
-          <img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name']); ?>" loading="lazy">
+          <img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name']); ?>" loading="lazy" decoding="async">
         <?php else: ?>
           <span class="facility-media-empty"><i class="ph ph-hospital"></i></span>
         <?php endif; ?>
@@ -885,7 +885,7 @@ function facility_page_card(array $item): string
     const serviceMarkup = services.length ? `<div class="service-tags" data-service-tags>${services.map((service, index) => `<span class="service-tag${index > 0 ? ' is-extra' : ''}">${esc(service)}</span>`).join('')}${services.length > 1 ? `<button class="service-tags-more" type="button" data-service-tags-more data-extra-count="${services.length - 1}" aria-expanded="false">+${services.length - 1}<i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : '';
     const rating = Number(item.rating || 0);
     const verified = item.verified ? '<span class="verified-badge" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span>' : '';
-    const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy">` : '<span class="facility-media-empty"><i class="ph ph-hospital"></i></span>';
+    const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : '<span class="facility-media-empty"><i class="ph ph-hospital"></i></span>';
     const ratingContent = rating > 0 ? `<div class="score-number">${rating.toFixed(1)}<small>/5</small></div><div class="score-stars" aria-label="${rating.toFixed(1)} trên 5">★★★★★</div><span>${format(item.reviews_count)} đánh giá</span>` : '<div class="score-number score-pending">—</div><span>Chưa có đánh giá</span>';
     return `<article class="facility-card"><a class="facility-media" href="${detail}" aria-label="Xem ${esc(item.name)}">${media}${label ? `<span class="media-label"><i class="ph ph-images"></i>${esc(label)}</span>` : ''}</a><div class="facility-body"><div class="facility-eyebrow"><span>${esc(item.category || 'Cơ sở y tế')}</span>${item.city ? `<span class="eyebrow-dot">•</span><span>${esc(item.city)}</span>` : ''}</div><div class="facility-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.subtitle ? `<p class="facility-subtitle">${esc(item.subtitle)}</p>` : ''}<div class="facility-details">${item.address ? `<span><i class="ph ph-map-pin"></i>${esc(item.address)}</span>` : ''}${item.hours ? `<span><i class="ph ph-clock"></i>${esc(item.hours)}</span>` : ''}</div>${serviceMarkup}</div><div class="facility-score">${ratingContent}</div><div class="facility-price"><span>Giá tham khảo</span><strong>${esc(item.price || 'Liên hệ cập nhật')}</strong></div><a class="detail-button" href="${detail}">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a></article>`;
   };

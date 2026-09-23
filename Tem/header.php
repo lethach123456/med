@@ -1321,7 +1321,7 @@ $navItems = $isEnglish
     <div class="header-shell">
       <a class="brand-link<?php echo $hasBrandIcon ? ' has-image-brand' : ''; ?>" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
         <span class="brand-mark<?php echo $hasBrandIcon ? ' is-image' : ''; ?>" aria-hidden="true">
-          <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" onerror="this.remove();this.parentElement.classList.remove('is-image');"><?php endif; ?>
+          <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" loading="eager" decoding="async" onerror="this.remove();this.parentElement.classList.remove('is-image');"><?php endif; ?>
           <i class="ph ph-heart"></i>
         </span>
         <span class="brand-copy">

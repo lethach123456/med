@@ -940,7 +940,7 @@ $Home = <<<'HTML'
                 </svg>
                 Tổng quát
               </span>
-              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Khám răng tổng quát tại phòng khám" loading="lazy">
+              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Khám răng tổng quát tại phòng khám" loading="lazy" decoding="async">
               <h3>Khám răng tổng quát &amp; điều trị sâu răng</h3>
               <p>Chẩn đoán sớm, điều trị triệt để: trám răng, điều trị tuỷ, nhổ răng khôn an toàn.</p>
             </div>
@@ -952,7 +952,7 @@ $Home = <<<'HTML'
                 </svg>
                 Thẩm mỹ
               </span>
-              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Dịch vụ thẩm mỹ nụ cười" loading="lazy">
+              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Dịch vụ thẩm mỹ nụ cười" loading="lazy" decoding="async">
               <h3>Tẩy trắng, dán sứ Veneer, bọc sứ</h3>
               <p>Thiết kế nụ cười hài hoà khuôn mặt, vật liệu chính hãng, bảo hành theo từng hạng mục.</p>
             </div>
@@ -965,7 +965,7 @@ $Home = <<<'HTML'
                 </svg>
                 Chuyên sâu
               </span>
-              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Niềng răng và điều trị chuyên sâu" loading="lazy">
+              <img class="card-img" src="https://media.istockphoto.com/id/1388931724/vi/anh/h%C3%ACnh-%E1%BA%A3nh-m%E1%BB%99t-ph%E1%BB%A5-n%E1%BB%AF-tr%E1%BA%BB-ki%E1%BB%83m-tra-k%E1%BA%BFt-qu%E1%BA%A3-c%E1%BB%A7a-m%C3%ACnh-trong-v%C4%83n-ph%C3%B2ng-nha-s%C4%A9.jpg?s=612x612&amp;w=0&amp;k=20&amp;c=jCnjakg27CnEF0kUN5-1Iq-4DYwEg58oO5EqMxDCEoU=" alt="Niềng răng và điều trị chuyên sâu" loading="lazy" decoding="async">
               <h3>Niềng răng &amp; cấy ghép Implant</h3>
               <p class="">Lập kế hoạch điều trị số hoá, theo dõi định kỳ, đội ngũ chuyên khoa chỉnh nha và Implant.</p>
             </div>

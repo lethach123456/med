@@ -487,11 +487,11 @@ $utilities = [
               <article class="review-card">
                 <div class="review-media">
                   <div class="review-shot">
-                    <img src="<?php echo htmlspecialchars($item['before'], ENT_QUOTES, 'UTF-8'); ?>" alt="Before">
+                    <img src="<?php echo htmlspecialchars($item['before'], ENT_QUOTES, 'UTF-8'); ?>" alt="Before" loading="lazy" decoding="async">
                     <span class="shot-label">Before</span>
                   </div>
                   <div class="review-shot">
-                    <img src="<?php echo htmlspecialchars($item['after'], ENT_QUOTES, 'UTF-8'); ?>" alt="After">
+                    <img src="<?php echo htmlspecialchars($item['after'], ENT_QUOTES, 'UTF-8'); ?>" alt="After" loading="lazy" decoding="async">
                     <span class="shot-label">After</span>
                   </div>
                 </div>
