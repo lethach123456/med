@@ -314,6 +314,7 @@ $promptNotes = [
     'toplist' => 'Dùng để AI lập danh sách cơ sở cho bài Toplist chưa có cơ sở. Giữ nguyên {{id}} / {{toplist_id}} và trả về mảng facilities theo rank_order.',
     'doctor' => 'Dùng cho bài giới thiệu bác sĩ. {{name}} là tên bác sĩ; chỉ viết từ dữ liệu được cung cấp và trả về JSON hợp lệ.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
+    'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON và chỉ dịch các trường được cho phép.',
 ];
 
 $basePromptByKey = [];
@@ -321,7 +322,7 @@ foreach ($basePrompts as $basePrompt) {
     $basePromptByKey[(string) $basePrompt['prompt_key']] = $basePrompt;
 }
 $basePromptTabs = [];
-foreach (['facility', 'facility_image_prompt', 'toplist', 'doctor', 'review'] as $promptKey) {
+foreach (['facility', 'facility_image_prompt', 'toplist', 'doctor', 'review', 'translation'] as $promptKey) {
     if (isset($basePromptByKey[$promptKey])) {
         $basePromptTabs[] = $basePromptByKey[$promptKey];
         unset($basePromptByKey[$promptKey]);
@@ -395,7 +396,7 @@ require __DIR__ . '/_layout_start.php';
       <div class="d-flex gap-3 align-items-start">
         <span class="ai-prompt-source flex-shrink-0"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
         <div>
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Prompt nội dung &amp; Ảnh AI</h2><span class="badge text-bg-light border">Cơ sở · Ảnh AI · Toplist · Bác sĩ · Review</span></div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Prompt nội dung &amp; Ảnh AI</h2><span class="badge text-bg-light border">Cơ sở · Ảnh AI · Toplist · Bác sĩ · Review · Dịch VI→EN</span></div>
           <p class="text-secondary mb-0">Prompt theo ngành được ưu tiên cho cơ sở phù hợp; nếu không có, tiện ích Chrome tự dùng prompt chung của cơ sở y tế. Prompt Ảnh AI dùng riêng cho luồng tạo ảnh cơ sở.</p>
         </div>
       </div>
@@ -426,7 +427,7 @@ require __DIR__ . '/_layout_start.php';
         <?php foreach ($basePromptTabs as $prompt): ?>
           <?php $promptKey = (string) $prompt['prompt_key']; $isActive = $promptKey === $basePromptDefaultKey; ?>
           <button class="ai-prompt-tab <?php echo $isActive ? 'is-active' : ''; ?>" type="button" role="tab" aria-selected="<?php echo $isActive ? 'true' : 'false'; ?>" aria-controls="basePromptPanel<?php echo $escape($promptKey); ?>" data-base-prompt-tab="<?php echo $escape($promptKey); ?>">
-            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'facility_image_prompt'): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'toplist'): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php endif; ?>
+            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'facility_image_prompt'): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'toplist'): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'translation'): ?><i class="fa-solid fa-language me-1" aria-hidden="true"></i><?php endif; ?>
             <?php echo $escape($prompt['label']); ?>
           </button>
         <?php endforeach; ?>
