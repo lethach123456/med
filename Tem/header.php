@@ -3,9 +3,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 
 $pageKey = site_current_page_key();
-$locale = site_page_locale($pageKey);
+$forcedLocale = trim((string) ($GLOBALS['site_forced_locale'] ?? ''));
+$locale = in_array($forcedLocale, ['vi', 'en'], true) ? $forcedLocale : site_page_locale($pageKey);
 $isEnglish = $locale === 'en';
-$langLinks = site_language_switch_links($pageKey);
+$langLinks = is_array($GLOBALS['site_language_links'] ?? null)
+  ? $GLOBALS['site_language_links']
+  : site_language_switch_links($pageKey);
 // The legacy Vietnamese custom-about slug is no longer routed by the public
 // web server. Keep every language control on the real MedReview page.
 if ($pageKey === 'about' && !$isEnglish) {

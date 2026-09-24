@@ -20,7 +20,9 @@ try {
         'sort' => (string) ($_GET['sort'] ?? 'recommended'),
     ];
     $cache = medical_search_cache_index();
-    $result = medical_search_cache_directory_search($cache['index'], $filters);
+    $locale = site_normalize_locale((string) ($_GET['locale'] ?? $_GET['lang'] ?? 'vi'));
+    $localizedIndex = medical_search_cache_filter_locale($cache['index'], $locale);
+    $result = medical_search_cache_directory_search($localizedIndex, $filters);
     $index = $cache['index'];
 
     echo json_encode([

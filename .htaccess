@@ -14,13 +14,19 @@ RewriteRule ^sitemap-([a-z0-9-]+)-([0-9]+)\.xml$ sitemap.php?map=$1&page=$2 [QSA
 # generic single-slug route below.
 RewriteRule ^en/?$ index.php [QSA,L]
 RewriteRule ^en/co-so-y-te/?$ co-so-y-te.php [QSA,L]
+RewriteRule ^en/co-so-y-te/([^/]+)/?$ co-so-y-te-chi-tiet.php?slug=$1 [QSA,L]
 RewriteRule ^en/review/?$ review.php [QSA,L]
 RewriteRule ^en/bac-si/?$ bac-si.php [QSA,L]
+RewriteRule ^en/bac-si/([^/]+)/?$ bac-si-chi-tiet.php?slug=$1 [QSA,L]
 RewriteRule ^en/toplist/?$ toplist.php [QSA,L]
+RewriteRule ^en/toplist/([^/]+)/?$ toplist-chi-tiet-mau.php?slug=$1 [QSA,L]
 RewriteRule ^en/ve-chung-toi/?$ ve-chung-toi.php [QSA,L]
 
 RewriteRule ^co-so-y-te/?$ co-so-y-te.php [QSA,L]
 RewriteRule ^co-so-y-te/([^/]+)/?$ co-so-y-te-chi-tiet.php?slug=$1 [QSA,L]
+
+RewriteRule ^bac-si/?$ bac-si.php [QSA,L]
+RewriteRule ^bac-si/([^/]+)/?$ bac-si-chi-tiet.php?slug=$1 [QSA,L]
 
 RewriteRule ^toplist/?$ toplist.php [QSA,L]
 RewriteRule ^toplist/([^/]+)/?$ toplist-chi-tiet-mau.php?slug=$1 [QSA,L]

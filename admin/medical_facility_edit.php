@@ -14,6 +14,7 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
 $oldSlug = '';
 $originalGalleryItems = [];
+$facilityTranslationRow = null;
 
 function facility_pretty_json($value): string
 {
@@ -162,6 +163,7 @@ if ($isEdit) {
         header('Location: /admin/medical_facilities.php');
         exit;
     }
+    $facilityTranslationRow = $row;
     $oldSlug = (string) ($row['slug'] ?? '');
     $originalGalleryItems = medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), []);
     $item = medical_directory_facility_from_row($row);
@@ -198,6 +200,19 @@ if ($isEdit) {
 }
 
 $errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '') === 'create_en') {
+    try {
+        $translationId = medical_directory_create_translation_copy($pdo, 'facility', $id);
+        flash_toast_set('success', 'Đã tạo bản tiếng Anh ở trạng thái nháp. Hãy dịch nội dung rồi xuất bản.', 'fa-solid fa-language');
+        header('Location: ' . admin_url('medical_facility_edit.php') . '?id=' . $translationId);
+        exit;
+    } catch (Throwable $e) {
+        flash_toast_set('danger', $e->getMessage(), 'fa-solid fa-triangle-exclamation');
+        header('Location: ' . admin_url('medical_facility_edit.php') . '?id=' . $id);
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (array_keys($values) as $key) {
@@ -381,6 +396,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$facilityLanguage = strtolower((string) ($facilityTranslationRow['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+$facilityTranslationCounterpart = is_array($facilityTranslationRow)
+    ? medical_directory_translation_counterpart($pdo, 'facility', $facilityTranslationRow, false)
+    : null;
+$facilityTranslationParent = $facilityLanguage === 'en' && is_array($facilityTranslationRow)
+    ? medical_directory_translation_counterpart($pdo, 'facility', $facilityTranslationRow, false)
+    : null;
 $adminPageTitle = $isEdit ? 'Admin • Sửa cơ sở y tế' : 'Admin • Thêm cơ sở y tế';
 $adminHeaderTitle = $isEdit ? 'Sửa cơ sở y tế' : 'Thêm cơ sở y tế';
 $adminHeaderSubtitle = 'Quản lý dữ liệu cơ sở y tế cho frontend MedReview';
@@ -426,6 +448,26 @@ $mediaGalleryValue = $values['gallery_lines'];
             <?php foreach ($errors as $error): ?>
               <div><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($isEdit): ?>
+          <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div>
+              <div class="fw-semibold"><i class="fa-solid fa-language text-primary me-2" aria-hidden="true"></i>Bản nội dung: <?php echo $facilityLanguage === 'en' ? 'English' : 'Tiếng Việt'; ?></div>
+              <div class="small text-secondary mt-1">Bản dịch là bản ghi riêng trong DB, liên kết về hồ sơ gốc và chỉ hiện công khai sau khi xuất bản.</div>
+            </div>
+            <?php if ($facilityLanguage === 'en' && is_array($facilityTranslationParent)): ?>
+              <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_facility_edit.php') . '?id=' . (int) $facilityTranslationParent['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở hồ sơ tiếng Việt</a>
+            <?php elseif ($facilityLanguage === 'vi' && is_array($facilityTranslationCounterpart)): ?>
+              <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_facility_edit.php') . '?id=' . (int) $facilityTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở bản tiếng Anh · <?php echo htmlspecialchars((string) $facilityTranslationCounterpart['status'], ENT_QUOTES, 'UTF-8'); ?></a>
+            <?php elseif ($facilityLanguage === 'vi'): ?>
+              <form method="post" class="m-0" onsubmit="return confirm('Tạo bản tiếng Anh nháp từ dữ liệu hiện tại?');">
+                <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
+                <input type="hidden" name="_translation_action" value="create_en">
+                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-language me-2" aria-hidden="true"></i>Tạo bản tiếng Anh</button>
+              </form>
+            <?php endif; ?>
           </div>
         <?php endif; ?>
 
@@ -596,7 +638,7 @@ $mediaGalleryValue = $values['gallery_lines'];
           <div class="col-12 d-grid d-sm-flex gap-2">
             <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-2"></i>Lưu cơ sở y tế</button>
             <?php if ($isEdit): ?>
-              <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(site_url('co-so-y-te-chi-tiet.php') . '?slug=' . rawurlencode($values['slug']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank">Xem frontend</a>
+              <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(medical_public_entity_path('facility', $values['slug'], $facilityLanguage), ENT_QUOTES, 'UTF-8'); ?>" target="_blank">Xem frontend</a>
             <?php endif; ?>
           </div>
         </form>

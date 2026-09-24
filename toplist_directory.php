@@ -10,6 +10,8 @@ function toplist_directory_ensure_tables(PDO $pdo): void
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             title VARCHAR(220) NOT NULL,
             slug VARCHAR(191) NOT NULL,
+            language_code VARCHAR(5) NOT NULL DEFAULT 'vi',
+            translation_of_id INT UNSIGNED NULL,
             excerpt TEXT NULL,
             content LONGTEXT NULL,
             featured_image_url VARCHAR(500) NULL,
@@ -18,9 +20,11 @@ function toplist_directory_ensure_tables(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_medical_toplists_slug (slug),
+            UNIQUE KEY idx_medical_toplists_translation_parent (translation_of_id),
             KEY idx_medical_toplists_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    medreview_ensure_translation_columns($pdo, 'medical_toplists');
 
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS medical_toplist_facilities (

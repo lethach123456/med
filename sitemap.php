@@ -104,14 +104,14 @@ function medreview_sitemap_sources(): array
         'facilities' => [
             'table' => 'medical_facilities',
             'count' => "SELECT COUNT(*) FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, updated_at FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_public_facility_path((string) $row['slug']),
+            'rows' => "SELECT slug, language_code, updated_at FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            'path' => static fn (array $row): string => medical_public_entity_path('facility', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'doctors' => [
             'table' => 'medical_doctors',
             'count' => "SELECT COUNT(*) FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, updated_at FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => '/bac-si-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']),
+            'rows' => "SELECT slug, language_code, updated_at FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            'path' => static fn (array $row): string => medical_public_entity_path('doctor', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'reviews' => [
             'table' => 'medical_reviews',
@@ -122,8 +122,8 @@ function medreview_sitemap_sources(): array
         'toplists' => [
             'table' => 'medical_toplists',
             'count' => "SELECT COUNT(*) FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, updated_at FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_public_toplist_path((string) $row['slug']),
+            'rows' => "SELECT slug, language_code, updated_at FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            'path' => static fn (array $row): string => medical_public_entity_path('toplist', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'products' => [
             'table' => 'products',
@@ -147,10 +147,19 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $origin = site_canonical_origin();
 
 try {
+    $pdo = db();
+    $translationReady = [];
+    foreach (['medical_facilities', 'medical_doctors', 'medical_toplists'] as $table) {
+        if (medreview_sitemap_table_exists($pdo, $table)) $translationReady[$table] = medreview_ensure_translation_columns($pdo, $table);
+    }
     $sources = medreview_sitemap_sources();
+    foreach (['facilities' => 'medical_facilities', 'doctors' => 'medical_doctors', 'toplists' => 'medical_toplists'] as $sourceName => $table) {
+        if (isset($sources[$sourceName]) && !($translationReady[$table] ?? false)) {
+            $sources[$sourceName]['rows'] = str_replace('language_code, ', '', $sources[$sourceName]['rows']);
+        }
+    }
 
     if ($map === 'index') {
-        $pdo = db();
         $entries = ['pages' => 1];
         foreach ($sources as $name => $source) {
             $count = medreview_sitemap_source_count($pdo, $source);

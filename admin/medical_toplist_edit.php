@@ -14,6 +14,7 @@ $id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 $isEdit = $id > 0;
 $values = ['title' => '', 'slug' => '', 'excerpt' => '', 'content' => '', 'featured_image_url' => '', 'status' => 'draft'];
 $selectedIds = [];
+$toplistTranslationRow = null;
 
 if ($isEdit) {
     $stmt = $pdo->prepare('SELECT * FROM medical_toplists WHERE id = :id LIMIT 1');
@@ -24,6 +25,7 @@ if ($isEdit) {
         header('Location: /admin/medical_toplists.php');
         exit;
     }
+    $toplistTranslationRow = $row;
     foreach (array_keys($values) as $key) {
         $values[$key] = (string) ($row[$key] ?? '');
     }
@@ -31,13 +33,36 @@ if ($isEdit) {
     $stmt->execute([':id' => $id]);
     $selectedIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
+$toplistLanguage = strtolower((string) ($toplistTranslationRow['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
 
 $errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '') === 'create_en') {
+    try {
+        $translationId = medical_directory_create_translation_copy($pdo, 'toplist', $id);
+        flash_toast_set('success', 'Đã tạo bản tiếng Anh ở trạng thái nháp. Hãy dịch tiêu đề/nội dung rồi xuất bản.', 'fa-solid fa-language');
+        header('Location: ' . admin_url('medical_toplist_edit.php') . '?id=' . $translationId);
+        exit;
+    } catch (Throwable $e) {
+        flash_toast_set('danger', $e->getMessage(), 'fa-solid fa-triangle-exclamation');
+        header('Location: ' . admin_url('medical_toplist_edit.php') . '?id=' . $id);
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));
     }
     $selectedIds = array_values(array_unique(array_filter(array_map('intval', explode(',', (string) ($_POST['facility_order'] ?? ''))))));
+    if ($toplistLanguage === 'en' && $selectedIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
+        $languageStmt = $pdo->prepare("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published' AND language_code = 'en' AND id IN ({$placeholders})");
+        $languageStmt->execute($selectedIds);
+        if ((int) $languageStmt->fetchColumn() !== count($selectedIds)) {
+            $errors[] = 'Toplist tiếng Anh chỉ liên kết được với hồ sơ cơ sở tiếng Anh đã xuất bản.';
+        }
+    }
     if ($values['title'] === '') {
         $errors[] = 'Vui lòng nhập tiêu đề bài Toplist.';
     }
@@ -67,8 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $selectedFacilities = [];
 if ($selectedIds !== []) {
     $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
-    $stmt = $pdo->prepare("SELECT id, name, city, address_text, image_url, rating, reviews_count FROM medical_facilities WHERE id IN ({$placeholders}) AND status = 'published'");
-    $stmt->execute($selectedIds);
+    $selectedLanguage = medreview_ensure_translation_columns($pdo, 'medical_facilities') ? ' AND language_code = ?' : '';
+    $selectedLanguageParams = $selectedLanguage !== '' ? array_merge($selectedIds, [$toplistLanguage]) : $selectedIds;
+    $stmt = $pdo->prepare("SELECT id, name, city, address_text, image_url, rating, reviews_count FROM medical_facilities WHERE id IN ({$placeholders}) AND status = 'published'{$selectedLanguage}");
+    $stmt->execute($selectedLanguageParams);
     $byId = [];
     foreach ($stmt->fetchAll() as $facility) {
         $byId[(int) $facility['id']] = $facility;
@@ -78,8 +105,13 @@ if ($selectedIds !== []) {
             $selectedFacilities[] = $byId[$facilityId];
         }
     }
+    // Keep the initial drag/drop state aligned with the Toplist language too.
+    $selectedIds = array_map(static fn(array $facility): int => (int) $facility['id'], $selectedFacilities);
 }
 
+$toplistTranslationCounterpart = is_array($toplistTranslationRow)
+    ? medical_directory_translation_counterpart($pdo, 'toplist', $toplistTranslationRow, false)
+    : null;
 $adminPageTitle = $isEdit ? 'Admin • Sửa Toplist' : 'Admin • Tạo Toplist';
 $adminHeaderTitle = $isEdit ? 'Sửa bài Toplist' : 'Tạo bài Toplist';
 $adminHeaderSubtitle = 'Soạn bài bằng CKEditor, chọn ảnh từ thư viện và kéo thả để xếp hạng cơ sở';
@@ -113,6 +145,26 @@ $mediaFieldValue = $values['featured_image_url'];
 <?php if ($errors): ?>
   <div class="alert alert-danger">
     <?php foreach ($errors as $error): ?><div><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div><?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
+<?php if ($isEdit): ?>
+  <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <div class="fw-semibold"><i class="fa-solid fa-language text-primary me-2" aria-hidden="true"></i>Bản nội dung: <?php echo $toplistLanguage === 'en' ? 'English' : 'Tiếng Việt'; ?></div>
+      <div class="small text-secondary mt-1">Bản dịch Toplist được lưu riêng; danh sách cơ sở được sao chép và ưu tiên hồ sơ tiếng Anh nếu đã có.</div>
+    </div>
+    <?php if ($toplistLanguage === 'en' && is_array($toplistTranslationCounterpart)): ?>
+      <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_toplist_edit.php') . '?id=' . (int) $toplistTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở Toplist tiếng Việt</a>
+    <?php elseif ($toplistLanguage === 'vi' && is_array($toplistTranslationCounterpart)): ?>
+      <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_toplist_edit.php') . '?id=' . (int) $toplistTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở bản tiếng Anh · <?php echo htmlspecialchars((string) $toplistTranslationCounterpart['status'], ENT_QUOTES, 'UTF-8'); ?></a>
+    <?php elseif ($toplistLanguage === 'vi'): ?>
+      <form method="post" class="m-0" onsubmit="return confirm('Tạo bản tiếng Anh nháp từ Toplist hiện tại?');">
+        <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
+        <input type="hidden" name="_translation_action" value="create_en">
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-language me-2" aria-hidden="true"></i>Tạo bản tiếng Anh</button>
+      </form>
+    <?php endif; ?>
   </div>
 <?php endif; ?>
 
@@ -173,6 +225,7 @@ $mediaFieldValue = $values['featured_image_url'];
   const count = document.querySelector('#selectedCount');
   const search = document.querySelector('#facilitySearch');
   const results = document.querySelector('#facilitySearchResults');
+  const contentLocale = <?php echo json_encode($toplistLanguage, JSON_UNESCAPED_SLASHES); ?>;
   let dragged = null;
   let searchTimer = null;
   let requestId = 0;
@@ -205,6 +258,10 @@ $mediaFieldValue = $values['featured_image_url'];
   const renderResults = (items) => {
     results.innerHTML = '';
     if (!items.length) {
+      if (contentLocale === 'en') {
+        results.innerHTML = '<div class="list-group-item text-secondary small">Chưa có hồ sơ cơ sở tiếng Anh đã xuất bản. Hãy tạo bản dịch từ hồ sơ tiếng Việt trong trang quản trị cơ sở y tế trước.</div>';
+        return;
+      }
       results.innerHTML = '<div class="list-group-item quick-facility-form"><div class="small fw-semibold mb-2">Chưa có cơ sở phù hợp? Thêm nhanh</div><input class="form-control form-control-sm mb-2" name="quick_name" placeholder="Tên cơ sở *"><input class="form-control form-control-sm mb-2" name="quick_address" placeholder="Địa chỉ *"><input class="form-control form-control-sm mb-2" name="quick_category" value="Cơ sở y tế" placeholder="Nhóm / chuyên khoa"><button type="button" class="btn btn-sm btn-primary w-100" data-quick-add>Lưu và thêm vào Toplist</button><div class="small text-danger mt-2 d-none" data-quick-error></div></div>';
       const form = results.firstElementChild;
       form.querySelector('[data-quick-add]').addEventListener('click', async () => {
@@ -229,7 +286,7 @@ $mediaFieldValue = $values['featured_image_url'];
     const currentRequest = ++requestId; results.innerHTML = '<div class="list-group-item text-secondary small">Đang tìm...</div>';
     try {
       const excluded = [...selected.querySelectorAll('.toplist-facility')].map((card) => card.dataset.id).join(',');
-      const response = await fetch('/admin/api/medical/facility_search.php?q=' + encodeURIComponent(q) + '&exclude=' + encodeURIComponent(excluded), { headers: { Accept: 'application/json' } });
+      const response = await fetch('/admin/api/medical/facility_search.php?q=' + encodeURIComponent(q) + '&locale=' + encodeURIComponent(contentLocale) + '&exclude=' + encodeURIComponent(excluded), { headers: { Accept: 'application/json' } });
       const data = await response.json(); if (currentRequest !== requestId) return;
       if (!response.ok || !data.ok) throw new Error(data.message || 'Không thể tìm cơ sở.'); renderResults(Array.isArray(data.items) ? data.items : []);
     } catch (error) { if (currentRequest === requestId) results.innerHTML = '<div class="list-group-item text-danger small">Không thể tải kết quả. Vui lòng thử lại.</div>'; }

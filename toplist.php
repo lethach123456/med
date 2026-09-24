@@ -8,7 +8,15 @@ $locale = site_page_locale('toplist');
 $isEnglish = $locale === 'en';
 $pdo = db();
 toplist_directory_ensure_tables($pdo);
-$rows = $pdo->query("SELECT t.id,t.title,t.slug,t.excerpt,t.featured_image_url,t.updated_at,COUNT(tf.id) AS facility_count FROM medical_toplists t LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id=t.id WHERE t.status='published' GROUP BY t.id ORDER BY t.updated_at DESC,t.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$hasToplistLanguage = medreview_ensure_translation_columns($pdo, 'medical_toplists');
+if (!$hasToplistLanguage && $locale === 'en') {
+  $rows = [];
+} else {
+  $languageClause = $hasToplistLanguage ? ' AND t.language_code=:locale' : '';
+  $toplistRows = $pdo->prepare("SELECT t.id,t.title,t.slug,t.excerpt,t.featured_image_url,t.updated_at,COUNT(tf.id) AS facility_count FROM medical_toplists t LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id=t.id WHERE t.status='published'{$languageClause} GROUP BY t.id ORDER BY t.updated_at DESC,t.id DESC");
+  $toplistRows->execute($hasToplistLanguage ? [':locale' => $locale] : []);
+  $rows = $toplistRows->fetchAll(PDO::FETCH_ASSOC);
+}
 $collageStatement = $pdo->prepare('SELECT f.image_url, f.gallery_json FROM medical_toplist_facilities tf JOIN medical_facilities f ON f.id=tf.facility_id WHERE tf.toplist_id=:toplist_id AND f.status=\'published\' ORDER BY tf.rank_order ASC, tf.id ASC LIMIT 4');
 foreach ($rows as &$row) {
   $collageStatement->execute([':toplist_id' => (int) $row['id']]);
@@ -119,7 +127,29 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
   <nav class="breadcrumb"><a href="<?= htmlspecialchars(site_localized_path('/', $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['breadcrumbHome'], ENT_QUOTES, 'UTF-8') ?></a><span>›</span><strong>Toplist</strong></nav>
   <div class="hero-head"><div><div class="hero-title-row"><h1><?= htmlspecialchars($labels['title'], ENT_QUOTES, 'UTF-8') ?></h1><span class="title-pill"><?= count($rows) ?> <?= htmlspecialchars($labels['articles'], ENT_QUOTES, 'UTF-8') ?></span></div><p class="hero-sub"><?= htmlspecialchars($labels['subtitle'], ENT_QUOTES, 'UTF-8') ?></p></div><div class="hero-note"><span class="icon"><i data-lucide="shield-check"></i></span><div><strong><?= htmlspecialchars($labels['editorial'], ENT_QUOTES, 'UTF-8') ?></strong><span><?= htmlspecialchars($labels['editorialCopy'], ENT_QUOTES, 'UTF-8') ?></span></div></div></div>
   <div class="filter-bar"><div class="filter-item"><label><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></label><div class="filter-input"><span><?= htmlspecialchars($labels['searchHint'], ENT_QUOTES, 'UTF-8') ?></span><i data-lucide="search"></i></div></div><div class="filter-item"><label><?= htmlspecialchars($labels['sort'], ENT_QUOTES, 'UTF-8') ?></label><div class="filter-select"><span><?= htmlspecialchars($labels['updated'], ENT_QUOTES, 'UTF-8') ?></span><i data-lucide="chevron-down"></i></div></div></div>
-  <div class="content-grid"><div class="list-wrap"><?php foreach($rows as $index=>$row): ?><article class="facility-card"><div class="facility-media"><?php if(trim((string)$row['featured_image_url']) !== ''): ?><img src="<?= htmlspecialchars($row['featured_image_url'],ENT_QUOTES) ?>" alt="<?= htmlspecialchars($row['title'],ENT_QUOTES) ?>" loading="lazy" decoding="async"><?php endif; ?><span class="media-count"><i data-lucide="list-ordered"></i> Toplist</span></div><div class="facility-main"><div class="facility-title"><span class="rank-badge"><?= $index+1 ?></span><h2><?= htmlspecialchars($row['title'],ENT_QUOTES) ?></h2></div><p class="facility-sub"><?= htmlspecialchars((string)($row['excerpt'] ?: $labels['fallbackExcerpt']),ENT_QUOTES) ?></p><div class="meta-row"><i data-lucide="calendar-days"></i><span><?= htmlspecialchars($labels['updatedPrefix'],ENT_QUOTES) ?> <?= htmlspecialchars(date('d/m/Y',strtotime((string)$row['updated_at'])),ENT_QUOTES) ?></span></div></div><div class="score-col"><div class="score-main"><?= (int)$row['facility_count'] ?></div><div class="score-meta"><?= htmlspecialchars($labels['facilities'], ENT_QUOTES, 'UTF-8') ?></div></div><div class="cta-col"><strong><?= htmlspecialchars($labels['explore'], ENT_QUOTES, 'UTF-8') ?></strong><a class="detail-btn" href="/toplist-chi-tiet-mau.php?slug=<?= rawurlencode($row['slug']) ?>"><?= htmlspecialchars($labels['details'], ENT_QUOTES, 'UTF-8') ?></a></div></article><?php endforeach; ?></div><aside class="sidebar"><section class="summary-card"><strong><?= htmlspecialchars($labels['overview'], ENT_QUOTES, 'UTF-8') ?></strong><div class="summary-number"><?= count($rows) ?></div><p><?= count($rows) ?> <?= htmlspecialchars($labels['published'], ENT_QUOTES, 'UTF-8') ?></p></section><section class="utility-card"><strong><?= htmlspecialchars($labels['tools'], ENT_QUOTES, 'UTF-8') ?></strong><div class="utility-list"><div class="utility-item"><span class="utility-icon"><i data-lucide="scale"></i></span><div><strong><?= htmlspecialchars($labels['compare'], ENT_QUOTES, 'UTF-8') ?></strong><p><?= htmlspecialchars($labels['compareCopy'], ENT_QUOTES, 'UTF-8') ?></p></div></div><div class="utility-item"><span class="utility-icon"><i data-lucide="shield-check"></i></span><div><strong><?= htmlspecialchars($labels['curatedInfo'], ENT_QUOTES, 'UTF-8') ?></strong><p><?= htmlspecialchars($labels['curatedCopy'], ENT_QUOTES, 'UTF-8') ?></p></div></div></div></section></aside></div>
+  <div class="content-grid">
+    <div class="list-wrap">
+      <?php foreach ($rows as $index => $row): ?>
+        <article class="facility-card">
+          <div class="facility-media">
+            <?php if (trim((string) $row['featured_image_url']) !== ''): ?><img src="<?= htmlspecialchars($row['featured_image_url'], ENT_QUOTES) ?>" alt="<?= htmlspecialchars($row['title'], ENT_QUOTES) ?>" loading="lazy" decoding="async"><?php endif; ?>
+            <span class="media-count"><i data-lucide="list-ordered"></i> Toplist</span>
+          </div>
+          <div class="facility-main">
+            <div class="facility-title"><span class="rank-badge"><?= $index + 1 ?></span><h2><?= htmlspecialchars($row['title'], ENT_QUOTES) ?></h2></div>
+            <p class="facility-sub"><?= htmlspecialchars((string) ($row['excerpt'] ?: $labels['fallbackExcerpt']), ENT_QUOTES) ?></p>
+            <div class="meta-row"><i data-lucide="calendar-days"></i><span><?= htmlspecialchars($labels['updatedPrefix'], ENT_QUOTES) ?> <?= htmlspecialchars(date('d/m/Y', strtotime((string) $row['updated_at'])), ENT_QUOTES) ?></span></div>
+          </div>
+          <div class="score-col"><div class="score-main"><?= (int) $row['facility_count'] ?></div><div class="score-meta"><?= htmlspecialchars($labels['facilities'], ENT_QUOTES, 'UTF-8') ?></div></div>
+          <div class="cta-col"><strong><?= htmlspecialchars($labels['explore'], ENT_QUOTES, 'UTF-8') ?></strong><a class="detail-btn" href="<?= htmlspecialchars(medical_public_entity_path('toplist', (string) $row['slug'], $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['details'], ENT_QUOTES, 'UTF-8') ?></a></div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+    <aside class="sidebar">
+      <section class="summary-card"><strong><?= htmlspecialchars($labels['overview'], ENT_QUOTES, 'UTF-8') ?></strong><div class="summary-number"><?= count($rows) ?></div><p><?= count($rows) ?> <?= htmlspecialchars($labels['published'], ENT_QUOTES, 'UTF-8') ?></p></section>
+      <section class="utility-card"><strong><?= htmlspecialchars($labels['tools'], ENT_QUOTES, 'UTF-8') ?></strong><div class="utility-list"><div class="utility-item"><span class="utility-icon"><i data-lucide="scale"></i></span><div><strong><?= htmlspecialchars($labels['compare'], ENT_QUOTES, 'UTF-8') ?></strong><p><?= htmlspecialchars($labels['compareCopy'], ENT_QUOTES, 'UTF-8') ?></p></div></div><div class="utility-item"><span class="utility-icon"><i data-lucide="shield-check"></i></span><div><strong><?= htmlspecialchars($labels['curatedInfo'], ENT_QUOTES, 'UTF-8') ?></strong><p><?= htmlspecialchars($labels['curatedCopy'], ENT_QUOTES, 'UTF-8') ?></p></div></div></div></section>
+    </aside>
+  </div>
 </section></main>
 <?php include __DIR__ . '/Tem/footer.php'; ?><script src="https://unpkg.com/lucide@latest"></script><script>window.lucide&&lucide.createIcons()</script></body></html>
 <?php $toplistCollageMap = []; foreach ($rows as $row) { $toplistCollageMap[(string) $row['slug']] = (array) ($row['collage_images'] ?? []); } ?>

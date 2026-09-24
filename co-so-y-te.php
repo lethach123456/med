@@ -174,7 +174,7 @@ try {
     // AJAX endpoint. MySQL is only touched when the TTL has expired or an
     // editor/API update invalidates the snapshot.
     $cache = medical_search_cache_index();
-    $index = $cache['index'];
+    $index = medical_search_cache_filter_locale($cache['index'], $locale);
     $directory = medical_search_cache_directory_search($index, $filters + ['page' => $requestedPage, 'limit' => 12]);
     $initial = [
         'items' => $directory['items'],
@@ -219,7 +219,7 @@ function facility_page_card(array $item): string
     $stars = $rating > 0 ? '★★★★★' : '☆☆☆☆☆';
     ob_start(); ?>
     <article class="facility-card">
-      <a class="facility-media" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>" aria-label="<?php echo $isEnglish ? 'View ' : 'Xem '; ?><?php echo $escape($item['name']); ?>">
+      <a class="facility-media" href="<?php echo $escape((string) ($item['url'] ?? medical_public_entity_path('facility', (string) $item['slug'], $locale))); ?>" aria-label="<?php echo $isEnglish ? 'View ' : 'Xem '; ?><?php echo $escape($item['name']); ?>">
         <?php if ($image !== ''): ?>
           <img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name']); ?>" loading="lazy" decoding="async">
         <?php else: ?>
@@ -230,7 +230,7 @@ function facility_page_card(array $item): string
       <div class="facility-body">
         <div class="facility-eyebrow"><span><?php echo $escape($item['category']); ?></span><?php if (!empty($item['city'])): ?><span class="eyebrow-dot">•</span><span><?php echo $escape($item['city']); ?></span><?php endif; ?></div>
         <div class="facility-name-row">
-          <h2><a href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>"><?php echo $escape($item['name']); ?></a></h2>
+          <h2><a href="<?php echo $escape((string) ($item['url'] ?? medical_public_entity_path('facility', (string) $item['slug'], $locale))); ?>"><?php echo $escape($item['name']); ?></a></h2>
           <?php if (!empty($item['verified'])): ?><span class="verified-badge" title="<?php echo $isEnglish ? 'Verified profile' : 'Hồ sơ đã xác thực'; ?>"><i class="ph-fill ph-seal-check"></i><span><?php echo $isEnglish ? 'Verified' : 'Đã xác thực'; ?></span></span><?php endif; ?>
         </div>
         <?php if (!empty($item['subtitle'])): ?><p class="facility-subtitle"><?php echo $escape($item['subtitle']); ?></p><?php endif; ?>
@@ -259,7 +259,7 @@ function facility_page_card(array $item): string
         <span><?php echo $isEnglish ? 'Reference price' : 'Giá tham khảo'; ?></span>
         <strong><?php echo !empty($item['price']) ? $escape($item['price']) : ($isEnglish ? 'Contact for updates' : 'Liên hệ cập nhật'); ?></strong>
       </div>
-      <a class="detail-button" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>"><?php echo $isEnglish ? 'View profile' : 'Xem hồ sơ'; ?><i class="ph ph-arrow-up-right"></i></a>
+      <a class="detail-button" href="<?php echo $escape((string) ($item['url'] ?? medical_public_entity_path('facility', (string) $item['slug'], $locale))); ?>"><?php echo $isEnglish ? 'View profile' : 'Xem hồ sơ'; ?><i class="ph ph-arrow-up-right"></i></a>
     </article>
     <?php return trim((string) ob_get_clean());
 }
@@ -892,7 +892,7 @@ function facility_page_card(array $item): string
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
   const format = value => new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(value || 0));
   const card = item => {
-    const detail = '/co-so-y-te/' + encodeURIComponent(item.slug || '');
+    const detail = item.url || ('/co-so-y-te/' + encodeURIComponent(item.slug || ''));
     const image = String(item.image || '').trim();
     const label = String(item.images_label || '').trim() || (Number(item.image_count || 0) > 0 ? `${format(item.image_count)} ${words.photos}` : '');
     const services = Array.isArray(item.services) ? item.services : [];
@@ -923,6 +923,7 @@ function facility_page_card(array $item): string
     selectFilters.forEach(select => params.set(select.name, select.value));
     params.set('page', String(page));
     params.set('limit', '12');
+    params.set('locale', isEnglish ? 'en' : 'vi');
     return params;
   };
   async function load(page = 1, updateUrl = true) {

@@ -222,8 +222,10 @@ function medical_search_cache_invalidate(): void
 /** @return array<int,array<string,mixed>> */
 function medical_search_cache_facilities(PDO $pdo): array
 {
+    $hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_facilities');
+    $languageSelect = $hasTranslationColumns ? 'language_code' : "'vi' AS language_code";
     $rows = $pdo->query(
-        "SELECT id, slug, name, subtitle, category, city, address_text, image_url, gallery_json,
+        "SELECT id, slug, {$languageSelect}, name, subtitle, category, city, address_text, image_url, gallery_json,
                 verified, rating, reviews_count, followers_count, price_text, hours_text, images_label,
                 featured_services_json, services_json, tags_json, highlights_json, display_order, updated_at
          FROM medical_facilities
@@ -253,7 +255,8 @@ function medical_search_cache_facilities(PDO $pdo): array
         $items[] = [
             'id' => (int) ($row['id'] ?? 0),
             'slug' => (string) ($row['slug'] ?? ''),
-            'url' => medical_public_facility_path((string) ($row['slug'] ?? '')),
+            'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
+            'url' => medical_public_entity_path('facility', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'name' => (string) ($row['name'] ?? ''),
             'subtitle' => trim((string) ($row['subtitle'] ?? '')),
             'category' => trim((string) ($row['category'] ?? 'Cơ sở y tế')),
@@ -286,6 +289,7 @@ function medical_search_cache_facilities(PDO $pdo): array
 /** @return array<int,array<string,mixed>> */
 function medical_search_cache_doctors(PDO $pdo): array
 {
+    medreview_ensure_translation_columns($pdo, 'medical_doctors');
     try {
         // Keep this tolerant of installations whose optional doctor columns
         // differ slightly; the normalizer below treats absent values as blank.
@@ -319,7 +323,8 @@ function medical_search_cache_doctors(PDO $pdo): array
         $items[] = [
             'id' => (int) ($row['id'] ?? 0),
             'slug' => (string) ($row['slug'] ?? ''),
-            'url' => '/bac-si-chi-tiet.php?slug=' . rawurlencode((string) ($row['slug'] ?? '')),
+            'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
+            'url' => medical_public_entity_path('doctor', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'name' => (string) ($row['name'] ?? ''),
             'title_text' => trim((string) ($row['title_text'] ?? '')),
             'specialty_text' => trim((string) ($row['specialty_text'] ?? '')),
@@ -348,15 +353,18 @@ function medical_search_cache_doctors(PDO $pdo): array
 function medical_search_cache_toplists(PDO $pdo): array
 {
     try {
+        $hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_toplists');
+        $languageSelect = $hasTranslationColumns ? 't.language_code' : "'vi' AS language_code";
+        $languageGroup = $hasTranslationColumns ? ', t.language_code' : '';
         $rows = $pdo->query(
-            "SELECT t.id, t.slug, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at,
+            "SELECT t.id, t.slug, {$languageSelect}, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at,
                     COUNT(DISTINCT f.id) AS facility_count,
                     GROUP_CONCAT(DISTINCT CONCAT_WS(' ', f.name, f.category, f.city, f.featured_services_json, f.services_json) SEPARATOR ' ') AS facility_search_text
              FROM medical_toplists t
              LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id
              LEFT JOIN medical_facilities f ON f.id = tf.facility_id AND f.status = 'published'
              WHERE t.status = 'published'
-             GROUP BY t.id, t.slug, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at"
+             GROUP BY t.id, t.slug{$languageGroup}, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at"
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable) {
         return [];
@@ -374,7 +382,8 @@ function medical_search_cache_toplists(PDO $pdo): array
         $items[] = [
             'id' => (int) ($row['id'] ?? 0),
             'slug' => (string) ($row['slug'] ?? ''),
-            'url' => medical_public_toplist_path((string) ($row['slug'] ?? '')),
+            'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
+            'url' => medical_public_entity_path('toplist', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'title' => (string) ($row['title'] ?? ''),
             'excerpt' => trim((string) ($row['excerpt'] ?? '')),
             'featured_image_url' => trim((string) ($row['featured_image_url'] ?? '')),
@@ -387,6 +396,26 @@ function medical_search_cache_toplists(PDO $pdo): array
         ];
     }
     return $items;
+}
+
+/** Keep translated copies out of the other language's search and directory results. */
+function medical_search_cache_filter_locale(array $index, string $locale): array
+{
+    $locale = site_normalize_locale($locale);
+    foreach (['facilities', 'doctors', 'toplists'] as $key) {
+        $items = (array) ($index[$key] ?? []);
+        $index[$key] = array_values(array_filter($items, static function ($item) use ($locale): bool {
+            if (!is_array($item)) return false;
+            return (strtolower((string) ($item['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi') === $locale;
+        }));
+    }
+    $index['cities'] = medical_search_cache_cities((array) $index['facilities'], (array) $index['doctors']);
+    $index['counts'] = [
+        'facilities' => count($index['facilities']),
+        'doctors' => count($index['doctors']),
+        'toplists' => count($index['toplists']),
+    ];
+    return $index;
 }
 
 /** @return array<int,array{label:string,key:string}> */
@@ -666,6 +695,8 @@ function medical_search_cache_directory_item(array $item): array
     return [
         'id' => (int) ($item['id'] ?? 0),
         'slug' => (string) ($item['slug'] ?? ''),
+        'language_code' => (string) ($item['language_code'] ?? 'vi'),
+        'url' => (string) ($item['url'] ?? ''),
         'name' => (string) ($item['name'] ?? ''),
         'category' => (string) ($item['category'] ?? 'Cơ sở y tế'),
         'city' => (string) ($item['city'] ?? ''),
@@ -810,6 +841,7 @@ function medical_search_cache_doctor_directory_item(array $item): array
     return [
         'id' => (int) ($item['id'] ?? 0),
         'slug' => (string) ($item['slug'] ?? ''),
+        'language_code' => (string) ($item['language_code'] ?? 'vi'),
         'url' => (string) ($item['url'] ?? ''),
         'name' => (string) ($item['name'] ?? ''),
         'title_text' => (string) ($item['title_text'] ?? ''),

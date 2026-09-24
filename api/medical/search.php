@@ -32,7 +32,9 @@ try {
     // Fresh requests read one local JSON file only. On expiry, one request
     // rebuilds the file; other concurrent requests retain the old index.
     $cache = medical_search_cache_index();
-    $results = medical_search_cache_search($cache['index'], $query, $limit);
+    $locale = site_normalize_locale((string) ($_GET['locale'] ?? $_GET['lang'] ?? 'vi'));
+    $localizedIndex = medical_search_cache_filter_locale($cache['index'], $locale);
+    $results = medical_search_cache_search($localizedIndex, $query, $limit);
     $index = $cache['index'];
 
     medical_public_search_response([

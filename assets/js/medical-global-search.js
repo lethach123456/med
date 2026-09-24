@@ -191,7 +191,7 @@
         setExpanded(input, true);
         scrollHomeSearchNearHeader();
         try {
-          const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&limit=3`, {signal: controller.signal, headers: {Accept: 'application/json'}});
+          const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&limit=3&locale=${language}`, {signal: controller.signal, headers: {Accept: 'application/json'}});
           const data = await response.json();
           if (!response.ok || !data.ok || currentRequest !== requestNumber) throw new Error('Search failed');
           render(shell, input, results, data, query);

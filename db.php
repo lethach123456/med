@@ -111,6 +111,67 @@ function medical_public_toplist_path(string $slug = ''): string
     return $slug === '' ? '/toplist' : '/toplist/' . rawurlencode($slug);
 }
 
+/** Canonical routes for language-specific medical records. */
+function medical_public_entity_path(string $entity, string $slug = '', string $locale = 'vi'): string
+{
+    $entity = strtolower(trim($entity));
+    $locale = site_normalize_locale($locale);
+    $slug = trim($slug, "/ \t\n\r\0\x0B");
+    $routes = [
+        'facility' => 'co-so-y-te',
+        'doctor' => 'bac-si',
+        'toplist' => 'toplist',
+    ];
+    if (!isset($routes[$entity])) return '/';
+    $route = '/' . ($locale === 'en' ? 'en/' : '') . $routes[$entity];
+    return $slug === '' ? $route : $route . '/' . rawurlencode($slug);
+}
+
+/** Add language/translation metadata to the three paired medical entities. */
+function medreview_ensure_translation_columns(PDO $pdo, string $table): bool
+{
+    static $done = [];
+    $allowed = ['medical_facilities', 'medical_doctors', 'medical_toplists'];
+    if (!in_array($table, $allowed, true)) return false;
+    if (array_key_exists($table, $done)) return $done[$table];
+
+    $columnExists = static function (string $column) use ($pdo, $table): bool {
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column LIMIT 1'
+            );
+            $stmt->execute([':table' => $table, ':column' => $column]);
+            return (bool) $stmt->fetchColumn();
+        } catch (Throwable) {
+            return false;
+        }
+    };
+
+    try {
+        if (!$columnExists('language_code')) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN language_code VARCHAR(5) NOT NULL DEFAULT 'vi' AFTER slug");
+        }
+        if (!$columnExists('translation_of_id')) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN translation_of_id INT UNSIGNED NULL AFTER language_code");
+        }
+        $indexName = 'idx_' . $table . '_translation_parent';
+        $indexStmt = $pdo->prepare(
+            'SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND INDEX_NAME = :index_name LIMIT 1'
+        );
+        $indexStmt->execute([':table' => $table, ':index_name' => $indexName]);
+        if (!$indexStmt->fetchColumn()) {
+            $pdo->exec("CREATE UNIQUE INDEX `{$indexName}` ON `{$table}` (translation_of_id)");
+        }
+        $done[$table] = $columnExists('language_code') && $columnExists('translation_of_id');
+        return $done[$table];
+    } catch (Throwable) {
+        // Public pages may run with a read-only DB account; keep serving the
+        // original Vietnamese rows if a host has not applied the migration.
+        $done[$table] = $columnExists('language_code') && $columnExists('translation_of_id');
+        return $done[$table];
+    }
+}
+
 /** Stable HTTPS origin used by canonical tags and XML sitemaps. */
 function site_canonical_origin(): string
 {

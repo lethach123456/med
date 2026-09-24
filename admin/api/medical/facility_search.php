@@ -30,12 +30,20 @@ if (mb_strlen($term, 'UTF-8') < 2) {
 }
 
 $excluded = array_values(array_unique(array_filter(array_map('intval', explode(',', (string) ($_GET['exclude'] ?? ''))))));
+$locale = site_normalize_locale((string) ($_GET['locale'] ?? 'vi'));
+$hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_facilities');
+if (!$hasTranslationColumns && $locale === 'en') {
+    json_response(['ok' => true, 'items' => []]);
+}
+$languageClause = $hasTranslationColumns ? ' AND language_code = :language_code' : '';
 $sql = "SELECT id, name, city, address_text, image_url, rating, reviews_count
         FROM medical_facilities
         WHERE status = 'published'
+          {$languageClause}
           AND (name LIKE :name_term OR city LIKE :city_term)";
 $likeTerm = '%' . $term . '%';
 $params = [':name_term' => $likeTerm, ':city_term' => $likeTerm];
+if ($hasTranslationColumns) $params[':language_code'] = $locale;
 
 if ($excluded !== []) {
     $placeholders = [];

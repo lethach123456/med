@@ -15,6 +15,10 @@ if ($doctorNotFound) {
     require __DIR__ . '/Tem/public-404.php';
     exit;
 }
+$doctorLanguage = strtolower((string) ($doctor['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+$doctorLanguageLinks = medical_directory_translation_switch_links(db(), 'doctor', $doctor);
+$GLOBALS['site_forced_locale'] = $doctorLanguage;
+$GLOBALS['site_language_links'] = $doctorLanguageLinks;
 $facility = null;
 $relatedReviews = [];
 $relatedDoctors = [];
@@ -26,7 +30,7 @@ if (is_array($doctor) && $doctor !== []) {
         $relatedReviews = array_slice(medical_directory_reviews_for_facility_slug($facilitySlug, true), 0, 4);
     }
 
-    $relatedDoctors = array_values(array_filter(medical_directory_doctor_rows(true), static function (array $item) use ($doctor): bool {
+    $relatedDoctors = array_values(array_filter(medical_directory_doctor_rows(true, $doctorLanguage), static function (array $item) use ($doctor): bool {
         return (string) ($item['slug'] ?? '') !== (string) ($doctor['slug'] ?? '');
     }));
     $relatedDoctors = array_slice($relatedDoctors, 0, 3);
@@ -90,7 +94,7 @@ $facilityPhone = (string) ($facility['phone_text'] ?? '1900 6899');
 $facilityWebsite = (string) ($facility['website_url'] ?? 'www.nhakhoakim.com');
 $facilityRating = (string) ($facility['rating'] ?? '4.8');
 $followersText = (string) ($doctor['followers'] ?? '2.500+');
-$doctorCanonicalUrl = site_absolute_url('/bac-si-chi-tiet.php?slug=' . rawurlencode((string) $doctor['slug']));
+$doctorCanonicalUrl = site_absolute_url(medical_public_entity_path('doctor', (string) $doctor['slug'], $doctorLanguage));
 $heroImageAbsolute = site_absolute_media_url($heroImage);
 $doctorSchema = [
     '@context' => 'https://schema.org',
@@ -264,14 +268,14 @@ unset($item);
 
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo htmlspecialchars($doctorLanguage, ENT_QUOTES, 'UTF-8'); ?>">
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($doctorNotFound): ?><meta name="robots" content="noindex,follow"><?php else: ?><link rel="canonical" href="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:type" content="profile"><meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:url" content="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php if ($heroImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($heroImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><?php echo site_json_ld($doctorSchema); ?><?php endif; ?>
+    <?php if ($doctorNotFound): ?><meta name="robots" content="noindex,follow"><?php else: ?><link rel="canonical" href="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php if (!empty($doctorLanguageLinks['has_counterpart'])): ?><link rel="alternate" hreflang="vi" href="<?php echo htmlspecialchars(site_absolute_url((string) $doctorLanguageLinks['vi']), ENT_QUOTES, 'UTF-8'); ?>"><link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars(site_absolute_url((string) $doctorLanguageLinks['en']), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><meta property="og:type" content="profile"><meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:url" content="<?php echo htmlspecialchars($doctorCanonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php if ($heroImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($heroImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><?php echo site_json_ld($doctorSchema); ?><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -901,9 +905,9 @@ unset($item);
     <main class="doctor-detail site-typo">
       <section class="container">
         <nav class="breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Trang chủ</a>
+          <a href="<?php echo htmlspecialchars(site_localized_path('/', $doctorLanguage), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $doctorLanguage === 'en' ? 'Home' : 'Trang chủ'; ?></a>
           <span>/</span>
-          <a href="/bac-si.php">Bác sĩ</a>
+          <a href="<?php echo htmlspecialchars(site_localized_path('/bac-si.php', $doctorLanguage), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $doctorLanguage === 'en' ? 'Doctors' : 'Bác sĩ'; ?></a>
           <span>/</span>
           <span class="active"><?php echo htmlspecialchars((string) ($doctor['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
         </nav>

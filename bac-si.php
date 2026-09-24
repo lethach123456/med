@@ -46,7 +46,7 @@ try {
     // The doctor directory uses the same shared JSON TTL snapshot as search,
     // keeping normal page views and filter requests off MySQL.
     $cache = medical_search_cache_index();
-    $index = $cache['index'];
+    $index = medical_search_cache_filter_locale($cache['index'], $locale);
     $result = medical_search_cache_doctor_directory_search(
         $index,
         $filters + ['page' => max(1, (int) ($_GET['page'] ?? 1)), 'limit' => 12]
@@ -86,7 +86,7 @@ function doctor_directory_card(array $item): string
     $isEnglish = site_page_locale('doctors') === 'en';
     $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     $slug = (string) ($item['slug'] ?? '');
-    $url = '/bac-si-chi-tiet.php?slug=' . rawurlencode($slug);
+    $url = (string) ($item['url'] ?? medical_public_entity_path('doctor', $slug, site_page_locale('doctors')));
     $image = trim((string) ($item['image'] ?? ''));
     $rating = (float) ($item['rating'] ?? 0);
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? []))));
@@ -263,7 +263,7 @@ function doctor_directory_card(array $item): string
   const format = value => new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(value || 0));
   const prepareTags = () => list.querySelectorAll('[data-doctor-tags]').forEach(group => { if (group.querySelector('[data-doctor-tags-more]')) group.classList.add('is-collapsible'); });
   const card = item => {
-    const detail = '/bac-si-chi-tiet.php?slug=' + encodeURIComponent(item.slug || '');
+    const detail = item.url || ('/bac-si/' + encodeURIComponent(item.slug || ''));
     const image = String(item.image || '').trim();
     const services = Array.isArray(item.services) ? item.services : [];
     const tags = services.map((value, index) => `<span class="doctor-tag${index > 2 ? ' is-extra' : ''}">${esc(value)}</span>`).join('');
@@ -293,6 +293,7 @@ function doctor_directory_card(array $item): string
     selectFilters.forEach(select => params.set(select.name, select.value));
     params.set('page', String(page));
     params.set('limit', '12');
+    params.set('locale', isEnglish ? 'en' : 'vi');
     return params;
   };
   const syncFilterCount = () => {

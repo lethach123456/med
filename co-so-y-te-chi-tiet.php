@@ -5,11 +5,6 @@ require_once __DIR__ . '/medical_directory.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 $incomingFacilitySlug = trim((string) ($_GET['slug'] ?? ''));
-medical_redirect_legacy_path(
-  '/co-so-y-te-chi-tiet.php',
-  medical_public_facility_path($incomingFacilitySlug),
-  ['slug']
-);
 
 $facilities = [
   [
@@ -631,6 +626,10 @@ $relatedFacilities = array_values(array_filter($facilities, static function (arr
 
 $dbFacility = medical_directory_facility_row_by_slug($slug, true);
 $facilityNotFound = !is_array($dbFacility) || $dbFacility === [];
+if (!$facilityNotFound && parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) === '/co-so-y-te-chi-tiet.php') {
+  $rowLocale = strtolower((string) ($dbFacility['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+  medical_redirect_legacy_path('/co-so-y-te-chi-tiet.php', medical_public_entity_path('facility', $incomingFacilitySlug, $rowLocale), ['slug']);
+}
 if ($facilityNotFound) {
   http_response_code(404);
   $notFoundTitle = 'Không tìm thấy hồ sơ cơ sở y tế';
@@ -638,6 +637,10 @@ if ($facilityNotFound) {
   require __DIR__ . '/Tem/public-404.php';
   exit;
 }
+$facilityLanguage = strtolower((string) ($dbFacility['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+$facilityLanguageLinks = medical_directory_translation_switch_links(db(), 'facility', $dbFacility);
+$GLOBALS['site_forced_locale'] = $facilityLanguage;
+$GLOBALS['site_language_links'] = $facilityLanguageLinks;
 if (is_array($dbFacility) && $dbFacility !== []) {
   $dbFacility['verified'] = !empty($dbFacility['is_verified']);
   // Logo is useful as an identity image but makes a weak cover. Prefer a real
@@ -651,7 +654,7 @@ if (is_array($dbFacility) && $dbFacility !== []) {
   // Không dùng các nhãn mẫu của hồ sơ mặc định cho cơ sở lấy từ DB.
   $facility['tags'] = [];
   $facility['images_label'] = count((array) ($facility['gallery'] ?? [])) . ' ảnh';
-  $dbFacilityRows = medical_directory_facility_rows(true);
+  $dbFacilityRows = medical_directory_facility_rows(true, $facilityLanguage);
   $relatedFacilities = array_values(array_filter($dbFacilityRows, static function (array $item) use ($facility): bool {
     return (string) ($item['slug'] ?? '') !== (string) ($facility['slug'] ?? '');
   }));
@@ -790,7 +793,7 @@ if (trim($description) === '') {
   $description = trim((string) ($facility['name'] ?? 'Cơ sở y tế')) . ' — xem thông tin hồ sơ, dịch vụ, giá tham khảo và đánh giá trên MedReview.';
 }
 $description = site_meta_description($description);
-$canonicalPath = medical_public_facility_path((string) $facility['slug']);
+$canonicalPath = medical_public_entity_path('facility', (string) $facility['slug'], $facilityLanguage);
 $canonicalUrl = site_absolute_url($canonicalPath);
 $seoKeywords = trim((string) ($facility['seo_keywords'] ?? '')) !== ''
   ? (string) $facility['seo_keywords']
@@ -833,7 +836,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 }
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo htmlspecialchars($facilityLanguage, ENT_QUOTES, 'UTF-8'); ?>">
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
@@ -843,6 +846,10 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
     <?php if ($facilityNotFound): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if (!$facilityNotFound): ?><link rel="canonical" href="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if (!empty($facilityLanguageLinks['has_counterpart'])): ?>
+      <link rel="alternate" hreflang="vi" href="<?php echo htmlspecialchars(site_absolute_url((string) $facilityLanguageLinks['vi']), ENT_QUOTES, 'UTF-8'); ?>">
+      <link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars(site_absolute_url((string) $facilityLanguageLinks['en']), ENT_QUOTES, 'UTF-8'); ?>">
+    <?php endif; ?>
     <meta property="og:type" content="website">
     <meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
@@ -2157,9 +2164,9 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
     <main class="facility-detail site-typo">
       <section class="container">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/">Trang chủ</a>
+          <a href="<?php echo htmlspecialchars(site_localized_path('/', $facilityLanguage), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilityLanguage === 'en' ? 'Home' : 'Trang chủ'; ?></a>
           <span class="crumb-sep" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
-          <a href="/co-so-y-te.php"><?php echo htmlspecialchars($facility['category'], ENT_QUOTES, 'UTF-8'); ?></a>
+          <a href="<?php echo htmlspecialchars(site_localized_path(medical_public_facility_path(), $facilityLanguage), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($facilityLanguage === 'en' ? 'Healthcare facilities' : $facility['category'], ENT_QUOTES, 'UTF-8'); ?></a>
           <span class="crumb-sep" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
           <span class="active"><?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?></span>
         </nav>

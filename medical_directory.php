@@ -368,6 +368,8 @@ function medical_directory_ensure_tables(PDO $pdo): void
         "CREATE TABLE IF NOT EXISTS medical_facilities (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             slug VARCHAR(191) NOT NULL,
+            language_code VARCHAR(5) NOT NULL DEFAULT 'vi',
+            translation_of_id INT UNSIGNED NULL,
             name VARCHAR(160) NOT NULL,
             category VARCHAR(120) NOT NULL DEFAULT 'Cơ sở y tế',
             city VARCHAR(120) NOT NULL DEFAULT '',
@@ -428,10 +430,12 @@ function medical_directory_ensure_tables(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_medical_facilities_slug (slug),
+            UNIQUE KEY idx_medical_facilities_translation_parent (translation_of_id),
             KEY idx_medical_facilities_status (status),
             KEY idx_medical_facilities_order (display_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    medreview_ensure_translation_columns($pdo, 'medical_facilities');
     try { $pdo->exec("ALTER TABLE medical_facilities ADD COLUMN price_table_html MEDIUMTEXT NULL AFTER price_text"); } catch (Throwable $e) { /* column already exists */ }
     try { $pdo->exec("ALTER TABLE medical_facilities ADD COLUMN content LONGTEXT NULL AFTER subtitle"); } catch (Throwable $e) { /* column already exists */ }
     try { $pdo->exec("ALTER TABLE medical_facilities ADD COLUMN full_json LONGTEXT NULL AFTER content"); } catch (Throwable $e) { /* column already exists */ }
@@ -503,6 +507,8 @@ function medical_directory_ensure_tables(PDO $pdo): void
         "CREATE TABLE IF NOT EXISTS medical_doctors (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             slug VARCHAR(191) NOT NULL,
+            language_code VARCHAR(5) NOT NULL DEFAULT 'vi',
+            translation_of_id INT UNSIGNED NULL,
             name VARCHAR(160) NOT NULL,
             title_text VARCHAR(190) NOT NULL DEFAULT '',
             specialty_text VARCHAR(160) NOT NULL DEFAULT '',
@@ -526,11 +532,13 @@ function medical_directory_ensure_tables(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_medical_doctors_slug (slug),
+            UNIQUE KEY idx_medical_doctors_translation_parent (translation_of_id),
             KEY idx_medical_doctors_status (status),
             KEY idx_medical_doctors_facility (facility_slug),
             KEY idx_medical_doctors_order (display_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    medreview_ensure_translation_columns($pdo, 'medical_doctors');
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS medical_ai_prompts (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT, prompt_key VARCHAR(40) NOT NULL, label VARCHAR(120) NOT NULL,
@@ -578,6 +586,156 @@ function medical_directory_ensure_tables(PDO $pdo): void
         }
     }
     medical_directory_ensure_ai_image_prompt($pdo);
+}
+
+function medical_directory_translation_table(string $entity): ?string
+{
+    return [
+        'facility' => 'medical_facilities',
+        'doctor' => 'medical_doctors',
+        'toplist' => 'medical_toplists',
+    ][strtolower(trim($entity))] ?? null;
+}
+
+/** Return the published linked row, if this record has one. */
+function medical_directory_translation_counterpart(PDO $pdo, string $entity, array $row, bool $publishedOnly = true): ?array
+{
+    $table = medical_directory_translation_table($entity);
+    if ($table === null || !medreview_ensure_translation_columns($pdo, $table)) return null;
+    $language = strtolower(trim((string) ($row['language_code'] ?? 'vi'))) === 'en' ? 'en' : 'vi';
+    $id = (int) ($row['id'] ?? 0);
+    if ($id <= 0) return null;
+
+    if ($language === 'en') {
+        $parentId = (int) ($row['translation_of_id'] ?? 0);
+        if ($parentId <= 0) return null;
+        $sql = "SELECT * FROM `{$table}` WHERE id = :id AND language_code = 'vi'";
+        if ($publishedOnly) $sql .= " AND status = 'published'";
+        $stmt = $pdo->prepare($sql . ' LIMIT 1');
+        $stmt->execute([':id' => $parentId]);
+    } else {
+        $sql = "SELECT * FROM `{$table}` WHERE translation_of_id = :id AND language_code = 'en'";
+        if ($publishedOnly) $sql .= " AND status = 'published'";
+        $stmt = $pdo->prepare($sql . ' ORDER BY id DESC LIMIT 1');
+        $stmt->execute([':id' => $id]);
+    }
+    $counterpart = $stmt->fetch(PDO::FETCH_ASSOC);
+    return is_array($counterpart) ? $counterpart : null;
+}
+
+/** Header targets for a record page; an unpublished translation falls back to its language directory. */
+function medical_directory_translation_switch_links(PDO $pdo, string $entity, array $row): array
+{
+    $table = medical_directory_translation_table($entity);
+    $language = strtolower(trim((string) ($row['language_code'] ?? 'vi'))) === 'en' ? 'en' : 'vi';
+    $counterpart = medical_directory_translation_counterpart($pdo, $entity, $row, true);
+    $currentPath = medical_public_entity_path($entity, (string) ($row['slug'] ?? ''), $language);
+    $otherLocale = $language === 'en' ? 'vi' : 'en';
+    $otherPath = is_array($counterpart)
+        ? medical_public_entity_path($entity, (string) ($counterpart['slug'] ?? ''), $otherLocale)
+        : medical_public_entity_path($entity, '', $otherLocale);
+    return [
+        'current' => $language,
+        'vi' => $language === 'vi' ? $currentPath : $otherPath,
+        'en' => $language === 'en' ? $currentPath : $otherPath,
+        'has_counterpart' => is_array($counterpart),
+        'counterpart' => $counterpart,
+    ];
+}
+
+/**
+ * Create a draft English copy and keep a one-to-one pointer to its Vietnamese
+ * source. The editor can then translate fields and publish the copy explicitly.
+ */
+function medical_directory_create_translation_copy(PDO $pdo, string $entity, int $sourceId): int
+{
+    $table = medical_directory_translation_table($entity);
+    if ($table === null || $sourceId <= 0 || !medreview_ensure_translation_columns($pdo, $table)) {
+        throw new RuntimeException('Không thể khởi tạo liên kết bản dịch cho nội dung này.');
+    }
+    $sourceStmt = $pdo->prepare("SELECT * FROM `{$table}` WHERE id = :id LIMIT 1");
+    $sourceStmt->execute([':id' => $sourceId]);
+    $source = $sourceStmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($source)) throw new RuntimeException('Không tìm thấy bài tiếng Việt cần tạo bản dịch.');
+    if (strtolower(trim((string) ($source['language_code'] ?? 'vi'))) !== 'vi' || (int) ($source['translation_of_id'] ?? 0) > 0) {
+        throw new RuntimeException('Hãy tạo bản tiếng Anh từ bài tiếng Việt gốc.');
+    }
+
+    $existing = $pdo->prepare("SELECT id FROM `{$table}` WHERE translation_of_id = :source_id AND language_code = 'en' LIMIT 1");
+    $existing->execute([':source_id' => $sourceId]);
+    $existingId = (int) $existing->fetchColumn();
+    if ($existingId > 0) return $existingId;
+
+    $baseSlug = trim((string) ($source['slug'] ?? 'content')) . '-en';
+    $candidate = function_exists('slugify') ? slugify($baseSlug) : strtolower(preg_replace('/[^a-z0-9-]+/i', '-', $baseSlug) ?? 'content-en');
+    $candidate = trim(substr($candidate !== '' ? $candidate : 'content-en', 0, 191), '-');
+    $checkSlug = $pdo->prepare("SELECT 1 FROM `{$table}` WHERE slug = :slug LIMIT 1");
+    $root = $candidate;
+    $suffix = 2;
+    while (true) {
+        $checkSlug->execute([':slug' => $candidate]);
+        if (!$checkSlug->fetchColumn()) break;
+        $tail = '-' . $suffix++;
+        $candidate = rtrim(substr($root, 0, 191 - strlen($tail)), '-') . $tail;
+    }
+
+    unset($source['id'], $source['created_at'], $source['updated_at']);
+    $source['slug'] = $candidate;
+    $source['language_code'] = 'en';
+    $source['translation_of_id'] = $sourceId;
+    $source['status'] = 'draft';
+
+    // If the doctor already belongs to a facility with a published English
+    // twin, point the new doctor profile to that translated facility.
+    if ($entity === 'doctor' && trim((string) ($source['facility_slug'] ?? '')) !== '' && medreview_ensure_translation_columns($pdo, 'medical_facilities')) {
+        $facilityStmt = $pdo->prepare("SELECT f_en.slug, f_en.name FROM medical_facilities f_vi JOIN medical_facilities f_en ON f_en.translation_of_id = f_vi.id AND f_en.language_code = 'en' AND f_en.status = 'published' WHERE f_vi.slug = :slug AND f_vi.language_code = 'vi' LIMIT 1");
+        $facilityStmt->execute([':slug' => $source['facility_slug']]);
+        $translatedFacility = $facilityStmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($translatedFacility)) {
+            $source['facility_slug'] = (string) $translatedFacility['slug'];
+            $source['facility_name'] = (string) $translatedFacility['name'];
+        }
+    }
+
+    $columns = array_keys($source);
+    foreach ($columns as $column) {
+        if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $column) !== 1) throw new RuntimeException('Tên trường nội dung không hợp lệ.');
+    }
+    $columnSql = implode(', ', array_map(static fn(string $column): string => '`' . $column . '`', $columns));
+    $parameterSql = implode(', ', array_map(static fn(string $column): string => ':' . $column, $columns));
+
+    try {
+        $pdo->beginTransaction();
+        $insert = $pdo->prepare("INSERT INTO `{$table}` ({$columnSql}) VALUES ({$parameterSql})");
+        $params = [];
+        foreach ($source as $column => $value) $params[':' . $column] = $value;
+        $insert->execute($params);
+        $newId = (int) $pdo->lastInsertId();
+
+        if ($entity === 'toplist' && medical_directory_table_exists($pdo, 'medical_toplist_facilities')) {
+            // Only link facilities that already have a published English
+            // counterpart. Never publish an English Toplist with Vietnamese
+            // facility profiles mixed into its ranking.
+            $copyLinks = $pdo->prepare("INSERT IGNORE INTO medical_toplist_facilities (toplist_id, facility_id, rank_order)
+                SELECT :new_id, f_en.id, tf.rank_order
+                FROM medical_toplist_facilities tf
+                JOIN medical_facilities f_vi ON f_vi.id = tf.facility_id
+                JOIN medical_facilities f_en ON f_en.translation_of_id = f_vi.id AND f_en.language_code = 'en' AND f_en.status = 'published'
+                WHERE tf.toplist_id = :source_id");
+            $copyLinks->execute([':new_id' => $newId, ':source_id' => $sourceId]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        // A concurrent click can win the unique parent key; return that row.
+        $existing->execute([':source_id' => $sourceId]);
+        $existingId = (int) $existing->fetchColumn();
+        if ($existingId > 0) return $existingId;
+        throw $e;
+    }
+
+    if (function_exists('medical_search_cache_invalidate')) medical_search_cache_invalidate();
+    return $newId;
 }
 
 function medical_directory_default_facility_base(): array
@@ -2842,6 +3000,8 @@ function medical_directory_facility_from_row(array $row): array
     return [
         'id' => (int) ($row['id'] ?? 0),
         'slug' => (string) ($row['slug'] ?? ''),
+        'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
+        'translation_of_id' => (int) ($row['translation_of_id'] ?? 0),
         'rank' => (int) ($row['display_order'] ?? 0),
         'name' => (string) ($row['name'] ?? ''),
         'category' => (string) ($row['category'] ?? 'Cơ sở y tế'),
@@ -2985,6 +3145,8 @@ function medical_directory_doctor_from_row(array $row): array
     return [
         'id' => (int) ($row['id'] ?? 0),
         'slug' => (string) ($row['slug'] ?? ''),
+        'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
+        'translation_of_id' => (int) ($row['translation_of_id'] ?? 0),
         'rank' => (int) ($row['display_order'] ?? 0) + 1,
         'name' => (string) ($row['name'] ?? ''),
         'title_text' => (string) ($row['title_text'] ?? ''),
@@ -3017,7 +3179,7 @@ function medical_directory_doctor_from_row(array $row): array
     ];
 }
 
-function medical_directory_facility_rows(bool $publishedOnly = true): array
+function medical_directory_facility_rows(bool $publishedOnly = true, string $locale = 'vi'): array
 {
     $pdo = db();
     if (!medical_directory_table_exists($pdo, 'medical_facilities')) {
@@ -3027,13 +3189,27 @@ function medical_directory_facility_rows(bool $publishedOnly = true): array
         }, $items);
     }
 
+    $locale = site_normalize_locale($locale);
+    medreview_ensure_translation_columns($pdo, 'medical_facilities');
+    $hasLanguageColumn = medical_directory_column_exists($pdo, 'medical_facilities', 'language_code');
+    if (!$hasLanguageColumn && $locale === 'en') return [];
     $sql = "SELECT * FROM medical_facilities";
+    $params = [];
+    if ($hasLanguageColumn) {
+        $sql .= ' WHERE language_code = :language_code';
+        $params[':language_code'] = $locale;
+    } else {
+        $sql .= ' WHERE 1=1';
+    }
     if ($publishedOnly) {
-        $sql .= " WHERE status = 'published'";
+        $sql .= " AND status = 'published'";
     }
     $sql .= ' ORDER BY display_order ASC, id DESC';
-    $rows = $pdo->query($sql)->fetchAll();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
     if (!is_array($rows) || $rows === []) {
+        if ($locale === 'en') return [];
         $items = medical_directory_default_facilities();
         return array_map(static function (array $facility) use ($publishedOnly): array {
             return medical_directory_facility_with_linked_reviews($facility, $publishedOnly);
@@ -3291,20 +3467,34 @@ function medical_directory_review_row_by_slug(string $slug, bool $publishedOnly 
     return null;
 }
 
-function medical_directory_doctor_rows(bool $publishedOnly = true): array
+function medical_directory_doctor_rows(bool $publishedOnly = true, string $locale = 'vi'): array
 {
     $pdo = db();
     if (!medical_directory_table_exists($pdo, 'medical_doctors')) {
         return array_map('medical_directory_doctor_from_row', medical_directory_default_doctors());
     }
 
+    $locale = site_normalize_locale($locale);
+    medreview_ensure_translation_columns($pdo, 'medical_doctors');
+    $hasLanguageColumn = medical_directory_column_exists($pdo, 'medical_doctors', 'language_code');
+    if (!$hasLanguageColumn && $locale === 'en') return [];
     $sql = "SELECT * FROM medical_doctors";
+    $params = [];
+    if ($hasLanguageColumn) {
+        $sql .= ' WHERE language_code = :language_code';
+        $params[':language_code'] = $locale;
+    } else {
+        $sql .= ' WHERE 1=1';
+    }
     if ($publishedOnly) {
-        $sql .= " WHERE status = 'published'";
+        $sql .= " AND status = 'published'";
     }
     $sql .= ' ORDER BY display_order ASC, id DESC';
-    $rows = $pdo->query($sql)->fetchAll();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
     if (!is_array($rows) || $rows === []) {
+        if ($locale === 'en') return [];
         return array_map('medical_directory_doctor_from_row', medical_directory_default_doctors());
     }
     return array_map('medical_directory_doctor_from_row', $rows);

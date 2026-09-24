@@ -12,6 +12,7 @@ medical_directory_seed_defaults($pdo);
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
+$doctorTranslationRow = null;
 
 function doctor_lines_to_text(array $items): string
 {
@@ -72,6 +73,7 @@ if ($isEdit) {
         header('Location: ' . admin_url('medical_doctors.php'));
         exit;
     }
+    $doctorTranslationRow = $row;
     $item = medical_directory_doctor_from_row($row);
     $values = [
         'name' => (string) $item['name'],
@@ -98,6 +100,19 @@ if ($isEdit) {
 }
 
 $errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '') === 'create_en') {
+    try {
+        $translationId = medical_directory_create_translation_copy($pdo, 'doctor', $id);
+        flash_toast_set('success', 'Đã tạo bản tiếng Anh ở trạng thái nháp. Hãy dịch nội dung rồi xuất bản.', 'fa-solid fa-language');
+        header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $translationId);
+        exit;
+    } catch (Throwable $e) {
+        flash_toast_set('danger', $e->getMessage(), 'fa-solid fa-triangle-exclamation');
+        header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $id);
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (array_keys($values) as $key) {
@@ -212,6 +227,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$doctorLanguage = strtolower((string) ($doctorTranslationRow['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+$doctorTranslationCounterpart = is_array($doctorTranslationRow)
+    ? medical_directory_translation_counterpart($pdo, 'doctor', $doctorTranslationRow, false)
+    : null;
 $adminPageTitle = $isEdit ? 'Admin • Sửa bác sĩ' : 'Admin • Thêm bác sĩ';
 $adminHeaderTitle = $isEdit ? 'Sửa bác sĩ' : 'Thêm bác sĩ';
 $adminHeaderSubtitle = 'Quản lý dữ liệu bác sĩ cho `bac-si.php` và `bac-si-chi-tiet.php`';
@@ -248,6 +267,26 @@ $mediaGalleryValue = $values['gallery_lines'];
             <?php foreach ($errors as $error): ?>
               <div><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($isEdit): ?>
+          <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div>
+              <div class="fw-semibold"><i class="fa-solid fa-language text-primary me-2" aria-hidden="true"></i>Bản nội dung: <?php echo $doctorLanguage === 'en' ? 'English' : 'Tiếng Việt'; ?></div>
+              <div class="small text-secondary mt-1">Bản dịch là hồ sơ riêng, liên kết với bản gốc và mặc định ở trạng thái nháp.</div>
+            </div>
+            <?php if ($doctorLanguage === 'en' && is_array($doctorTranslationCounterpart)): ?>
+              <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_doctor_edit.php') . '?id=' . (int) $doctorTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở hồ sơ tiếng Việt</a>
+            <?php elseif ($doctorLanguage === 'vi' && is_array($doctorTranslationCounterpart)): ?>
+              <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_doctor_edit.php') . '?id=' . (int) $doctorTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở bản tiếng Anh · <?php echo htmlspecialchars((string) $doctorTranslationCounterpart['status'], ENT_QUOTES, 'UTF-8'); ?></a>
+            <?php elseif ($doctorLanguage === 'vi'): ?>
+              <form method="post" class="m-0" onsubmit="return confirm('Tạo bản tiếng Anh nháp từ dữ liệu hiện tại?');">
+                <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
+                <input type="hidden" name="_translation_action" value="create_en">
+                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-language me-2" aria-hidden="true"></i>Tạo bản tiếng Anh</button>
+              </form>
+            <?php endif; ?>
           </div>
         <?php endif; ?>
 
@@ -363,7 +402,7 @@ $mediaGalleryValue = $values['gallery_lines'];
           <div class="col-12 d-grid d-sm-flex gap-2">
             <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-2"></i>Lưu bác sĩ</button>
             <?php if ($isEdit): ?>
-              <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(site_url('bac-si-chi-tiet.php') . '?slug=' . rawurlencode($values['slug']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank">Xem frontend</a>
+              <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(medical_public_entity_path('doctor', $values['slug'], $doctorLanguage), ENT_QUOTES, 'UTF-8'); ?>" target="_blank">Xem frontend</a>
             <?php endif; ?>
           </div>
         </form>
