@@ -364,7 +364,7 @@ if ($method === 'GET') {
         'limit' => $limit,
         'total' => $total,
         'pages' => (int) ceil($total / $limit),
-        'workflow' => 'GET lấy toàn bộ cột của từng bài tiếng Việt, output_template và prompt translation đã cấu hình trong Admin > Prompt AI y tế; dịch từng bài bằng AI; POST gửi {type, items:[{source_id, translated:{...}}]}. Bản mới liên kết với bài gốc và ở trạng thái draft để biên tập, xuất bản trong admin.',
+        'workflow' => 'GET lấy toàn bộ cột của từng bài tiếng Việt, output_template và prompt translation đã cấu hình trong Admin > Prompt AI y tế; dịch từng bài bằng AI; POST gửi {type, items:[{source_id, translated:{...}}]}. API kiểm tra các trường dịch bắt buộc, lưu bản tiếng Anh liên kết với bài gốc và tự xuất bản khi hợp lệ.',
         'receive_contract' => ['type' => $type, 'items' => [['source_id' => 123, 'translated' => $items[0]['output_template'] ?? new stdClass()]]],
         'items' => $items,
     ]);
@@ -449,9 +449,13 @@ foreach ($items as $index => $item) {
             }
         }
         if ($sets === []) throw new InvalidArgumentException('Không có trường dịch để lưu.');
+        // Translation API submissions are published only after the complete
+        // translated payload has passed validation and all fields are saved.
+        $sets[] = "`status` = 'published'";
         $update = $pdo->prepare("UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :target_id AND translation_of_id = :source_id AND language_code = 'en'");
         $update->execute($params);
         medical_search_cache_invalidate();
+        $targetStatus = 'published';
         $results[] = [
             'type' => $type,
             'source_id' => $sourceId,
