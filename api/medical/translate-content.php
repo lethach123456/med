@@ -290,6 +290,15 @@ if ($method === 'GET') {
             'source_json' => $sourceJson,
             'output_template' => $outputTemplateJson,
         ]);
+        // Existing DB prompt rows are intentionally preserved when admins
+        // customize them. Replace the exact legacy default instruction that
+        // forbade code fences so it cannot conflict with the current JSON
+        // transport contract in the prompt we send to AI.
+        $prompt = str_replace(
+            '- Chỉ trả về một JSON object hợp lệ theo RFC 8259, không markdown/code fence hoặc lời dẫn. Dùng UTF-8 và escape đúng chuỗi HTML/JSON.',
+            '- BẮT BUỘC trả JSON trong đúng một Markdown code block có nhãn json; không có lời dẫn bên ngoài block. Dùng UTF-8 và escape đúng chuỗi HTML/JSON.',
+            $prompt
+        );
         if (!str_contains($promptTemplate, '{{source_json}}')) $prompt .= "\n\nJSON nguồn đầy đủ của hàng tiếng Việt:\n" . $sourceJson;
         if (!str_contains($promptTemplate, '{{fields}}')) $prompt .= "\n\ntranslation_fields:\n" . medical_api_json($fields);
         if (!str_contains($promptTemplate, '{{output_template}}')) $prompt .= "\n\noutput_template:\n" . $outputTemplateJson;
@@ -299,7 +308,12 @@ if ($method === 'GET') {
             . "- Dịch đầy đủ mọi nội dung có chữ trong các trường được liệt kê ở translation_fields/output_template. Trả lại đủ mọi khóa của output_template, kể cả giá trị rỗng; không tự bỏ khóa.\n"
             . "- Giữ nguyên cấu trúc/kiểu dữ liệu của array, object và HTML. Với trường JSON, chỉ dịch nội dung người đọc thấy; giữ nguyên key, ID, số liệu, URL, email, số điện thoại, địa chỉ gốc, tọa độ, giá và tên riêng/thương hiệu.\n"
             . "- Các cột khác trong JSON nguồn (ID, trạng thái, đánh giá, bộ đếm, ảnh/đường dẫn, metadata) chỉ để tham khảo và phải được giữ nguyên ở bản sao, không tự dịch hay sửa.\n"
-            . "- Tạo slug tiếng Anh dễ đọc nếu slug nằm trong output_template. Trả duy nhất một JSON object hợp lệ theo dạng {\"type\":\"{$type}\",\"source_id\":{$sourceIdValue},\"translated\":{$outputTemplateJson}}. Không markdown/code fence.";
+            . "- Tạo slug tiếng Anh dễ đọc nếu slug nằm trong output_template. Cấu trúc object bắt buộc là {\"type\":\"{$type}\",\"source_id\":{$sourceIdValue},\"translated\":{$outputTemplateJson}}."
+            . "\n\nĐỊNH DẠNG ĐẦU RA BẮT BUỘC — ƯU TIÊN CAO NHẤT:\n"
+            . "1. Toàn bộ JSON phải nằm trong đúng một Markdown code block có nhãn json: mở bằng dòng ```json và đóng bằng dòng ``` .\n"
+            . "2. Câu trả lời phải bắt đầu ngay bằng ```json; bên trong chỉ có một JSON object hợp lệ, không có lời dẫn.\n"
+            . "3. Nhắc lại: bắt buộc trả về trong block code ```json, tuyệt đối không trả JSON trần và không viết văn bản bên ngoài block.\n"
+            . "4. Trước khi gửi, tự kiểm tra block đã mở bằng ```json, đóng bằng ``` và object có đủ type, source_id, translated cùng mọi khóa output_template chưa. Quy định định dạng này thay thế mọi yêu cầu mâu thuẫn ở phía trên.";
         $items[] = [
             'id' => $sourceIdValue,
             'source_id' => $sourceIdValue,

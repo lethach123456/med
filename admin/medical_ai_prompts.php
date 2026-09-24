@@ -314,7 +314,7 @@ $promptNotes = [
     'toplist' => 'Dùng để AI lập danh sách cơ sở cho bài Toplist chưa có cơ sở. Giữ nguyên {{id}} / {{toplist_id}} và trả về mảng facilities theo rank_order.',
     'doctor' => 'Dùng cho bài giới thiệu bác sĩ. {{name}} là tên bác sĩ; chỉ viết từ dữ liệu được cung cấp và trả về JSON hợp lệ.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
-    'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON và chỉ dịch các trường được cho phép.',
+    'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON; dịch đúng các trường được cho phép. API sẽ yêu cầu AI trả kết quả trong một block code ```json.',
 ];
 
 $basePromptByKey = [];
