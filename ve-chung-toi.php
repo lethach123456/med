@@ -7,6 +7,61 @@ require_once __DIR__ . '/front_admin.php';
 if (function_exists('admin_front_session_boot')) {
     admin_front_session_boot();
 }
+$locale = site_page_locale('about');
+$isEnglish = $locale === 'en';
+$copy = $isEnglish ? [
+    'home' => 'Home', 'kicker' => 'Healthcare discovery platform',
+    'title' => 'Clearer healthcare information so you can <span>choose with confidence.</span>',
+    'intro' => 'MedReview helps you explore healthcare facilities, doctors, reviews and useful lists in one place — before making a choice that fits your needs.',
+    'exploreFacilities' => 'Explore healthcare facilities', 'curatedLists' => 'Browse curated lists',
+    'dataLabel' => 'MedReview data', 'visualLabel' => 'Healthcare facilities on MedReview', 'fallbackFacility' => 'Healthcare facility on MedReview',
+    'aboutEyebrow' => 'About MedReview', 'aboutHeading' => 'A clearer starting point for your healthcare journey.',
+    'storyOne' => 'MedReview was built to make information about clinics, hospitals and doctors easier to find. Instead of switching between multiple sources, you can review profiles, services, reference information, reviews and comparison lists on one platform.',
+    'storyTwo' => 'MedReview content is for reference and can help you ask better questions before making a choice. Diagnosis and treatment decisions should always be discussed directly with an appropriate healthcare professional.',
+    'principles' => 'Our content principles', 'structured' => 'Structured information', 'structuredCopy' => 'Profiles are organized into clear sections for easier comparison.',
+    'contextual' => 'Reviews with context', 'contextualCopy' => 'Where available, reviews are shown alongside ratings and relevant information.',
+    'updated' => 'Information can be updated', 'updatedCopy' => 'Profiles and lists can be expanded as information changes.',
+    'direction' => 'What we aim for', 'valuesHeading' => 'Support decisions with transparent experiences and useful information.',
+    'easyExplore' => 'Easy to explore', 'easyExploreCopy' => 'Search by location, service category or need to narrow your options.',
+    'easyCompare' => 'Easy to compare', 'easyCompareCopy' => 'Review important information side by side before learning more.',
+    'realExperience' => 'Real experiences first', 'realExperienceCopy' => 'Reviews and source information, when available, appear with the relevant content.',
+    'byNeed' => 'Explore by need', 'byNeedHeading' => 'Start with the type of care you are looking for.',
+    'categoryEmpty' => 'Categories will appear here as more profiles are published.',
+    'methodHeading' => 'How should you use this information?', 'disclaimer' => 'MedReview does not replace professional advice, diagnosis or treatment.',
+    'readProfiles' => 'Review profiles and related experiences carefully.', 'confirmDetails' => 'Contact providers directly to confirm the latest information.', 'consultProfessionals' => 'Speak with a healthcare professional before treatment.',
+    'howTo' => 'How to use MedReview', 'stepsHeading' => 'Three simple steps to get started.',
+    'search' => 'Search', 'searchCopy' => 'Enter a need, service or location you want to explore.',
+    'compareProfiles' => 'Compare profiles', 'compareCopy' => 'Review the available information for each facility or doctor.',
+    'confirm' => 'Contact and confirm', 'confirmCopy' => 'Ask the provider to confirm details before making a decision.',
+    'ctaHeading' => 'Help us build a more useful healthcare community.', 'ctaCopy' => 'Have feedback about content or data, or want to update a profile? MedReview is ready to listen.',
+    'contact' => 'Contact MedReview',
+] : [
+    'home' => 'Trang chủ', 'kicker' => 'Nền tảng khám phá y tế',
+    'title' => 'Thông tin y tế rõ ràng hơn để bạn <span>tự tin lựa chọn.</span>',
+    'intro' => 'MedReview giúp bạn tìm hiểu cơ sở y tế, bác sĩ, đánh giá và các danh sách hữu ích tại một nơi — trước khi đưa ra quyết định phù hợp với nhu cầu của mình.',
+    'exploreFacilities' => 'Khám phá cơ sở y tế', 'curatedLists' => 'Xem danh sách chọn lọc',
+    'dataLabel' => 'Dữ liệu MedReview', 'visualLabel' => 'Một số cơ sở y tế trên MedReview', 'fallbackFacility' => 'Cơ sở y tế trên MedReview',
+    'aboutEyebrow' => 'Về MedReview', 'aboutHeading' => 'Một điểm bắt đầu dễ hiểu cho hành trình chăm sóc sức khỏe.',
+    'storyOne' => 'MedReview được xây dựng để việc tìm kiếm thông tin về phòng khám, bệnh viện và bác sĩ bớt rời rạc. Thay vì phải mở nhiều nguồn khác nhau, bạn có thể xem hồ sơ, dịch vụ, thông tin tham khảo, đánh giá và danh sách so sánh ngay trên cùng một nền tảng.',
+    'storyTwo' => 'Nội dung trên MedReview mang tính tham khảo, giúp bạn đặt câu hỏi đúng hơn trước khi lựa chọn. Việc chẩn đoán và điều trị luôn cần được trao đổi trực tiếp với chuyên môn y tế phù hợp.',
+    'principles' => 'Nguyên tắc nội dung', 'structured' => 'Thông tin có cấu trúc', 'structuredCopy' => 'Hồ sơ được trình bày theo các nhóm thông tin dễ đối chiếu.',
+    'contextual' => 'Đánh giá có ngữ cảnh', 'contextualCopy' => 'Nơi có dữ liệu, đánh giá được gắn với điểm số và thông tin liên quan.',
+    'updated' => 'Luôn có thể cập nhật', 'updatedCopy' => 'Hồ sơ và danh sách có thể được bổ sung khi dữ liệu thay đổi.',
+    'direction' => 'Điều chúng tôi hướng tới', 'valuesHeading' => 'Hỗ trợ quyết định bằng trải nghiệm minh bạch và thông tin dễ dùng.',
+    'easyExplore' => 'Dễ khám phá', 'easyExploreCopy' => 'Tìm theo khu vực, nhóm dịch vụ hoặc nhu cầu để thu hẹp lựa chọn phù hợp.',
+    'easyCompare' => 'Dễ so sánh', 'easyCompareCopy' => 'Đặt những thông tin quan trọng cạnh nhau trước khi bạn tìm hiểu sâu hơn.',
+    'realExperience' => 'Ưu tiên trải nghiệm thật', 'realExperienceCopy' => 'Đánh giá và thông tin nguồn, khi có, được thể hiện ngay trong phần nội dung liên quan.',
+    'byNeed' => 'Khám phá theo nhu cầu', 'byNeedHeading' => 'Bắt đầu từ nhóm dịch vụ bạn đang quan tâm.',
+    'categoryEmpty' => 'Danh mục sẽ xuất hiện tại đây khi có hồ sơ được công bố.',
+    'methodHeading' => 'Thông tin được dùng như thế nào?', 'disclaimer' => 'MedReview không thay thế tư vấn, chẩn đoán hoặc điều trị từ bác sĩ.',
+    'readProfiles' => 'Đọc kỹ hồ sơ và đánh giá liên quan.', 'confirmDetails' => 'Liên hệ trực tiếp để xác nhận thông tin mới nhất.', 'consultProfessionals' => 'Trao đổi với chuyên môn y tế trước khi điều trị.',
+    'howTo' => 'Cách sử dụng MedReview', 'stepsHeading' => 'Ba bước ngắn để bắt đầu tìm hiểu.',
+    'search' => 'Tìm kiếm', 'searchCopy' => 'Nhập nhu cầu, dịch vụ hoặc địa điểm bạn muốn tìm.',
+    'compareProfiles' => 'Đối chiếu hồ sơ', 'compareCopy' => 'Xem các thông tin có trên từng cơ sở hoặc bác sĩ.',
+    'confirm' => 'Liên hệ và xác nhận', 'confirmCopy' => 'Chủ động hỏi lại đơn vị cung cấp dịch vụ trước khi quyết định.',
+    'ctaHeading' => 'Cùng xây dựng một cộng đồng y tế hữu ích hơn.', 'ctaCopy' => 'Nếu bạn có góp ý về nội dung, dữ liệu hoặc muốn cập nhật hồ sơ, MedReview luôn sẵn sàng lắng nghe.',
+    'contact' => 'Liên hệ MedReview',
+];
 
 $pdo = db();
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -22,10 +77,10 @@ $aboutCount = static function (PDO $pdo, string $table, string $where = ''): int
 };
 
 $stats = [
-    ['icon' => 'ph-hospital', 'value' => $aboutCount($pdo, 'medical_facilities', "WHERE status = 'published'"), 'label' => 'cơ sở y tế'],
-    ['icon' => 'ph-stethoscope', 'value' => $aboutCount($pdo, 'medical_doctors', "WHERE status = 'published'"), 'label' => 'bác sĩ'],
-    ['icon' => 'ph-star', 'value' => $aboutCount($pdo, 'medical_reviews', "WHERE status = 'published'"), 'label' => 'đánh giá'],
-    ['icon' => 'ph-list-numbers', 'value' => $aboutCount($pdo, 'medical_toplists', "WHERE status = 'published'"), 'label' => 'danh sách chọn lọc'],
+    ['icon' => 'ph-hospital', 'value' => $aboutCount($pdo, 'medical_facilities', "WHERE status = 'published'"), 'label' => $isEnglish ? 'facilities' : 'cơ sở y tế'],
+    ['icon' => 'ph-stethoscope', 'value' => $aboutCount($pdo, 'medical_doctors', "WHERE status = 'published'"), 'label' => $isEnglish ? 'doctors' : 'bác sĩ'],
+    ['icon' => 'ph-star', 'value' => $aboutCount($pdo, 'medical_reviews', "WHERE status = 'published'"), 'label' => $isEnglish ? 'reviews' : 'đánh giá'],
+    ['icon' => 'ph-list-numbers', 'value' => $aboutCount($pdo, 'medical_toplists', "WHERE status = 'published'"), 'label' => $isEnglish ? 'curated lists' : 'danh sách chọn lọc'],
 ];
 
 $categories = [];
@@ -57,16 +112,20 @@ if (medical_directory_table_exists($pdo, 'medical_facilities')) {
     }
 }
 
-$contactPath = front_editor_page_public_path('contact');
+$contactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');
 $seo = front_editor_page_seo('about', [
     'title' => 'Về MedReview',
     'description' => 'Tìm hiểu MedReview — nền tảng giúp người dùng khám phá cơ sở y tế, bác sĩ, đánh giá và danh sách y tế hữu ích.',
     'canonical_path' => '/ve-chung-toi.php',
 ]);
 $canonicalPath = '/ve-chung-toi.php';
+$canonicalPath = site_localized_path($canonicalPath, $locale);
 $seoTitle = trim((string) ($seo['title'] ?? ''));
 $seoDescription = trim((string) ($seo['description'] ?? ''));
-if ($seoTitle === '' || stripos($seoTitle, 'top dental') !== false) {
+if ($isEnglish) {
+    $seoTitle = 'About MedReview | Trusted Healthcare Discovery';
+    $seoDescription = 'Learn how MedReview helps people discover healthcare facilities, doctors, reviews and useful medical information in Vietnam.';
+} elseif ($seoTitle === '' || stripos($seoTitle, 'top dental') !== false) {
     $seoTitle = 'Về MedReview | Nền tảng review và tìm kiếm y tế';
 }
 if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) {
@@ -74,7 +133,7 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
 }
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo $isEnglish ? 'en' : 'vi'; ?>">
 <head>
     <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
@@ -82,6 +141,9 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
   <title><?php echo $escape($seoTitle); ?></title>
   <meta name="description" content="<?php echo $escape($seoDescription); ?>">
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
+  <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/ve-chung-toi.php')); ?>">
+  <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/ve-chung-toi.php', 'en'))); ?>">
+  <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/ve-chung-toi.php')); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -110,27 +172,27 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
 <?php require __DIR__ . '/Tem/header.php'; ?>
 <main class="about-page">
   <div class="about-shell">
-    <nav class="about-breadcrumb" aria-label="Breadcrumb"><a href="/">Trang chủ</a><i class="ph ph-caret-right" aria-hidden="true"></i><strong>Về MedReview</strong></nav>
+    <nav class="about-breadcrumb" aria-label="Breadcrumb"><a href="<?php echo $escape(site_localized_path('/', $locale)); ?>"><?php echo $escape($copy['home']); ?></a><i class="ph ph-caret-right" aria-hidden="true"></i><strong><?php echo $isEnglish ? 'About MedReview' : 'Về MedReview'; ?></strong></nav>
     <section class="about-hero about-reveal">
       <div class="about-hero-copy">
-        <span class="about-kicker"><i class="ph-fill ph-seal-check"></i> Nền tảng khám phá y tế</span>
-        <h1>Thông tin y tế rõ ràng hơn để bạn <span>tự tin lựa chọn.</span></h1>
-        <p>MedReview giúp bạn tìm hiểu cơ sở y tế, bác sĩ, đánh giá và các danh sách hữu ích tại một nơi — trước khi đưa ra quyết định phù hợp với nhu cầu của mình.</p>
+        <span class="about-kicker"><i class="ph-fill ph-seal-check"></i> <?php echo $escape($copy['kicker']); ?></span>
+        <h1><?php echo $copy['title']; ?></h1>
+        <p><?php echo $escape($copy['intro']); ?></p>
         <div class="about-actions">
-          <a class="about-btn about-btn-primary" href="/co-so-y-te.php"><i class="ph ph-magnifying-glass"></i> Khám phá cơ sở y tế</a>
-          <a class="about-btn about-btn-secondary" href="/toplist.php"><i class="ph ph-list-numbers"></i> Xem danh sách chọn lọc</a>
+          <a class="about-btn about-btn-primary" href="<?php echo $escape(site_localized_path(medical_public_facility_path(), $locale)); ?>"><i class="ph ph-magnifying-glass"></i> <?php echo $escape($copy['exploreFacilities']); ?></a>
+          <a class="about-btn about-btn-secondary" href="<?php echo $escape(site_localized_path(medical_public_toplist_path(), $locale)); ?>"><i class="ph ph-list-numbers"></i> <?php echo $escape($copy['curatedLists']); ?></a>
         </div>
-        <div class="about-stat-row" aria-label="Dữ liệu MedReview">
+        <div class="about-stat-row" aria-label="<?php echo $escape($copy['dataLabel']); ?>">
           <?php foreach ($stats as $stat): ?>
             <span class="about-stat-chip"><i class="ph <?php echo $escape($stat['icon']); ?>"></i><strong><?php echo medical_directory_format_int((int) $stat['value']); ?></strong> <?php echo $escape($stat['label']); ?></span>
           <?php endforeach; ?>
         </div>
       </div>
-      <div class="about-visual" aria-label="Một số cơ sở y tế trên MedReview">
+      <div class="about-visual" aria-label="<?php echo $escape($copy['visualLabel']); ?>">
         <div class="about-visual-main">
           <?php $mainImage = $featuredFacilities[0]['image_url'] ?? ''; ?>
           <?php if (trim((string) $mainImage) !== ''): ?>
-            <img src="<?php echo $escape($mainImage); ?>" alt="<?php echo $escape($featuredFacilities[0]['name'] ?? 'Cơ sở y tế trên MedReview'); ?>" loading="eager" fetchpriority="high" decoding="async">
+            <img src="<?php echo $escape($mainImage); ?>" alt="<?php echo $escape($featuredFacilities[0]['name'] ?? $copy['fallbackFacility']); ?>" loading="eager" fetchpriority="high" decoding="async">
           <?php else: ?>
             <span class="about-visual-empty"><i class="ph-fill ph-heartbeat"></i></span>
           <?php endif; ?>
@@ -146,54 +208,54 @@ if ($seoDescription === '' || stripos($seoDescription, 'top dental') !== false) 
     </section>
 
     <section class="about-section about-reveal">
-      <header class="about-section-heading"><p class="about-eyebrow">Về MedReview</p><h2>Một điểm bắt đầu dễ hiểu cho hành trình chăm sóc sức khỏe.</h2></header>
+      <header class="about-section-heading"><p class="about-eyebrow"><?php echo $escape($copy['aboutEyebrow']); ?></p><h2><?php echo $escape($copy['aboutHeading']); ?></h2></header>
       <div class="about-purpose">
         <article class="about-story">
-          <p>MedReview được xây dựng để việc tìm kiếm thông tin về phòng khám, bệnh viện và bác sĩ bớt rời rạc. Thay vì phải mở nhiều nguồn khác nhau, bạn có thể xem hồ sơ, dịch vụ, thông tin tham khảo, đánh giá và danh sách so sánh ngay trên cùng một nền tảng.</p>
-          <p>Nội dung trên MedReview mang tính tham khảo, giúp bạn đặt câu hỏi đúng hơn trước khi lựa chọn. Việc chẩn đoán và điều trị luôn cần được trao đổi trực tiếp với chuyên môn y tế phù hợp.</p>
+          <p><?php echo $escape($copy['storyOne']); ?></p>
+          <p><?php echo $escape($copy['storyTwo']); ?></p>
         </article>
-        <aside class="about-trust" aria-label="Nguyên tắc nội dung">
-          <div class="about-trust-item"><i class="ph ph-squares-four"></i><div><strong>Thông tin có cấu trúc</strong><p>Hồ sơ được trình bày theo các nhóm thông tin dễ đối chiếu.</p></div></div>
-          <div class="about-trust-item"><i class="ph ph-chat-text"></i><div><strong>Đánh giá có ngữ cảnh</strong><p>Nơi có dữ liệu, đánh giá được gắn với điểm số và thông tin liên quan.</p></div></div>
-          <div class="about-trust-item"><i class="ph ph-arrows-clockwise"></i><div><strong>Luôn có thể cập nhật</strong><p>Hồ sơ và danh sách có thể được bổ sung khi dữ liệu thay đổi.</p></div></div>
+        <aside class="about-trust" aria-label="<?php echo $escape($copy['principles']); ?>">
+          <div class="about-trust-item"><i class="ph ph-squares-four"></i><div><strong><?php echo $escape($copy['structured']); ?></strong><p><?php echo $escape($copy['structuredCopy']); ?></p></div></div>
+          <div class="about-trust-item"><i class="ph ph-chat-text"></i><div><strong><?php echo $escape($copy['contextual']); ?></strong><p><?php echo $escape($copy['contextualCopy']); ?></p></div></div>
+          <div class="about-trust-item"><i class="ph ph-arrows-clockwise"></i><div><strong><?php echo $escape($copy['updated']); ?></strong><p><?php echo $escape($copy['updatedCopy']); ?></p></div></div>
         </aside>
       </div>
     </section>
 
     <section class="about-section about-reveal">
-      <header class="about-section-heading"><p class="about-eyebrow">Điều chúng tôi hướng tới</p><h2>Hỗ trợ quyết định bằng trải nghiệm minh bạch và thông tin dễ dùng.</h2></header>
+      <header class="about-section-heading"><p class="about-eyebrow"><?php echo $escape($copy['direction']); ?></p><h2><?php echo $escape($copy['valuesHeading']); ?></h2></header>
       <div class="about-values">
-        <article class="about-value"><span class="about-value-icon"><i class="ph ph-compass-tool"></i></span><h3>Dễ khám phá</h3><p>Tìm theo khu vực, nhóm dịch vụ hoặc nhu cầu để thu hẹp lựa chọn phù hợp.</p></article>
-        <article class="about-value"><span class="about-value-icon"><i class="ph ph-scales"></i></span><h3>Dễ so sánh</h3><p>Đặt những thông tin quan trọng cạnh nhau trước khi bạn tìm hiểu sâu hơn.</p></article>
-        <article class="about-value"><span class="about-value-icon"><i class="ph ph-heart"></i></span><h3>Ưu tiên trải nghiệm thật</h3><p>Đánh giá và thông tin nguồn, khi có, được thể hiện ngay trong phần nội dung liên quan.</p></article>
+        <article class="about-value"><span class="about-value-icon"><i class="ph ph-compass-tool"></i></span><h3><?php echo $escape($copy['easyExplore']); ?></h3><p><?php echo $escape($copy['easyExploreCopy']); ?></p></article>
+        <article class="about-value"><span class="about-value-icon"><i class="ph ph-scales"></i></span><h3><?php echo $escape($copy['easyCompare']); ?></h3><p><?php echo $escape($copy['easyCompareCopy']); ?></p></article>
+        <article class="about-value"><span class="about-value-icon"><i class="ph ph-heart"></i></span><h3><?php echo $escape($copy['realExperience']); ?></h3><p><?php echo $escape($copy['realExperienceCopy']); ?></p></article>
       </div>
     </section>
 
     <section class="about-section about-reveal">
-      <header class="about-section-heading"><p class="about-eyebrow">Khám phá theo nhu cầu</p><h2>Bắt đầu từ nhóm dịch vụ bạn đang quan tâm.</h2></header>
+      <header class="about-section-heading"><p class="about-eyebrow"><?php echo $escape($copy['byNeed']); ?></p><h2><?php echo $escape($copy['byNeedHeading']); ?></h2></header>
       <div class="about-directory">
         <div class="about-category-card">
           <?php if ($categories): ?>
             <div class="about-category-grid">
               <?php foreach ($categories as $category): ?>
                 <?php $categoryName = trim((string) ($category['name'] ?? '')); ?>
-                <a class="about-category" href="/co-so-y-te.php?category=<?php echo rawurlencode($categoryName); ?>"><span><i class="ph ph-plus"></i></span><?php echo $escape($categoryName); ?><i class="ph ph-arrow-up-right"></i></a>
+                <a class="about-category" href="<?php echo $escape(site_localized_path(medical_public_facility_path(), $locale, ['category' => $categoryName])); ?>"><span><i class="ph ph-plus"></i></span><?php echo $escape($categoryName); ?><i class="ph ph-arrow-up-right"></i></a>
               <?php endforeach; ?>
             </div>
           <?php else: ?>
-            <p class="about-empty">Danh mục sẽ xuất hiện tại đây khi có hồ sơ được công bố.</p>
+            <p class="about-empty"><?php echo $escape($copy['categoryEmpty']); ?></p>
           <?php endif; ?>
         </div>
-        <aside class="about-method-card"><div><h3>Thông tin được dùng như thế nào?</h3><p>MedReview không thay thế tư vấn, chẩn đoán hoặc điều trị từ bác sĩ.</p></div><div class="about-method-list"><div><i class="ph-fill ph-check-circle"></i><span>Đọc kỹ hồ sơ và đánh giá liên quan.</span></div><div><i class="ph-fill ph-check-circle"></i><span>Liên hệ trực tiếp để xác nhận thông tin mới nhất.</span></div><div><i class="ph-fill ph-check-circle"></i><span>Trao đổi với chuyên môn y tế trước khi điều trị.</span></div></div></aside>
+        <aside class="about-method-card"><div><h3><?php echo $escape($copy['methodHeading']); ?></h3><p><?php echo $escape($copy['disclaimer']); ?></p></div><div class="about-method-list"><div><i class="ph-fill ph-check-circle"></i><span><?php echo $escape($copy['readProfiles']); ?></span></div><div><i class="ph-fill ph-check-circle"></i><span><?php echo $escape($copy['confirmDetails']); ?></span></div><div><i class="ph-fill ph-check-circle"></i><span><?php echo $escape($copy['consultProfessionals']); ?></span></div></div></aside>
       </div>
     </section>
 
     <section class="about-section about-reveal">
-      <header class="about-section-heading"><p class="about-eyebrow">Cách sử dụng MedReview</p><h2>Ba bước ngắn để bắt đầu tìm hiểu.</h2></header>
-      <div class="about-steps"><article class="about-step"><h3>Tìm kiếm</h3><p>Nhập nhu cầu, dịch vụ hoặc địa điểm bạn muốn tìm.</p></article><article class="about-step"><h3>Đối chiếu hồ sơ</h3><p>Xem các thông tin có trên từng cơ sở hoặc bác sĩ.</p></article><article class="about-step"><h3>Liên hệ và xác nhận</h3><p>Chủ động hỏi lại đơn vị cung cấp dịch vụ trước khi quyết định.</p></article></div>
+      <header class="about-section-heading"><p class="about-eyebrow"><?php echo $escape($copy['howTo']); ?></p><h2><?php echo $escape($copy['stepsHeading']); ?></h2></header>
+      <div class="about-steps"><article class="about-step"><h3><?php echo $escape($copy['search']); ?></h3><p><?php echo $escape($copy['searchCopy']); ?></p></article><article class="about-step"><h3><?php echo $escape($copy['compareProfiles']); ?></h3><p><?php echo $escape($copy['compareCopy']); ?></p></article><article class="about-step"><h3><?php echo $escape($copy['confirm']); ?></h3><p><?php echo $escape($copy['confirmCopy']); ?></p></article></div>
     </section>
 
-    <section class="about-cta about-reveal"><div class="about-cta-copy"><h2>Cùng xây dựng một cộng đồng y tế hữu ích hơn.</h2><p>Nếu bạn có góp ý về nội dung, dữ liệu hoặc muốn cập nhật hồ sơ, MedReview luôn sẵn sàng lắng nghe.</p></div><a class="about-btn" href="<?php echo $escape($contactPath); ?>">Liên hệ MedReview <i class="ph ph-arrow-right"></i></a></section>
+    <section class="about-cta about-reveal"><div class="about-cta-copy"><h2><?php echo $escape($copy['ctaHeading']); ?></h2><p><?php echo $escape($copy['ctaCopy']); ?></p></div><a class="about-btn" href="<?php echo $escape($contactPath); ?>"><?php echo $escape($copy['contact']); ?> <i class="ph ph-arrow-right"></i></a></section>
   </div>
 </main>
 <?php require __DIR__ . '/Tem/footer.php'; ?>

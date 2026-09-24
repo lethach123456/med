@@ -3,6 +3,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_directory.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
+$locale = site_page_locale('reviews');
+$isEnglish = $locale === 'en';
 
 $seo = front_editor_page_seo('review', [
   'title' => 'Review thực tế • MedReview',
@@ -13,14 +15,20 @@ $title = (string) ($seo['title'] ?? 'Review thực tế • MedReview');
 $description = (string) ($seo['description'] ?? '');
 $canonicalPath = (string) ($seo['canonical_path'] ?? '/review.php');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
+if ($isEnglish) {
+  $title = 'Real Patient Reviews | MedReview';
+  $description = 'Explore healthcare reviews, treatment experiences, costs and before-and-after photos shared on MedReview.';
+  $seoKeywords = 'patient reviews, healthcare reviews, treatment experiences, clinics Vietnam';
+}
+$canonicalPath = site_localized_path($canonicalPath, $locale);
 
 $filters = [
-  'search' => 'Tìm theo dịch vụ, review, cơ sở...',
-  'region' => 'Tất cả khu vực',
-  'service' => 'Tất cả dịch vụ',
-  'rating' => 'Tất cả đánh giá',
-  'price' => '0đ - 50.000.000đ+',
-  'sort' => 'Mới nhất',
+  'search' => $isEnglish ? 'Search by service, review or facility...' : 'Tìm theo dịch vụ, review, cơ sở...',
+  'region' => $isEnglish ? 'All locations' : 'Tất cả khu vực',
+  'service' => $isEnglish ? 'All services' : 'Tất cả dịch vụ',
+  'rating' => $isEnglish ? 'All ratings' : 'Tất cả đánh giá',
+  'price' => $isEnglish ? '₫0 – ₫50,000,000+' : '0đ - 50.000.000đ+',
+  'sort' => $isEnglish ? 'Newest' : 'Mới nhất',
 ];
 
 // The directory opens with a compact, predictable first page. More reviews
@@ -28,21 +36,25 @@ $filters = [
 $reviews = medical_directory_review_rows(true, 10);
 
 $ratingBreakdown = [
-  ['label' => '5 sao', 'value' => 86],
-  ['label' => '4 sao', 'value' => 10],
-  ['label' => '3 sao', 'value' => 3],
-  ['label' => '2 sao', 'value' => 0],
-  ['label' => '1 sao', 'value' => 1],
+  ['label' => $isEnglish ? '5 stars' : '5 sao', 'value' => 86],
+  ['label' => $isEnglish ? '4 stars' : '4 sao', 'value' => 10],
+  ['label' => $isEnglish ? '3 stars' : '3 sao', 'value' => 3],
+  ['label' => $isEnglish ? '2 stars' : '2 sao', 'value' => 0],
+  ['label' => $isEnglish ? '1 star' : '1 sao', 'value' => 1],
 ];
 
-$utilities = [
+$utilities = $isEnglish ? [
+  ['icon' => 'images', 'title' => 'View before and after', 'text' => 'Look for reviews with clear, complete photos'],
+  ['icon' => 'bookmark', 'title' => 'Save useful reviews', 'text' => 'Keep relevant experiences for comparison'],
+  ['icon' => 'shield-check', 'title' => 'Prioritize verified reviews', 'text' => 'Find experiences with stronger source information'],
+] : [
   ['icon' => 'images', 'title' => 'Xem before / after', 'text' => 'Ưu tiên review có hình ảnh rõ ràng và đầy đủ'],
   ['icon' => 'bookmark', 'title' => 'Lưu review nổi bật', 'text' => 'Lưu các ca phù hợp để so sánh trước khi quyết định'],
   ['icon' => 'shield-check', 'title' => 'Ưu tiên review xác minh', 'text' => 'Giúp bạn lọc ra các trải nghiệm đáng tin cậy hơn'],
 ];
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo $isEnglish ? 'en' : 'vi'; ?>">
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
@@ -51,6 +63,9 @@ $utilities = [
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="alternate" hreflang="vi" href="<?php echo htmlspecialchars(site_absolute_url('/review.php'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars(site_absolute_url(site_localized_path('/review.php', 'en')), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="alternate" hreflang="x-default" href="<?php echo htmlspecialchars(site_absolute_url('/review.php'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -424,59 +439,59 @@ $utilities = [
     <main class="review-page site-typo">
       <section class="container">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/">Trang chủ</a>
+          <a href="<?php echo htmlspecialchars(site_localized_path('/', $locale), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Home' : 'Trang chủ'; ?></a>
           <span class="crumb-sep" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
-          <a href="/review.php">Review</a>
+          <a href="<?php echo htmlspecialchars(site_localized_path('/review.php', $locale), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Reviews' : 'Review'; ?></a>
           <span class="crumb-sep" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
-          <span class="active">Review thực tế</span>
+          <span class="active"><?php echo $isEnglish ? 'Real reviews' : 'Review thực tế'; ?></span>
         </nav>
 
         <div class="hero-head">
           <div>
             <div class="hero-title-row">
-              <h1>Review thực tế</h1>
-              <span class="title-pill"><i data-lucide="badge-check"></i> Tìm thấy 2.456 review</span>
+              <h1><?php echo $isEnglish ? 'Real patient reviews' : 'Review thực tế'; ?></h1>
+              <span class="title-pill"><i data-lucide="badge-check"></i> <?php echo $isEnglish ? '2,456 reviews' : 'Tìm thấy 2.456 review'; ?></span>
             </div>
-            <p class="hero-sub">Tổng hợp review có hình ảnh trước sau, chi phí và trải nghiệm thực tế để bạn dễ so sánh trước khi quyết định.</p>
+            <p class="hero-sub"><?php echo $isEnglish ? 'Explore treatment experiences, costs and before-and-after photos to help compare options before deciding.' : 'Tổng hợp review có hình ảnh trước sau, chi phí và trải nghiệm thực tế để bạn dễ so sánh trước khi quyết định.'; ?></p>
           </div>
           <div class="hero-note">
             <span class="icon"><i data-lucide="shield-check"></i></span>
             <div>
-              <strong>Ưu tiên review đã xác minh và có hình ảnh thực tế</strong>
-              <span>Thông tin minh bạch - trải nghiệm thật - dễ đối chiếu trước sau</span>
+              <strong><?php echo $isEnglish ? 'Prioritize verified reviews with real photos' : 'Ưu tiên review đã xác minh và có hình ảnh thực tế'; ?></strong>
+              <span><?php echo $isEnglish ? 'Transparent information · real experiences · easier comparison' : 'Thông tin minh bạch - trải nghiệm thật - dễ đối chiếu trước sau'; ?></span>
             </div>
           </div>
         </div>
 
         <div class="filter-bar">
           <div class="filter-item">
-            <label>Tìm kiếm</label>
+            <label><?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?></label>
             <div class="filter-input">
               <input type="text" value="<?php echo htmlspecialchars($filters['search'], ENT_QUOTES, 'UTF-8'); ?>">
               <span class="filter-icon"><i data-lucide="search"></i></span>
             </div>
           </div>
           <div class="filter-item">
-            <label>Khu vực</label>
+            <label><?php echo $isEnglish ? 'Location' : 'Khu vực'; ?></label>
             <div class="filter-select"><span><?php echo htmlspecialchars($filters['region'], ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down"></i></div>
           </div>
           <div class="filter-item">
-            <label>Dịch vụ</label>
+            <label><?php echo $isEnglish ? 'Service' : 'Dịch vụ'; ?></label>
             <div class="filter-select"><span><?php echo htmlspecialchars($filters['service'], ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down"></i></div>
           </div>
           <div class="filter-item">
-            <label>Đánh giá</label>
+            <label><?php echo $isEnglish ? 'Rating' : 'Đánh giá'; ?></label>
             <div class="filter-select"><span><?php echo htmlspecialchars($filters['rating'], ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down"></i></div>
           </div>
           <div class="filter-item">
-            <label>Chi phí</label>
+            <label><?php echo $isEnglish ? 'Cost' : 'Chi phí'; ?></label>
             <div class="filter-range">
               <input type="range" min="0" max="100" value="72">
               <span class="range-value"><?php echo htmlspecialchars($filters['price'], ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
           </div>
           <div class="filter-item">
-            <label>Sắp xếp</label>
+            <label><?php echo $isEnglish ? 'Sort by' : 'Sắp xếp'; ?></label>
             <div class="filter-select"><span><?php echo htmlspecialchars($filters['sort'], ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down"></i></div>
           </div>
         </div>
@@ -522,16 +537,16 @@ $utilities = [
                   <p class="review-excerpt"><?php echo htmlspecialchars($item['excerpt'], ENT_QUOTES, 'UTF-8'); ?></p>
                   <div class="review-footer">
                     <span class="review-reaction"><i data-lucide="heart"></i><?php echo (int) $item['likes']; ?></span>
-                    <span class="review-reaction"><i data-lucide="message-circle"></i><?php echo (int) $item['comments']; ?> bình luận</span>
+                    <span class="review-reaction"><i data-lucide="message-circle"></i><?php echo (int) $item['comments']; ?> <?php echo $isEnglish ? 'comments' : 'bình luận'; ?></span>
                   </div>
                 </div>
 
                 <div class="action-col">
                   <div class="action-card">
-                    <strong>Chi phí</strong>
+                    <strong><?php echo $isEnglish ? 'Cost' : 'Chi phí'; ?></strong>
                     <div class="price-badge"><i data-lucide="wallet"></i><?php echo htmlspecialchars($item['price'], ENT_QUOTES, 'UTF-8'); ?></div>
                   </div>
-                  <a class="detail-btn" href="/review-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>">Xem chi tiết</a>
+                  <a class="detail-btn" href="/review-chi-tiet.php?slug=<?php echo rawurlencode((string) $item['slug']); ?>"><?php echo $isEnglish ? 'View details' : 'Xem chi tiết'; ?></a>
                 </div>
               </article>
             <?php endforeach; ?>
@@ -539,14 +554,14 @@ $utilities = [
 
           <aside class="sidebar">
             <section class="summary-card">
-              <strong>Tổng quan review</strong>
+              <strong><?php echo $isEnglish ? 'Review overview' : 'Tổng quan review'; ?></strong>
               <div class="summary-top">
                 <div>
                   <div class="summary-score">4.9<small>/5</small></div>
                   <div class="summary-stars">
                     <i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i>
                   </div>
-                  <div class="summary-caption">2.456 review</div>
+                  <div class="summary-caption"><?php echo $isEnglish ? '2,456 reviews' : '2.456 review'; ?></div>
                 </div>
               </div>
               <div class="rating-bars">
@@ -561,7 +576,7 @@ $utilities = [
             </section>
 
             <section class="utility-card">
-              <strong>Tiện ích</strong>
+              <strong><?php echo $isEnglish ? 'Helpful tools' : 'Tiện ích'; ?></strong>
               <div class="utility-list">
                 <?php foreach ($utilities as $item): ?>
                   <div class="utility-item">
@@ -579,16 +594,16 @@ $utilities = [
               <div class="customer-head">
                 <span class="customer-icon"><i data-lucide="clipboard-check"></i></span>
                 <div>
-                  <strong>Bạn đã trải nghiệm dịch vụ?</strong>
-                  <p>Chia sẻ review thật để giúp mọi người chọn đúng cơ sở và dịch vụ.</p>
+                  <strong><?php echo $isEnglish ? 'Have you tried a service?' : 'Bạn đã trải nghiệm dịch vụ?'; ?></strong>
+                  <p><?php echo $isEnglish ? 'Share your experience to help others choose a facility and service.' : 'Chia sẻ review thật để giúp mọi người chọn đúng cơ sở và dịch vụ.'; ?></p>
                 </div>
               </div>
-              <a class="write-btn" href="/lien-he.php">Viết đánh giá</a>
+              <a class="write-btn" href="<?php echo htmlspecialchars($isEnglish ? front_editor_page_public_path('contact-en') : front_editor_page_public_path('contact'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Write a review' : 'Viết đánh giá'; ?></a>
             </section>
           </aside>
         </div>
 
-        <p class="page-foot">Dữ liệu review hiện là nội dung mẫu để dựng giao diện. Bạn có thể thay trực tiếp trong file sau.</p>
+        <p class="page-foot"><?php echo $isEnglish ? 'Review content on this page is currently sample data used for the interface and can be replaced in this file.' : 'Dữ liệu review hiện là nội dung mẫu để dựng giao diện. Bạn có thể thay trực tiếp trong file sau.'; ?></p>
       </section>
     </main>
     <?php include __DIR__ . '/Tem/footer.php'; ?>

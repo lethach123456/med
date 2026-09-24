@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
+$locale = site_page_locale('doctors');
+$isEnglish = $locale === 'en';
 
 $seo = front_editor_page_seo('bac-si', [
     'title' => 'Bác sĩ • MedReview',
@@ -14,6 +16,12 @@ $title = (string) ($seo['title'] ?? 'Bác sĩ • MedReview');
 $description = (string) ($seo['description'] ?? '');
 $canonicalPath = (string) ($seo['canonical_path'] ?? '/bac-si.php');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
+if ($isEnglish) {
+    $title = 'Find a Doctor | MedReview';
+    $description = 'Search doctor profiles by specialty and location, and review their professional information and patient ratings on MedReview.';
+    $seoKeywords = 'doctors Vietnam, find a doctor, medical specialists, doctor reviews';
+}
+$canonicalPath = site_localized_path($canonicalPath, $locale);
 
 $ratingFilter = (string) ($_GET['min_rating'] ?? '');
 $sortFilter = (string) ($_GET['sort'] ?? 'recommended');
@@ -75,6 +83,7 @@ try {
 
 function doctor_directory_card(array $item): string
 {
+    $isEnglish = site_page_locale('doctors') === 'en';
     $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     $slug = (string) ($item['slug'] ?? '');
     $url = '/bac-si-chi-tiet.php?slug=' . rawurlencode($slug);
@@ -83,7 +92,7 @@ function doctor_directory_card(array $item): string
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? []))));
     ob_start(); ?>
     <article class="doctor-card">
-      <a class="doctor-media" href="<?php echo $escape($url); ?>" aria-label="Xem hồ sơ <?php echo $escape($item['name'] ?? 'bác sĩ'); ?>">
+      <a class="doctor-media" href="<?php echo $escape($url); ?>" aria-label="<?php echo $isEnglish ? 'View profile of ' : 'Xem hồ sơ '; ?><?php echo $escape($item['name'] ?? 'doctor'); ?>">
         <?php if ($image !== ''): ?><img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name'] ?? ''); ?>" loading="lazy" decoding="async"><?php else: ?><span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span><?php endif; ?>
       </a>
       <div class="doctor-profile">
@@ -93,7 +102,7 @@ function doctor_directory_card(array $item): string
         </div>
         <div class="doctor-name-row">
           <h2><a href="<?php echo $escape($url); ?>"><?php echo $escape($item['name'] ?? ''); ?></a></h2>
-          <?php if (!empty($item['verified'])): ?><span class="doctor-verified" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span><?php endif; ?>
+          <?php if (!empty($item['verified'])): ?><span class="doctor-verified" title="<?php echo $isEnglish ? 'Verified profile' : 'Hồ sơ đã xác thực'; ?>"><i class="ph-fill ph-seal-check"></i><span><?php echo $isEnglish ? 'Verified' : 'Đã xác thực'; ?></span></span><?php endif; ?>
         </div>
         <?php if (!empty($item['title_text'])): ?><p class="doctor-subtitle"><?php echo $escape($item['title_text']); ?></p><?php endif; ?>
         <div class="doctor-details">
@@ -103,16 +112,16 @@ function doctor_directory_card(array $item): string
         <?php if ($services !== []): ?><div class="doctor-tags" data-doctor-tags><?php foreach ($services as $index => $service): ?><span class="doctor-tag<?php echo $index > 2 ? ' is-extra' : ''; ?>"><?php echo $escape($service); ?></span><?php endforeach; ?><?php if (count($services) > 3): ?><button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="<?php echo count($services) - 3; ?>" aria-expanded="false">+<?php echo count($services) - 3; ?></button><?php endif; ?></div><?php endif; ?>
       </div>
       <div class="doctor-score">
-        <?php if ($rating > 0): ?><strong><?php echo number_format($rating, 1); ?><small>/5</small></strong><span class="doctor-stars" aria-label="<?php echo number_format($rating, 1); ?> trên 5">★★★★★</span><span><?php echo number_format((int) ($item['reviews_count'] ?? 0), 0, ',', '.'); ?> đánh giá</span><?php else: ?><strong class="score-empty">—</strong><span>Chưa có đánh giá</span><?php endif; ?>
+        <?php if ($rating > 0): ?><strong><?php echo number_format($rating, 1); ?><small>/5</small></strong><span class="doctor-stars" aria-label="<?php echo number_format($rating, 1); ?><?php echo $isEnglish ? ' out of 5' : ' trên 5'; ?>">★★★★★</span><span><?php echo number_format((int) ($item['reviews_count'] ?? 0), 0, ',', '.'); ?> <?php echo $isEnglish ? 'reviews' : 'đánh giá'; ?></span><?php else: ?><strong class="score-empty">—</strong><span><?php echo $isEnglish ? 'Not rated yet' : 'Chưa có đánh giá'; ?></span><?php endif; ?>
       </div>
-      <div class="doctor-price"><span>Chi phí khám</span><strong><?php echo !empty($item['price']) ? $escape($item['price']) : 'Liên hệ cập nhật'; ?></strong></div>
-      <a class="doctor-action" href="<?php echo $escape($url); ?>">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a>
+      <div class="doctor-price"><span><?php echo $isEnglish ? 'Consultation fee' : 'Chi phí khám'; ?></span><strong><?php echo !empty($item['price']) ? $escape($item['price']) : ($isEnglish ? 'Contact for updates' : 'Liên hệ cập nhật'); ?></strong></div>
+      <a class="doctor-action" href="<?php echo $escape($url); ?>"><?php echo $isEnglish ? 'View profile' : 'Xem hồ sơ'; ?><i class="ph ph-arrow-up-right"></i></a>
     </article>
     <?php return trim((string) ob_get_clean());
 }
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo $isEnglish ? 'en' : 'vi'; ?>">
 <head>
     <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
@@ -121,6 +130,9 @@ function doctor_directory_card(array $item): string
   <meta name="description" content="<?php echo $escape($description); ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
+  <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">
+  <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/bac-si.php', 'en'))); ?>">
+  <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -174,54 +186,54 @@ function doctor_directory_card(array $item): string
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <main class="doctor-directory site-typo">
   <section class="doctor-container">
-    <nav class="doctor-breadcrumb" aria-label="Breadcrumb"><a href="/">Trang chủ</a><i class="ph ph-caret-right"></i><strong>Bác sĩ</strong></nav>
+    <nav class="doctor-breadcrumb" aria-label="Breadcrumb"><a href="<?php echo htmlspecialchars(site_localized_path('/', $locale), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Home' : 'Trang chủ'; ?></a><i class="ph ph-caret-right"></i><strong><?php echo $isEnglish ? 'Doctors' : 'Bác sĩ'; ?></strong></nav>
     <header class="doctor-hero">
       <div class="doctor-hero-copy">
-        <span class="doctor-kicker"><i class="ph-fill ph-heartbeat"></i>Hồ sơ bác sĩ trên MedReview</span>
-        <h1>Tìm bác sĩ phù hợp với nhu cầu của bạn</h1>
-        <p>Tìm theo tên, chuyên khoa hoặc thành phố; xem thông tin hành nghề, nơi công tác và đánh giá trước khi liên hệ.</p>
-        <form class="doctor-search" id="doctorDirectoryFilter" method="get" action="/bac-si.php" novalidate>
+        <span class="doctor-kicker"><i class="ph-fill ph-heartbeat"></i><?php echo $isEnglish ? 'Doctor profiles on MedReview' : 'Hồ sơ bác sĩ trên MedReview'; ?></span>
+        <h1><?php echo $isEnglish ? 'Find a doctor who fits your needs' : 'Tìm bác sĩ phù hợp với nhu cầu của bạn'; ?></h1>
+        <p><?php echo $isEnglish ? 'Search by name, specialty or city. Review professional information, workplace and ratings before reaching out.' : 'Tìm theo tên, chuyên khoa hoặc thành phố; xem thông tin hành nghề, nơi công tác và đánh giá trước khi liên hệ.'; ?></p>
+        <form class="doctor-search" id="doctorDirectoryFilter" method="get" action="<?php echo $escape(site_localized_path('/bac-si.php', $locale)); ?>" novalidate>
           <div class="doctor-search-row">
-            <label class="doctor-search-field" for="doctorSearch"><i class="ph ph-magnifying-glass"></i><input id="doctorSearch" name="q" value="<?php echo $escape($filters['q']); ?>" autocomplete="off" placeholder="Ví dụ: bác sĩ da liễu Hà Nội..." aria-label="Tìm bác sĩ theo tên, chuyên khoa hoặc khu vực"></label>
-            <button class="doctor-search-submit" type="submit" aria-label="Tìm kiếm" title="Tìm kiếm"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i></button>
+            <label class="doctor-search-field" for="doctorSearch"><i class="ph ph-magnifying-glass"></i><input id="doctorSearch" name="q" value="<?php echo $escape($filters['q']); ?>" autocomplete="off" placeholder="<?php echo $isEnglish ? 'e.g. dermatologist in Hanoi...' : 'Ví dụ: bác sĩ da liễu Hà Nội...'; ?>" aria-label="<?php echo $isEnglish ? 'Search doctors by name, specialty or location' : 'Tìm bác sĩ theo tên, chuyên khoa hoặc khu vực'; ?>"></label>
+            <button class="doctor-search-submit" type="submit" aria-label="<?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?>" title="<?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?>"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i></button>
           </div>
         </form>
       </div>
-      <div class="doctor-stats" aria-label="Thống kê bác sĩ">
-        <div class="doctor-stat"><strong><?php echo $number($doctorCount); ?></strong><span>Bác sĩ có hồ sơ</span></div>
-        <div class="doctor-stat"><strong><?php echo $number($reviewCount); ?></strong><span>Đánh giá · điểm TB <?php echo number_format($averageRating, 1); ?>/5</span></div>
+      <div class="doctor-stats" aria-label="<?php echo $isEnglish ? 'Doctor statistics' : 'Thống kê bác sĩ'; ?>">
+        <div class="doctor-stat"><strong><?php echo $number($doctorCount); ?></strong><span><?php echo $isEnglish ? 'Doctor profiles' : 'Bác sĩ có hồ sơ'; ?></span></div>
+        <div class="doctor-stat"><strong><?php echo $number($reviewCount); ?></strong><span><?php echo $isEnglish ? 'Reviews · avg. rating' : 'Đánh giá · điểm TB'; ?> <?php echo number_format($averageRating, 1); ?>/5</span></div>
       </div>
     </header>
 
     <div class="doctor-content">
-      <section class="doctor-results" aria-label="Danh sách bác sĩ">
+      <section class="doctor-results" aria-label="<?php echo $isEnglish ? 'Doctor directory' : 'Danh sách bác sĩ'; ?>">
         <div class="doctor-result-topline">
           <div class="doctor-result-meta">
-            <p class="doctor-result-count" id="doctorResultCount"><strong><?php echo $number((int) ($initial['paging']['total'] ?? 0)); ?></strong> bác sĩ phù hợp</p>
-            <span class="doctor-source">Hồ sơ được chọn lọc từ MedReview</span>
+            <p class="doctor-result-count" id="doctorResultCount"><strong><?php echo $number((int) ($initial['paging']['total'] ?? 0)); ?></strong> <?php echo $isEnglish ? 'matching doctors' : 'bác sĩ phù hợp'; ?></p>
+            <span class="doctor-source"><?php echo $isEnglish ? 'Profiles curated by MedReview' : 'Hồ sơ được chọn lọc từ MedReview'; ?></span>
           </div>
-          <div class="doctor-loading" id="doctorLoading"><i class="ph ph-spinner-gap"></i>Đang cập nhật danh sách</div>
+          <div class="doctor-loading" id="doctorLoading"><i class="ph ph-spinner-gap"></i><?php echo $isEnglish ? 'Updating results' : 'Đang cập nhật danh sách'; ?></div>
           <div class="doctor-filter-panel">
-            <button class="doctor-filter-toggle" type="button" id="doctorFilterToggle" aria-expanded="false" aria-controls="doctorFilterOptions"><i class="ph ph-sliders-horizontal"></i><span>Bộ lọc</span><b id="doctorFilterCount" hidden>0</b></button>
+            <button class="doctor-filter-toggle" type="button" id="doctorFilterToggle" aria-expanded="false" aria-controls="doctorFilterOptions"><i class="ph ph-sliders-horizontal"></i><span><?php echo $isEnglish ? 'Filters' : 'Bộ lọc'; ?></span><b id="doctorFilterCount" hidden>0</b></button>
             <div class="doctor-filter-options" id="doctorFilterOptions" hidden>
               <div class="doctor-filter-grid">
-                <div class="doctor-filter-field"><label for="doctorCity">Khu vực</label><div class="doctor-select-wrap"><i class="ph ph-map-pin"></i><select id="doctorCity" name="city" form="doctorDirectoryFilter" data-doctor-filter><option value="">Tất cả khu vực</option><?php foreach ($cities as $city): ?><option value="<?php echo $escape($city); ?>"<?php echo $filters['city'] === $city ? ' selected' : ''; ?>><?php echo $escape($city); ?></option><?php endforeach; ?></select></div></div>
-                <div class="doctor-filter-field"><label for="doctorSpecialty">Chuyên khoa</label><div class="doctor-select-wrap"><i class="ph ph-stethoscope"></i><select id="doctorSpecialty" name="specialty" form="doctorDirectoryFilter" data-doctor-filter><option value="">Tất cả chuyên khoa</option><?php foreach ($specialties as $specialty): ?><option value="<?php echo $escape($specialty); ?>"<?php echo $filters['specialty'] === $specialty ? ' selected' : ''; ?>><?php echo $escape($specialty); ?></option><?php endforeach; ?></select></div></div>
-                <div class="doctor-filter-field"><label for="doctorRating">Đánh giá</label><div class="doctor-select-wrap"><i class="ph ph-star"></i><select id="doctorRating" name="min_rating" form="doctorDirectoryFilter" data-doctor-filter><option value="">Mọi mức điểm</option><option value="4"<?php echo $filters['min_rating'] === '4' ? ' selected' : ''; ?>>Từ 4.0 sao</option><option value="4.5"<?php echo $filters['min_rating'] === '4.5' ? ' selected' : ''; ?>>Từ 4.5 sao</option></select></div></div>
-                <div class="doctor-filter-field"><label for="doctorSort">Sắp xếp</label><div class="doctor-select-wrap"><i class="ph ph-arrows-down-up"></i><select id="doctorSort" name="sort" form="doctorDirectoryFilter" data-doctor-filter><option value="recommended"<?php echo $filters['sort'] === 'recommended' ? ' selected' : ''; ?>>Phù hợp nhất</option><option value="newest"<?php echo $filters['sort'] === 'newest' ? ' selected' : ''; ?>>Mới cập nhật</option><option value="rating"<?php echo $filters['sort'] === 'rating' ? ' selected' : ''; ?>>Điểm cao nhất</option><option value="reviews"<?php echo $filters['sort'] === 'reviews' ? ' selected' : ''; ?>>Nhiều đánh giá</option></select></div></div>
-                <button class="doctor-filter-reset" type="button" id="doctorFilterReset">Xóa bộ lọc</button>
+                <div class="doctor-filter-field"><label for="doctorCity"><?php echo $isEnglish ? 'Location' : 'Khu vực'; ?></label><div class="doctor-select-wrap"><i class="ph ph-map-pin"></i><select id="doctorCity" name="city" form="doctorDirectoryFilter" data-doctor-filter><option value=""><?php echo $isEnglish ? 'All locations' : 'Tất cả khu vực'; ?></option><?php foreach ($cities as $city): ?><option value="<?php echo $escape($city); ?>"<?php echo $filters['city'] === $city ? ' selected' : ''; ?>><?php echo $escape($city); ?></option><?php endforeach; ?></select></div></div>
+                <div class="doctor-filter-field"><label for="doctorSpecialty"><?php echo $isEnglish ? 'Specialty' : 'Chuyên khoa'; ?></label><div class="doctor-select-wrap"><i class="ph ph-stethoscope"></i><select id="doctorSpecialty" name="specialty" form="doctorDirectoryFilter" data-doctor-filter><option value=""><?php echo $isEnglish ? 'All specialties' : 'Tất cả chuyên khoa'; ?></option><?php foreach ($specialties as $specialty): ?><option value="<?php echo $escape($specialty); ?>"<?php echo $filters['specialty'] === $specialty ? ' selected' : ''; ?>><?php echo $escape($specialty); ?></option><?php endforeach; ?></select></div></div>
+                <div class="doctor-filter-field"><label for="doctorRating"><?php echo $isEnglish ? 'Rating' : 'Đánh giá'; ?></label><div class="doctor-select-wrap"><i class="ph ph-star"></i><select id="doctorRating" name="min_rating" form="doctorDirectoryFilter" data-doctor-filter><option value=""><?php echo $isEnglish ? 'Any rating' : 'Mọi mức điểm'; ?></option><option value="4"<?php echo $filters['min_rating'] === '4' ? ' selected' : ''; ?>><?php echo $isEnglish ? '4.0 stars and up' : 'Từ 4.0 sao'; ?></option><option value="4.5"<?php echo $filters['min_rating'] === '4.5' ? ' selected' : ''; ?>><?php echo $isEnglish ? '4.5 stars and up' : 'Từ 4.5 sao'; ?></option></select></div></div>
+                <div class="doctor-filter-field"><label for="doctorSort"><?php echo $isEnglish ? 'Sort by' : 'Sắp xếp'; ?></label><div class="doctor-select-wrap"><i class="ph ph-arrows-down-up"></i><select id="doctorSort" name="sort" form="doctorDirectoryFilter" data-doctor-filter><option value="recommended"<?php echo $filters['sort'] === 'recommended' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Recommended' : 'Phù hợp nhất'; ?></option><option value="newest"<?php echo $filters['sort'] === 'newest' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Recently updated' : 'Mới cập nhật'; ?></option><option value="rating"<?php echo $filters['sort'] === 'rating' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Highest rated' : 'Điểm cao nhất'; ?></option><option value="reviews"<?php echo $filters['sort'] === 'reviews' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Most reviewed' : 'Nhiều đánh giá'; ?></option></select></div></div>
+                <button class="doctor-filter-reset" type="button" id="doctorFilterReset"><?php echo $isEnglish ? 'Clear filters' : 'Xóa bộ lọc'; ?></button>
               </div>
             </div>
           </div>
         </div>
         <div class="doctor-list" id="doctorList">
-          <?php if (($initial['items'] ?? []) !== []): foreach ($initial['items'] as $item) echo doctor_directory_card($item); else: ?><div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2>Chưa tìm thấy bác sĩ phù hợp</h2><p>Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.</p></div><?php endif; ?>
+          <?php if (($initial['items'] ?? []) !== []): foreach ($initial['items'] as $item) echo doctor_directory_card($item); else: ?><div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2><?php echo $isEnglish ? 'No matching doctors found' : 'Chưa tìm thấy bác sĩ phù hợp'; ?></h2><p><?php echo $isEnglish ? 'Try another keyword or remove some filters.' : 'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.'; ?></p></div><?php endif; ?>
         </div>
-        <nav class="doctor-pagination" id="doctorPagination" aria-label="Phân trang danh sách bác sĩ"></nav>
+        <nav class="doctor-pagination" id="doctorPagination" aria-label="<?php echo $isEnglish ? 'Doctor directory pagination' : 'Phân trang danh sách bác sĩ'; ?>"></nav>
       </section>
       <aside class="doctor-aside">
-        <section class="doctor-aside-card"><h2><i class="ph ph-lightbulb"></i>Chọn bác sĩ phù hợp</h2><p>Thông tin trên hồ sơ giúp bạn có thêm cơ sở tham khảo trước khi đặt lịch.</p><ul class="doctor-guide"><li><i class="ph ph-check-circle"></i><span>Đối chiếu chuyên khoa với vấn đề bạn cần tư vấn.</span></li><li><i class="ph ph-check-circle"></i><span>Tham khảo nơi công tác và thông tin liên hệ.</span></li><li><i class="ph ph-check-circle"></i><span>Đọc đánh giá như nguồn tham khảo, không thay thế tư vấn y khoa.</span></li></ul></section>
-        <section class="doctor-source-card"><strong><i class="ph-fill ph-shield-check"></i>Thông tin minh bạch</strong><span>Danh sách chỉ hiển thị hồ sơ bác sĩ đã được công bố trên MedReview.</span></section>
+        <section class="doctor-aside-card"><h2><i class="ph ph-lightbulb"></i><?php echo $isEnglish ? 'Choose the right doctor' : 'Chọn bác sĩ phù hợp'; ?></h2><p><?php echo $isEnglish ? 'Doctor profiles provide useful context before you book an appointment.' : 'Thông tin trên hồ sơ giúp bạn có thêm cơ sở tham khảo trước khi đặt lịch.'; ?></p><ul class="doctor-guide"><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Match the specialty to your healthcare needs.' : 'Đối chiếu chuyên khoa với vấn đề bạn cần tư vấn.'; ?></span></li><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Review workplace and contact information.' : 'Tham khảo nơi công tác và thông tin liên hệ.'; ?></span></li><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Use reviews as a reference, not a substitute for medical advice.' : 'Đọc đánh giá như nguồn tham khảo, không thay thế tư vấn y khoa.'; ?></span></li></ul></section>
+        <section class="doctor-source-card"><strong><i class="ph-fill ph-shield-check"></i><?php echo $isEnglish ? 'Transparent information' : 'Thông tin minh bạch'; ?></strong><span><?php echo $isEnglish ? 'Only doctor profiles published on MedReview appear in this directory.' : 'Danh sách chỉ hiển thị hồ sơ bác sĩ đã được công bố trên MedReview.'; ?></span></section>
       </aside>
     </div>
   </section>
@@ -239,6 +251,8 @@ function doctor_directory_card(array $item): string
   const reset = document.getElementById('doctorFilterReset');
   const filterCount = document.getElementById('doctorFilterCount');
   const selectFilters = [...document.querySelectorAll('[data-doctor-filter]')];
+  const isEnglish = <?php echo $isEnglish ? 'true' : 'false'; ?>;
+  const words = isEnglish ? {verified:'Verified', reviews:'reviews', noReviews:'Not rated yet', consultation:'Consultation fee', contact:'Contact for updates', profile:'View profile', outOf:'out of 5', emptyTitle:'No matching doctors found', emptyCopy:'Try another keyword or remove some filters.', previous:'Previous page', next:'Next page', count:'matching doctors', loadError:'Unable to load doctor data.', failedTitle:'Unable to load the directory', failedCopy:'Please try again in a few minutes.', collapse:'Show less'} : {verified:'Đã xác thực', reviews:'đánh giá', noReviews:'Chưa có đánh giá', consultation:'Chi phí khám', contact:'Liên hệ cập nhật', profile:'Xem hồ sơ', outOf:'trên 5', emptyTitle:'Chưa tìm thấy bác sĩ phù hợp', emptyCopy:'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.', previous:'Trang trước', next:'Trang sau', count:'bác sĩ phù hợp', loadError:'Không thể tải dữ liệu.', failedTitle:'Không thể tải danh sách', failedCopy:'Vui lòng thử lại sau ít phút.', collapse:'Thu gọn'};
   if (!form || !list || !pager || !count) return;
   const motionReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const scrollToResults = () => {
@@ -246,7 +260,7 @@ function doctor_directory_card(array $item): string
     window.scrollTo({top: Math.max(0, top), behavior: motionReduced ? 'auto' : 'smooth'});
   };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  const format = value => new Intl.NumberFormat('vi-VN').format(Number(value || 0));
+  const format = value => new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(value || 0));
   const prepareTags = () => list.querySelectorAll('[data-doctor-tags]').forEach(group => { if (group.querySelector('[data-doctor-tags-more]')) group.classList.add('is-collapsible'); });
   const card = item => {
     const detail = '/bac-si-chi-tiet.php?slug=' + encodeURIComponent(item.slug || '');
@@ -254,24 +268,24 @@ function doctor_directory_card(array $item): string
     const services = Array.isArray(item.services) ? item.services : [];
     const tags = services.map((value, index) => `<span class="doctor-tag${index > 2 ? ' is-extra' : ''}">${esc(value)}</span>`).join('');
     const more = services.length > 3 ? `<button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="${services.length - 3}" aria-expanded="false">+${services.length - 3}</button>` : '';
-    const verified = item.verified ? '<span class="doctor-verified" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span>' : '';
+    const verified = item.verified ? `<span class="doctor-verified" title="${words.verified}"><i class="ph-fill ph-seal-check"></i><span>${words.verified}</span></span>` : '';
     const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : '<span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span>';
     const rating = Number(item.rating || 0);
-    const score = rating > 0 ? `<strong>${rating.toFixed(1)}<small>/5</small></strong><span class="doctor-stars" aria-label="${rating.toFixed(1)} trên 5">★★★★★</span><span>${format(item.reviews_count)} đánh giá</span>` : '<strong class="score-empty">—</strong><span>Chưa có đánh giá</span>';
+    const score = rating > 0 ? `<strong>${rating.toFixed(1)}<small>/5</small></strong><span class="doctor-stars" aria-label="${rating.toFixed(1)} ${words.outOf}">★★★★★</span><span>${format(item.reviews_count)} ${words.reviews}</span>` : `<strong class="score-empty">—</strong><span>${words.noReviews}</span>`;
     const details = `${item.facility_name ? `<span><i class="ph ph-hospital"></i>${esc(item.facility_name)}</span>` : ''}${item.hours ? `<span><i class="ph ph-clock"></i>${esc(item.hours)}</span>` : ''}`;
-    return `<article class="doctor-card"><a class="doctor-media" href="${detail}" aria-label="Xem hồ sơ ${esc(item.name)}">${media}</a><div class="doctor-profile"><div class="doctor-eyebrow">${item.specialty_text ? `<span>${esc(item.specialty_text)}</span>` : ''}${item.city ? `<i>·</i><span>${esc(item.city)}</span>` : ''}</div><div class="doctor-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.title_text ? `<p class="doctor-subtitle">${esc(item.title_text)}</p>` : ''}<div class="doctor-details">${details}</div>${services.length ? `<div class="doctor-tags" data-doctor-tags>${tags}${more}</div>` : ''}</div><div class="doctor-score">${score}</div><div class="doctor-price"><span>Chi phí khám</span><strong>${esc(item.price || 'Liên hệ cập nhật')}</strong></div><a class="doctor-action" href="${detail}">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a></article>`;
+    return `<article class="doctor-card"><a class="doctor-media" href="${detail}" aria-label="${isEnglish ? 'View profile of ' : 'Xem hồ sơ '}${esc(item.name)}">${media}</a><div class="doctor-profile"><div class="doctor-eyebrow">${item.specialty_text ? `<span>${esc(item.specialty_text)}</span>` : ''}${item.city ? `<i>·</i><span>${esc(item.city)}</span>` : ''}</div><div class="doctor-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.title_text ? `<p class="doctor-subtitle">${esc(item.title_text)}</p>` : ''}<div class="doctor-details">${details}</div>${services.length ? `<div class="doctor-tags" data-doctor-tags>${tags}${more}</div>` : ''}</div><div class="doctor-score">${score}</div><div class="doctor-price"><span>${words.consultation}</span><strong>${esc(item.price || words.contact)}</strong></div><a class="doctor-action" href="${detail}">${words.profile}<i class="ph ph-arrow-up-right"></i></a></article>`;
   };
-  const empty = () => '<div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2>Chưa tìm thấy bác sĩ phù hợp</h2><p>Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.</p></div>';
+  const empty = () => `<div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2>${words.emptyTitle}</h2><p>${words.emptyCopy}</p></div>`;
   const pageButton = (label, page, active = false, disabled = false, aria = '') => `<button type="button" data-page="${page}"${active ? ' class="is-current"' : ''}${disabled ? ' disabled' : ''}${aria ? ` aria-label="${aria}"` : ''}>${label}</button>`;
   const renderPager = paging => {
     const total = Number(paging.total_pages || 1), page = Number(paging.page || 1);
     if (total <= 1) { pager.innerHTML = ''; return; }
-    const items = [pageButton('‹', page - 1, false, page <= 1, 'Trang trước')];
+    const items = [pageButton('‹', page - 1, false, page <= 1, words.previous)];
     const from = Math.max(1, page - 2), to = Math.min(total, page + 2);
     if (from > 1) { items.push(pageButton('1', 1)); if (from > 2) items.push('<span class="pagination-gap">…</span>'); }
     for (let n = from; n <= to; n++) items.push(pageButton(String(n), n, n === page));
     if (to < total) { if (to < total - 1) items.push('<span class="pagination-gap">…</span>'); items.push(pageButton(String(total), total)); }
-    items.push(pageButton('›', page + 1, false, page >= total, 'Trang sau'));
+    items.push(pageButton('›', page + 1, false, page >= total, words.next));
     pager.innerHTML = items.join('');
   };
   const parameters = page => {
@@ -295,12 +309,12 @@ function doctor_directory_card(array $item): string
       const params = parameters(page);
       const response = await fetch(`/api/medical/doctors.php?${params.toString()}`, {headers:{Accept:'application/json'}});
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.message || 'Không thể tải dữ liệu.');
+      if (!response.ok || !data.ok) throw new Error(data.message || words.loadError);
       if (id !== requestId) return;
       const paging = data.paging || {};
       list.innerHTML = (data.items || []).length ? data.items.map(card).join('') : empty();
       prepareTags();
-      count.innerHTML = `<strong>${format(paging.total || 0)}</strong> bác sĩ phù hợp`;
+      count.innerHTML = `<strong>${format(paging.total || 0)}</strong> ${words.count}`;
       renderPager(paging);
       if (updateUrl) {
         const url = new URL(window.location.href);
@@ -310,7 +324,7 @@ function doctor_directory_card(array $item): string
       }
     } catch (error) {
       if (id !== requestId) return;
-      list.innerHTML = '<div class="doctor-empty"><i class="ph ph-warning-circle"></i><h2>Không thể tải danh sách</h2><p>Vui lòng thử lại sau ít phút.</p></div>';
+      list.innerHTML = `<div class="doctor-empty"><i class="ph ph-warning-circle"></i><h2>${words.failedTitle}</h2><p>${words.failedCopy}</p></div>`;
       pager.innerHTML = '';
     } finally {
       if (id === requestId) { loading?.classList.remove('is-visible'); list.removeAttribute('aria-busy'); }
@@ -337,7 +351,7 @@ function doctor_directory_card(array $item): string
     const group = button.closest('[data-doctor-tags]');
     const expanded = group.classList.toggle('is-expanded');
     button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    button.textContent = expanded ? 'Thu gọn' : `+${button.dataset.extraCount || 0}`;
+    button.textContent = expanded ? words.collapse : `+${button.dataset.extraCount || 0}`;
   });
   pager.addEventListener('click', event => { const button = event.target.closest('button[data-page]'); if (!button || button.disabled) return; load(Number(button.dataset.page)); scrollToResults(); });
   syncFilterCount();

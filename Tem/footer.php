@@ -13,9 +13,9 @@ $instagram = site_instagram('#');
 $zalo = site_zalo('#');
 $brandName = site_title('MedReview');
 $blogPath = front_editor_page_public_path($isEnglish ? 'blog-en' : 'blog');
-$aboutPath = $isEnglish ? front_editor_page_public_path('about-en') : '/ve-chung-toi.php';
+$aboutPath = site_localized_path('/ve-chung-toi.php', $locale);
 $contactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');
-$servicesPath = front_editor_page_public_path($isEnglish ? 'services-en' : 'dich-vu');
+$servicesPath = site_localized_path(medical_public_facility_path(), $locale);
 $categoriesPath = '/danh-muc-y-te.php';
 
 $footerIntro = $isEnglish
@@ -324,7 +324,7 @@ $escape = static fn (?string $value): string => htmlspecialchars((string) $value
   <div class="container footer-main">
     <div class="footer-grid">
       <section class="footer-brand" aria-label="<?php echo $escape($brandName); ?>">
-        <a class="footer-brand-link" href="/" aria-label="<?php echo $escape($brandName); ?>">
+        <a class="footer-brand-link" href="<?php echo $escape(site_localized_path('/', $locale)); ?>" aria-label="<?php echo $escape($brandName); ?>">
           <span class="footer-brand-icon"><i class="ph-fill ph-heartbeat" aria-hidden="true"></i></span>
           <span>
             <strong class="footer-brand-name"><?php echo $escape($brandName); ?></strong>

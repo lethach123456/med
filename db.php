@@ -905,6 +905,10 @@ function site_page_script_map(): array
 {
     return [
         'index.php' => 'home',
+        'co-so-y-te.php' => 'facilities',
+        'review.php' => 'reviews',
+        'bac-si.php' => 'doctors',
+        'toplist.php' => 'toplist',
         'san-pham.php' => 'products',
         'du-an.php' => 'projects',
         'blog.php' => 'blog',
@@ -918,6 +922,43 @@ function site_page_script_map(): array
         'contact-us.php' => 'contact-en',
         'porcelain-crowns-da-nang.php' => 'porcelain-crowns-da-nang',
     ];
+}
+
+/** Public MedReview pages rendered in either Vietnamese or English. */
+function site_bilingual_public_page_paths(): array
+{
+    return [
+        'home' => '/',
+        'facilities' => medical_public_facility_path(),
+        'reviews' => '/review.php',
+        'doctors' => '/bac-si.php',
+        'toplist' => medical_public_toplist_path(),
+        'about' => '/ve-chung-toi.php',
+    ];
+}
+
+function site_localized_path(string $path, ?string $locale = null, ?array $query = null): string
+{
+    $locale = site_normalize_locale($locale ?? site_page_locale());
+    $parts = parse_url($path);
+    $route = is_array($parts) ? (string) ($parts['path'] ?? '/') : $path;
+    if ($route === '') $route = '/';
+    $parameters = $query ?? [];
+    if ($query === null && isset($parts['query'])) parse_str((string) $parts['query'], $parameters);
+    unset($parameters['lang']);
+    if ($locale === 'en') {
+        $englishRoutes = [
+            '/' => '/en',
+            '/co-so-y-te' => '/en/co-so-y-te',
+            '/review.php' => '/en/review',
+            '/bac-si.php' => '/en/bac-si',
+            '/toplist' => '/en/toplist',
+            '/ve-chung-toi.php' => '/en/ve-chung-toi',
+        ];
+        $route = $englishRoutes[$route] ?? ('/en' . ($route === '/' ? '' : $route));
+    }
+    $queryString = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+    return $route . ($queryString !== '' ? '?' . $queryString : '');
 }
 
 function site_current_page_key(): string
@@ -963,6 +1004,10 @@ function site_page_locale_map(): array
         'blog-en' => 'en',
         'contact-en' => 'en',
         'porcelain-crowns-da-nang' => 'en',
+        'facilities' => 'vi',
+        'reviews' => 'vi',
+        'doctors' => 'vi',
+        'toplist' => 'vi',
         'home' => 'vi',
         'products' => 'vi',
         'projects' => 'vi',
@@ -988,6 +1033,9 @@ function site_locale_from_path(?string $path = null): ?string
     $path = trim((string) ($path ?? site_request_path()));
     if ($path === '') {
         return null;
+    }
+    if ($path === '/en' || str_starts_with($path, '/en/')) {
+        return 'en';
     }
     $englishPrefixes = [
         '/services',
@@ -1054,6 +1102,15 @@ function site_browser_preferred_locale(): string
 function site_detect_locale(?string $pageKey = null): string
 {
     $pageKey = trim((string) ($pageKey ?? site_current_page_key()));
+    $bilingualPages = site_bilingual_public_page_paths();
+    $queryLocale = trim((string) ($_GET['lang'] ?? ''));
+    if (isset($bilingualPages[$pageKey]) && in_array(strtolower($queryLocale), ['vi', 'en'], true)) {
+        return strtolower($queryLocale);
+    }
+    $pathLocale = site_locale_from_path();
+    if (isset($bilingualPages[$pageKey]) && $pathLocale !== null) {
+        return $pathLocale;
+    }
     if ($pageKey !== '') {
         $map = site_page_locale_map();
         $matched = trim((string) ($map[$pageKey] ?? ''));
@@ -1061,11 +1118,9 @@ function site_detect_locale(?string $pageKey = null): string
             return site_normalize_locale($matched);
         }
     }
-    $pathLocale = site_locale_from_path();
     if ($pathLocale !== null) {
         return $pathLocale;
     }
-    $queryLocale = trim((string) ($_GET['lang'] ?? ''));
     if ($queryLocale !== '') {
         return site_normalize_locale($queryLocale, site_default_locale());
     }
@@ -1108,6 +1163,17 @@ function site_language_switch_links(?string $pageKey = null): array
 {
     $pageKey = trim((string) ($pageKey ?? site_current_page_key()));
     $locale = site_page_locale($pageKey);
+    $bilingualPages = site_bilingual_public_page_paths();
+    if (isset($bilingualPages[$pageKey])) {
+        $path = $bilingualPages[$pageKey];
+        $query = is_array($_GET) ? $_GET : [];
+        unset($query['lang'], $query['page'], $query['limit']);
+        return [
+            'current' => $locale,
+            'vi' => site_localized_path($path, 'vi', $query),
+            'en' => site_localized_path($path, 'en', $query),
+        ];
+    }
     $counterpart = site_page_language_counterpart($pageKey);
     $viPath = '/';
     $enPath = front_editor_page_public_path('services-en');

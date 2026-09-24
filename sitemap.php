@@ -52,11 +52,18 @@ function medreview_sitemap_static_paths(): array
 {
     $paths = [
         '/',
+        '/en',
         medical_public_facility_path(),
+        site_localized_path(medical_public_facility_path(), 'en'),
         '/bac-si.php',
+        site_localized_path('/bac-si.php', 'en'),
         '/review.php',
+        site_localized_path('/review.php', 'en'),
+        '/ve-chung-toi.php',
         '/danh-muc-y-te.php',
         medical_public_toplist_path(),
+        site_localized_path(medical_public_toplist_path(), 'en'),
+        site_localized_path('/ve-chung-toi.php', 'en'),
     ];
     $pageKeys = [
         'about', 'contact', 'blog', 'blog-en', 'about-en', 'contact-en',

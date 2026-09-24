@@ -6,6 +6,8 @@ require_once __DIR__ . '/medical_directory.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 medical_redirect_legacy_path('/co-so-y-te.php', medical_public_facility_path());
+$locale = site_page_locale('facilities');
+$isEnglish = $locale === 'en';
 
 $seo = front_editor_page_seo('co-so-y-te', [
     'title' => 'Cơ sở y tế • MedReview',
@@ -16,6 +18,12 @@ $title = (string) ($seo['title'] ?? 'Cơ sở y tế • MedReview');
 $description = (string) ($seo['description'] ?? '');
 $canonicalPath = medical_public_facility_path();
 $seoKeywords = (string) ($seo['keywords'] ?? '');
+if ($isEnglish) {
+    $title = 'Healthcare Facilities | MedReview';
+    $description = 'Search and compare healthcare facilities in Vietnam by specialty, location, services and real patient reviews.';
+    $seoKeywords = 'healthcare facilities Vietnam, clinics, hospitals, medical services, reviews';
+}
+$canonicalPath = site_localized_path($canonicalPath, $locale);
 
 function facility_page_list_values(?string $value): array
 {
@@ -202,15 +210,16 @@ try {
 
 function facility_page_card(array $item): string
 {
+    $isEnglish = site_page_locale('facilities') === 'en';
     $escape = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     $image = trim((string) ($item['image'] ?? ''));
     $imageLabel = trim((string) ($item['images_label'] ?? ''));
-    if ($imageLabel === '' && (int) ($item['image_count'] ?? 0) > 0) $imageLabel = (int) $item['image_count'] . ' ảnh';
+    if ($imageLabel === '' && (int) ($item['image_count'] ?? 0) > 0) $imageLabel = (int) $item['image_count'] . ($isEnglish ? ' photos' : ' ảnh');
     $rating = (float) ($item['rating'] ?? 0);
     $stars = $rating > 0 ? '★★★★★' : '☆☆☆☆☆';
     ob_start(); ?>
     <article class="facility-card">
-      <a class="facility-media" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>" aria-label="Xem <?php echo $escape($item['name']); ?>">
+      <a class="facility-media" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>" aria-label="<?php echo $isEnglish ? 'View ' : 'Xem '; ?><?php echo $escape($item['name']); ?>">
         <?php if ($image !== ''): ?>
           <img src="<?php echo $escape($image); ?>" alt="<?php echo $escape($item['name']); ?>" loading="lazy" decoding="async">
         <?php else: ?>
@@ -222,7 +231,7 @@ function facility_page_card(array $item): string
         <div class="facility-eyebrow"><span><?php echo $escape($item['category']); ?></span><?php if (!empty($item['city'])): ?><span class="eyebrow-dot">•</span><span><?php echo $escape($item['city']); ?></span><?php endif; ?></div>
         <div class="facility-name-row">
           <h2><a href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>"><?php echo $escape($item['name']); ?></a></h2>
-          <?php if (!empty($item['verified'])): ?><span class="verified-badge" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span><?php endif; ?>
+          <?php if (!empty($item['verified'])): ?><span class="verified-badge" title="<?php echo $isEnglish ? 'Verified profile' : 'Hồ sơ đã xác thực'; ?>"><i class="ph-fill ph-seal-check"></i><span><?php echo $isEnglish ? 'Verified' : 'Đã xác thực'; ?></span></span><?php endif; ?>
         </div>
         <?php if (!empty($item['subtitle'])): ?><p class="facility-subtitle"><?php echo $escape($item['subtitle']); ?></p><?php endif; ?>
         <div class="facility-details">
@@ -241,22 +250,22 @@ function facility_page_card(array $item): string
         <?php if ($rating > 0): ?>
           <div class="score-number"><?php echo number_format($rating, 1); ?><small>/5</small></div>
           <div class="score-stars" aria-label="<?php echo number_format($rating, 1); ?> trên 5"><?php echo $stars; ?></div>
-          <span><?php echo facility_page_number((int) $item['reviews_count']); ?> đánh giá</span>
+          <span><?php echo facility_page_number((int) $item['reviews_count']); ?> <?php echo $isEnglish ? 'reviews' : 'đánh giá'; ?></span>
         <?php else: ?>
-          <div class="score-number score-pending">—</div><span>Chưa có đánh giá</span>
+          <div class="score-number score-pending">—</div><span><?php echo $isEnglish ? 'Not rated yet' : 'Chưa có đánh giá'; ?></span>
         <?php endif; ?>
       </div>
       <div class="facility-price">
-        <span>Giá tham khảo</span>
-        <strong><?php echo !empty($item['price']) ? $escape($item['price']) : 'Liên hệ cập nhật'; ?></strong>
+        <span><?php echo $isEnglish ? 'Reference price' : 'Giá tham khảo'; ?></span>
+        <strong><?php echo !empty($item['price']) ? $escape($item['price']) : ($isEnglish ? 'Contact for updates' : 'Liên hệ cập nhật'); ?></strong>
       </div>
-      <a class="detail-button" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a>
+      <a class="detail-button" href="<?php echo $escape(medical_public_facility_path((string) $item['slug'])); ?>"><?php echo $isEnglish ? 'View profile' : 'Xem hồ sơ'; ?><i class="ph ph-arrow-up-right"></i></a>
     </article>
     <?php return trim((string) ob_get_clean());
 }
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?php echo $isEnglish ? 'en' : 'vi'; ?>">
 <head>
     <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
@@ -265,6 +274,9 @@ function facility_page_card(array $item): string
   <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="alternate" hreflang="vi" href="<?php echo htmlspecialchars(site_absolute_url(medical_public_facility_path()), ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars(site_absolute_url(site_localized_path(medical_public_facility_path(), 'en')), ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="alternate" hreflang="x-default" href="<?php echo htmlspecialchars(site_absolute_url(medical_public_facility_path()), ENT_QUOTES, 'UTF-8'); ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -738,56 +750,56 @@ function facility_page_card(array $item): string
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <main class="facility-directory site-typo">
   <section class="directory-container">
-    <nav class="directory-breadcrumb" aria-label="Breadcrumb"><a href="/">Trang chủ</a><i class="ph ph-caret-right"></i><strong>Cơ sở y tế</strong></nav>
+    <nav class="directory-breadcrumb" aria-label="Breadcrumb"><a href="<?php echo htmlspecialchars(site_localized_path('/', $locale), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Home' : 'Trang chủ'; ?></a><i class="ph ph-caret-right"></i><strong><?php echo $isEnglish ? 'Healthcare facilities' : 'Cơ sở y tế'; ?></strong></nav>
     <header class="directory-hero">
       <div>
-        <span class="directory-kicker"><i class="ph-fill ph-heartbeat"></i>Dữ liệu được cập nhật</span>
-        <h1>Tìm cơ sở y tế phù hợp với nhu cầu của bạn</h1>
-        <p>Khám phá hồ sơ, dịch vụ, bảng giá tham khảo và đánh giá thực tế để có thêm thông tin trước khi lựa chọn.</p>
-        <form class="directory-filter directory-search" id="facilityDirectoryFilter" method="get" action="/co-so-y-te" novalidate>
+        <span class="directory-kicker"><i class="ph-fill ph-heartbeat"></i><?php echo $isEnglish ? 'Updated healthcare listings' : 'Dữ liệu được cập nhật'; ?></span>
+        <h1><?php echo $isEnglish ? 'Find a healthcare facility that fits your needs' : 'Tìm cơ sở y tế phù hợp với nhu cầu của bạn'; ?></h1>
+        <p><?php echo $isEnglish ? 'Explore profiles, services, reference prices and real reviews to make a more informed choice.' : 'Khám phá hồ sơ, dịch vụ, bảng giá tham khảo và đánh giá thực tế để có thêm thông tin trước khi lựa chọn.'; ?></p>
+        <form class="directory-filter directory-search" id="facilityDirectoryFilter" method="get" action="<?php echo htmlspecialchars(site_localized_path(medical_public_facility_path(), $locale), ENT_QUOTES, 'UTF-8'); ?>" novalidate>
           <div class="filter-search-row">
-            <label class="filter-search" for="facilitySearch"><i class="ph ph-magnifying-glass"></i><input id="facilitySearch" name="q" value="<?php echo htmlspecialchars($filters['q'], ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" placeholder="Ví dụ: nha khoa Đà Nẵng, spa Huế..." aria-label="Tìm cơ sở y tế"></label>
-            <button class="filter-submit" type="submit" aria-label="Tìm kiếm" title="Tìm kiếm"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Tìm kiếm</span></button>
+            <label class="filter-search" for="facilitySearch"><i class="ph ph-magnifying-glass"></i><input id="facilitySearch" name="q" value="<?php echo htmlspecialchars($filters['q'], ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" placeholder="<?php echo $isEnglish ? 'e.g. dental clinic in Da Nang, spa in Hue...' : 'Ví dụ: nha khoa Đà Nẵng, spa Huế...'; ?>" aria-label="<?php echo $isEnglish ? 'Search healthcare facilities' : 'Tìm cơ sở y tế'; ?>"></label>
+            <button class="filter-submit" type="submit" aria-label="<?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?>" title="<?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?>"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span><?php echo $isEnglish ? 'Search' : 'Tìm kiếm'; ?></span></button>
           </div>
         </form>
       </div>
-      <div class="directory-stats" aria-label="Thống kê MedReview">
-        <div class="directory-stat"><strong><?php echo facility_page_number($directoryStats['facilities']); ?></strong><span>Cơ sở đã công bố</span></div>
-        <div class="directory-stat"><strong><?php echo facility_page_number($directoryStats['reviews']); ?></strong><span>Đánh giá thực tế</span></div>
+      <div class="directory-stats" aria-label="<?php echo $isEnglish ? 'MedReview statistics' : 'Thống kê MedReview'; ?>">
+        <div class="directory-stat"><strong><?php echo facility_page_number($directoryStats['facilities']); ?></strong><span><?php echo $isEnglish ? 'Published facilities' : 'Cơ sở đã công bố'; ?></span></div>
+        <div class="directory-stat"><strong><?php echo facility_page_number($directoryStats['reviews']); ?></strong><span><?php echo $isEnglish ? 'Real reviews' : 'Đánh giá thực tế'; ?></span></div>
       </div>
     </header>
     <div class="directory-content">
       <div>
         <div class="result-topline">
           <div class="result-meta">
-            <p class="result-count" id="facilityResultCount"><strong><?php echo facility_page_number($initial['total']); ?></strong> cơ sở phù hợp</p>
-            <span class="result-sort-copy">Dữ liệu hồ sơ được chọn lọc từ MedReview</span>
+            <p class="result-count" id="facilityResultCount"><strong><?php echo facility_page_number($initial['total']); ?></strong> <?php echo $isEnglish ? 'matching facilities' : 'cơ sở phù hợp'; ?></p>
+            <span class="result-sort-copy"><?php echo $isEnglish ? 'Profiles curated by MedReview' : 'Dữ liệu hồ sơ được chọn lọc từ MedReview'; ?></span>
           </div>
-          <div class="directory-loading" id="facilityDirectoryLoading"><i class="ph ph-spinner-gap"></i>Đang cập nhật danh sách</div>
+          <div class="directory-loading" id="facilityDirectoryLoading"><i class="ph ph-spinner-gap"></i><?php echo $isEnglish ? 'Updating results' : 'Đang cập nhật danh sách'; ?></div>
           <div class="directory-filter-panel" id="facilityFilterPanel">
-            <button class="filter-toggle" type="button" id="facilityFilterToggle" aria-expanded="false" aria-controls="facilityFilterOptions"><i class="ph ph-sliders-horizontal"></i><span>Bộ lọc</span><b id="facilityFilterCount" hidden>0</b></button>
+            <button class="filter-toggle" type="button" id="facilityFilterToggle" aria-expanded="false" aria-controls="facilityFilterOptions"><i class="ph ph-sliders-horizontal"></i><span><?php echo $isEnglish ? 'Filters' : 'Bộ lọc'; ?></span><b id="facilityFilterCount" hidden>0</b></button>
             <div class="filter-options" id="facilityFilterOptions" hidden>
               <div class="filter-grid">
-                <div class="filter-field"><label for="filterCity">Khu vực</label><div class="filter-select-wrap"><i class="ph ph-map-pin"></i><select id="filterCity" name="city" form="facilityDirectoryFilter" data-facility-filter-control><option value="">Tất cả khu vực</option><?php foreach ($cities as $city): ?><option value="<?php echo htmlspecialchars((string) $city, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['city'] === (string) $city ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $city, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
-                <div class="filter-field"><label for="filterCategory">Nhóm cơ sở</label><div class="filter-select-wrap"><i class="ph ph-buildings"></i><select id="filterCategory" name="category" form="facilityDirectoryFilter" data-facility-filter-control><option value="">Tất cả nhóm cơ sở</option><?php foreach ($categories as $category): ?><option value="<?php echo htmlspecialchars((string) $category, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['category'] === (string) $category ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $category, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
-                <div class="filter-field"><label for="filterService">Dịch vụ</label><div class="filter-select-wrap"><i class="ph ph-stethoscope"></i><select id="filterService" name="service" form="facilityDirectoryFilter" data-facility-filter-control><option value="">Tất cả dịch vụ</option><?php foreach ($services as $service): ?><option value="<?php echo htmlspecialchars((string) $service, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['service'] === (string) $service ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $service, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
-                <div class="filter-field"><label for="filterRating">Điểm đánh giá</label><div class="filter-select-wrap"><i class="ph ph-star"></i><select id="filterRating" name="min_rating" form="facilityDirectoryFilter" data-facility-filter-control><option value="">Mọi mức điểm</option><option value="4"<?php echo $filters['min_rating'] === '4' ? ' selected' : ''; ?>>Từ 4.0 sao</option><option value="4.5"<?php echo $filters['min_rating'] === '4.5' ? ' selected' : ''; ?>>Từ 4.5 sao</option></select></div></div>
-                <div class="filter-field"><label for="filterSort">Sắp xếp</label><div class="filter-select-wrap"><i class="ph ph-arrows-down-up"></i><select id="filterSort" name="sort" form="facilityDirectoryFilter" data-facility-filter-control><option value="recommended"<?php echo $filters['sort'] === 'recommended' ? ' selected' : ''; ?>>Phù hợp nhất</option><option value="newest"<?php echo $filters['sort'] === 'newest' ? ' selected' : ''; ?>>Mới cập nhật</option><option value="rating"<?php echo $filters['sort'] === 'rating' ? ' selected' : ''; ?>>Điểm cao nhất</option><option value="reviews"<?php echo $filters['sort'] === 'reviews' ? ' selected' : ''; ?>>Nhiều đánh giá</option></select></div></div>
-                <button class="filter-reset" type="button" id="facilityFilterReset">Xóa bộ lọc</button>
+                <div class="filter-field"><label for="filterCity"><?php echo $isEnglish ? 'Location' : 'Khu vực'; ?></label><div class="filter-select-wrap"><i class="ph ph-map-pin"></i><select id="filterCity" name="city" form="facilityDirectoryFilter" data-facility-filter-control><option value=""><?php echo $isEnglish ? 'All locations' : 'Tất cả khu vực'; ?></option><?php foreach ($cities as $city): ?><option value="<?php echo htmlspecialchars((string) $city, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['city'] === (string) $city ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $city, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
+                <div class="filter-field"><label for="filterCategory"><?php echo $isEnglish ? 'Facility type' : 'Nhóm cơ sở'; ?></label><div class="filter-select-wrap"><i class="ph ph-buildings"></i><select id="filterCategory" name="category" form="facilityDirectoryFilter" data-facility-filter-control><option value=""><?php echo $isEnglish ? 'All types' : 'Tất cả nhóm cơ sở'; ?></option><?php foreach ($categories as $category): ?><option value="<?php echo htmlspecialchars((string) $category, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['category'] === (string) $category ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $category, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
+                <div class="filter-field"><label for="filterService"><?php echo $isEnglish ? 'Service' : 'Dịch vụ'; ?></label><div class="filter-select-wrap"><i class="ph ph-stethoscope"></i><select id="filterService" name="service" form="facilityDirectoryFilter" data-facility-filter-control><option value=""><?php echo $isEnglish ? 'All services' : 'Tất cả dịch vụ'; ?></option><?php foreach ($services as $service): ?><option value="<?php echo htmlspecialchars((string) $service, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $filters['service'] === (string) $service ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $service, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div></div>
+                <div class="filter-field"><label for="filterRating"><?php echo $isEnglish ? 'Rating' : 'Điểm đánh giá'; ?></label><div class="filter-select-wrap"><i class="ph ph-star"></i><select id="filterRating" name="min_rating" form="facilityDirectoryFilter" data-facility-filter-control><option value=""><?php echo $isEnglish ? 'Any rating' : 'Mọi mức điểm'; ?></option><option value="4"<?php echo $filters['min_rating'] === '4' ? ' selected' : ''; ?>><?php echo $isEnglish ? '4.0 stars and up' : 'Từ 4.0 sao'; ?></option><option value="4.5"<?php echo $filters['min_rating'] === '4.5' ? ' selected' : ''; ?>><?php echo $isEnglish ? '4.5 stars and up' : 'Từ 4.5 sao'; ?></option></select></div></div>
+                <div class="filter-field"><label for="filterSort"><?php echo $isEnglish ? 'Sort by' : 'Sắp xếp'; ?></label><div class="filter-select-wrap"><i class="ph ph-arrows-down-up"></i><select id="filterSort" name="sort" form="facilityDirectoryFilter" data-facility-filter-control><option value="recommended"<?php echo $filters['sort'] === 'recommended' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Recommended' : 'Phù hợp nhất'; ?></option><option value="newest"<?php echo $filters['sort'] === 'newest' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Recently updated' : 'Mới cập nhật'; ?></option><option value="rating"<?php echo $filters['sort'] === 'rating' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Highest rated' : 'Điểm cao nhất'; ?></option><option value="reviews"<?php echo $filters['sort'] === 'reviews' ? ' selected' : ''; ?>><?php echo $isEnglish ? 'Most reviewed' : 'Nhiều đánh giá'; ?></option></select></div></div>
+                <button class="filter-reset" type="button" id="facilityFilterReset"><?php echo $isEnglish ? 'Clear filters' : 'Xóa bộ lọc'; ?></button>
               </div>
             </div>
           </div>
         </div>
         <div class="facility-list" id="facilityList">
           <?php if ($initial['items'] !== []): foreach ($initial['items'] as $item) echo facility_page_card($item); else: ?>
-            <div class="empty-state"><i class="ph ph-magnifying-glass"></i><h2>Chưa tìm thấy cơ sở phù hợp</h2><p>Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.</p></div>
+            <div class="empty-state"><i class="ph ph-magnifying-glass"></i><h2><?php echo $isEnglish ? 'No matching facilities found' : 'Chưa tìm thấy cơ sở phù hợp'; ?></h2><p><?php echo $isEnglish ? 'Try another keyword or remove some filters.' : 'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.'; ?></p></div>
           <?php endif; ?>
         </div>
-        <nav class="pagination" id="facilityPagination" aria-label="Phân trang danh sách cơ sở"></nav>
+        <nav class="pagination" id="facilityPagination" aria-label="<?php echo $isEnglish ? 'Facility directory pagination' : 'Phân trang danh sách cơ sở'; ?>"></nav>
       </div>
       <aside class="directory-aside">
-        <section class="aside-card"><h2><i class="ph ph-lightbulb"></i>Chọn cơ sở dễ hơn</h2><p>Đừng chỉ nhìn vào điểm số. Hãy đối chiếu thông tin phù hợp với nhu cầu điều trị của bạn.</p><ul class="guide-list"><li><i class="ph ph-check-circle"></i><span>Xem dịch vụ nổi bật và bảng giá được công bố.</span></li><li><i class="ph ph-check-circle"></i><span>Đọc nhiều đánh giá có nguồn trước khi quyết định.</span></li><li><i class="ph ph-check-circle"></i><span>Liên hệ trực tiếp để xác nhận lịch hẹn và chi phí.</span></li></ul></section>
-        <section class="directory-source"><strong><i class="ph-fill ph-shield-check"></i>Thông tin minh bạch</strong><span>Hồ sơ và đánh giá được cập nhật từ dữ liệu do MedReview quản lý.</span></section>
+        <section class="aside-card"><h2><i class="ph ph-lightbulb"></i><?php echo $isEnglish ? 'Choose with confidence' : 'Chọn cơ sở dễ hơn'; ?></h2><p><?php echo $isEnglish ? 'Look beyond ratings and compare information that matters to your care needs.' : 'Đừng chỉ nhìn vào điểm số. Hãy đối chiếu thông tin phù hợp với nhu cầu điều trị của bạn.'; ?></p><ul class="guide-list"><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Review featured services and published prices.' : 'Xem dịch vụ nổi bật và bảng giá được công bố.'; ?></span></li><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Read multiple sourced reviews before deciding.' : 'Đọc nhiều đánh giá có nguồn trước khi quyết định.'; ?></span></li><li><i class="ph ph-check-circle"></i><span><?php echo $isEnglish ? 'Contact the provider to confirm availability and costs.' : 'Liên hệ trực tiếp để xác nhận lịch hẹn và chi phí.'; ?></span></li></ul></section>
+        <section class="directory-source"><strong><i class="ph-fill ph-shield-check"></i><?php echo $isEnglish ? 'Transparent information' : 'Thông tin minh bạch'; ?></strong><span><?php echo $isEnglish ? 'Profiles and reviews are managed and updated by MedReview.' : 'Hồ sơ và đánh giá được cập nhật từ dữ liệu do MedReview quản lý.'; ?></span></section>
       </aside>
     </div>
   </section>
@@ -804,6 +816,8 @@ function facility_page_card(array $item): string
   const filterToggle = document.getElementById('facilityFilterToggle');
   const filterOptions = document.getElementById('facilityFilterOptions');
   const filterCount = document.getElementById('facilityFilterCount');
+  const isEnglish = <?php echo $isEnglish ? 'true' : 'false'; ?>;
+  const words = isEnglish ? {photos:'photos', verified:'Verified', reviews:'reviews', noReviews:'Not rated yet', reference:'Reference price', contact:'Contact for updates', profile:'View profile', emptyTitle:'No matching facilities found', emptyCopy:'Try another keyword or remove some filters.', collapse:'Show less', previous:'Previous page', next:'Next page', count:'matching facilities', failedTitle:'Unable to load facilities', failedCopy:'Please try again in a few minutes.', loadError:'Unable to load data.'} : {photos:'ảnh', verified:'Đã xác thực', reviews:'đánh giá', noReviews:'Chưa có đánh giá', reference:'Giá tham khảo', contact:'Liên hệ cập nhật', profile:'Xem hồ sơ', emptyTitle:'Chưa tìm thấy cơ sở phù hợp', emptyCopy:'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.', collapse:'Thu gọn', previous:'Trang trước', next:'Trang sau', count:'cơ sở phù hợp', failedTitle:'Không thể tải danh sách', failedCopy:'Vui lòng thử lại sau ít phút.', loadError:'Không thể tải dữ liệu.'};
   if (!form || !list || !pager || !count) return;
   const motionReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const resultsAnchor = document.querySelector('.result-topline') || list;
@@ -847,7 +861,7 @@ function facility_page_card(array $item): string
     button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     const extraCount = Number(button.dataset.extraCount || 0);
     button.innerHTML = expanded
-      ? 'Thu gọn<i class="ph ph-caret-down" aria-hidden="true"></i>'
+      ? `${words.collapse}<i class="ph ph-caret-down" aria-hidden="true"></i>`
       : `+${extraCount}<i class="ph ph-caret-down" aria-hidden="true"></i>`;
   };
   prepareServiceTags(list);
@@ -876,30 +890,30 @@ function facility_page_card(array $item): string
     if (filterCount) { filterCount.hidden = active === 0; filterCount.textContent = String(active); }
   };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  const format = value => new Intl.NumberFormat('vi-VN').format(Number(value || 0));
+  const format = value => new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(value || 0));
   const card = item => {
     const detail = '/co-so-y-te/' + encodeURIComponent(item.slug || '');
     const image = String(item.image || '').trim();
-    const label = String(item.images_label || '').trim() || (Number(item.image_count || 0) > 0 ? `${format(item.image_count)} ảnh` : '');
+    const label = String(item.images_label || '').trim() || (Number(item.image_count || 0) > 0 ? `${format(item.image_count)} ${words.photos}` : '');
     const services = Array.isArray(item.services) ? item.services : [];
     const serviceMarkup = services.length ? `<div class="service-tags" data-service-tags>${services.map((service, index) => `<span class="service-tag${index > 0 ? ' is-extra' : ''}">${esc(service)}</span>`).join('')}${services.length > 1 ? `<button class="service-tags-more" type="button" data-service-tags-more data-extra-count="${services.length - 1}" aria-expanded="false">+${services.length - 1}<i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : '';
     const rating = Number(item.rating || 0);
-    const verified = item.verified ? '<span class="verified-badge" title="Hồ sơ đã xác thực"><i class="ph-fill ph-seal-check"></i><span>Đã xác thực</span></span>' : '';
+    const verified = item.verified ? `<span class="verified-badge" title="${words.verified}"><i class="ph-fill ph-seal-check"></i><span>${words.verified}</span></span>` : '';
     const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : '<span class="facility-media-empty"><i class="ph ph-hospital"></i></span>';
-    const ratingContent = rating > 0 ? `<div class="score-number">${rating.toFixed(1)}<small>/5</small></div><div class="score-stars" aria-label="${rating.toFixed(1)} trên 5">★★★★★</div><span>${format(item.reviews_count)} đánh giá</span>` : '<div class="score-number score-pending">—</div><span>Chưa có đánh giá</span>';
-    return `<article class="facility-card"><a class="facility-media" href="${detail}" aria-label="Xem ${esc(item.name)}">${media}${label ? `<span class="media-label"><i class="ph ph-images"></i>${esc(label)}</span>` : ''}</a><div class="facility-body"><div class="facility-eyebrow"><span>${esc(item.category || 'Cơ sở y tế')}</span>${item.city ? `<span class="eyebrow-dot">•</span><span>${esc(item.city)}</span>` : ''}</div><div class="facility-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.subtitle ? `<p class="facility-subtitle">${esc(item.subtitle)}</p>` : ''}<div class="facility-details">${item.address ? `<span><i class="ph ph-map-pin"></i>${esc(item.address)}</span>` : ''}${item.hours ? `<span><i class="ph ph-clock"></i>${esc(item.hours)}</span>` : ''}</div>${serviceMarkup}</div><div class="facility-score">${ratingContent}</div><div class="facility-price"><span>Giá tham khảo</span><strong>${esc(item.price || 'Liên hệ cập nhật')}</strong></div><a class="detail-button" href="${detail}">Xem hồ sơ<i class="ph ph-arrow-up-right"></i></a></article>`;
+    const ratingContent = rating > 0 ? `<div class="score-number">${rating.toFixed(1)}<small>/5</small></div><div class="score-stars" aria-label="${rating.toFixed(1)}${isEnglish ? ' out of 5' : ' trên 5'}">★★★★★</div><span>${format(item.reviews_count)} ${words.reviews}</span>` : `<div class="score-number score-pending">—</div><span>${words.noReviews}</span>`;
+    return `<article class="facility-card"><a class="facility-media" href="${detail}" aria-label="${isEnglish ? 'View ' : 'Xem '}${esc(item.name)}">${media}${label ? `<span class="media-label"><i class="ph ph-images"></i>${esc(label)}</span>` : ''}</a><div class="facility-body"><div class="facility-eyebrow"><span>${esc(item.category || (isEnglish ? 'Healthcare facility' : 'Cơ sở y tế'))}</span>${item.city ? `<span class="eyebrow-dot">•</span><span>${esc(item.city)}</span>` : ''}</div><div class="facility-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.subtitle ? `<p class="facility-subtitle">${esc(item.subtitle)}</p>` : ''}<div class="facility-details">${item.address ? `<span><i class="ph ph-map-pin"></i>${esc(item.address)}</span>` : ''}${item.hours ? `<span><i class="ph ph-clock"></i>${esc(item.hours)}</span>` : ''}</div>${serviceMarkup}</div><div class="facility-score">${ratingContent}</div><div class="facility-price"><span>${words.reference}</span><strong>${esc(item.price || words.contact)}</strong></div><a class="detail-button" href="${detail}">${words.profile}<i class="ph ph-arrow-up-right"></i></a></article>`;
   };
-  const empty = () => '<div class="empty-state"><i class="ph ph-magnifying-glass"></i><h2>Chưa tìm thấy cơ sở phù hợp</h2><p>Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.</p></div>';
+  const empty = () => `<div class="empty-state"><i class="ph ph-magnifying-glass"></i><h2>${words.emptyTitle}</h2><p>${words.emptyCopy}</p></div>`;
   const pageButton = (label, page, active = false, disabled = false, aria = '') => `<button type="button" data-page="${page}"${active ? ' class="is-current"' : ''}${disabled ? ' disabled' : ''}${aria ? ` aria-label="${aria}"` : ''}>${label}</button>`;
   const renderPager = paging => {
     const total = Number(paging.total_pages || 1), page = Number(paging.page || 1);
     if (total <= 1) { pager.innerHTML = ''; return; }
-    const items = [pageButton('‹', page - 1, false, page <= 1, 'Trang trước')];
+    const items = [pageButton('‹', page - 1, false, page <= 1, words.previous)];
     const from = Math.max(1, page - 2), to = Math.min(total, page + 2);
     if (from > 1) { items.push(pageButton('1', 1)); if (from > 2) items.push('<span class="pagination-gap">…</span>'); }
     for (let item = from; item <= to; item++) items.push(pageButton(String(item), item, item === page));
     if (to < total) { if (to < total - 1) items.push('<span class="pagination-gap">…</span>'); items.push(pageButton(String(total), total)); }
-    items.push(pageButton('›', page + 1, false, page >= total, 'Trang sau'));
+    items.push(pageButton('›', page + 1, false, page >= total, words.next));
     pager.innerHTML = items.join('');
   };
   const parameters = page => {
@@ -919,14 +933,14 @@ function facility_page_card(array $item): string
       const params = parameters(page);
       const response = await fetch(`${endpoint}?${params.toString()}`, {headers:{Accept:'application/json'}});
       const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.message || 'Không thể tải dữ liệu.');
+      if (!response.ok || !data.ok) throw new Error(data.message || words.loadError);
       if (id !== requestId) return;
       const paging = data.paging || {};
       currentPage = Number(paging.page || 1);
       list.innerHTML = (data.items || []).length ? data.items.map(card).join('') : empty();
       prepareServiceTags(list);
       revealCards();
-      count.innerHTML = `<strong>${format(paging.total || 0)}</strong> cơ sở phù hợp`;
+      count.innerHTML = `<strong>${format(paging.total || 0)}</strong> ${words.count}`;
       renderPager(paging);
       if (updateUrl) {
         const url = new URL(window.location.href);
@@ -936,7 +950,7 @@ function facility_page_card(array $item): string
       }
     } catch (error) {
       if (id !== requestId) return;
-      list.innerHTML = '<div class="empty-state"><i class="ph ph-warning-circle"></i><h2>Không thể tải danh sách</h2><p>Vui lòng thử lại sau ít phút.</p></div>';
+      list.innerHTML = `<div class="empty-state"><i class="ph ph-warning-circle"></i><h2>${words.failedTitle}</h2><p>${words.failedCopy}</p></div>`;
       revealCards();
       pager.innerHTML = '';
     } finally {

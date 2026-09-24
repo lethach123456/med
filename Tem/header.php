@@ -11,14 +11,14 @@ $langLinks = site_language_switch_links($pageKey);
 if ($pageKey === 'about' && !$isEnglish) {
   $langLinks['vi'] = '/ve-chung-toi.php';
 }
-$homePath = '/';
+$homePath = site_localized_path('/', $locale);
 $blogPath = front_editor_page_public_path($isEnglish ? 'blog-en' : 'blog');
-$aboutPath = $isEnglish ? front_editor_page_public_path('about-en') : '/ve-chung-toi.php';
+$aboutPath = site_localized_path('/ve-chung-toi.php', $locale);
 $contactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');
-$facilitiesPath = medical_public_facility_path();
-$doctorsPath = '/bac-si.php';
-$reviewPath = '/review.php';
-$toplistPath = medical_public_toplist_path();
+$facilitiesPath = site_localized_path(medical_public_facility_path(), $locale);
+$doctorsPath = site_localized_path('/bac-si.php', $locale);
+$reviewPath = site_localized_path('/review.php', $locale);
+$toplistPath = site_localized_path(medical_public_toplist_path(), $locale);
 $uiStylesheetPath = __DIR__ . '/../assets/css/core/ui-2026.css';
 $uiStylesheetVersion = is_file($uiStylesheetPath) ? (string) filemtime($uiStylesheetPath) : '1';
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
@@ -36,7 +36,7 @@ $searchPlaceholder = $isEnglish ? 'Search service, doctor, clinic...' : 'Tìm ki
 
 $navItems = $isEnglish
   ? [
-      ['label' => 'Home', 'href' => $homePath, 'match' => '/'],
+      ['label' => 'Home', 'href' => $homePath, 'match' => (string) (parse_url($homePath, PHP_URL_PATH) ?: '/')],
       ['label' => 'Healthcare facilities', 'href' => $facilitiesPath, 'match' => $facilitiesPath],
       ['label' => 'Reviews', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Doctors', 'href' => $doctorsPath, 'match' => $doctorsPath],
