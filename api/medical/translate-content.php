@@ -107,7 +107,21 @@ function medical_api_translation_output_template(string $type, array $source): a
     foreach (medical_api_translation_field_map($type) as $column => $rule) {
         if (array_key_exists($column, $source)) {
             $value = $source[$column];
-            $template[$column] = $rule['kind'] === 'json' && $value === '' ? [] : $value;
+            if ($rule['kind'] === 'json') {
+                if ($value === '' || $value === null) {
+                    $template[$column] = $value === null ? null : [];
+                } elseif (is_array($value)) {
+                    $template[$column] = $value;
+                } else {
+                    // A few legacy *_json columns contain plain text instead
+                    // of a JSON list/object (e.g. insurance_accepted_json).
+                    // Expose a valid array shape in the translation template
+                    // while retaining the original string as its sole item.
+                    $template[$column] = [$value];
+                }
+            } else {
+                $template[$column] = $value;
+            }
             continue;
         }
         $template[$column] = $rule['kind'] === 'json' ? [] : '';
@@ -171,11 +185,19 @@ function medical_api_translation_normalize_fields(string $type, array $translate
                     $value = [];
                 } else {
                     $decoded = json_decode($value, true);
-                    if (!is_array($decoded)) throw new InvalidArgumentException('Trường ' . $column . ' phải là JSON array/object hợp lệ.');
-                    $value = $decoded;
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $value = is_array($decoded) ? $decoded : ($decoded === null ? [] : [$decoded]);
+                    } elseif (str_starts_with(ltrim($value), '{') || str_starts_with(ltrim($value), '[')) {
+                        throw new InvalidArgumentException('Trường ' . $column . ' có vẻ là JSON nhưng cú pháp không hợp lệ.');
+                    } else {
+                        // Be tolerant of an AI returning the translated value
+                        // as plain text for a legacy JSON column; store it as a
+                        // one-element JSON array instead of rejecting the job.
+                        $value = [$value];
+                    }
                 }
             }
-            if (!is_array($value)) throw new InvalidArgumentException('Trường ' . $column . ' phải là array/object.');
+            if (!is_array($value)) $value = [$value];
             $encoded = medical_directory_json_encode($value);
             if (strlen($encoded) > $rule['max']) throw new InvalidArgumentException('Trường ' . $column . ' vượt giới hạn kích thước.');
             $fields[$column] = $encoded;
