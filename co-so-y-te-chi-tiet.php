@@ -639,6 +639,15 @@ if ($facilityNotFound) {
 }
 $facilityLanguage = strtolower((string) ($dbFacility['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
 $facilityLanguageLinks = medical_directory_translation_switch_links(db(), 'facility', $dbFacility);
+$tr = static fn(string $vi, string $en): string => $facilityLanguage === 'en' ? $en : $vi;
+$localizeCountLabel = static function (string $label, string $viSuffix, string $enSuffix) use ($facilityLanguage): string {
+  if ($facilityLanguage !== 'en') return $label;
+  return preg_replace('/\\s*' . preg_quote($viSuffix, '/') . '\\s*$/u', ' ' . $enSuffix, trim($label)) ?? $label;
+};
+$localizeRatingLabel = static function (string $label) use ($facilityLanguage): string {
+  if ($facilityLanguage !== 'en') return $label;
+  return preg_replace('/\\s*sao\\s*$/u', ' stars', trim($label)) ?? $label;
+};
 $GLOBALS['site_forced_locale'] = $facilityLanguage;
 $GLOBALS['site_language_links'] = $facilityLanguageLinks;
 if (is_array($dbFacility) && $dbFacility !== []) {
@@ -662,6 +671,22 @@ if (is_array($dbFacility) && $dbFacility !== []) {
 
   $facility = facility_detail_normalize($facility);
   $facility['images_label'] = count((array) ($facility['gallery'] ?? [])) . ' ảnh';
+  if ($facilityLanguage === 'en') {
+    $featureTranslations = [
+      'Đánh giá xác thực' => ['Verified reviews', 'Reviews from customers who have used the service'],
+      'Kiểm duyệt nghiêm ngặt' => ['Carefully moderated', 'Content is reviewed to support transparency and objectivity'],
+      'Bảo mật thông tin' => ['Privacy protected', 'Your personal information is protected'],
+      'Cập nhật liên tục' => ['Regularly updated', 'The latest reviews are added regularly'],
+    ];
+    foreach ($facility['features'] as &$feature) {
+      $copy = $featureTranslations[(string) ($feature['title'] ?? '')] ?? null;
+      if (is_array($copy)) {
+        $feature['title'] = $copy[0];
+        $feature['text'] = $copy[1];
+      }
+    }
+    unset($feature);
+  }
   if (trim((string) ($facility['content'] ?? '')) !== '') {
     $facility['intro'] = [(string) $facility['content']];
   }
@@ -687,27 +712,27 @@ foreach ((array) ($facility['reviews_list'] ?? []) as $facilityReview) {
 
 $facilityLegalFacts = [];
 if (trim((string) ($facility['medical_operation_license'] ?? '')) !== '') {
-  $facilityLegalFacts[] = ['label' => 'Giấy phép hoạt động', 'value' => (string) $facility['medical_operation_license'], 'icon' => 'badge-check'];
+  $facilityLegalFacts[] = ['label' => $tr('Giấy phép hoạt động', 'Operating license'), 'value' => (string) $facility['medical_operation_license'], 'icon' => 'badge-check'];
 }
 if (trim((string) ($facility['business_license'] ?? '')) !== '') {
-  $facilityLegalFacts[] = ['label' => 'Thông tin pháp nhân', 'value' => (string) $facility['business_license'], 'icon' => 'building-2'];
+  $facilityLegalFacts[] = ['label' => $tr('Thông tin pháp nhân', 'Legal entity'), 'value' => (string) $facility['business_license'], 'icon' => 'building-2'];
 }
 if (!empty($facility['established_year'])) {
-  $facilityLegalFacts[] = ['label' => 'Năm thành lập', 'value' => (string) $facility['established_year'], 'icon' => 'calendar-days'];
+  $facilityLegalFacts[] = ['label' => $tr('Năm thành lập', 'Year established'), 'value' => (string) $facility['established_year'], 'icon' => 'calendar-days'];
 }
 if (!empty($facility['branch_count'])) {
-  $facilityLegalFacts[] = ['label' => 'Số chi nhánh', 'value' => (string) $facility['branch_count'], 'icon' => 'git-branch'];
+  $facilityLegalFacts[] = ['label' => $tr('Số chi nhánh', 'Number of branches'), 'value' => (string) $facility['branch_count'], 'icon' => 'git-branch'];
 }
 
 $facilityVisitFacts = [];
 if (trim((string) ($facility['parking_info'] ?? '')) !== '') {
-  $facilityVisitFacts[] = ['label' => 'Gửi xe', 'value' => (string) $facility['parking_info'], 'icon' => 'car-front'];
+  $facilityVisitFacts[] = ['label' => $tr('Gửi xe', 'Parking'), 'value' => (string) $facility['parking_info'], 'icon' => 'car-front'];
 }
 if (trim((string) ($facility['nearby_landmarks'] ?? '')) !== '') {
-  $facilityVisitFacts[] = ['label' => 'Khu vực lân cận', 'value' => (string) $facility['nearby_landmarks'], 'icon' => 'map-pinned'];
+  $facilityVisitFacts[] = ['label' => $tr('Khu vực lân cận', 'Nearby landmarks'), 'value' => (string) $facility['nearby_landmarks'], 'icon' => 'map-pinned'];
 }
 if (trim((string) ($facility['emergency_hotline'] ?? '')) !== '') {
-  $facilityVisitFacts[] = ['label' => 'Hotline hỗ trợ', 'value' => (string) $facility['emergency_hotline'], 'icon' => 'phone-call'];
+  $facilityVisitFacts[] = ['label' => $tr('Hotline hỗ trợ', 'Support hotline'), 'value' => (string) $facility['emergency_hotline'], 'icon' => 'phone-call'];
 }
 
 $facilityInsurance = $facility['insurance_accepted'] ?? '';
@@ -782,15 +807,17 @@ $seo = front_editor_page_seo('co-so-y-te-chi-tiet', [
 ]);
 $title = trim((string) ($facility['seo_title'] ?? '')) !== ''
   ? (string) $facility['seo_title']
-  : (string) ($seo['title'] ?? ($facility['name'] . ' • MedReview'));
+  : ($facilityLanguage === 'en' ? (string) $facility['name'] . ' | MedReview' : (string) ($seo['title'] ?? ($facility['name'] . ' • MedReview')));
 $description = trim((string) ($facility['seo_description'] ?? '')) !== ''
   ? (string) $facility['seo_description']
-  : (string) ($seo['description'] ?? '');
+  : ($facilityLanguage === 'en' ? (string) ($facility['subtitle'] ?? '') : (string) ($seo['description'] ?? ''));
 if (trim($description) === '') {
   $description = preg_replace('/\s+/u', ' ', trim(strip_tags((string) ($facility['subtitle'] ?? $facility['content'] ?? '')))) ?? '';
 }
 if (trim($description) === '') {
-  $description = trim((string) ($facility['name'] ?? 'Cơ sở y tế')) . ' — xem thông tin hồ sơ, dịch vụ, giá tham khảo và đánh giá trên MedReview.';
+  $description = $facilityLanguage === 'en'
+    ? trim((string) ($facility['name'] ?? 'Healthcare facility')) . ' — view profile details, services, indicative prices and reviews on MedReview.'
+    : trim((string) ($facility['name'] ?? 'Cơ sở y tế')) . ' — xem thông tin hồ sơ, dịch vụ, giá tham khảo và đánh giá trên MedReview.';
 }
 $description = site_meta_description($description);
 $canonicalPath = medical_public_entity_path('facility', (string) $facility['slug'], $facilityLanguage);
@@ -825,6 +852,15 @@ if ($seoImageAbsolute !== '') {
   $facilitySchema['image'] = $seoImageAbsolute;
 }
 $facilityReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
+$facilityReviewSummaryCount = max(0, (int) ($facilityReviewSummary['count'] ?? $facility['reviews_count'] ?? $facilityReviewCount));
+$formatFacilityCount = static fn(int $count): string => number_format($count, 0, $facilityLanguage === 'en' ? '.' : ',', $facilityLanguage === 'en' ? ',' : '.');
+$facilityReviewCountLabel = $formatFacilityCount($facilityReviewSummaryCount) . ' ' . ($facilityReviewSummaryCount === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews'));
+$facilityTopReviewsLabel = $localizeCountLabel((string) ($facility['reviews'] ?? ''), 'đánh giá', 'reviews');
+$facilityFollowersLabel = $localizeCountLabel((string) ($facility['followers'] ?? ''), 'lượt quan tâm', 'followers');
+$facilityGalleryCount = count((array) ($facility['gallery'] ?? []));
+$facilityGalleryLabel = $facilityLanguage === 'en'
+  ? $formatFacilityCount($facilityGalleryCount) . ' ' . ($facilityGalleryCount === 1 ? 'photo' : 'photos')
+  : (string) ($facility['images_label'] ?: '25+ ảnh');
 if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
   $facilitySchema['aggregateRating'] = [
     '@type' => 'AggregateRating',
@@ -2176,21 +2212,21 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             <div class="hero-copy">
                 <div class="hero-top">
                   <div class="hero-head">
-                  <span class="facility-eyebrow"><i data-lucide="<?php echo !empty($facility['verified']) ? 'badge-check' : 'building-2'; ?>"></i><?php echo !empty($facility['verified']) ? 'Hồ sơ cơ sở đã xác thực' : 'Thông tin cơ sở y tế'; ?></span>
+          <span class="facility-eyebrow"><i data-lucide="<?php echo !empty($facility['verified']) ? 'badge-check' : 'building-2'; ?>"></i><?php echo htmlspecialchars(!empty($facility['verified']) ? $tr('Hồ sơ cơ sở đã xác thực', 'Verified facility profile') : $tr('Thông tin cơ sở y tế', 'Healthcare facility information'), ENT_QUOTES, 'UTF-8'); ?></span>
                   <h1><?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($facility['verified'])): ?> <span class="verified-mark"><i data-lucide="badge-check"></i></span><?php endif; ?></h1>
                   <p class="subtitle"><?php echo htmlspecialchars($facility['subtitle'], ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
                 <div class="hero-actions">
-                  <button class="icon-btn" type="button" aria-label="Lưu" title="Lưu"><i data-lucide="heart"></i>Lưu</button>
-                  <button class="icon-btn" type="button" aria-label="Chia sẻ" title="Chia sẻ"><i data-lucide="share-2"></i>Chia sẻ</button>
-                  <button class="icon-btn" type="button" aria-label="Báo cáo" title="Báo cáo"><i data-lucide="triangle-alert"></i>Báo cáo</button>
+                  <button class="icon-btn" type="button" aria-label="<?php echo htmlspecialchars($tr('Lưu', 'Save'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Lưu', 'Save'), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="heart"></i><?php echo htmlspecialchars($tr('Lưu', 'Save'), ENT_QUOTES, 'UTF-8'); ?></button>
+                  <button class="icon-btn" type="button" aria-label="<?php echo htmlspecialchars($tr('Chia sẻ', 'Share'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Chia sẻ', 'Share'), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="share-2"></i><?php echo htmlspecialchars($tr('Chia sẻ', 'Share'), ENT_QUOTES, 'UTF-8'); ?></button>
+                  <button class="icon-btn" type="button" aria-label="<?php echo htmlspecialchars($tr('Báo cáo', 'Report'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Báo cáo', 'Report'), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="triangle-alert"></i><?php echo htmlspecialchars($tr('Báo cáo', 'Report'), ENT_QUOTES, 'UTF-8'); ?></button>
                 </div>
               </div>
 
               <div class="rating-line rating-pill">
                 <span class="rating-main"><?php echo htmlspecialchars($facility['rating'], ENT_QUOTES, 'UTF-8'); ?></span>
-                <span class="stars rating-stars-text" aria-label="<?php echo htmlspecialchars($facility['rating'], ENT_QUOTES, 'UTF-8'); ?> trên 5"><?php echo $facilityRatingStars; ?></span>
-                <span class="rating-meta">(<?php echo htmlspecialchars($facility['reviews'], ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facility['followers'], ENT_QUOTES, 'UTF-8'); ?>)</span>
+                <span class="stars rating-stars-text" aria-label="<?php echo htmlspecialchars($facility['rating'] . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilityRatingStars; ?></span>
+                <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facilityFollowersLabel, ENT_QUOTES, 'UTF-8'); ?>)</span>
               </div>
 
               <div class="tag-row">
@@ -2203,14 +2239,14 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           </div>
             <div class="hero-gallery">
               <?php $heroGalleryIndex = array_search((string) $facility['hero_image'], (array) $facility['gallery'], true); $heroGalleryCount = count((array) $facility['gallery']); ?>
-              <button class="hero-image gallery-trigger" type="button" data-hero-gallery-carousel data-gallery-index="<?php echo (int) ($heroGalleryIndex === false ? 0 : $heroGalleryIndex); ?>" aria-roledescription="Bộ sưu tập ảnh" aria-label="Xem ảnh <?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> trong bộ sưu tập của <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
+              <button class="hero-image gallery-trigger" type="button" data-hero-gallery-carousel data-gallery-index="<?php echo (int) ($heroGalleryIndex === false ? 0 : $heroGalleryIndex); ?>" aria-roledescription="<?php echo htmlspecialchars($tr('Bộ sưu tập ảnh', 'Photo gallery'), ENT_QUOTES, 'UTF-8'); ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1) . $tr(' trong bộ sưu tập của ', ' in the gallery for ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
                 <img src="<?php echo htmlspecialchars($facility['hero_image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="eager" fetchpriority="high" decoding="async">
-                <span class="view-all"><i data-lucide="images"></i><span class="hero-gallery-count" data-hero-gallery-counter><?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> / <?php echo $heroGalleryCount; ?></span><span class="hero-gallery-label">Xem tất cả <?php echo htmlspecialchars($facility['images_label'] ?: '25+ ảnh', ENT_QUOTES, 'UTF-8'); ?></span><span class="hero-swipe-hint">Vuốt để xem</span></span>
+                <span class="view-all"><i data-lucide="images"></i><span class="hero-gallery-count" data-hero-gallery-counter><?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> / <?php echo $heroGalleryCount; ?></span><span class="hero-gallery-label"><?php echo htmlspecialchars($tr('Xem tất cả ', 'View all ') . $facilityGalleryLabel, ENT_QUOTES, 'UTF-8'); ?></span><span class="hero-swipe-hint"><?php echo htmlspecialchars($tr('Vuốt để xem', 'Swipe to browse'), ENT_QUOTES, 'UTF-8'); ?></span></span>
               </button>
               <div class="thumb-strip">
                 <?php foreach (array_slice($facility['gallery'], 0, 8, true) as $imageIndex => $image): ?>
-                  <button class="thumb gallery-trigger" type="button" data-gallery-index="<?php echo (int) $imageIndex; ?>" aria-label="Xem ảnh <?php echo (int) ($imageIndex + 1); ?> trong bộ sưu tập">
-                    <img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Ảnh <?php echo (int) ($imageIndex + 1); ?> của <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
+                  <button class="thumb gallery-trigger" type="button" data-gallery-index="<?php echo (int) $imageIndex; ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . (int) ($imageIndex + 1) . $tr(' trong bộ sưu tập', ' in the gallery'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($tr('Ảnh ', 'Photo ') . (int) ($imageIndex + 1) . $tr(' của ', ' of ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
                   </button>
                 <?php endforeach; ?>
               </div>
@@ -2221,19 +2257,19 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         <div class="facility-reading-layout">
           <aside class="sidebar facility-contact-sidebar">
             <section class="panel side-card">
-              <h2 class="contact-heading">Thông tin liên hệ</h2>
+              <h2 class="contact-heading"><?php echo htmlspecialchars($tr('Thông tin liên hệ', 'Contact information'), ENT_QUOTES, 'UTF-8'); ?></h2>
               <div class="contact-list">
                 <div class="contact-item">
                   <i data-lucide="map-pin"></i>
                   <div>
-                    <strong>Địa chỉ</strong>
+                    <strong><?php echo htmlspecialchars($tr('Địa chỉ', 'Address'), ENT_QUOTES, 'UTF-8'); ?></strong>
                     <span><?php echo htmlspecialchars($facility['address'], ENT_QUOTES, 'UTF-8'); ?></span>
                   </div>
                 </div>
                 <div class="contact-item">
                   <i data-lucide="phone"></i>
                   <div>
-                    <strong>Điện thoại</strong>
+                    <strong><?php echo htmlspecialchars($tr('Điện thoại', 'Phone'), ENT_QUOTES, 'UTF-8'); ?></strong>
                     <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', (string) $facility['phone']), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($facility['phone'], ENT_QUOTES, 'UTF-8'); ?></a>
                   </div>
                 </div>
@@ -2247,7 +2283,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                 <div class="contact-item">
                   <i data-lucide="clock-3"></i>
                   <div>
-                    <strong>Giờ mở cửa</strong>
+                    <strong><?php echo htmlspecialchars($tr('Giờ mở cửa', 'Opening hours'), ENT_QUOTES, 'UTF-8'); ?></strong>
                     <span><?php echo htmlspecialchars($facility['hours'], ENT_QUOTES, 'UTF-8'); ?></span>
                   </div>
                 </div>
@@ -2256,10 +2292,10 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 
               <div class="contact-actions">
                 <?php if (trim($facility['phone']) !== ''): ?>
-                <a class="btn-primary" href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $facility['phone']), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="phone"></i>Gọi cơ sở</a>
+                <a class="btn-primary" href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $facility['phone']), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="phone"></i><?php echo htmlspecialchars($tr('Gọi cơ sở', 'Call facility'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php endif; ?>
                 <?php if (trim($facility['address']) !== ''): ?>
-                <a class="btn-secondary" href="https://www.google.com/maps/search/?api=1&amp;query=<?php echo rawurlencode($facility['name'] . ' ' . $facility['address']); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="map-pin"></i>Chỉ đường</a>
+                <a class="btn-secondary" href="https://www.google.com/maps/search/?api=1&amp;query=<?php echo rawurlencode($facility['name'] . ' ' . $facility['address']); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="map-pin"></i><?php echo htmlspecialchars($tr('Chỉ đường', 'Get directions'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php endif; ?>
               </div>
             </section>
@@ -2267,15 +2303,15 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           <div class="facility-reading-main">
 
         <nav class="detail-nav" aria-label="Điều hướng nội dung trang">
-          <a href="#gioi-thieu">Giới thiệu</a>
-          <a href="#dich-vu">Dịch vụ nổi bật</a>
-          <a href="#bang-gia">Bảng giá</a>
-          <a href="#danh-gia">Đánh giá khách hàng</a>
-          <a href="#dat-lich">Đặt lịch tư vấn</a>
+          <a href="#gioi-thieu"><?php echo htmlspecialchars($tr('Giới thiệu', 'Overview'), ENT_QUOTES, 'UTF-8'); ?></a>
+          <a href="#dich-vu"><?php echo htmlspecialchars($tr('Dịch vụ nổi bật', 'Featured services'), ENT_QUOTES, 'UTF-8'); ?></a>
+          <a href="#bang-gia"><?php echo htmlspecialchars($tr('Bảng giá', 'Price list'), ENT_QUOTES, 'UTF-8'); ?></a>
+          <a href="#danh-gia"><?php echo htmlspecialchars($tr('Đánh giá khách hàng', 'Patient reviews'), ENT_QUOTES, 'UTF-8'); ?></a>
+          <a href="#dat-lich"><?php echo htmlspecialchars($tr('Đặt lịch tư vấn', 'Book a consultation'), ENT_QUOTES, 'UTF-8'); ?></a>
         </nav>
 
         <section class="panel section" id="gioi-thieu">
-          <h2>Giới thiệu về <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
+          <h2><?php echo htmlspecialchars($tr('Giới thiệu về ', 'About ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
           <div class="section-copy">
             <?php foreach ($facility['intro'] as $paragraph): ?>
               <?php if (strpos($paragraph, '<') !== false): ?><?php echo $paragraph; ?><?php else: ?><p><?php echo htmlspecialchars($paragraph, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
@@ -2285,20 +2321,20 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           <?php $featuredServices = array_filter((array) ($facility['featured_services'] ?? []), 'is_string'); ?>
           <?php if ($featuredServices): ?>
           <section class="facility-subsection" id="dich-vu">
-            <h2>Dịch vụ nổi bật</h2>
+            <h2><?php echo htmlspecialchars($tr('Dịch vụ nổi bật', 'Featured services'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="service-chips"><?php foreach ($featuredServices as $service): ?><span><?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div>
           </section>
           <?php endif; ?>
           <?php $highlights = array_filter((array) ($facility['highlights'] ?? []), 'is_string'); ?>
           <?php if ($highlights): ?>
           <section class="facility-subsection">
-            <h2>Điểm đáng chú ý</h2>
+            <h2><?php echo htmlspecialchars($tr('Điểm đáng chú ý', 'Highlights'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <ul><?php foreach ($highlights as $highlight): ?><li><?php echo htmlspecialchars($highlight, ENT_QUOTES, 'UTF-8'); ?></li><?php endforeach; ?></ul>
           </section>
           <?php endif; ?>
 
           <?php if ($facilityPriceTableHtml !== ''): ?>
-            <h2 id="bang-gia" class="facility-price-heading">Bảng giá dịch vụ</h2>
+            <h2 id="bang-gia" class="facility-price-heading"><?php echo htmlspecialchars($tr('Bảng giá dịch vụ', 'Service prices'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="facility-price-table"><?php echo $facilityPriceTableHtml; ?></div>
           <?php endif; ?>
 
@@ -2308,19 +2344,19 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         </div>
 
         <?php if ($facilityLegalFacts !== [] || $facilityVisitFacts !== [] || $facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityDoctors !== [] || $facilityEquipment !== [] || $facilityRatingSources !== []): ?>
-          <section class="facility-info-area" aria-label="Thông tin chi tiết về cơ sở">
+          <section class="facility-info-area" aria-label="<?php echo htmlspecialchars($tr('Thông tin chi tiết về cơ sở', 'Facility details'), ENT_QUOTES, 'UTF-8'); ?>">
             <div class="facility-info-heading">
               <div>
-                <span class="facility-info-kicker"><i data-lucide="circle-check-big"></i>Hồ sơ tham khảo</span>
-                <h2>Thông tin thêm về <?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
+                  <span class="facility-info-kicker"><i data-lucide="circle-check-big"></i><?php echo htmlspecialchars($tr('Hồ sơ tham khảo', 'Profile overview'), ENT_QUOTES, 'UTF-8'); ?></span>
+                <h2><?php echo htmlspecialchars($tr('Thông tin thêm về ', 'More about ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
               </div>
-              <p>Thông tin được tổng hợp từ dữ liệu công khai và hồ sơ do cơ sở cung cấp.</p>
+              <p><?php echo htmlspecialchars($tr('Thông tin được tổng hợp từ dữ liệu công khai và hồ sơ do cơ sở cung cấp.', 'Information is compiled from public sources and details provided by the facility.'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
 
             <div class="facility-info-grid">
               <?php if ($facilityLegalFacts !== []): ?>
                 <article class="panel facility-info-card" id="thong-tin-ho-so">
-                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="shield-check"></i></span><div><h3>Hồ sơ &amp; pháp lý</h3><p>Thông tin nhận diện cơ sở</p></div></div>
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="shield-check"></i></span><div><h3><?php echo htmlspecialchars($tr('Hồ sơ & pháp lý', 'Credentials & licensing'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Thông tin nhận diện cơ sở', 'Facility identification details'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
                   <dl class="facility-fact-list">
                     <?php foreach ($facilityLegalFacts as $fact): ?>
                       <div><dt><i data-lucide="<?php echo htmlspecialchars($fact['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i><?php echo htmlspecialchars($fact['label'], ENT_QUOTES, 'UTF-8'); ?></dt><dd><?php echo htmlspecialchars($fact['value'], ENT_QUOTES, 'UTF-8'); ?></dd></div>
@@ -2331,29 +2367,29 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 
               <?php if ($facilityVisitFacts !== [] || $facilityMapUrl !== ''): ?>
                 <article class="panel facility-info-card" id="trai-nghiem-den-kham">
-                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="map-pin"></i></span><div><h3>Đến khám thuận tiện</h3><p>Chỉ dẫn thực tế trước khi ghé cơ sở</p></div></div>
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="map-pin"></i></span><div><h3><?php echo htmlspecialchars($tr('Đến khám thuận tiện', 'Plan your visit'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Chỉ dẫn thực tế trước khi ghé cơ sở', 'Helpful information before your visit'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
                   <?php if ($facilityVisitFacts !== []): ?><dl class="facility-fact-list facility-fact-list--compact"><?php foreach ($facilityVisitFacts as $fact): ?><div><dt><i data-lucide="<?php echo htmlspecialchars($fact['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i><?php echo htmlspecialchars($fact['label'], ENT_QUOTES, 'UTF-8'); ?></dt><dd><?php echo htmlspecialchars($fact['value'], ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endforeach; ?></dl><?php endif; ?>
-                  <?php if ($facilityMapUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityMapUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="navigation"></i>Mở chỉ đường<i data-lucide="arrow-up-right"></i></a><?php endif; ?>
+                  <?php if ($facilityMapUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityMapUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="navigation"></i><?php echo htmlspecialchars($tr('Mở chỉ đường', 'Open directions'), ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endif; ?>
                 </article>
               <?php endif; ?>
 
               <?php if ($facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityBookingUrl !== '' || $facilitySocialLinks !== []): ?>
                 <article class="panel facility-info-card" id="thanh-toan-ho-tro">
-                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="wallet-cards"></i></span><div><h3>Thanh toán &amp; hỗ trợ</h3><p>Những thông tin hữu ích trước khi đặt lịch</p></div></div>
-                  <?php if ($facilityInsurance !== ''): ?><div class="facility-info-note"><i data-lucide="receipt-text"></i><div><strong>Bảo hiểm</strong><span><?php echo htmlspecialchars($facilityInsurance, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
-                  <?php if ($facilityPaymentMethods !== []): ?><div class="facility-info-group"><strong>Hình thức thanh toán</strong><div class="facility-chip-list"><?php foreach ($facilityPaymentMethods as $paymentMethod): ?><span><?php echo htmlspecialchars($paymentMethod, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
-                  <?php if ($facilityLanguages !== []): ?><div class="facility-info-group"><strong>Ngôn ngữ hỗ trợ</strong><div class="facility-chip-list facility-chip-list--muted"><?php foreach ($facilityLanguages as $language): ?><span><?php echo htmlspecialchars($language, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
-                  <?php if ($facilityWarranty !== ''): ?><div class="facility-info-note facility-info-note--soft"><i data-lucide="award"></i><div><strong>Chính sách bảo hành</strong><span><?php echo htmlspecialchars($facilityWarranty, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
-                  <?php if ($facilityBookingUrl !== '' || $facilitySocialLinks !== []): ?><div class="facility-link-row"><?php if ($facilityBookingUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityBookingUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="calendar-check-2"></i>Đặt lịch<i data-lucide="arrow-up-right"></i></a><?php endif; ?><?php foreach (array_slice($facilitySocialLinks, 0, 3) as $social): ?><a class="facility-social-link" href="<?php echo htmlspecialchars($social['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($social['label'], ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?>
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="wallet-cards"></i></span><div><h3><?php echo htmlspecialchars($tr('Thanh toán & hỗ trợ', 'Payment & support'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Những thông tin hữu ích trước khi đặt lịch', 'Useful information before booking'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
+                  <?php if ($facilityInsurance !== ''): ?><div class="facility-info-note"><i data-lucide="receipt-text"></i><div><strong><?php echo htmlspecialchars($tr('Bảo hiểm', 'Insurance'), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo htmlspecialchars($facilityInsurance, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
+                  <?php if ($facilityPaymentMethods !== []): ?><div class="facility-info-group"><strong><?php echo htmlspecialchars($tr('Hình thức thanh toán', 'Payment methods'), ENT_QUOTES, 'UTF-8'); ?></strong><div class="facility-chip-list"><?php foreach ($facilityPaymentMethods as $paymentMethod): ?><span><?php echo htmlspecialchars($paymentMethod, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
+                  <?php if ($facilityLanguages !== []): ?><div class="facility-info-group"><strong><?php echo htmlspecialchars($tr('Ngôn ngữ hỗ trợ', 'Languages spoken'), ENT_QUOTES, 'UTF-8'); ?></strong><div class="facility-chip-list facility-chip-list--muted"><?php foreach ($facilityLanguages as $language): ?><span><?php echo htmlspecialchars($language, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div></div><?php endif; ?>
+                  <?php if ($facilityWarranty !== ''): ?><div class="facility-info-note facility-info-note--soft"><i data-lucide="award"></i><div><strong><?php echo htmlspecialchars($tr('Chính sách bảo hành', 'Warranty policy'), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo htmlspecialchars($facilityWarranty, ENT_QUOTES, 'UTF-8'); ?></span></div></div><?php endif; ?>
+                  <?php if ($facilityBookingUrl !== '' || $facilitySocialLinks !== []): ?><div class="facility-link-row"><?php if ($facilityBookingUrl !== ''): ?><a class="facility-info-action" href="<?php echo htmlspecialchars($facilityBookingUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="calendar-check-2"></i><?php echo htmlspecialchars($tr('Đặt lịch', 'Book now'), ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endif; ?><?php foreach (array_slice($facilitySocialLinks, 0, 3) as $social): ?><a class="facility-social-link" href="<?php echo htmlspecialchars($social['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($social['label'], ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?>
                 </article>
               <?php endif; ?>
 
               <?php if ($facilityRatingSources !== []): ?>
                 <article class="panel facility-info-card">
-                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="star"></i></span><div><h3>Điểm theo nguồn đánh giá</h3><p>Các nguồn được ghi nhận trong hồ sơ</p></div></div>
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="star"></i></span><div><h3><?php echo htmlspecialchars($tr('Điểm theo nguồn đánh giá', 'Ratings by source'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Các nguồn được ghi nhận trong hồ sơ', 'Sources listed in this profile'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
                   <div class="facility-source-grid">
                     <?php foreach ($facilityRatingSources as $source): ?>
-                      <div class="facility-source-item"><strong><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($source['score'] !== ''): ?><b><?php echo htmlspecialchars($source['score'], ENT_QUOTES, 'UTF-8'); ?><small>/5</small></b><?php endif; ?><span><?php echo $source['count'] > 0 ? number_format($source['count'], 0, ',', '.') . ' đánh giá' : ($source['recommend_percent'] > 0 ? $source['recommend_percent'] . '% đề xuất' : 'Đang cập nhật'); ?></span></div>
+                      <div class="facility-source-item"><strong><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($source['score'] !== ''): ?><b><?php echo htmlspecialchars($source['score'], ENT_QUOTES, 'UTF-8'); ?><small>/5</small></b><?php endif; ?><span><?php echo $source['count'] > 0 ? $formatFacilityCount($source['count']) . ' ' . ($source['count'] === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews')) : ($source['recommend_percent'] > 0 ? $source['recommend_percent'] . '% ' . $tr('đề xuất', 'recommend') : $tr('Đang cập nhật', 'Updating')); ?></span></div>
                     <?php endforeach; ?>
                   </div>
                 </article>
@@ -2361,10 +2397,10 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 
               <?php if ($facilityDoctors !== [] || $facilityEquipment !== [] || $facilityVideos !== []): ?>
                 <article class="panel facility-info-card facility-info-card--wide" id="doi-ngu-cong-nghe">
-                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="stethoscope"></i></span><div><h3>Đội ngũ &amp; công nghệ</h3><p>Thông tin chuyên môn được cơ sở công bố</p></div></div>
+                  <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="stethoscope"></i></span><div><h3><?php echo htmlspecialchars($tr('Đội ngũ & công nghệ', 'Team & technology'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Thông tin chuyên môn được cơ sở công bố', 'Professional information published by the facility'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
                   <div class="facility-team-grid">
-                    <?php if ($facilityDoctors !== []): ?><div class="facility-team-column"><strong class="facility-column-title">Đội ngũ bác sĩ</strong><div class="facility-doctor-list"><?php foreach ($facilityDoctors as $doctor): ?><article><span><i data-lucide="user-round"></i></span><div><strong><?php echo htmlspecialchars($doctor['name'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($doctor['title'] !== ''): ?><p><?php echo htmlspecialchars($doctor['title'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?><?php if ($doctor['specialty'] !== ''): ?><small><?php echo htmlspecialchars($doctor['specialty'], ENT_QUOTES, 'UTF-8'); ?></small><?php endif; ?></div></article><?php endforeach; ?></div></div><?php endif; ?>
-                    <?php if ($facilityEquipment !== [] || $facilityVideos !== []): ?><div class="facility-team-column"><strong class="facility-column-title">Thiết bị &amp; tài liệu</strong><?php if ($facilityEquipment !== []): ?><ul class="facility-equipment-list"><?php foreach ($facilityEquipment as $equipment): ?><li><i data-lucide="scan-line"></i><?php echo htmlspecialchars($equipment, ENT_QUOTES, 'UTF-8'); ?></li><?php endforeach; ?></ul><?php endif; ?><?php if ($facilityVideos !== []): ?><div class="facility-video-links"><?php foreach (array_slice($facilityVideos, 0, 3) as $videoUrl): ?><a href="<?php echo htmlspecialchars($videoUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="play-circle"></i>Xem video giới thiệu<i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?></div><?php endif; ?>
+                    <?php if ($facilityDoctors !== []): ?><div class="facility-team-column"><strong class="facility-column-title"><?php echo htmlspecialchars($tr('Đội ngũ bác sĩ', 'Medical team'), ENT_QUOTES, 'UTF-8'); ?></strong><div class="facility-doctor-list"><?php foreach ($facilityDoctors as $doctor): ?><article><span><i data-lucide="user-round"></i></span><div><strong><?php echo htmlspecialchars($doctor['name'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($doctor['title'] !== ''): ?><p><?php echo htmlspecialchars($doctor['title'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?><?php if ($doctor['specialty'] !== ''): ?><small><?php echo htmlspecialchars($doctor['specialty'], ENT_QUOTES, 'UTF-8'); ?></small><?php endif; ?></div></article><?php endforeach; ?></div></div><?php endif; ?>
+                    <?php if ($facilityEquipment !== [] || $facilityVideos !== []): ?><div class="facility-team-column"><strong class="facility-column-title"><?php echo htmlspecialchars($tr('Thiết bị & tài liệu', 'Equipment & resources'), ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($facilityEquipment !== []): ?><ul class="facility-equipment-list"><?php foreach ($facilityEquipment as $equipment): ?><li><i data-lucide="scan-line"></i><?php echo htmlspecialchars($equipment, ENT_QUOTES, 'UTF-8'); ?></li><?php endforeach; ?></ul><?php endif; ?><?php if ($facilityVideos !== []): ?><div class="facility-video-links"><?php foreach (array_slice($facilityVideos, 0, 3) as $videoUrl): ?><a href="<?php echo htmlspecialchars($videoUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><i data-lucide="play-circle"></i><?php echo htmlspecialchars($tr('Xem video giới thiệu', 'Watch introduction video'), ENT_QUOTES, 'UTF-8'); ?><i data-lucide="arrow-up-right"></i></a><?php endforeach; ?></div><?php endif; ?></div><?php endif; ?>
                   </div>
                 </article>
               <?php endif; ?>
@@ -2375,22 +2411,22 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         <section class="panel section" id="danh-gia">
           <div class="section-head">
             <div>
-              <h2>Đánh giá thực tế từ khách hàng</h2>
-              <p style="margin:6px 0 0;color:#64748b;font-size:14px;"><?php echo $facilityReviewCount > 0 ? 'Dựa trên ' . htmlspecialchars((string) $facilityReviewSummary['reviews'], ENT_QUOTES, 'UTF-8') . ' đã công bố' : 'Chưa có đánh giá được công bố.'; ?></p>
+              <h2><?php echo htmlspecialchars($tr('Đánh giá thực tế từ khách hàng', 'Patient reviews'), ENT_QUOTES, 'UTF-8'); ?></h2>
+              <p style="margin:6px 0 0;color:#64748b;font-size:14px;"><?php echo $facilityReviewCount > 0 ? htmlspecialchars($tr('Dựa trên ', 'Based on ') . $facilityReviewCountLabel . $tr(' đã công bố', ' published'), ENT_QUOTES, 'UTF-8') : htmlspecialchars($tr('Chưa có đánh giá được công bố.', 'No published reviews yet.'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
           </div>
 
           <div class="review-shell">
             <div class="summary-box">
-              <h3>Đánh giá thực tế</h3>
-              <p><?php echo $facilityReviewCount > 0 ? 'Tổng hợp từ ' . htmlspecialchars((string) $facilityReviewSummary['reviews'], ENT_QUOTES, 'UTF-8') : 'Chưa có dữ liệu điểm đánh giá'; ?></p>
+              <h3><?php echo htmlspecialchars($tr('Đánh giá thực tế', 'Review summary'), ENT_QUOTES, 'UTF-8'); ?></h3>
+              <p><?php echo $facilityReviewCount > 0 ? htmlspecialchars($tr('Tổng hợp từ ', 'Based on ') . $facilityReviewCountLabel, ENT_QUOTES, 'UTF-8') : htmlspecialchars($tr('Chưa có dữ liệu điểm đánh giá', 'No rating data yet'), ENT_QUOTES, 'UTF-8'); ?></p>
               <div class="summary-score"><strong><?php echo htmlspecialchars((string) ($facilityReviewSummary['rating'] ?? '0.0'), ENT_QUOTES, 'UTF-8'); ?></strong><small>/5</small></div>
-              <div class="stars summary-stars" aria-label="<?php echo htmlspecialchars((string) ($facilityReviewSummary['rating'] ?? '0.0'), ENT_QUOTES, 'UTF-8'); ?> trên 5"><?php echo $facilitySummaryStars; ?></div>
-              <div class="summary-caption"><?php echo htmlspecialchars((string) ($facilityReviewSummary['reviews'] ?? '0 đánh giá'), ENT_QUOTES, 'UTF-8'); ?></div>
+              <div class="stars summary-stars" aria-label="<?php echo htmlspecialchars((string) ($facilityReviewSummary['rating'] ?? '0.0') . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilitySummaryStars; ?></div>
+              <div class="summary-caption"><?php echo htmlspecialchars($facilityReviewCountLabel, ENT_QUOTES, 'UTF-8'); ?></div>
               <div class="rating-bars">
                 <?php foreach ((array) ($facilityReviewSummary['breakdown'] ?? []) as $row): ?>
                   <div class="rating-row">
-                    <span><?php echo htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span><?php echo htmlspecialchars($localizeRatingLabel((string) $row['label']), ENT_QUOTES, 'UTF-8'); ?></span>
                     <span class="bar"><span style="width:<?php echo (int) $row['value']; ?>%"></span></span>
                     <span><?php echo (int) $row['value']; ?>%</span>
                   </div>
@@ -2399,8 +2435,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               <?php if ($facilityReviewCount > 0): ?>
                 <div class="summary-verified">
                   <strong><?php echo $facilityVerifiedReviewPercent; ?>%</strong>
-                  <span>Đánh giá xác thực</span>
-                  <small><?php echo $facilityVerifiedReviewCount; ?>/<?php echo $facilityReviewCount; ?> đánh giá có nhãn xác thực.</small>
+                  <span><?php echo htmlspecialchars($tr('Đánh giá xác thực', 'Verified reviews'), ENT_QUOTES, 'UTF-8'); ?></span>
+                  <small><?php echo $facilityVerifiedReviewCount; ?>/<?php echo $facilityReviewCount; ?> <?php echo htmlspecialchars($tr('đánh giá có nhãn xác thực.', 'reviews are marked as verified.'), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
               <?php endif; ?>
             </div>
@@ -2409,12 +2445,12 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               <div class="review-feed-toolbar">
                 <div class="review-toolbar-group">
                   <?php if ($facilityReviewServices !== []): ?>
-                    <label class="review-filter-pill"><i data-lucide="filter"></i><select id="reviewServiceFilter"><option value="">Tất cả dịch vụ</option><?php foreach ($facilityReviewServices as $service): ?><option value="<?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></label>
+                    <label class="review-filter-pill"><i data-lucide="filter"></i><select id="reviewServiceFilter"><option value=""><?php echo htmlspecialchars($tr('Tất cả dịch vụ', 'All services'), ENT_QUOTES, 'UTF-8'); ?></option><?php foreach ($facilityReviewServices as $service): ?><option value="<?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($service, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></label>
                   <?php endif; ?>
-                  <label class="review-sort-pill"><i data-lucide="arrow-down-wide-narrow"></i><select id="reviewSort"><option value="newest">Mới nhất</option><option value="highest">Điểm cao nhất</option></select></label>
+                  <label class="review-sort-pill"><i data-lucide="arrow-down-wide-narrow"></i><select id="reviewSort"><option value="newest"><?php echo htmlspecialchars($tr('Mới nhất', 'Newest'), ENT_QUOTES, 'UTF-8'); ?></option><option value="highest"><?php echo htmlspecialchars($tr('Điểm cao nhất', 'Highest rated'), ENT_QUOTES, 'UTF-8'); ?></option></select></label>
                 </div>
                 <label class="review-switch" for="reviewImageOnly">
-                  <span>Chỉ đánh giá có ảnh</span>
+                  <span><?php echo htmlspecialchars($tr('Chỉ đánh giá có ảnh', 'Reviews with photos only'), ENT_QUOTES, 'UTF-8'); ?></span>
                   <input id="reviewImageOnly" type="checkbox">
                   <span class="review-switch-toggle" aria-hidden="true"></span>
                 </label>
@@ -2440,13 +2476,13 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                       <div>
                         <strong><?php echo htmlspecialchars($review['author'], ENT_QUOTES, 'UTF-8'); ?></strong>
                         <?php if ($reviewLocation !== ''): ?><span class="meta-line"><?php echo htmlspecialchars($reviewLocation, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
-                        <?php if (!empty($review['is_verified'])): ?><span class="review-badge"><i data-lucide="badge-check"></i>Đã xác thực</span><?php endif; ?>
+                        <?php if (!empty($review['is_verified'])): ?><span class="review-badge"><i data-lucide="badge-check"></i><?php echo htmlspecialchars($tr('Đã xác thực', 'Verified'), ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                       </div>
                     </div>
 
                     <div class="review-body">
                       <div class="review-content-top">
-                        <?php if ($reviewRating > 0): ?><div class="review-rating"><span class="review-stars" aria-label="<?php echo htmlspecialchars(number_format($reviewRating, 1, '.', ''), ENT_QUOTES, 'UTF-8'); ?> trên 5"><?php echo $reviewStars; ?></span><strong><?php echo htmlspecialchars(number_format($reviewRating, 1, '.', ''), ENT_QUOTES, 'UTF-8'); ?></strong></div><?php else: ?><span class="review-unrated">Chia sẻ trải nghiệm</span><?php endif; ?>
+                        <?php if ($reviewRating > 0): ?><div class="review-rating"><span class="review-stars" aria-label="<?php echo htmlspecialchars(number_format($reviewRating, 1, '.', '') . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $reviewStars; ?></span><strong><?php echo htmlspecialchars(number_format($reviewRating, 1, '.', ''), ENT_QUOTES, 'UTF-8'); ?></strong></div><?php else: ?><span class="review-unrated"><?php echo htmlspecialchars($tr('Chia sẻ trải nghiệm', 'Shared experience'), ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                         <?php if ($reviewDate !== ''): ?><span class="review-date"><?php echo htmlspecialchars($reviewDate, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                       </div>
                       <div class="review-content"><?php echo htmlspecialchars($review['content'], ENT_QUOTES, 'UTF-8'); ?></div>
@@ -2455,7 +2491,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                         <div class="mini-gallery">
                           <?php foreach (array_slice($reviewImages, 0, 3) as $imageIndex => $image): ?>
                             <div class="mini-gallery-item">
-                              <span><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="Ảnh đính kèm đánh giá" loading="lazy" onerror="this.closest('.mini-gallery-item').remove();"></span>
+                              <span><img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($tr('Ảnh đính kèm đánh giá', 'Review photo'), ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" onerror="this.closest('.mini-gallery-item').remove();"></span>
                               <?php if ($imageIndex === 2 && $reviewExtraImages > 0): ?><span class="mini-gallery-more">+<?php echo $reviewExtraImages; ?></span><?php endif; ?>
                             </div>
                           <?php endforeach; ?>
@@ -2469,12 +2505,12 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                     </div>
                   </article>
                 <?php endforeach; ?>
-                <?php if ((array) ($facility['reviews_list'] ?? []) === []): ?><div class="review-empty"><i data-lucide="message-circle"></i><strong>Chưa có đánh giá để hiển thị</strong><span>Đánh giá mới sẽ xuất hiện tại đây sau khi được công bố.</span></div><?php endif; ?>
+                <?php if ((array) ($facility['reviews_list'] ?? []) === []): ?><div class="review-empty"><i data-lucide="message-circle"></i><strong><?php echo htmlspecialchars($tr('Chưa có đánh giá để hiển thị', 'No reviews to show yet'), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo htmlspecialchars($tr('Đánh giá mới sẽ xuất hiện tại đây sau khi được công bố.', 'New reviews will appear here once published.'), ENT_QUOTES, 'UTF-8'); ?></span></div><?php endif; ?>
               </div>
 
               <div class="review-more">
-                <a href="#" id="loadMoreReviews" data-page="2"><i data-lucide="chevron-down"></i><span>Xem thêm đánh giá</span></a>
-                <a class="review-write-inline" href="/review.php"><i data-lucide="pen-line"></i>Viết đánh giá</a>
+                <a href="#" id="loadMoreReviews" data-page="2"><i data-lucide="chevron-down"></i><span><?php echo htmlspecialchars($tr('Xem thêm đánh giá', 'Load more reviews'), ENT_QUOTES, 'UTF-8'); ?></span></a>
+                <a class="review-write-inline" href="<?php echo htmlspecialchars(site_localized_path('/review.php', $facilityLanguage), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="pen-line"></i><?php echo htmlspecialchars($tr('Viết đánh giá', 'Write a review'), ENT_QUOTES, 'UTF-8'); ?></a>
               </div>
             </div>
           </div>
@@ -2494,26 +2530,26 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           <div class="cta-copy">
             <span class="cta-icon"><i data-lucide="calendar-check-2"></i></span>
             <div>
-              <strong>Đặt lịch khám ngay để được tư vấn miễn phí!</strong>
-              <span>Đội ngũ bác sĩ chuyên môn cao luôn sẵn sàng đồng hành cùng bạn.</span>
+              <strong><?php echo htmlspecialchars($tr('Đặt lịch khám ngay để được tư vấn miễn phí!', 'Book an appointment for a free consultation!'), ENT_QUOTES, 'UTF-8'); ?></strong>
+              <span><?php echo htmlspecialchars($tr('Đội ngũ bác sĩ chuyên môn cao luôn sẵn sàng đồng hành cùng bạn.', 'Our experienced medical team is ready to help you.'), ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
           </div>
-          <a href="/lien-he.php">Đặt lịch ngay</a>
+          <a href="<?php echo htmlspecialchars($facilityLanguage === 'en' ? '/contact-us' : '/lien-he.php', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($tr('Đặt lịch ngay', 'Book now'), ENT_QUOTES, 'UTF-8'); ?></a>
         </section>
       </section>
     </main>
     <?php include __DIR__ . '/Tem/footer.php'; ?>
     <div class="gallery-lightbox" id="facilityGalleryLightbox" aria-hidden="true">
       <div class="gallery-lightbox__backdrop" data-gallery-lightbox-close aria-hidden="true"></div>
-      <section class="gallery-lightbox__dialog" role="dialog" aria-modal="true" aria-label="Xem ảnh cơ sở y tế" tabindex="-1">
+      <section class="gallery-lightbox__dialog" role="dialog" aria-modal="true" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh cơ sở y tế', 'Facility photo viewer'), ENT_QUOTES, 'UTF-8'); ?>" tabindex="-1">
         <div class="gallery-lightbox__topbar">
           <span class="gallery-lightbox__counter" id="facilityGalleryCounter" aria-live="polite">1 / 1</span>
-          <button class="gallery-lightbox__control gallery-lightbox__close" type="button" data-gallery-lightbox-close aria-label="Đóng trình xem ảnh" title="Đóng (Esc)">&times;</button>
+          <button class="gallery-lightbox__control gallery-lightbox__close" type="button" data-gallery-lightbox-close aria-label="<?php echo htmlspecialchars($tr('Đóng trình xem ảnh', 'Close photo viewer'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Đóng (Esc)', 'Close (Esc)'), ENT_QUOTES, 'UTF-8'); ?>">&times;</button>
         </div>
         <div class="gallery-lightbox__stage" id="facilityGalleryStage">
-          <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__prev" type="button" data-gallery-lightbox-prev aria-label="Ảnh trước" title="Ảnh trước (mũi tên trái)">&#8249;</button>
+          <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__prev" type="button" data-gallery-lightbox-prev aria-label="<?php echo htmlspecialchars($tr('Ảnh trước', 'Previous photo'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Ảnh trước (mũi tên trái)', 'Previous photo (left arrow)'), ENT_QUOTES, 'UTF-8'); ?>">&#8249;</button>
           <img class="gallery-lightbox__image" id="facilityGalleryImage" src="" alt="">
-          <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__next" type="button" data-gallery-lightbox-next aria-label="Ảnh tiếp theo" title="Ảnh tiếp theo (mũi tên phải)">&#8250;</button>
+          <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__next" type="button" data-gallery-lightbox-next aria-label="<?php echo htmlspecialchars($tr('Ảnh tiếp theo', 'Next photo'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Ảnh tiếp theo (mũi tên phải)', 'Next photo (right arrow)'), ENT_QUOTES, 'UTF-8'); ?>">&#8250;</button>
           <p class="gallery-lightbox__status" id="facilityGalleryStatus" aria-live="polite"></p>
         </div>
       </section>
@@ -2525,6 +2561,27 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
       }
       (function () {
         const gallerySources = <?php echo json_encode(array_values((array) $facility['gallery']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]'; ?>;
+        const uiText = <?php echo json_encode([
+          'loadingPhoto' => $tr('Đang tải ảnh…', 'Loading photo…'),
+          'photo' => $tr('Ảnh', 'Photo'),
+          'photoOf' => $tr(' của ', ' of '),
+          'photoInGallery' => $tr(' trong ', ' of '),
+          'viewPhoto' => $tr('Xem ảnh ', 'View photo '),
+          'photoInCollection' => $tr(' trong bộ sưu tập của ', ' in the gallery for '),
+          'photoLoadFailed' => $tr('Không thể tải ảnh này. Bạn có thể chuyển sang ảnh khác.', 'Could not load this photo. Try another one.'),
+          'verified' => $tr('Đã xác thực', 'Verified'),
+          'reviewPhoto' => $tr('Ảnh đính kèm đánh giá', 'Review photo'),
+          'outOfFive' => $tr('trên 5', 'out of 5'),
+          'sharedExperience' => $tr('Chia sẻ trải nghiệm', 'Shared experience'),
+          'customer' => $tr('Khách hàng', 'Customer'),
+          'loading' => $tr('Đang tải…', 'Loading…'),
+          'loadMore' => $tr('Xem thêm đánh giá', 'Load more reviews'),
+          'retry' => $tr('Thử lại', 'Try again'),
+          'loadReviewsFailed' => $tr('Không thể tải đánh giá', 'Could not load reviews'),
+          'noMatchingReviews' => $tr('Không có đánh giá phù hợp', 'No matching reviews'),
+          'adjustFilters' => $tr('Hãy thử thay đổi bộ lọc.', 'Try adjusting the filters.'),
+          'avatarFallback' => $tr('K', 'C'),
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}'; ?>;
         const galleryTriggers = Array.from(document.querySelectorAll('.gallery-trigger[data-gallery-index]'));
         const heroGalleryTrigger = document.querySelector('[data-hero-gallery-carousel]');
         const heroGalleryImage = heroGalleryTrigger?.querySelector('img');
@@ -2538,7 +2595,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         const previousImage = lightbox?.querySelector('[data-gallery-lightbox-prev]');
         const nextImage = lightbox?.querySelector('[data-gallery-lightbox-next]');
         const closeImage = lightbox?.querySelector('.gallery-lightbox__close');
-        const galleryName = <?php echo json_encode((string) $facility['name'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '"Cơ sở y tế"'; ?>;
+        const galleryName = <?php echo json_encode((string) $facility['name'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '"Healthcare facility"'; ?>;
         let activeGalleryIndex = 0;
         let lastGalleryTrigger = null;
         let galleryImageRequest = 0;
@@ -2562,9 +2619,9 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           preload.onload = () => {
             if (requestId !== heroImageRequest) return;
             heroGalleryImage.src = source;
-            heroGalleryImage.alt = `Ảnh ${heroGalleryIndex + 1} của ${galleryName}`;
+            heroGalleryImage.alt = `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoOf}${galleryName}`;
             heroGalleryTrigger.dataset.galleryIndex = String(heroGalleryIndex);
-            heroGalleryTrigger.setAttribute('aria-label', `Xem ảnh ${heroGalleryIndex + 1} trong bộ sưu tập của ${galleryName}`);
+            heroGalleryTrigger.setAttribute('aria-label', `${uiText.viewPhoto}${heroGalleryIndex + 1}${uiText.photoInCollection}${galleryName}`);
             if (heroGalleryCounter) heroGalleryCounter.textContent = `${heroGalleryIndex + 1} / ${gallerySources.length}`;
             galleryThumbs.forEach((thumb) => {
               const isActive = Number(thumb.dataset.galleryIndex || 0) === heroGalleryIndex;
@@ -2604,8 +2661,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             lightbox.classList.remove('is-loading');
             lightboxImage.classList.remove('is-switching', 'is-enter-from-next', 'is-enter-from-prev');
             lightboxStatus.textContent = failed
-              ? 'Không thể tải ảnh này. Bạn có thể chuyển sang ảnh khác.'
-              : `Ảnh ${activeGalleryIndex + 1} trong ${gallerySources.length}`;
+              ? uiText.photoLoadFailed
+              : `${uiText.photo} ${activeGalleryIndex + 1} ${uiText.photoInGallery}${gallerySources.length}`;
           });
         }
 
@@ -2620,8 +2677,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           lightboxImage.classList.add('is-switching');
           if (direction > 0) lightboxImage.classList.add('is-enter-from-next');
           if (direction < 0) lightboxImage.classList.add('is-enter-from-prev');
-          lightboxStatus.textContent = 'Đang tải ảnh…';
-          lightboxImage.alt = `Ảnh ${activeGalleryIndex + 1} của ${galleryName}`;
+          lightboxStatus.textContent = uiText.loadingPhoto;
+          lightboxImage.alt = `${uiText.photo} ${activeGalleryIndex + 1}${uiText.photoOf}${galleryName}`;
           lightboxImage.onload = () => finishGalleryImage(requestId, false);
           lightboxImage.onerror = () => finishGalleryImage(requestId, true);
           lightboxImage.src = source;
@@ -2759,7 +2816,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         if (!list || !button) return;
         const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
         const render = (r) => {
-          const author = esc(r.author || 'Khách hàng');
+          const author = esc(r.author || uiText.customer);
           const text = esc(r.excerpt || r.content || '');
           const service = esc(r.service || '');
           const source = esc(r.source || '');
@@ -2773,30 +2830,30 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             r.before_image_url || r.before || '',
             r.after_image_url || r.after || ''
           ].map(value => String(value || '').trim()).filter(Boolean))];
-          const gallery = images.length ? `<div class="mini-gallery">${images.slice(0, 3).map((image, index) => `<div class="mini-gallery-item"><span><img src="${esc(image)}" alt="Ảnh đính kèm đánh giá" loading="lazy" onerror="this.closest('.mini-gallery-item').remove()"></span>${index === 2 && images.length > 3 ? `<span class="mini-gallery-more">+${images.length - 3}</span>` : ''}</div>`).join('')}</div>` : '';
+          const gallery = images.length ? `<div class="mini-gallery">${images.slice(0, 3).map((image, index) => `<div class="mini-gallery-item"><span><img src="${esc(image)}" alt="${esc(uiText.reviewPhoto)}" loading="lazy" onerror="this.closest('.mini-gallery-item').remove()"></span>${index === 2 && images.length > 3 ? `<span class="mini-gallery-more">+${images.length - 3}</span>` : ''}</div>`).join('')}</div>` : '';
           const details = service || source ? `<div class="review-detail-row">${service ? `<span class="review-service"><i data-lucide="stethoscope"></i>${service}</span>` : ''}${source ? `<span class="review-source"><i data-lucide="link"></i>${source}</span>` : ''}</div>` : '';
-          const ratingMarkup = rating > 0 ? `<div class="review-rating"><span class="review-stars" aria-label="${rating.toFixed(1)} trên 5">${stars}</span><strong>${rating.toFixed(1)}</strong></div>` : '<span class="review-unrated">Chia sẻ trải nghiệm</span>';
+          const ratingMarkup = rating > 0 ? `<div class="review-rating"><span class="review-stars" aria-label="${rating.toFixed(1)} ${esc(uiText.outOfFive)}">${stars}</span><strong>${rating.toFixed(1)}</strong></div>` : `<span class="review-unrated">${esc(uiText.sharedExperience)}</span>`;
           const meta = `${Number(r.likes || 0) > 0 ? `<span><i data-lucide="heart"></i>${Number(r.likes)}</span>` : ''}${Number(r.comments || 0) > 0 ? `<span><i data-lucide="message-circle"></i>${Number(r.comments)}</span>` : ''}`;
-          return `<article class="review-row"><div class="review-author"><span class="avatar">${esc(author.charAt(0) || 'K')}</span><div><strong>${author}</strong>${location ? `<span class="meta-line">${location}</span>` : ''}${r.is_verified ? '<span class="review-badge"><i data-lucide="badge-check"></i>Đã xác thực</span>' : ''}</div></div><div class="review-body"><div class="review-content-top">${ratingMarkup}${date ? `<span class="review-date">${date}</span>` : ''}</div><div class="review-content">${text}</div>${details}${gallery}</div><div class="review-meta">${meta}</div></article>`;
+          return `<article class="review-row"><div class="review-author"><span class="avatar">${esc(author.charAt(0) || uiText.avatarFallback)}</span><div><strong>${author}</strong>${location ? `<span class="meta-line">${location}</span>` : ''}${r.is_verified ? `<span class="review-badge"><i data-lucide="badge-check"></i>${esc(uiText.verified)}</span>` : ''}</div></div><div class="review-body"><div class="review-content-top">${ratingMarkup}${date ? `<span class="review-date">${date}</span>` : ''}</div><div class="review-content">${text}</div>${details}${gallery}</div><div class="review-meta">${meta}</div></article>`;
         };
         const reviewParams = (page) => new URLSearchParams({ facility_id: list.dataset.facilityId || '0', facility_slug: list.dataset.facilitySlug || '', page: String(page), limit: '3', service: serviceFilter?.value || '', sort: sortFilter?.value || 'newest', has_images: imageOnly?.checked ? '1' : '' });
         button.addEventListener('click', async (event) => {
           event.preventDefault();
           if (button.dataset.loading === '1') return;
           button.dataset.loading = '1';
-          button.querySelector('span').textContent = 'Đang tải…';
+          button.querySelector('span').textContent = uiText.loading;
           const params = reviewParams(button.dataset.page || '2');
           try {
             const response = await fetch('/api/medical/facility-reviews.php?' + params.toString(), { headers: { Accept: 'application/json' } });
             const data = await response.json();
-            if (!response.ok || !data.ok) throw new Error(data.message || 'Không thể tải đánh giá');
+            if (!response.ok || !data.ok) throw new Error(data.message || uiText.loadReviewsFailed);
             list.insertAdjacentHTML('beforeend', (data.items || []).map(render).join(''));
             if (window.lucide) window.lucide.createIcons();
             button.dataset.page = String(Number(button.dataset.page || 2) + 1);
             if (!data.has_more || !(data.items || []).length) button.style.display = 'none';
-            else button.querySelector('span').textContent = 'Xem thêm đánh giá';
+            else button.querySelector('span').textContent = uiText.loadMore;
           } catch (error) {
-            button.querySelector('span').textContent = 'Thử lại';
+            button.querySelector('span').textContent = uiText.retry;
             console.error(error);
           } finally { button.dataset.loading = '0'; }
         });
@@ -2806,7 +2863,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           const response = await fetch('/api/medical/facility-reviews.php?' + reviewParams(1).toString());
           const data = await response.json();
           const items = data.items || [];
-          list.insertAdjacentHTML('afterbegin', items.length ? items.map(render).join('') : '<div class="review-empty"><i data-lucide="message-circle"></i><strong>Không có đánh giá phù hợp</strong><span>Hãy thử thay đổi bộ lọc.</span></div>');
+          list.insertAdjacentHTML('afterbegin', items.length ? items.map(render).join('') : `<div class="review-empty"><i data-lucide="message-circle"></i><strong>${esc(uiText.noMatchingReviews)}</strong><span>${esc(uiText.adjustFilters)}</span></div>`);
           if (window.lucide) window.lucide.createIcons();
           if (!data.has_more) button.style.display = 'none';
         };
