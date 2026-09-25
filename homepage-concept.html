@@ -55,9 +55,6 @@
       .hero-description{font-size:14px;line-height:1.65;margin-top:12px;max-width:350px;color:#63768c}
       .hero-proof{display:none}
       .search-panel{margin-top:22px;padding:2px 14px 12px;border-radius:19px;scroll-margin-top:0;box-shadow:0 10px 25px #274e870b}
-      .search-tabs{gap:0;justify-content:space-between;margin-bottom:8px}
-      .search-tab{font-size:12px;padding:14px 0 12px;gap:7px;min-height:44px}
-      .search-tab .icon{width:16px;height:16px}
       .search-form{gap:10px}.search-field{gap:8px}.search-field>.icon{width:18px;height:18px}
       .search-field input{height:46px;font-size:16px}
       .search-field input::placeholder{font-size:13px}
@@ -168,7 +165,7 @@
       .brand img{width:26px;height:34px}.brand-name{font-size:21px;letter-spacing:-1px}.brand-tagline{font-size:6.2px}
       .icon-button,.language-button{width:36px;height:36px;border-radius:11px}
       .hero h1{font-size:32px;letter-spacing:-1.4px}.hero-description{font-size:13px}
-      .search-panel{padding-inline:11px}.search-tab{font-size:11px;gap:5px}
+      .search-panel{padding-inline:11px}
       .search-field input::placeholder{font-size:12px}.quick-search button{font-size:10px}
       .hero:before{height:246px}
       .section-heading h2,.approach-copy h2{font-size:22px}
@@ -222,8 +219,7 @@
 <main id="main">
   <section class="hero" aria-labelledby="hero-title"><div class="container hero-grid">
     <div class="hero-copy"><p class="eyebrow"><span class="dot"></span>Đồng hành cùng sức khỏe của bạn</p><h1 id="hero-title">Chọn nơi tin cậy.<span>Trao gửi an tâm.</span></h1><p class="hero-description"><span class="desktop-copy">Tìm hiểu cơ sở y tế, gặp đúng bác sĩ và tham khảo trải nghiệm thực tế — để mỗi lựa chọn sức khỏe đều có cơ sở.</span><span class="mobile-copy">Tìm cơ sở, bác sĩ phù hợp.<br>An tâm chăm sóc sức khỏe.</span></p>
-      <div class="search-panel" id="searchPanel"><div class="search-tabs" role="tablist" aria-label="Đối tượng tìm kiếm"><button class="search-tab" id="tab-facility" role="tab" aria-controls="searchForm" aria-selected="true" data-type="facility"><svg class="icon"><use href="#i-building"/></svg>Cơ sở y tế</button><button class="search-tab" id="tab-doctor" role="tab" aria-controls="searchForm" aria-selected="false" tabindex="-1" data-type="doctor"><svg class="icon"><use href="#i-stethoscope"/></svg>Bác sĩ</button><button class="search-tab" id="tab-service" role="tab" aria-controls="searchForm" aria-selected="false" tabindex="-1" data-type="service"><svg class="icon"><use href="#i-heart"/></svg>Dịch vụ</button></div>
-      <form class="search-form" id="searchForm" action="https://medreview.vn/co-so-y-te" method="get" role="search" aria-label="Tìm kiếm cơ sở y tế"><label class="search-field"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Nhập tên cơ sở, dịch vụ hoặc địa điểm</span><input id="searchInput" type="search" name="q" autocomplete="off" placeholder="Nha khoa, phòng khám, thành phố…" aria-controls="searchResults" aria-expanded="false"></label><button class="send-button" type="submit" aria-label="Tìm kiếm"><svg class="icon"><use href="#i-send"/></svg></button></form><div class="suggestions" id="searchResults" hidden></div></div>
+      <div class="search-panel" id="searchPanel"><form class="search-form" id="searchForm" action="https://medreview.vn/co-so-y-te" method="get" role="search" aria-label="Tìm cơ sở y tế, bác sĩ, dịch vụ và Toplist"><label class="search-field"><svg class="icon"><use href="#i-search"/></svg><span class="sr-only">Nhập cơ sở, bác sĩ, dịch vụ hoặc thành phố</span><input id="searchInput" type="search" name="q" autocomplete="off" placeholder="Cơ sở, bác sĩ, dịch vụ, thành phố…" aria-controls="searchResults" aria-expanded="false"></label><button class="send-button" type="submit" aria-label="Tìm kiếm"><svg class="icon"><use href="#i-send"/></svg></button></form><div class="suggestions" id="searchResults" hidden></div></div>
       <div class="quick-search"><span>Thử tìm:</span><button type="button" data-query="Nha khoa Hà Nội">Nha khoa Hà Nội</button><button type="button" data-query="Răng sứ Đà Nẵng">Răng sứ Đà Nẵng</button><button type="button" data-query="Invisalign">Invisalign</button></div><div class="hero-proof"><span><svg class="icon"><use href="#i-building"/></svg><strong>1.049</strong> cơ sở y tế</span><span><svg class="icon"><use href="#i-shield"/></svg>Thông tin có nguồn</span><span><svg class="icon"><use href="#i-heart"/></svg>Vì cộng đồng</span></div>
     </div>
     <div class="hero-visual"><span class="hero-cross" aria-hidden="true"><svg class="icon"><use href="#i-plus"/></svg></span><figure class="hero-photo"><img src="uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg" style="object-position:right center" alt="Gia đình trong không gian y tế sáng, thân thiện — ảnh minh họa" width="1800" height="720" fetchpriority="high"><figcaption><span>Cùng bạn, từ lựa chọn đến an tâm.</span><span>Ảnh minh họa</span></figcaption></figure><div class="floating-note note-top"><span class="note-icon"><svg class="icon"><use href="#i-shield"/></svg></span><span><strong>Hiểu rõ trước khi lựa chọn</strong><small>Hồ sơ · Dịch vụ · Trải nghiệm</small></span></div><div class="floating-note note-bottom"><span class="note-icon"><svg class="icon"><use href="#i-heart"/></svg></span><span><strong>Sức khỏe của bạn là ưu tiên</strong><small>Tìm nơi chăm sóc phù hợp với mình</small></span></div><span class="hero-orbit" aria-hidden="true"></span></div>
@@ -351,22 +347,20 @@
   mobile.addEventListener('change',()=>{renderFacilities($('.city-filters button[aria-pressed="true"]').dataset.city);railControllers.forEach(refresh=>refresh());});
   $('#facilityGrid').addEventListener('click',event=>{const button=event.target.closest('[data-save]');if(!button)return;const id=Number(button.dataset.save);saved.has(id)?saved.delete(id):saved.add(id);button.setAttribute('aria-pressed',String(saved.has(id)));try{localStorage.setItem('medreview-concept-saved',JSON.stringify([...saved]));}catch(_){}notify(saved.has(id)?'Đã lưu cơ sở trong bản xem trước.':'Đã bỏ lưu cơ sở.');});
   // A local, accent-insensitive search preview; submitting opens the real directory.
-  let type='facility';const input=$('#searchInput');const panel=$('#searchPanel');const results=$('#searchResults');
-  function resultUrl(){return SITE+(type==='doctor'?'/bac-si':'/co-so-y-te')+'?q='+encodeURIComponent(input.value.trim());}
+  const input=$('#searchInput');const panel=$('#searchPanel');const results=$('#searchResults');
+  function resultUrl(){return SITE+'/co-so-y-te?q='+encodeURIComponent(input.value.trim());}
   function closeSearch(){panel.classList.remove('search-open');results.hidden=true;$('#searchBackdrop').hidden=true;input.setAttribute('aria-expanded','false');}
   function openSearch(){
     panel.classList.add('search-open');results.hidden=false;$('#searchBackdrop').hidden=false;input.setAttribute('aria-expanded','true');
     const tokens=normalize(input.value.trim()).split(/\s+/).filter(Boolean);
-    const matches=type==='doctor'?[]:facilities.filter(f=>tokens.every(t=>normalize([f.name,f.city,f.area,'nha khoa',...f.tags].join(' ')).includes(t))).slice(0,3);
-    results.innerHTML=`<div class="suggestions-title"><span>${input.value.trim()?'Gợi ý phù hợp':'Địa chỉ để khám phá'}</span><button type="button" id="closeSearch" aria-label="Đóng kết quả tìm kiếm">${icon('close')}</button></div>`+(matches.length?matches.map(f=>`<a class="search-result" href="${profile(f)}"><img src="${esc(imgUrl(f))}" alt="" width="43" height="43"><span class="result-copy"><strong>${esc(f.name)}</strong><small>${esc(f.city)} · ${f.rating} ★ · ${f.reviews} đánh giá</small></span>${icon('up-right')}</a>`).join(''):`<p class="search-empty">${type==='doctor'?'Tìm bác sĩ theo tên hoặc chuyên khoa trên MedReview.':'Xem thêm kết quả trong danh sách cơ sở y tế của MedReview.'}</p>`)+`<a class="search-all" href="${esc(resultUrl())}">Xem tất cả kết quả trên MedReview ${icon('arrow')}</a>`;
+    const matches=facilities.filter(f=>tokens.every(t=>normalize([f.name,f.city,f.area,'nha khoa','phòng khám','cơ sở y tế',...f.tags].join(' ')).includes(t))).slice(0,3);
+    results.innerHTML=`<div class="suggestions-title"><span>${input.value.trim()?'Gợi ý phù hợp':'Địa chỉ để khám phá'}</span><button type="button" id="closeSearch" aria-label="Đóng kết quả tìm kiếm">${icon('close')}</button></div>`+(matches.length?matches.map(f=>`<a class="search-result" href="${profile(f)}"><img src="${esc(imgUrl(f))}" alt="" width="43" height="43"><span class="result-copy"><strong>${esc(f.name)}</strong><small>${esc(f.city)} · ${f.rating} ★ · ${f.reviews} đánh giá</small></span>${icon('up-right')}</a>`).join(''):`<p class="search-empty">Tìm thêm kết quả cho “${esc(input.value.trim())}” trên MedReview.</p>`)+`<a class="search-all" href="${esc(resultUrl())}">Tìm cơ sở, bác sĩ và dịch vụ ${icon('arrow')}</a>`;
     $('#closeSearch').addEventListener('click',()=>{closeSearch();input.focus({preventScroll:true});closeSearch();});
   }
   input.addEventListener('focus',()=>{openSearch();if(matchMedia('(max-width:760px)').matches)panel.scrollIntoView({behavior:reduced?'instant':'smooth',block:'start'});});
   input.addEventListener('input',openSearch);
   $('#searchBackdrop').addEventListener('click',closeSearch);
   $('#searchForm').addEventListener('submit',event=>{event.preventDefault();window.location.href=resultUrl();});
-  $$('.search-tab').forEach(tab=>tab.addEventListener('click',()=>{type=tab.dataset.type;$$('.search-tab').forEach(t=>{t.setAttribute('aria-selected',String(t===tab));t.tabIndex=t===tab?0:-1;});input.placeholder=type==='doctor'?'Tên bác sĩ, chuyên khoa, thành phố…':type==='service'?'Răng sứ, Implant, khám tổng quát…':'Nha khoa, phòng khám, thành phố…';$('#searchForm').setAttribute('aria-label',type==='doctor'?'Tìm kiếm bác sĩ':'Tìm kiếm cơ sở và dịch vụ y tế');if(panel.classList.contains('search-open'))openSearch();}));
-  $('.search-tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=$$('.search-tab');let idx=tabs.indexOf(document.activeElement);if(idx<0)return;event.preventDefault();idx=event.key==='Home'?0:event.key==='End'?tabs.length-1:(idx+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[idx].click();tabs[idx].focus();});
   $$('[data-query]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.query;input.focus();openSearch();}));
   $$('[data-focus-search]').forEach(button=>button.addEventListener('click',()=>{setMenu(false);input.focus({preventScroll:true});panel.scrollIntoView({behavior:reduced?'instant':'smooth',block:'start'});}));
   const menuButton=$('#menuButton'),mobileMenu=$('#mobileMenu'),languageButton=$('#languageButton'),languageMenu=$('#languageMenu');
