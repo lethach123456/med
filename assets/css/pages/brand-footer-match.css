@@ -1,0 +1,221 @@
+/* Keep the shared, DB-backed footer in step with the homepage concept. This is
+   loaded after the footer's legacy inline rules so the cascade is predictable. */
+.medical-footer {
+  margin-top: 0 !important;
+  color: #fff;
+  background: #102847;
+}
+
+.medical-footer::before,
+.medical-footer::after { display: none; }
+
+.medical-footer .footer-main { padding: 54px 0 0 !important; }
+.medical-footer .footer-grid {
+  grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(0, 1.1fr);
+  gap: 50px;
+  padding-bottom: 41px;
+}
+.medical-footer .footer-brand { max-width: 300px; }
+.medical-footer .footer-brand-link { gap: 9px; }
+.medical-footer .footer-brand-icon {
+  overflow: hidden;
+  width: 39px;
+  height: 44px;
+  border: 0;
+  border-radius: 0;
+  color: #fff;
+  background: transparent;
+  box-shadow: none;
+}
+.medical-footer .footer-brand-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.medical-footer .footer-brand-icon:has(svg) { background: transparent !important; }
+.medical-footer .footer-brand-icon svg { display: block; width: 100%; height: 100%; }
+.medical-footer .footer-brand-icon svg + i { display: none !important; }
+.medical-footer .footer-brand-icon.brand-image-loaded i { display: none; }
+.medical-footer .footer-brand-name {
+  color: #fff;
+  font-size: 29px;
+  line-height: 1.15;
+  letter-spacing: -.055em;
+}
+.medical-footer .footer-wordmark-med { color: #fff; }
+.medical-footer .footer-wordmark-review { color: #77a4ff; }
+.medical-footer .footer-brand-label {
+  margin-top: 0;
+  color: #9aaec8;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+.medical-footer .footer-intro {
+  max-width: 280px;
+  margin-top: 20px;
+  color: #91a5bf;
+  font-size: 11px;
+  line-height: 1.9;
+}
+.medical-footer .footer-intro-mobile { display: none; }
+
+.medical-footer .social-row { gap: 7px; margin-top: 21px; }
+.medical-footer .social-row a {
+  width: 29px;
+  height: 29px;
+  border: 1px solid #3c516b;
+  border-radius: 7px;
+  color: #afc3de;
+  background: transparent;
+  box-shadow: none;
+}
+.medical-footer .social-row i { font-size: 15px; }
+
+.medical-footer .footer-section h3 {
+  margin: 5px 0 21px;
+  padding: 0;
+  color: #ecf3ff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+.medical-footer .footer-section h3::after { display: none; }
+.medical-footer .footer-links { gap: 0; }
+.medical-footer .footer-links a {
+  display: block;
+  width: auto;
+  min-height: 0;
+  margin-top: 14px;
+  padding: 0;
+  color: #92a8c4;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.6;
+  transition: color .2s ease;
+}
+.medical-footer .footer-links a::before { display: none; }
+.medical-footer .footer-links a:hover { color: #fff; transform: none; }
+.medical-footer .footer-listen-copy {
+  margin: 0;
+  color: #92a8c4;
+  font-size: 11px;
+  line-height: 1.9;
+}
+.medical-footer .footer-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  color: #c5d6ef;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.medical-footer .footer-contact-link i { font-size: 15px; }
+/* The dedicated contact page remains the visual call to action; the site's
+   DB-backed direct contact details remain in the DOM for assistive access. */
+.medical-footer .footer-contact-compact {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.medical-footer .footer-bottom {
+  min-height: 0;
+  gap: 20px;
+  padding: 22px 0;
+  border-top: 1px solid #2a415e;
+  color: #8197b3;
+  font-size: 9px;
+  line-height: 1.8;
+}
+.medical-footer .footer-disclaimer { max-width: 580px; text-align: right; }
+
+@media (max-width: 1190px) {
+  .medical-footer .footer-grid { gap: 30px; }
+}
+
+@media (max-width: 1020px) {
+  .medical-footer .footer-grid {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+    gap: 35px;
+  }
+  .medical-footer .footer-brand { grid-column: 1 / -1; max-width: 520px; }
+  .medical-footer .footer-section-contact {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 25px;
+    padding-top: 25px;
+    border-top: 1px solid #29405c;
+  }
+  .medical-footer .footer-section-contact h3 { margin: 0; }
+  .medical-footer .footer-listen-copy { max-width: 330px; }
+  .medical-footer .footer-contact-link { margin-top: 0; white-space: nowrap; }
+  .medical-footer .footer-bottom { font-size: 8px; }
+}
+
+@media (max-width: 760px) {
+  .medical-footer .footer-main { padding: 31px 0 0 !important; }
+  .medical-footer .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 20px;
+    padding-bottom: 26px;
+  }
+  .medical-footer .footer-brand { grid-column: 1 / -1; max-width: none; }
+  .medical-footer .footer-brand-name { font-size: 27px; }
+  .medical-footer .footer-brand-label { font-size: 8px; }
+  .medical-footer .footer-intro {
+    max-width: 290px;
+    margin-top: 15px;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .medical-footer .footer-intro-desktop { display: none; }
+  .medical-footer .footer-intro-mobile { display: inline; }
+  .medical-footer .social-row { margin-top: 14px; }
+  .medical-footer .footer-section h3 { margin: 0 0 10px; font-size: 12px; }
+  .medical-footer .footer-links a {
+    min-height: 0;
+    margin: 0;
+    padding: 8px 0;
+    color: #a9bcd4;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .medical-footer .footer-section-contact {
+    grid-column: 1 / -1;
+    display: block;
+    margin: 0;
+    padding-top: 21px;
+  }
+  .medical-footer .footer-section-contact h3,
+  .medical-footer .footer-listen-copy { display: none; }
+  .medical-footer .footer-contact-link {
+    min-height: 34px;
+    margin: 0;
+    padding: 3px 0;
+    font-size: 12px;
+  }
+  .medical-footer .footer-bottom {
+    display: block;
+    min-height: 0;
+    padding: 20px 0;
+    font-size: 10px;
+    line-height: 1.7;
+  }
+  .medical-footer .footer-disclaimer {
+    margin: 10px 0 0;
+    font-size: 10px;
+    line-height: 1.8;
+    text-align: left;
+  }
+}

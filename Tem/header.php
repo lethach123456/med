@@ -24,11 +24,24 @@ $reviewPath = site_localized_path('/review.php', $locale);
 $toplistPath = site_localized_path(medical_public_toplist_path(), $locale);
 $uiStylesheetPath = __DIR__ . '/../assets/css/core/ui-2026.css';
 $uiStylesheetVersion = is_file($uiStylesheetPath) ? (string) filemtime($uiStylesheetPath) : '1';
+$brandRefreshStylesheetPath = __DIR__ . '/../assets/css/pages/brand-home-refresh.css';
+$brandRefreshStylesheetVersion = is_file($brandRefreshStylesheetPath) ? (string) filemtime($brandRefreshStylesheetPath) : '1';
+$headerMatchStylesheetPath = __DIR__ . '/../assets/css/pages/brand-header-match.css';
+$headerMatchStylesheetVersion = is_file($headerMatchStylesheetPath) ? (string) filemtime($headerMatchStylesheetPath) : '1';
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
 $brandName = site_title('MedReview');
 $brandIconUrl = site_icon_href('');
+if ($brandIconUrl === '') {
+  $brandIconUrl = 'https://medreview.vn/uploads/library/2026/07/fbef23f192e21b0669c670803723ec66.jpg';
+}
+// Prefer the local copy of a MedReview upload when available. This keeps the
+// header logo visible in local previews even when the remote image is blocked.
+if (preg_match('~^https?://(?:www\.)?medreview\.vn(/uploads/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|svg))(?:\?.*)?$~i', $brandIconUrl, $brandIconMatch)
+    && is_file(dirname(__DIR__) . $brandIconMatch[1])) {
+  $brandIconUrl = $brandIconMatch[1];
+}
 $hasBrandIcon = $brandIconUrl !== '';
 $isMedReviewWordmark = strcasecmp($brandName, 'MedReview') === 0;
 $brandTagline = $isEnglish ? 'Verified medical review community' : 'Cộng đồng review y tế đáng tin cậy';
@@ -36,21 +49,22 @@ $desktopMenuLabel = $isEnglish ? 'Main navigation' : 'Điều hướng chính';
 $mobileMenuLabel = $isEnglish ? 'Mobile navigation' : 'Điều hướng di động';
 $loginLabel = $isEnglish ? 'Log in' : 'Đăng nhập';
 $searchPlaceholder = $isEnglish ? 'Search service, doctor, clinic...' : 'Tìm kiếm dịch vụ, bác sĩ, phòng khám...';
+$providerLinkLabel = $isEnglish ? 'For healthcare providers' : 'Dành cho cơ sở y tế';
 
 $navItems = $isEnglish
   ? [
       ['label' => 'Home', 'href' => $homePath, 'match' => (string) (parse_url($homePath, PHP_URL_PATH) ?: '/')],
       ['label' => 'Healthcare facilities', 'href' => $facilitiesPath, 'match' => $facilitiesPath],
-      ['label' => 'Reviews', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Doctors', 'href' => $doctorsPath, 'match' => $doctorsPath],
+      ['label' => 'Reviews', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Toplist', 'href' => $toplistPath, 'match' => $toplistPath],
       ['label' => 'About', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ]
   : [
       ['label' => 'Trang chủ', 'href' => $homePath, 'match' => '/'],
       ['label' => 'Cơ sở y tế', 'href' => $facilitiesPath, 'match' => $facilitiesPath],
-      ['label' => 'Review', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Bác sĩ', 'href' => $doctorsPath, 'match' => $doctorsPath],
+      ['label' => 'Review', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Toplist', 'href' => $toplistPath, 'match' => $toplistPath],
       ['label' => 'Về chúng tôi', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ];
@@ -1319,12 +1333,20 @@ $navItems = $isEnglish
     }
   }
 </style>
+<link rel="stylesheet" href="/assets/css/pages/brand-home-refresh.css?v=<?php echo htmlspecialchars($brandRefreshStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
+<link rel="stylesheet" href="/assets/css/pages/brand-header-match.css?v=<?php echo htmlspecialchars($headerMatchStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
+<div class="medical-header-utility">
+  <div class="container">
+    <span><i class="ph ph-shield-check" aria-hidden="true"></i><?php echo htmlspecialchars($isEnglish ? 'Transparent information. Better choices.' : 'Thông tin minh bạch. Lựa chọn tốt hơn.', ENT_QUOTES, 'UTF-8'); ?></span>
+    <a href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($providerLinkLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+  </div>
+</div>
 <header class="medical-header">
   <div class="container">
     <div class="header-shell">
       <a class="brand-link<?php echo $hasBrandIcon ? ' has-image-brand' : ''; ?>" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
         <span class="brand-mark<?php echo $hasBrandIcon ? ' is-image' : ''; ?>" aria-hidden="true">
-          <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" loading="eager" decoding="async" onerror="this.remove();this.parentElement.classList.remove('is-image');"><?php endif; ?>
+          <?php if ($hasBrandIcon): ?><img src="<?php echo htmlspecialchars($brandIconUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" loading="eager" decoding="async" onload="this.parentElement.classList.add('brand-image-loaded');" onerror="var mark=this.parentElement;this.remove();if(mark)mark.classList.remove('is-image','brand-image-loaded');"><?php endif; ?>
           <i class="ph ph-heart"></i>
         </span>
         <span class="brand-copy">
@@ -1337,7 +1359,8 @@ $navItems = $isEnglish
         <nav class="header-nav" aria-label="<?php echo htmlspecialchars($desktopMenuLabel, ENT_QUOTES, 'UTF-8'); ?>">
           <?php foreach ($navItems as $item): ?>
             <?php $matchPath = (string) ($item['match'] ?? ''); ?>
-            <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo ($matchPath !== '' && $requestPath === $matchPath) ? 'is-active' : ''; ?>"><?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+            <?php $isDesktopActive = $matchPath !== '' && $requestPath === $matchPath; ?>
+            <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isDesktopActive ? 'is-active' : ''; ?>"<?php echo $isDesktopActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
           <?php endforeach; ?>
         </nav>
       </div>
@@ -1351,47 +1374,25 @@ $navItems = $isEnglish
           </div>
           <div class="medical-search-results" data-medical-search-results hidden></div>
         </div>
-        <span class="lang-switch" aria-label="Language switch">
-          <a href="<?php echo htmlspecialchars((string) ($langLinks['vi'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'vi') ? 'is-active' : ''; ?>">VI</a>
-          <a href="<?php echo htmlspecialchars((string) ($langLinks['en'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'en') ? 'is-active' : ''; ?>">EN</a>
-        </span>
         <details class="mobile-language" data-mobile-language>
-          <summary aria-label="<?php echo $isEnglish ? 'Language' : 'Ngôn ngữ'; ?>" aria-expanded="false" aria-controls="medical-mobile-language-panel"><i class="ph ph-translate" aria-hidden="true"></i></summary>
+          <summary aria-label="<?php echo $isEnglish ? 'Choose language' : 'Chọn ngôn ngữ'; ?>" aria-expanded="false" aria-controls="medical-mobile-language-panel"><i class="ph ph-globe" aria-hidden="true"></i><span class="lang-code"><?php echo $isEnglish ? 'EN' : 'VI'; ?></span><i class="ph ph-caret-down language-chevron" aria-hidden="true"></i></summary>
           <span class="mobile-language-panel" id="medical-mobile-language-panel">
-            <a href="<?php echo htmlspecialchars((string) ($langLinks['vi'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'vi') ? 'is-active' : ''; ?>">VI</a>
-            <a href="<?php echo htmlspecialchars((string) ($langLinks['en'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'en') ? 'is-active' : ''; ?>">EN</a>
+            <a href="<?php echo htmlspecialchars((string) ($langLinks['vi'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>" lang="vi" class="<?php echo (($langLinks['current'] ?? 'vi') === 'vi') ? 'is-active' : ''; ?>">Tiếng Việt<?php if (($langLinks['current'] ?? 'vi') === 'vi'): ?><i class="ph ph-check" aria-hidden="true"></i><?php endif; ?></a>
+            <a href="<?php echo htmlspecialchars((string) ($langLinks['en'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>" lang="en" class="<?php echo (($langLinks['current'] ?? 'vi') === 'en') ? 'is-active' : ''; ?>">English<?php if (($langLinks['current'] ?? 'vi') === 'en'): ?><i class="ph ph-check" aria-hidden="true"></i><?php endif; ?></a>
           </span>
         </details>
-        <a class="header-login" href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><i class="ph ph-user-circle"></i> <?php echo htmlspecialchars($loginLabel, ENT_QUOTES, 'UTF-8'); ?></a>
+        <a class="header-login" href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($loginLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
         <details class="header-mobile" data-mobile-menu>
           <summary class="mobile-summary" aria-label="<?php echo htmlspecialchars($mobileMenuLabel, ENT_QUOTES, 'UTF-8'); ?>" aria-expanded="false" aria-controls="medical-mobile-menu-panel"><i class="ph ph-list" aria-hidden="true"></i></summary>
           <div class="mobile-panel" id="medical-mobile-menu-panel">
-            <div class="mobile-menu-context" aria-hidden="true">
-              <span class="mobile-menu-grabber"></span>
-              <span class="mobile-menu-title">
-                <small><?php echo htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8'); ?></small>
-                <strong><?php echo $isEnglish ? 'Explore healthcare' : 'Khám phá y tế'; ?></strong>
-              </span>
-              <i class="ph-fill ph-seal-check"></i>
-            </div>
-            <div class="medical-search-shell mobile-search-shell" data-medical-search>
-              <label class="mobile-search">
-                <i class="ph ph-magnifying-glass"></i>
-                <input type="search" data-medical-search-input autocomplete="off" placeholder="<?php echo htmlspecialchars($searchPlaceholder, ENT_QUOTES, 'UTF-8'); ?>">
-              </label>
-              <div class="medical-search-results" data-medical-search-results hidden></div>
-            </div>
-            <?php foreach ($navItems as $item): ?>
+            <?php foreach ($navItems as $index => $item): ?>
               <?php $mobileMatchPath = (string) ($item['match'] ?? ''); ?>
               <?php $isMobileActive = $mobileMatchPath !== '' && $requestPath === $mobileMatchPath; ?>
-              <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isMobileActive ? 'is-active' : ''; ?>"<?php echo $isMobileActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+              <?php $mobileLabel = (!$isEnglish && $index === count($navItems) - 1) ? 'Về MedReview' : (string) $item['label']; ?>
+              <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isMobileActive ? 'is-active' : ''; ?>"<?php echo $isMobileActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars($mobileLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph <?php echo $index === 0 ? 'ph-arrow-right' : 'ph-arrow-up-right'; ?>" aria-hidden="true"></i></a>
             <?php endforeach; ?>
-            <div class="mobile-menu-footer">
-              <span class="lang-switch" aria-label="Language switch mobile">
-                <a href="<?php echo htmlspecialchars((string) ($langLinks['vi'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'vi') ? 'is-active' : ''; ?>">VI</a>
-                <a href="<?php echo htmlspecialchars((string) ($langLinks['en'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo (($langLinks['current'] ?? 'vi') === 'en') ? 'is-active' : ''; ?>">EN</a>
-              </span>
-              <a class="header-login" href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><i class="ph ph-user-circle"></i> <?php echo htmlspecialchars($loginLabel, ENT_QUOTES, 'UTF-8'); ?></a>
+            <div class="menu-bottom">
+              <a class="header-login" href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($isEnglish ? 'Join the community' : 'Tham gia cộng đồng', ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
             </div>
           </div>
         </details>
@@ -1413,7 +1414,7 @@ $navItems = $isEnglish
     var searchInput = searchShell ? searchShell.querySelector('[data-medical-search-input]') : null;
     var searchResults = searchShell ? searchShell.querySelector('[data-medical-search-results]') : null;
     var backdrop = document.querySelector('.mobile-popover-backdrop');
-    var mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
+    var mobileQuery = window.matchMedia ? window.matchMedia('(max-width: 1020px)') : null;
 
     function isPhone(){
       return !mobileQuery || mobileQuery.matches;
@@ -1492,6 +1493,18 @@ $navItems = $isEnglish
     if (searchTrigger) {
       searchTrigger.addEventListener('click', function(event){
         event.preventDefault();
+        var homeSearch = document.querySelector('.med-home.hc-home .hero-search-shell');
+        var homeInput = homeSearch ? homeSearch.querySelector('[data-medical-search-input]') : null;
+        if (document.body.classList.contains('site-home') && homeSearch && homeInput) {
+          closeSearch();
+          closeDetails();
+          homeSearch.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+            block: 'start'
+          });
+          window.requestAnimationFrame(function(){ homeInput.focus({preventScroll:true}); });
+          return;
+        }
         if (searchShell && searchShell.classList.contains('is-mobile-search-open')) closeSearch();
         else openSearch();
       });

@@ -1,0 +1,539 @@
+/* Shared navigation aligned with homepage-concept.html.  This file is loaded
+   after the older public header layers so their legacy !important rules do
+   not change the concept's sizing and responsive breakpoints. */
+.medical-header-utility,
+.medical-header{
+  font-family:Inter,Arial,sans-serif;
+  letter-spacing:normal;
+}
+
+.medical-header-utility{
+  min-height:32px;
+  border-bottom:1px solid #edf1f6;
+  background:#f5f8fc;
+  color:#5e7087;
+  font-size:10px;
+  font-weight:400;
+}
+.medical-header-utility>.container{
+  width:min(1248px,calc(100% - 96px))!important;
+  min-height:32px;
+}
+.medical-header-utility span i,
+.medical-header-utility a i{font-size:13px;color:inherit}
+.medical-header-utility a{color:#5e7087}
+
+.medical-header{
+  position:sticky;
+  top:0;
+  z-index:1000;
+  overflow:visible;
+  isolation:auto;
+  border-bottom:1px solid rgba(223,232,244,.85)!important;
+  background:rgba(255,255,255,.95)!important;
+  box-shadow:none!important;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.medical-header::after{display:none!important}
+.medical-header>.container{
+  width:min(1248px,calc(100% - 96px))!important;
+  margin-inline:auto;
+}
+.medical-header .header-shell{
+  display:flex!important;
+  position:relative;
+  height:84px;
+  min-height:84px!important;
+  align-items:center;
+  gap:35px!important;
+}
+.medical-header .brand-link,
+.medical-header .brand-link.has-image-brand{
+  flex:0 0 auto;
+  gap:8px!important;
+}
+.medical-header .brand-mark,
+.medical-header .brand-mark.is-image{
+  flex:0 0 43px!important;
+  width:43px!important;
+  height:48px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.medical-header .brand-mark.is-image img{
+  object-fit:contain!important;
+  object-position:center!important;
+}
+.medical-header .brand-copy{gap:0}
+.medical-header .brand-copy strong{
+  color:#102b4e!important;
+  font-size:28px!important;
+  font-weight:800!important;
+  line-height:1.15!important;
+  letter-spacing:-1.5px!important;
+}
+.medical-header .brand-copy strong .brand-wordmark-med{color:#102b4e!important}
+.medical-header .brand-copy strong .brand-wordmark-review{color:#2563ff!important}
+.medical-header .brand-copy>.brand-tagline{
+  display:block!important;
+  width:auto;
+  max-width:none!important;
+  margin-top:3px;
+  color:#778598;
+  font-size:8.7px!important;
+  font-weight:500!important;
+  line-height:1.3!important;
+  letter-spacing:-.15px;
+  white-space:nowrap;
+  overflow:visible;
+  text-overflow:clip;
+}
+.medical-header .header-center{
+  display:flex!important;
+  flex:1 1 auto;
+  min-width:0;
+  justify-content:flex-end;
+}
+.medical-header .header-nav{
+  display:flex!important;
+  gap:24px!important;
+  margin-left:auto;
+  white-space:nowrap;
+}
+.medical-header .header-nav a{
+  position:relative;
+  display:block;
+  min-height:0!important;
+  padding:32px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#4a5b70;
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:20px;
+  transition:color .2s ease;
+}
+.medical-header .header-nav a:hover,
+.medical-header .header-nav a.is-active{
+  color:#2563ff;
+  background:transparent!important;
+}
+.medical-header .header-nav a.is-active::after{
+  display:block!important;
+  position:absolute;
+  right:0;
+  bottom:20px;
+  left:0;
+  height:2px;
+  border-radius:2px;
+  background:#2563ff;
+  content:"";
+}
+.medical-header .header-actions{
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  gap:10px!important;
+  margin-left:0;
+}
+.medical-header .header-search-shell{display:none!important}
+
+/* The same real locale links are used on every viewport. */
+.medical-header .mobile-language{
+  display:block!important;
+  flex:0 0 auto;
+  position:relative;
+  margin:0!important;
+}
+.medical-header .mobile-language summary,
+.medical-header .mobile-language[open] summary{
+  display:flex!important;
+  width:auto!important;
+  height:40px!important;
+  min-height:40px;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  padding:0 1px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#4a5b70!important;
+  font-size:11px!important;
+  font-weight:600!important;
+  line-height:1;
+  transform:none!important;
+}
+.medical-header .mobile-language summary>i:first-child{font-size:17px!important;transform:none!important}
+.medical-header .mobile-language summary .language-chevron{font-size:12px!important;transform:none!important}
+.medical-header .mobile-language .mobile-language-panel{
+  display:none!important;
+  position:absolute!important;
+  top:calc(100% + 13px)!important;
+  right:0!important;
+  z-index:30;
+  width:178px!important;
+  min-width:178px!important;
+  grid-template-columns:1fr!important;
+  gap:0!important;
+  padding:7px!important;
+  border:1px solid #e4ebf2!important;
+  border-radius:15px!important;
+  background:#fff!important;
+  box-shadow:0 15px 45px #17305324!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:none!important;
+}
+.medical-header .mobile-language[open] .mobile-language-panel{
+  display:grid!important;
+  animation:header-concept-pop .24s cubic-bezier(.22,1,.36,1);
+}
+.medical-header .mobile-language-panel a,
+.medical-header .mobile-language-panel a.is-active{
+  display:flex;
+  min-height:40px;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px;
+  border-radius:9px;
+  background:transparent;
+  box-shadow:none;
+  color:#4a5b70;
+  font-size:12px!important;
+  font-weight:500;
+}
+.medical-header .mobile-language-panel a.is-active{
+  background:#f0f5ff;
+  color:#2563ff;
+}
+.medical-header .mobile-language-panel a:hover{background:#f1f6fc;color:#2563ff}
+.medical-header .mobile-language-panel a i{font-size:15px}
+
+.medical-header .header-login{
+  display:inline-flex!important;
+  flex:0 0 auto;
+  min-height:44px!important;
+  height:44px!important;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:11px 16px!important;
+  border:1px solid transparent!important;
+  border-radius:11px!important;
+  background:#2563ff!important;
+  box-shadow:0 5px 13px #2563ff1b!important;
+  color:#fff!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  line-height:1;
+  white-space:nowrap;
+  transition:transform .22s cubic-bezier(.22,1,.36,1),background .22s,box-shadow .22s;
+}
+.medical-header .header-login i{font-size:17px}
+.medical-header .header-login:hover{
+  background:#1652e8!important;
+  box-shadow:0 7px 20px #2563ff35!important;
+  transform:translateY(-2px);
+}
+.medical-header .header-mobile{display:none!important}
+.mobile-popover-backdrop{display:none!important}
+
+@keyframes header-concept-pop{
+  from{opacity:0;transform:translateY(-7px) scale(.98)}
+  to{opacity:1;transform:none}
+}
+
+@media (max-width:1190px) and (min-width:1021px){
+  .medical-header .header-shell{gap:20px!important}
+  .medical-header .header-nav{gap:16px!important}
+  .medical-header .header-nav a{font-size:11px!important}
+  .medical-header .brand-copy strong{font-size:25px!important}
+  .medical-header .brand-copy>.brand-tagline{font-size:7.8px!important}
+  .medical-header .header-actions{gap:8px!important}
+  .medical-header .header-login{padding-inline:12px!important}
+}
+
+@media (max-width:1020px){
+  .medical-header>.container,
+  .medical-header-utility>.container{width:calc(100% - 64px)!important}
+  .medical-header .header-shell{
+    height:77px;
+    min-height:77px!important;
+    gap:20px!important;
+  }
+  .medical-header .header-center,
+  .medical-header .header-nav{display:none!important}
+  .medical-header .header-actions{gap:11px!important;margin-left:auto}
+  .medical-header .header-search-shell{
+    display:block!important;
+    position:static!important;
+    flex:0 0 40px!important;
+    width:40px!important;
+    min-width:40px!important;
+    margin:0!important;
+  }
+  .medical-header .header-search-shell .mobile-search-trigger{
+    display:grid!important;
+    width:40px!important;
+    height:40px!important;
+    place-items:center;
+    padding:0;
+    border:1px solid #e4ebf2!important;
+    border-radius:11px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+    color:#4a5b70;
+    font-size:18px;
+  }
+  .medical-header .header-search-shell .mobile-search-trigger:hover{background:#f1f6fc!important;border-color:#b8ceee!important}
+  .medical-header .header-search-shell>.header-search{
+    display:none!important;
+    position:absolute!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:none!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open>.header-search{
+    display:flex!important;
+    position:absolute!important;
+    top:calc(100% + 8px)!important;
+    right:0!important;
+    left:auto!important;
+    z-index:25;
+    width:min(400px,calc(100vw - 64px))!important;
+    min-width:0!important;
+    height:48px!important;
+    padding:0 14px!important;
+    border:1px solid #dce6f3!important;
+    border-radius:14px!important;
+    background:#fff!important;
+    box-shadow:0 16px 36px #102b4e29!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open>.header-search:focus-within{
+    border-color:#9fc0fa!important;
+    box-shadow:0 0 0 3px #2563ff14,0 16px 36px #102b4e29!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open .mobile-search-trigger{visibility:hidden!important}
+  .medical-header .header-search-shell.is-mobile-search-open .mobile-search-close{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    border:0;
+    border-radius:9px;
+    background:#f1f6fc;
+    color:#61758f;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open>.header-search input{
+    display:block;
+    position:static;
+    flex:1;
+    min-width:0;
+    width:100%;
+    height:auto;
+    opacity:1;
+    pointer-events:auto;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open .medical-search-results{
+    position:absolute!important;
+    top:calc(100% + 64px)!important;
+    right:0!important;
+    left:auto!important;
+    z-index:26;
+    width:min(400px,calc(100vw - 64px))!important;
+    max-height:min(440px,calc(100dvh - 165px));
+  }
+  .medical-header .header-mobile{
+    display:block!important;
+    position:static!important;
+    flex:0 0 auto;
+    margin:0!important;
+  }
+  .medical-header .mobile-summary,
+  .medical-header .header-mobile[open] .mobile-summary{
+    display:grid!important;
+    width:40px!important;
+    height:40px!important;
+    place-items:center;
+    border:1px solid #2563ff!important;
+    border-radius:11px!important;
+    background:#2563ff!important;
+    box-shadow:none!important;
+    color:#fff!important;
+    transform:none!important;
+  }
+  .medical-header .mobile-summary i{font-size:19px;transform:none!important}
+  .medical-header .header-mobile .mobile-panel,
+  .medical-header .header-mobile[open] .mobile-panel,
+  .medical-header .header-mobile.is-open .mobile-panel{
+    display:grid!important;
+    position:absolute!important;
+    top:calc(100% + 9px)!important;
+    right:0!important;
+    left:auto!important;
+    z-index:20;
+    width:340px!important;
+    max-height:calc(100dvh - 96px);
+    gap:0!important;
+    padding:15px!important;
+    overflow-y:auto;
+    border:1px solid #e4ebf2!important;
+    border-radius:20px!important;
+    background:#fff!important;
+    box-shadow:0 24px 70px #102b4e29!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    transform-origin:top right;
+  }
+  .medical-header .header-mobile .mobile-panel{
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translateY(-7px) scale(.98);
+    transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1),visibility 0s linear .24s;
+  }
+  .medical-header .header-mobile[open] .mobile-panel,
+  .medical-header .header-mobile.is-open .mobile-panel{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:none;
+    transition-delay:0s;
+  }
+  .medical-header .header-mobile .mobile-panel>*{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+  .medical-header .mobile-panel>a:not(.header-login){
+    display:flex!important;
+    min-height:48px;
+    align-items:center;
+    justify-content:space-between;
+    padding:15px 12px;
+    border:0!important;
+    border-radius:10px!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:#4a5b70;
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:normal;
+    transform:none!important;
+  }
+  .medical-header .mobile-panel>a:not(.header-login)::before,
+  .medical-header .mobile-panel>a:not(.header-login)::after{display:none!important}
+  .medical-header .mobile-panel>a:not(.header-login):hover,
+  .medical-header .mobile-panel>a:not(.header-login).is-active{
+    border:0!important;
+    background:#f2f6ff!important;
+    box-shadow:none!important;
+    color:#2563ff;
+  }
+  .medical-header .mobile-panel>a:not(.header-login)>i{font-size:17px}
+  .medical-header .menu-bottom{
+    margin-top:8px;
+    padding-top:12px;
+    border-top:1px solid #e4ebf2;
+  }
+  .medical-header .menu-bottom .header-login{
+    display:flex!important;
+    width:100%!important;
+    margin:0;
+  }
+}
+
+@media (max-width:760px){
+  .medical-header-utility{display:none!important}
+  .medical-header>.container{width:calc(100% - 40px)!important}
+  .medical-header .header-shell{
+    height:72px;
+    min-height:72px!important;
+    gap:8px!important;
+  }
+  .medical-header .brand-link,
+  .medical-header .brand-link.has-image-brand{gap:5px!important;min-width:0}
+  .medical-header .brand-mark,
+  .medical-header .brand-mark.is-image{
+    flex:0 0 30px!important;
+    width:30px!important;
+    height:38px!important;
+  }
+  .medical-header .brand-copy strong{
+    font-size:24px!important;
+    letter-spacing:-1.3px!important;
+  }
+  .medical-header .brand-copy>.brand-tagline{
+    max-width:none!important;
+    font-size:7px!important;
+    letter-spacing:-.15px;
+    overflow:visible;
+  }
+  .medical-header .header-actions{gap:5px!important}
+  .medical-header .mobile-language summary,
+  .medical-header .mobile-language[open] summary{
+    width:40px!important;
+    height:40px!important;
+    padding:0!important;
+    border:1px solid #e4ebf2!important;
+    border-radius:12px!important;
+    background:#fff!important;
+    color:#4a5b70!important;
+  }
+  .medical-header .mobile-language summary .lang-code,
+  .medical-header .mobile-language summary .language-chevron{display:none!important}
+  .medical-header .header-actions>.header-login{display:none!important}
+  .medical-header .mobile-summary,
+  .medical-header .header-mobile[open] .mobile-summary{
+    border-radius:12px!important;
+    background:#2563ff!important;
+    color:#fff!important;
+  }
+  .medical-header .header-mobile .mobile-panel,
+  .medical-header .header-mobile[open] .mobile-panel,
+  .medical-header .header-mobile.is-open .mobile-panel{
+    top:calc(100% + 8px)!important;
+    right:0!important;
+    left:auto!important;
+    width:min(340px,calc(100vw - 40px))!important;
+    max-height:calc(100dvh - 96px);
+    padding:10px!important;
+  }
+  .medical-header .mobile-panel>a:not(.header-login){
+    min-height:48px;
+    padding:13px;
+    border-radius:12px!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open>.header-search,
+  .medical-header .header-search-shell.is-mobile-search-open .medical-search-results{
+    right:0!important;
+    left:0!important;
+    width:auto!important;
+  }
+}
+
+@media (max-width:360px){
+  .medical-header .brand-copy strong{font-size:clamp(20px,6.4vw,24px)!important}
+  .medical-header .brand-copy>.brand-tagline{font-size:6.5px!important}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .medical-header .header-mobile .mobile-panel,
+  .medical-header .mobile-language[open] .mobile-language-panel{animation:none!important;transition:none!important}
+}

@@ -13,6 +13,7 @@ $doctorsPath = site_localized_path('/bac-si.php', $locale);
 $reviewsPath = site_localized_path('/review.php', $locale);
 $toplistsPath = site_localized_path(medical_public_toplist_path(), $locale);
 $categoriesPath = $facilitiesPath;
+$homeHeroImage = '/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg';
 
 if (!function_exists('medical_home_image')) {
     function medical_home_image(array $row): string
@@ -47,12 +48,39 @@ if (!function_exists('medical_home_date')) {
     }
 }
 
+if (!function_exists('medical_home_region')) {
+    function medical_home_region(string $city): string
+    {
+        $city = mb_strtolower(trim($city), 'UTF-8');
+        if (str_contains($city, 'hồ chí minh') || str_contains($city, 'ho chi minh') || str_contains($city, 'sài gòn')) return 'hcm';
+        if (str_contains($city, 'hà nội') || str_contains($city, 'ha noi')) return 'hanoi';
+        if (str_contains($city, 'đà nẵng') || str_contains($city, 'da nang')) return 'danang';
+        return 'other';
+    }
+}
+
+if (!function_exists('medical_home_tags')) {
+    function medical_home_tags(array $facility): array
+    {
+        $tags = [];
+        foreach (['tags_json', 'featured_services_json'] as $field) {
+            $items = json_decode((string) ($facility[$field] ?? ''), true);
+            if (!is_array($items)) continue;
+            foreach ($items as $item) {
+                $label = is_string($item) ? $item : (is_array($item) ? (string) ($item['name'] ?? $item['title'] ?? $item['label'] ?? '') : '');
+                $label = trim($label);
+                if ($label !== '' && !in_array($label, $tags, true)) $tags[] = $label;
+                if (count($tags) >= 3) return $tags;
+            }
+        }
+        if ($tags === [] && trim((string) ($facility['category'] ?? '')) !== '') $tags[] = trim((string) $facility['category']);
+        return $tags;
+    }
+}
+
 $facilities = [];
-$categories = [];
 $toplists = [];
-$doctors = [];
-$reviews = [];
-$stats = ['facilities' => 0, 'reviews' => 0, 'doctors' => 0, 'toplists' => 0];
+$stats = ['facilities' => 0];
 
 try {
     $pdo = db();
@@ -60,25 +88,13 @@ try {
     toplist_directory_ensure_tables($pdo);
 
     $stats['facilities'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published'")->fetchColumn();
-    $stats['reviews'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_reviews WHERE status = 'published'")->fetchColumn();
-    $stats['doctors'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_doctors WHERE status = 'published'")->fetchColumn();
-    $stats['toplists'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_toplists WHERE status = 'published'")->fetchColumn();
-
     $facilities = $pdo->query(
-        "SELECT id, slug, name, category, city, subtitle, rating, reviews_count, image_url, gallery_json
+        "SELECT id, slug, name, category, city, subtitle, verified, rating, reviews_count, address_text,
+                image_url, gallery_json, tags_json, featured_services_json
          FROM medical_facilities
          WHERE status = 'published'
          ORDER BY rating DESC, reviews_count DESC, updated_at DESC, id DESC
-         LIMIT 6"
-    )->fetchAll(PDO::FETCH_ASSOC);
-
-    $categories = $pdo->query(
-        "SELECT category, COUNT(*) AS facility_count
-         FROM medical_facilities
-         WHERE status = 'published' AND COALESCE(TRIM(category), '') <> ''
-         GROUP BY category
-         ORDER BY facility_count DESC, category ASC
-         LIMIT 8"
+         LIMIT 24"
     )->fetchAll(PDO::FETCH_ASSOC);
 
     $toplists = $pdo->query(
@@ -91,21 +107,6 @@ try {
          LIMIT 3"
     )->fetchAll(PDO::FETCH_ASSOC);
 
-    $doctors = $pdo->query(
-        "SELECT id, slug, name, title_text, specialty_text, city, image_url, rating, reviews_count
-         FROM medical_doctors
-         WHERE status = 'published'
-         ORDER BY rating DESC, reviews_count DESC, updated_at DESC, id DESC
-         LIMIT 4"
-    )->fetchAll(PDO::FETCH_ASSOC);
-
-    $reviews = $pdo->query(
-        "SELECT slug, facility_slug, facility_name, title, author_text, rating, excerpt, service_text, source_text, review_date_text, updated_at
-         FROM medical_reviews
-         WHERE status = 'published'
-         ORDER BY updated_at DESC, id DESC
-         LIMIT 4"
-    )->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     // Render a usable home page even if the medical data has not been initialized yet.
 }
@@ -114,7 +115,7 @@ $labels = $isEnglish ? [
     'eyebrow' => 'Verified medical discovery platform',
     'heroTitle' => 'Find medical information with more confidence',
     'heroAccent' => 'more confidence',
-    'heroCopy' => 'Search healthcare facilities, doctors and curated Toplists from real data on MedReview.',
+    'heroCopy' => 'Find real reviews and useful information about doctors, clinics and hospitals across Vietnam.',
     'search' => 'Search',
     'placeholder' => 'Search facilities, doctors, Toplists...',
     'popular' => 'Popular:',
@@ -141,11 +142,30 @@ $labels = $isEnglish ? [
     'toplistKicker' => 'Curated lists',
     'noDoctors' => 'No doctor profiles are available yet.',
     'noReviews' => 'No reviews are available yet.',
+    'heroPhotoCaption' => 'Helping you choose with more confidence.',
+    'heroPhotoAlt' => 'A family in a bright, welcoming healthcare setting',
+    'heroNoteTitle' => 'Understand before you choose',
+    'heroNoteMeta' => 'Profiles · Services · Experiences',
+    'heroNoteBottomTitle' => 'Your health comes first',
+    'heroNoteBottomMeta' => 'Find care that feels right for you',
+    'heroProof' => 'Healthcare profiles',
+    'heroProofReviews' => 'Published reviews',
+    'heroProofVerified' => 'Information with sources',
+    'stepTitle' => 'A clearer choice, in 3 steps.',
+    'stepOne' => 'Find what you need',
+    'stepOneCopy' => 'Search by specialty, service or nearby location.',
+    'stepTwo' => 'Compare your options',
+    'stepTwoCopy' => 'Review profiles, reference prices and real experiences.',
+    'stepThree' => 'Connect with confidence',
+    'stepThreeCopy' => 'Contact the provider that feels right for you.',
+    'communityTitle' => 'Your experience. A little more peace of mind for everyone.',
+    'communityCopy' => 'Every honest review helps someone else make a more informed healthcare decision.',
+    'communityCta' => 'Explore community reviews',
 ] : [
     'eyebrow' => 'Nền tảng khám phá y tế đáng tin cậy',
     'heroTitle' => 'Cộng đồng đánh giá Y tế đáng tin cậy tại Việt Nam',
     'heroAccent' => 'đáng tin cậy',
-    'heroCopy' => 'Nơi bạn tìm thấy review thật từ người thực tế về bác sĩ, phòng khám và bệnh viện trên toàn quốc.',
+    'heroCopy' => 'Tìm hiểu cơ sở y tế, gặp đúng bác sĩ và tham khảo trải nghiệm thực tế — để mỗi lựa chọn sức khỏe đều có cơ sở.',
     'search' => 'Tìm kiếm',
     'placeholder' => 'Tìm cơ sở y tế, bác sĩ, Toplist...',
     'popular' => 'Tìm nhanh:',
@@ -172,266 +192,314 @@ $labels = $isEnglish ? [
     'toplistKicker' => 'Danh sách chọn lọc',
     'noDoctors' => 'Chưa có dữ liệu bác sĩ để hiển thị.',
     'noReviews' => 'Chưa có đánh giá để hiển thị.',
+    'heroPhotoCaption' => 'Cùng bạn, từ lựa chọn đến an tâm.',
+    'heroPhotoAlt' => 'Gia đình trong không gian y tế sáng, thân thiện — ảnh minh họa',
+    'heroNoteTitle' => 'Hiểu rõ trước khi lựa chọn',
+    'heroNoteMeta' => 'Hồ sơ · Dịch vụ · Trải nghiệm',
+    'heroNoteBottomTitle' => 'Sức khỏe của bạn là ưu tiên',
+    'heroNoteBottomMeta' => 'Tìm nơi chăm sóc phù hợp với mình',
+    'heroProof' => 'cơ sở y tế',
+    'heroProofReviews' => 'đánh giá đã xuất bản',
+    'heroProofVerified' => 'Thông tin có nguồn',
+    'stepTitle' => 'An tâm hơn, trong 3 bước.',
+    'stepOne' => 'Tìm đúng nhu cầu',
+    'stepOneCopy' => 'Tìm theo chuyên khoa, dịch vụ hoặc địa điểm gần bạn.',
+    'stepTwo' => 'Hiểu rõ lựa chọn',
+    'stepTwoCopy' => 'Đối chiếu hồ sơ, chi phí tham khảo và trải nghiệm thực tế.',
+    'stepThree' => 'Chủ động kết nối',
+    'stepThreeCopy' => 'Liên hệ trực tiếp với cơ sở phù hợp để được tư vấn cụ thể.',
+    'communityTitle' => 'Trải nghiệm của bạn. An tâm cho nhiều người.',
+    'communityCopy' => 'Mỗi chia sẻ chân thực giúp người khác có thêm thông tin trước khi quyết định về sức khỏe.',
+    'communityCta' => 'Khám phá những trải nghiệm',
 ];
 
-$popularTerms = array_values(array_filter(array_map(static fn(array $row): string => (string) ($row['category'] ?? ''), array_slice($categories, 0, 4))));
-if ($popularTerms === []) $popularTerms = $isEnglish ? ['Dental', 'Doctors', 'Healthcare'] : ['Nha khoa', 'Bác sĩ', 'Cơ sở y tế'];
-?>
-<style>
-  .med-home{padding:26px 0 72px;background:radial-gradient(760px 420px at 4% 0%,rgba(125,211,252,.16),transparent 62%),radial-gradient(820px 480px at 100% 18%,rgba(96,165,250,.12),transparent 66%),#f8fbff;color:#0f172a}
-  .med-home *{box-sizing:border-box}
-  .med-home a{text-decoration:none}
-  .med-home .home-section{position:relative;margin-top:42px}
-  .med-home .home-section:first-child{margin-top:0}
-  .med-home .section-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:18px}
-  .med-home .section-kicker{display:block;margin:0 0 7px;color:#2563eb;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
-  .med-home .section-head h2{margin:0;color:#10203d;font-size:clamp(22px,2.1vw,30px);line-height:1.16;letter-spacing:-.045em}
-  .med-home .section-head p{max-width:560px;margin:8px 0 0;color:#64748b;font-size:14px;line-height:1.65}
-  .med-home .section-link{display:inline-flex;align-items:center;gap:7px;color:#2563eb;font-size:13px;font-weight:800;white-space:nowrap}
-  .med-home .section-link i{font-size:16px}
-  .med-home .hero-wrap{position:relative;min-height:560px;overflow:hidden;border:1px solid rgba(191,219,254,.8);border-radius:32px;background:url('/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg') center/cover no-repeat;box-shadow:0 24px 70px rgba(30,64,175,.13)}
-  .med-home .hero-wrap::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(248,251,255,.98) 0%,rgba(248,251,255,.96) 46%,rgba(248,251,255,.77) 66%,rgba(248,251,255,.20) 100%)}
-  .med-home .hero-wrap.medical-search-active{overflow:visible;z-index:60}
-  .med-home .hero-inner{position:relative;z-index:1;display:flex;min-height:560px;align-items:center;padding:60px clamp(28px,5vw,70px)}
-  .med-home .hero-copy{width:min(100%,720px);padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:#10203d!important;backdrop-filter:none!important}
-  .med-home .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid rgba(16,185,129,.18);border-radius:999px;background:rgba(236,253,245,.9);color:#047857;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
-  .med-home .hero-eyebrow i{font-size:16px}
-  .med-home .hero-copy h1{max-width:720px;margin:18px 0 0;color:#101c37;font-size:clamp(40px,4.2vw,58px);line-height:1.13;letter-spacing:-.065em;font-weight:800}
-  .med-home .hero-copy h1 span{color:#2563eb}
-  .med-home .hero-copy p{max-width:620px;margin:20px 0 0;color:#52657f!important;font-size:16px;line-height:1.7}
-  .med-home .hero-search{max-width:720px;margin-top:28px}
-  .med-home .hero-search-shell{position:relative;z-index:30}
-  .med-home .hero-search-shell .medical-search-results{top:calc(100% + 10px);width:100%;max-height:min(510px,calc(100vh - 120px))}
-  .med-home .hero-search-row{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:6px;padding:5px;border:1px solid rgba(191,219,254,.85);border-radius:17px;background:#fff;box-shadow:0 16px 34px rgba(15,23,42,.09)}
-  .med-home .hero-search-field{display:flex;align-items:center;gap:10px;min-width:0;padding:0 14px;color:#94a3b8}
-  .med-home .hero-search-field i{font-size:21px;color:#2563eb}
-  .med-home .hero-search-field input{width:100%;min-width:0;height:50px;border:0;outline:0;background:transparent;color:#10203d;font:inherit;font-size:14px;font-weight:600}
-  .med-home .hero-search-btn{display:grid;width:48px;min-width:48px;height:48px;place-items:center;padding:0;border:0;border-radius:13px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);box-shadow:0 12px 22px rgba(37,99,235,.24);color:#fff;font:inherit;cursor:pointer}
-  .med-home .hero-search-btn>i{font-size:19px;line-height:1}
-  .med-home .hero-search-btn-label{display:none}
-  .med-home .hero-terms{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:15px;color:#64748b;font-size:12px;font-weight:700}
-  .med-home .hero-terms a{padding:6px 10px;border:1px solid rgba(191,219,254,.78);border-radius:999px;background:rgba(255,255,255,.72);color:#2563eb;font-size:11px;font-weight:800}
-  .med-home .category-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
-  .med-home .category-card{display:flex;align-items:center;gap:13px;min-height:94px;padding:16px;border:1px solid #dce8f8;border-radius:20px;background:rgba(255,255,255,.94);box-shadow:0 12px 28px rgba(15,23,42,.045);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-  .med-home .category-card:hover{transform:translateY(-3px);border-color:#93c5fd;box-shadow:0 18px 34px rgba(37,99,235,.11)}
-  .med-home .category-icon{display:flex;flex:0 0 46px;align-items:center;justify-content:center;width:46px;height:46px;border-radius:15px;background:#eff6ff;color:#2563eb;font-size:24px}
-  .med-home .category-card strong{display:block;color:#152441;font-size:14px;line-height:1.35}
-  .med-home .category-card small{display:block;margin-top:4px;color:#71809a;font-size:11px;font-weight:700}
-  .med-home .facility-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-  .med-home .facility-card{overflow:hidden;border:1px solid #dce8f8;border-radius:23px;background:#fff;box-shadow:0 14px 36px rgba(15,23,42,.06);transition:transform .18s ease,box-shadow .18s ease}
-  .med-home .facility-card:hover{transform:translateY(-4px);box-shadow:0 22px 46px rgba(37,99,235,.13)}
-  .med-home .facility-media{position:relative;height:168px;background:linear-gradient(145deg,#e0edff,#f8fbff)}
-  .med-home .facility-media img{width:100%;height:100%;object-fit:cover}
-  .med-home .facility-media-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#2563eb;font-size:48px}
-  .med-home .facility-category{position:absolute;top:12px;left:12px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.93);color:#1d4ed8;font-size:10px;font-weight:800}
-  .med-home .facility-body{padding:16px}
-  .med-home .facility-body h3{overflow:hidden;margin:0;color:#152441;font-size:17px;line-height:1.35;letter-spacing:-.035em;text-overflow:ellipsis;white-space:nowrap}
-  .med-home .facility-subtitle{display:-webkit-box;min-height:38px;margin:7px 0 0;overflow:hidden;color:#71809a;font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-  .med-home .facility-info{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px;color:#64748b;font-size:12px;font-weight:700}
-  .med-home .facility-rating{display:inline-flex;align-items:center;gap:5px;color:#f59e0b}
-  .med-home .facility-rating strong{color:#152441;font-size:12px}
-  .med-home .facility-city{display:inline-flex;max-width:46%;overflow:hidden;align-items:center;gap:4px;text-overflow:ellipsis;white-space:nowrap}
-  .med-home .toplist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-  .med-home .toplist-card{position:relative;display:flex;min-height:222px;flex-direction:column;justify-content:space-between;overflow:hidden;padding:20px;border:1px solid #d9e7fa;border-radius:23px;background:linear-gradient(145deg,#fff 0%,#f2f7ff 100%);box-shadow:0 14px 36px rgba(15,23,42,.055);transition:transform .18s ease,box-shadow .18s ease}
-  .med-home .toplist-card:hover{transform:translateY(-4px);box-shadow:0 24px 48px rgba(37,99,235,.13)}
-  .med-home .toplist-rank{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:14px;background:#2563eb;color:#fff;font-size:15px;font-weight:800;box-shadow:0 10px 18px rgba(37,99,235,.22)}
-  .med-home .toplist-card h3{display:-webkit-box;margin:18px 0 0;overflow:hidden;color:#152441;font-size:19px;line-height:1.35;letter-spacing:-.04em;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-  .med-home .toplist-card p{display:-webkit-box;margin:9px 0 0;overflow:hidden;color:#64748b;font-size:12px;line-height:1.6;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-  .med-home .toplist-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:18px;color:#64748b;font-size:12px;font-weight:750}
-  .med-home .toplist-meta span{display:inline-flex;align-items:center;gap:5px}
-  .med-home .data-band{display:grid;grid-template-columns:1.1fr repeat(4,minmax(0,1fr));gap:0;overflow:hidden;border:1px solid rgba(147,197,253,.8);border-radius:24px;background:linear-gradient(100deg,#123b86,#1d4ed8 58%,#3b82f6);box-shadow:0 22px 44px rgba(29,78,216,.18);color:#fff}
-  .med-home .data-band-copy,.med-home .data-stat{padding:25px 22px}
-  .med-home .data-band-copy{background:rgba(15,23,42,.12)}
-  .med-home .data-band-copy h2{margin:0;color:#fff;font-size:21px;letter-spacing:-.04em}
-  .med-home .data-band-copy p{margin:8px 0 0;color:rgba(255,255,255,.75);font-size:12px;line-height:1.6}
-  .med-home .data-stat{border-left:1px solid rgba(255,255,255,.14)}
-  .med-home .data-stat strong{display:block;font-size:28px;line-height:1;letter-spacing:-.05em}
-  .med-home .data-stat span{display:block;margin-top:8px;color:rgba(255,255,255,.74);font-size:11px;font-weight:700}
-  .med-home .two-column{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  .med-home .panel{padding:22px;border:1px solid #dce8f8;border-radius:24px;background:#fff;box-shadow:0 14px 34px rgba(15,23,42,.05)}
-  .med-home .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-  .med-home .panel-head h2{margin:0;color:#152441;font-size:20px;letter-spacing:-.04em}
-  .med-home .doctor-list,.med-home .review-list{display:grid;gap:4px}
-  .med-home .doctor-item,.med-home .review-item{display:flex;width:100%;min-width:0;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid #edf2f8}
-  .med-home .doctor-item:last-child,.med-home .review-item:last-child{border-bottom:0}
-  .med-home .doctor-avatar{display:flex;flex:0 0 46px;align-items:center;justify-content:center;width:46px;height:46px;overflow:hidden;border-radius:15px;background:#eff6ff;color:#2563eb;font-size:21px}
-  .med-home .doctor-avatar img{width:100%;height:100%;object-fit:cover}
-  .med-home .doctor-copy,.med-home .review-copy{min-width:0;flex:1}
-  .med-home .doctor-copy strong,.med-home .review-copy strong{display:block;overflow:hidden;color:#152441;font-size:13px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
-  .med-home .doctor-copy small,.med-home .review-copy small{display:block;overflow:hidden;margin-top:4px;color:#71809a;font-size:11px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
-  .med-home .doctor-rating,.med-home .review-rating{color:#f59e0b;font-size:12px;font-weight:800;white-space:nowrap}
-  .med-home .review-item{align-items:flex-start}
-  .med-home .review-quote{display:flex;flex:0 0 32px;align-items:center;justify-content:center;width:32px;height:32px;border-radius:11px;background:#eff6ff;color:#2563eb;font-size:17px}
-  .med-home .empty-state{padding:20px;border:1px dashed #bfdbfe;border-radius:16px;color:#71809a;font-size:13px;text-align:center}
-  @media (max-width:1080px){.med-home .hero-inner{grid-template-columns:1fr .68fr;padding:44px 38px}.med-home .facility-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.med-home .data-band{grid-template-columns:1fr 1fr}.med-home .data-band-copy{grid-column:span 2}.med-home .data-stat:nth-child(4){border-left:0}}
-  /* Tablet: keep the information density of desktop, but make the first
-     screen and card rhythm fit naturally in portrait and landscape iPad. */
-  @media (min-width:821px) and (max-width:1100px){
-    .med-home{padding:22px 0 58px}
-    .med-home .home-section{margin-top:36px}
-    .med-home .hero-wrap,.med-home .hero-inner{min-height:520px}
-    .med-home .hero-inner{padding:46px 42px}
-    .med-home .hero-copy{width:min(100%,650px)}
-    .med-home .hero-copy h1{font-size:clamp(38px,4.4vw,48px)}
-    .med-home .hero-copy p{max-width:570px;font-size:15px}
-    .med-home .hero-search{max-width:650px;margin-top:24px}
-    .med-home .section-head{margin-bottom:15px}
-    .med-home .section-head p{font-size:13px}
-    .med-home .category-card{min-height:88px;padding:14px;gap:11px}
-    .med-home .category-icon{flex-basis:42px;width:42px;height:42px;border-radius:13px;font-size:22px}
-    .med-home .facility-media{height:154px}
-    .med-home .facility-body{padding:14px}
-    .med-home .toplist-card{min-height:208px;padding:17px}
-    .med-home .data-band-copy,.med-home .data-stat{padding:22px 20px}
-    .med-home .panel{padding:20px}
-  }
-  @media (max-width:820px){.med-home{padding:18px 0 48px}.med-home .home-section{margin-top:30px}.med-home .hero-wrap{min-height:auto;border-radius:25px}.med-home .hero-inner{grid-template-columns:1fr;min-height:auto;padding:36px 26px}.med-home .hero-media{display:none}.med-home .hero-copy h1{font-size:clamp(34px,8.5vw,48px)}.med-home .category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.med-home .facility-grid,.med-home .toplist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.med-home .two-column{grid-template-columns:1fr}.med-home .section-head{align-items:flex-start}.med-home .data-band{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media (prefers-reduced-motion:no-preference){
-    @keyframes med-home-enter{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes med-home-hero-enter{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
-    .med-home.is-motion-ready .hero-copy > *{opacity:0;animation:med-home-hero-enter .62s cubic-bezier(.22,1,.36,1) forwards}
-    .med-home.is-motion-ready .hero-copy > :nth-child(1){animation-delay:40ms}
-    .med-home.is-motion-ready .hero-copy > :nth-child(2){animation-delay:120ms}
-    .med-home.is-motion-ready .hero-copy > :nth-child(3){animation-delay:205ms}
-    .med-home.is-motion-ready .hero-copy > :nth-child(4){animation-delay:290ms}
-    .med-home.is-motion-ready .home-reveal{opacity:0;transform:translateY(18px)}
-    .med-home.is-motion-ready .home-reveal.is-visible{animation:med-home-enter .58s cubic-bezier(.22,1,.36,1) forwards}
-    .med-home .hero-search-row{transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
-    .med-home .hero-search-row:focus-within{border-color:#79aaf8;box-shadow:0 18px 38px rgba(37,99,235,.16);transform:translateY(-1px)}
-    .med-home .hero-terms a{transition:transform .16s ease,background .16s ease,border-color .16s ease}
-    .med-home .hero-terms a:hover{transform:translateY(-1px);border-color:#93c5fd;background:#fff}
-  }
-  @media (max-width:540px){.med-home .hero-inner{padding:30px 18px}.med-home .hero-search-row{grid-template-columns:minmax(0,1fr) 48px}.med-home .hero-search-btn{width:48px;min-width:48px;height:48px}.med-home .hero-metrics{gap:12px}.med-home .hero-metric{padding-right:12px}.med-home .hero-metric strong{font-size:18px}.med-home .facility-grid,.med-home .toplist-grid{grid-template-columns:1fr}.med-home .category-grid{gap:9px}.med-home .category-card{min-height:82px;padding:12px;gap:10px}.med-home .category-icon{flex-basis:40px;width:40px;height:40px;font-size:21px}.med-home .data-band-copy,.med-home .data-stat{padding:19px 16px}.med-home .panel{min-width:0;padding:18px}.med-home .section-link{font-size:12px}.med-home .section-head h2{font-size:23px}}
-  @media (max-width:820px){.med-home .hero-search-shell{scroll-margin-top:90px}}
-</style>
+$popularTerms = $isEnglish ? ['Dentist in Hanoi', 'Dental crowns in Da Nang', 'Invisalign'] : ['Nha khoa Hà Nội', 'Răng sứ Đà Nẵng', 'Invisalign'];
+$specialties = $isEnglish ? [
+    ['Dental', 'A healthier smile', 'nha khoa', 'tooth'], ['Beauty & Spa', 'Confidence starts here', 'spa thẩm mỹ', 'sparkle'],
+    ['Dermatology', 'Care for healthy skin', 'da liễu', 'leaf'], ['General care', 'Know your health', 'đa khoa', 'building'],
+    ['Women’s health', 'Care through every stage', 'sản phụ khoa', 'heart'], ['Eye care', 'See life clearly', 'mắt', 'eye'],
+] : [
+    ['Nha khoa', 'Chăm chút nụ cười', 'nha khoa', 'tooth'], ['Thẩm mỹ & Spa', 'Tự tin là chính mình', 'spa thẩm mỹ', 'sparkle'],
+    ['Da liễu', 'Yêu làn da khỏe', 'da liễu', 'leaf'], ['Khám tổng quát', 'Hiểu cơ thể hơn', 'đa khoa', 'building'],
+    ['Sản phụ khoa', 'Đồng hành yêu thương', 'sản phụ khoa', 'heart'], ['Chuyên khoa mắt', 'Nhìn cuộc sống rõ hơn', 'mắt', 'eye'],
+];
 
-<main class="med-home site-typo">
-  <section class="home-section" id="hero">
-    <div class="container">
-      <div class="hero-wrap">
-        <div class="hero-inner">
-          <div class="hero-copy">
-            <span class="hero-eyebrow"><i class="ph-fill ph-seal-check"></i><?= htmlspecialchars($labels['eyebrow'], ENT_QUOTES, 'UTF-8') ?></span>
-            <?php if ($isEnglish): ?>
-              <h1>Discover verified<br>healthcare <span>with confidence</span></h1>
-            <?php else: ?>
-              <h1>Cộng đồng đánh giá<br>Y tế <span>đáng tin cậy</span><br>tại Việt Nam</h1>
-            <?php endif; ?>
-            <p><?= htmlspecialchars($labels['heroCopy'], ENT_QUOTES, 'UTF-8') ?></p>
-            <div class="hero-search">
-              <div class="medical-search-shell hero-search-shell" data-medical-search>
-                <form action="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>" method="get" class="hero-search-row">
-                  <label class="hero-search-field"><i class="ph ph-magnifying-glass"></i><input name="q" data-medical-search-input autocomplete="off" placeholder="<?= htmlspecialchars($labels['placeholder'], ENT_QUOTES, 'UTF-8') ?>"></label>
-                  <button class="hero-search-btn" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span class="hero-search-btn-label"><?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?></span></button>
-                </form>
-                <div class="medical-search-results" data-medical-search-results hidden></div>
-              </div>
-              <div class="hero-terms"><span><?= htmlspecialchars($labels['popular'], ENT_QUOTES, 'UTF-8') ?></span><?php foreach ($popularTerms as $term): ?><a href="<?= htmlspecialchars(site_localized_path($facilitiesBasePath, $locale, ['q' => (string) $term]), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($term, ENT_QUOTES, 'UTF-8') ?></a><?php endforeach; ?></div>
-            </div>
-          </div>
+// Keep a varied first row like the concept, while every profile remains real data.
+$featuredFacilities = [];
+foreach (['hcm', 'hanoi', 'danang'] as $region) {
+    foreach ($facilities as $candidate) {
+        if (medical_home_region((string) ($candidate['city'] ?? '')) === $region) {
+            $featuredFacilities[(int) $candidate['id']] = $candidate;
+            break;
+        }
+    }
+}
+foreach ($facilities as $candidate) {
+    $featuredFacilities[(int) $candidate['id']] = $candidate;
+    if (count($featuredFacilities) >= 12) break;
+}
+$featuredFacilities = array_values($featuredFacilities);
+?>
+<?php $homeConceptStylesheet = __DIR__ . '/../assets/css/pages/home-concept-live.css'; ?>
+<link rel="stylesheet" href="/assets/css/pages/home-concept-live.css?v=<?= file_exists($homeConceptStylesheet) ? (int) filemtime($homeConceptStylesheet) : 1 ?>">
+<main class="med-home hc-home site-typo" id="main">
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.7"/><path d="m16 16 4.5 4.5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m21 3-6.8 18-3.5-7.7L3 9.8 21 3Z"/><path d="m10.7 13.3 5.5-5.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-up-right" viewBox="0 0 24 24"><path d="M6 18 18 6M6 6h12v12"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 11.5 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-verified" viewBox="0 0 24 24"><path d="m12 2 3 2 3.5.5.5 3.5 2 4-2 3-.5 3.5-3.5.5-3 3-3-3-3.5-.5L4 15l-2-3 2-4 .5-3.5L8 4l4-2Z"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3L7.5 14 3 9.6l6.2-.9L12 3Z"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3Z"/></symbol>
+  <symbol id="i-tooth" viewBox="0 0 24 24"><path d="M12 5C9 1 3 3 4 9c.5 3 1 10 3 12 2 1 2-7 5-7s3 8 5 7c2-2 2.5-9 3-12 1-6-5-8-8-4Z"/><path d="m9 4 3 2 3-2"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 21V3h12v18M3 21h18M10 21v-4h4v4M9 7h6m-3-3v6M9 13h1m4 0h1"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 5 2.5 6.5L21 14l-6.5 2.5L12 23l-2.5-6.5L3 14l6.5-2.5L12 5ZM5 1v6M2 4h6m12-2v5m-2.5-2.5h5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C10 4 5 7 4 13c-1 5 3 7 7 6 6-1 9-6 9-15Z"/><path d="M3 21 14 10"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 4.8c-2-2-5.7-1.6-8.5 1.4-2.8-3-6.5-3.4-8.5-1.4C.5 8 3 13 12 21c9-8 11.5-13 8.5-16.2Z"/></symbol>
+  <symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M5 3H3v5a5 5 0 0 0 10 0V3h-2M8 13v3a5 5 0 0 0 10 0v-3"/><circle cx="18" cy="10" r="3"/></symbol>
+  <symbol id="i-compare" viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="15" rx="1"/><rect x="14" y="3" width="7" height="17" rx="1"/><path d="M5 9h3M5 12h3m8-5h3m-3 3h3m-3 3h3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5ZM14 3v5h5M8 12h8m-8 4h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+  <symbol id="i-quote" viewBox="0 0 24 24"><path d="M10 5C5 6 3 9 3 13v6h7v-7H6c0-2 1-4 4-4V5Zm11 0c-5 1-7 4-7 8v6h7v-7h-4c0-2 1-4 4-4V5Z"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M4 3h16v14H9l-5 4V3Z"/><path d="M8 7h8M8 11h5"/></symbol>
+  <symbol id="i-brand" viewBox="0 0 48 56"><path fill="#4b91ff" d="M24 1C10 1 1 11 1 24c0 12 23 31 23 31s23-19 23-31C47 11 38 1 24 1Z"/><path fill="#fff" d="M13 19c3-3 7-2 11 2 4-4 8-5 11-2 6 6-1 12-11 20-10-8-17-14-11-20Z"/><circle cx="39" cy="10" r="9" fill="#2563ff" stroke="#102847" stroke-width="3"/><path d="M39 6v8m-4-4h8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+  <section class="hero" aria-labelledby="home-hero-title">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span><?= htmlspecialchars($isEnglish ? 'Alongside your health journey' : 'Đồng hành cùng sức khỏe của bạn', ENT_QUOTES, 'UTF-8') ?></p>
+        <?php if ($isEnglish): ?>
+          <h1 id="home-hero-title">Find healthcare<br>you can <span>trust</span><br>in Vietnam</h1>
+        <?php else: ?>
+          <h1 id="home-hero-title">Cộng đồng đánh giá<br>Y tế <span>đáng tin cậy</span><br>tại Việt Nam</h1>
+        <?php endif; ?>
+        <p class="hero-description">
+          <span class="desktop-copy"><?= htmlspecialchars($labels['heroCopy'], ENT_QUOTES, 'UTF-8') ?></span>
+          <span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Find the right care and doctors. Choose with confidence.' : 'Tìm cơ sở, bác sĩ phù hợp. An tâm chăm sóc sức khỏe.', ENT_QUOTES, 'UTF-8') ?></span>
+        </p>
+        <div class="medical-search-shell hero-search-shell search-panel" data-medical-search>
+          <form class="search-form" action="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>" method="get" role="search" aria-label="<?= htmlspecialchars($isEnglish ? 'Search providers, doctors and services' : 'Tìm cơ sở y tế, bác sĩ, dịch vụ và Toplist', ENT_QUOTES, 'UTF-8') ?>">
+            <label class="search-field">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+              <span class="sr-only"><?= htmlspecialchars($labels['placeholder'], ENT_QUOTES, 'UTF-8') ?></span>
+              <input type="search" name="q" data-medical-search-input autocomplete="off" placeholder="<?= htmlspecialchars($isEnglish ? 'Facilities, doctors, services, cities…' : 'Cơ sở, bác sĩ, dịch vụ, thành phố…', ENT_QUOTES, 'UTF-8') ?>">
+            </label>
+            <button class="send-button" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
+          </form>
+          <div class="medical-search-results suggestions" data-medical-search-results hidden></div>
         </div>
+        <div class="quick-search"><span><?= htmlspecialchars($isEnglish ? 'Try:' : 'Thử tìm:', ENT_QUOTES, 'UTF-8') ?></span><?php foreach ($popularTerms as $term): ?><button type="button" data-home-query="<?= htmlspecialchars($term, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($term, ENT_QUOTES, 'UTF-8') ?></button><?php endforeach; ?></div>
+        <div class="hero-proof">
+          <span><svg class="icon" aria-hidden="true"><use href="#i-building"/></svg><strong><?= number_format($stats['facilities'], 0, ',', '.') ?></strong> <?= htmlspecialchars($labels['heroProof'], ENT_QUOTES, 'UTF-8') ?></span>
+          <span><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><?= htmlspecialchars($labels['heroProofVerified'], ENT_QUOTES, 'UTF-8') ?></span>
+          <span><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><?= htmlspecialchars($isEnglish ? 'For the community' : 'Vì cộng đồng', ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <span class="hero-cross" aria-hidden="true"><svg class="icon"><use href="#i-plus"/></svg></span>
+        <figure class="hero-photo">
+          <img src="<?= htmlspecialchars($homeHeroImage, ENT_QUOTES, 'UTF-8') ?>" style="object-position:right center" alt="<?= htmlspecialchars($labels['heroPhotoAlt'], ENT_QUOTES, 'UTF-8') ?>" width="1800" height="720" fetchpriority="high" decoding="async">
+          <figcaption><span><?= htmlspecialchars($labels['heroPhotoCaption'], ENT_QUOTES, 'UTF-8') ?></span><span><?= htmlspecialchars($isEnglish ? 'Illustration' : 'Ảnh minh họa', ENT_QUOTES, 'UTF-8') ?></span></figcaption>
+        </figure>
+        <div class="floating-note note-top"><span class="note-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span><span><strong><?= htmlspecialchars($labels['heroNoteTitle'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars($labels['heroNoteMeta'], ENT_QUOTES, 'UTF-8') ?></small></span></div>
+        <div class="floating-note note-bottom"><span class="note-icon"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg></span><span><strong><?= htmlspecialchars($labels['heroNoteBottomTitle'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars($labels['heroNoteBottomMeta'], ENT_QUOTES, 'UTF-8') ?></small></span></div>
+        <span class="hero-orbit" aria-hidden="true"></span>
       </div>
     </div>
   </section>
 
-  <?php if ($categories !== []): ?>
-    <section class="home-section"><div class="container"><div class="section-head"><div><span class="section-kicker"><?= htmlspecialchars($labels['categoryKicker'], ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($labels['categories'], ENT_QUOTES, 'UTF-8') ?></h2><p><?= htmlspecialchars($labels['categoriesCopy'], ENT_QUOTES, 'UTF-8') ?></p></div><a class="section-link" href="<?= htmlspecialchars($categoriesPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?><i class="ph ph-arrow-right"></i></a></div><div class="category-grid"><?php foreach ($categories as $category): ?><a class="category-card" href="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>"><span class="category-icon"><i class="<?= htmlspecialchars(medical_home_category_icon((string) $category['category']), ENT_QUOTES, 'UTF-8') ?>"></i></span><span><strong><?= htmlspecialchars((string) $category['category'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= number_format((int) $category['facility_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['facilitiesCount'], ENT_QUOTES, 'UTF-8') ?></small></span></a><?php endforeach; ?></div></div></section>
-  <?php endif; ?>
+  <section class="specialty-section" aria-labelledby="home-specialty-title">
+    <div class="container">
+      <div class="specialty-heading"><h2 id="home-specialty-title"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'What matters to your health today?' : 'Bạn đang quan tâm đến điều gì?', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'What matters to you?' : 'Bạn quan tâm điều gì?', ENT_QUOTES, 'UTF-8') ?></span></h2><a class="text-link specialty-more" href="<?= htmlspecialchars(site_localized_path($facilitiesBasePath, $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'See more' : 'Xem thêm', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+      <div class="specialty-grid mobile-rail" aria-label="<?= htmlspecialchars($isEnglish ? 'Healthcare topics' : 'Các chuyên khoa và nhu cầu chăm sóc sức khỏe', ENT_QUOTES, 'UTF-8') ?>">
+        <?php foreach ($specialties as [$specialtyName, $specialtyCopy, $specialtyQuery, $specialtyIcon]): ?>
+          <a class="specialty" href="<?= htmlspecialchars(site_localized_path($facilitiesBasePath, $locale, ['q' => $specialtyQuery]), ENT_QUOTES, 'UTF-8') ?>"><span class="specialty-icon"><svg class="icon" aria-hidden="true"><use href="#i-<?= htmlspecialchars($specialtyIcon, ENT_QUOTES, 'UTF-8') ?>"/></svg></span><span><strong><?= htmlspecialchars($specialtyName, ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars($specialtyCopy, ENT_QUOTES, 'UTF-8') ?></small></span></a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </section>
 
-  <?php if ($facilities !== []): ?>
-    <section class="home-section"><div class="container"><div class="section-head"><div><span class="section-kicker"><?= htmlspecialchars($labels['featuredKicker'], ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($labels['facilities'], ENT_QUOTES, 'UTF-8') ?></h2><p><?= htmlspecialchars($labels['facilitiesCopy'], ENT_QUOTES, 'UTF-8') ?></p></div><a class="section-link" href="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?><i class="ph ph-arrow-right"></i></a></div><div class="facility-grid"><?php foreach ($facilities as $facility): $image = medical_home_image($facility); ?><a class="facility-card" href="/co-so-y-te-chi-tiet.php?slug=<?= rawurlencode((string) $facility['slug']) ?>"><div class="facility-media"><?php if ($image !== ''): ?><img src="<?= htmlspecialchars($image, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async"><?php else: ?><div class="facility-media-placeholder"><i class="ph ph-hospital"></i></div><?php endif; ?><span class="facility-category"><?= htmlspecialchars((string) $facility['category'], ENT_QUOTES, 'UTF-8') ?></span></div><div class="facility-body"><h3><?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?></h3><p class="facility-subtitle"><?= htmlspecialchars((string) ($facility['subtitle'] ?: $facility['category']), ENT_QUOTES, 'UTF-8') ?></p><div class="facility-info"><span class="facility-rating"><i class="ph-fill ph-star"></i><strong><?= (float) $facility['rating'] > 0 ? number_format((float) $facility['rating'], 1) : htmlspecialchars($labels['noRating'], ENT_QUOTES, 'UTF-8') ?></strong><?php if ((int) $facility['reviews_count'] > 0): ?><small>(<?= number_format((int) $facility['reviews_count'], 0, ',', '.') ?>)</small><?php endif; ?></span><span class="facility-city"><i class="ph ph-map-pin"></i><?= htmlspecialchars((string) $facility['city'], ENT_QUOTES, 'UTF-8') ?></span></div></div></a><?php endforeach; ?></div></div></section>
-  <?php endif; ?>
+  <section class="section" id="facilities" aria-labelledby="home-facilities-title">
+    <div class="container">
+      <div class="section-heading reveal"><div><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'Discover healthcare facilities' : 'Khám phá cơ sở y tế', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-facilities-title"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'More information. More peace of mind.' : 'Thêm thông tin. Thêm an tâm.', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Featured facilities' : 'Cơ sở nổi bật', ENT_QUOTES, 'UTF-8') ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'Explore and compare places that may fit your needs.' : 'Những địa chỉ để bạn tìm hiểu, đối chiếu và lựa chọn phù hợp.', ENT_QUOTES, 'UTF-8') ?></p></div><a class="text-link" href="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'View all facilities' : 'Xem tất cả cơ sở', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+      <div class="facility-toolbar"><div class="city-filters" role="group" aria-label="<?= htmlspecialchars($isEnglish ? 'Filter by city' : 'Lọc cơ sở theo thành phố', ENT_QUOTES, 'UTF-8') ?>"><button type="button" data-city="all" aria-pressed="true"><?= htmlspecialchars($isEnglish ? 'All' : 'Tất cả', ENT_QUOTES, 'UTF-8') ?></button><button type="button" data-city="hcm" aria-pressed="false">TP. Hồ Chí Minh</button><button type="button" data-city="hanoi" aria-pressed="false">Hà Nội</button><button type="button" data-city="danang" aria-pressed="false">Đà Nẵng</button></div><span class="toolbar-note"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><?= htmlspecialchars($isEnglish ? 'Profiles on MedReview' : 'Hồ sơ từ MedReview', ENT_QUOTES, 'UTF-8') ?></span></div>
+      <div class="facility-grid mobile-rail" id="home-facility-grid" data-rail="<?= htmlspecialchars($isEnglish ? 'Facilities' : 'Cơ sở y tế', ENT_QUOTES, 'UTF-8') ?>" role="region" aria-label="<?= htmlspecialchars($isEnglish ? 'Featured healthcare facilities' : 'Cơ sở y tế nổi bật — vuốt ngang để khám phá', ENT_QUOTES, 'UTF-8') ?>" aria-live="polite">
+        <?php foreach ($featuredFacilities as $index => $facility): $image = medical_home_image($facility); $tags = medical_home_tags($facility); $facilityUrl = medical_public_entity_path('facility', (string) $facility['slug'], $locale); ?>
+          <article class="facility-card reveal" data-region="<?= htmlspecialchars(medical_home_region((string) $facility['city']), ENT_QUOTES, 'UTF-8') ?>" data-facility-id="<?= (int) $facility['id'] ?>"<?= $index >= 3 ? ' hidden' : '' ?>>
+            <div class="facility-media"><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>"><?php if ($image !== ''): ?><img src="<?= htmlspecialchars($image, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>" width="640" height="356" loading="lazy" decoding="async"><?php else: ?><span class="facility-photo-placeholder"><svg class="icon" aria-hidden="true"><use href="#i-building"/></svg></span><?php endif; ?></a><span class="facility-label"><?= htmlspecialchars((string) $facility['category'], ENT_QUOTES, 'UTF-8') ?></span><button class="save-button" type="button" aria-pressed="false" aria-label="<?= htmlspecialchars($isEnglish ? 'Save this facility on this device' : 'Lưu cơ sở trên thiết bị này', ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button></div>
+            <div class="facility-body"><div class="facility-title"><h3><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?></a></h3><?php if ((int) $facility['verified'] === 1): ?><span class="verified" title="<?= htmlspecialchars($isEnglish ? 'Verified profile' : 'Hồ sơ xác thực', ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-verified"/></svg></span><?php endif; ?></div><p class="facility-location"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><?= htmlspecialchars((string) ($facility['address_text'] ?: $facility['city']), ENT_QUOTES, 'UTF-8') ?></p><div class="facility-tags"><?php foreach ($tags as $tag): ?><span><?= htmlspecialchars($tag, ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div><div class="facility-bottom"><span class="rating"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg><strong><?= (float) $facility['rating'] > 0 ? number_format((float) $facility['rating'], 1) : '—' ?></strong><small>(<?= number_format((int) $facility['reviews_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['reviewsCount'], ENT_QUOTES, 'UTF-8') ?>)</small></span><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'View profile' : 'Xem hồ sơ', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div></div>
+          </article>
+        <?php endforeach; ?>
+        <?php if ($featuredFacilities === []): ?><div class="facility-empty"><?= htmlspecialchars($isEnglish ? 'Profiles will appear here soon.' : 'Hồ sơ cơ sở y tế sẽ sớm được cập nhật.', ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
+      </div>
+      <p class="snapshot-note"><?= htmlspecialchars($isEnglish ? 'Facility information and ratings come from published MedReview profiles.' : 'Thông tin và điểm đánh giá được lấy từ hồ sơ đang xuất bản trên MedReview.', ENT_QUOTES, 'UTF-8') ?></p>
+    </div>
+  </section>
 
-  <?php if ($toplists !== []): ?>
-    <section class="home-section"><div class="container"><div class="section-head"><div><span class="section-kicker"><?= htmlspecialchars($labels['toplistKicker'], ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($labels['toplists'], ENT_QUOTES, 'UTF-8') ?></h2><p><?= htmlspecialchars($labels['toplistsCopy'], ENT_QUOTES, 'UTF-8') ?></p></div><a class="section-link" href="<?= htmlspecialchars($toplistsPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?><i class="ph ph-arrow-right"></i></a></div><div class="toplist-grid"><?php foreach ($toplists as $index => $toplist): ?><a class="toplist-card" href="/toplist-chi-tiet-mau.php?slug=<?= rawurlencode((string) $toplist['slug']) ?>"><span class="toplist-rank">0<?= $index + 1 ?></span><div><h3><?= htmlspecialchars((string) $toplist['title'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) ($toplist['excerpt'] ?: $labels['toplistsCopy']), ENT_QUOTES, 'UTF-8') ?></p></div><div class="toplist-meta"><span><i class="ph ph-buildings"></i><?= number_format((int) $toplist['facility_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['facilitiesCount'], ENT_QUOTES, 'UTF-8') ?></span><span><i class="ph ph-calendar-blank"></i><?= htmlspecialchars(medical_home_date((string) $toplist['updated_at']), ENT_QUOTES, 'UTF-8') ?></span></div></a><?php endforeach; ?></div></div></section>
-  <?php endif; ?>
+  <section class="section toplist-section" aria-labelledby="home-toplist-title">
+    <div class="container">
+      <div class="section-heading reveal"><div><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'Curated Toplists' : 'Toplist chọn lọc', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-toplist-title"><span class="desktop-copy"><?= $isEnglish ? 'A shorter list.<br>A clearer place to start.' : 'Một danh sách ngắn.<br>Khởi đầu cho lựa chọn tốt.' ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Recommended for you' : 'Gợi ý cho bạn', ENT_QUOTES, 'UTF-8') ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'Explore facilities by your needs and city.' : 'Cùng khám phá các cơ sở theo nhu cầu và thành phố của bạn.', ENT_QUOTES, 'UTF-8') ?></p></div><a class="text-link" href="<?= htmlspecialchars($toplistsPath, ENT_QUOTES, 'UTF-8') ?>"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'Explore Toplists' : 'Khám phá Toplist', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+      <div class="toplist-grid mobile-rail" id="home-toplist-grid" data-rail="Toplist" role="region" aria-label="<?= htmlspecialchars($isEnglish ? 'Featured Toplists' : 'Toplist — vuốt ngang để khám phá', ENT_QUOTES, 'UTF-8') ?>">
+        <?php foreach ($toplists as $index => $toplist): $toplistImage = medical_home_image($toplist); $toplistTitle = (string) $toplist['title']; $toplistRegion = medical_home_region($toplistTitle); $toplistLocation = ['hcm' => 'TP. Hồ Chí Minh', 'hanoi' => 'Hà Nội', 'danang' => 'Đà Nẵng'][$toplistRegion] ?? 'Việt Nam'; ?>
+          <a class="toplist-card reveal" href="<?= htmlspecialchars(medical_public_entity_path('toplist', (string) $toplist['slug'], $locale), ENT_QUOTES, 'UTF-8') ?>"><?php if ($toplistImage !== ''): ?><img src="<?= htmlspecialchars($toplistImage, ENT_QUOTES, 'UTF-8') ?>" alt="" width="600" height="550" loading="lazy" decoding="async"><?php endif; ?><span class="editorial-tag"><?= htmlspecialchars($isEnglish ? 'CURATED LIST' : 'DANH SÁCH THAM KHẢO', ENT_QUOTES, 'UTF-8') ?></span><span class="toplist-number" aria-hidden="true"><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span><span class="toplist-location"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><?= htmlspecialchars($toplistLocation, ENT_QUOTES, 'UTF-8') ?></span><h3><?= htmlspecialchars($toplistTitle, ENT_QUOTES, 'UTF-8') ?></h3><span class="toplist-meta"><span><?= number_format((int) $toplist['facility_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['facilitiesCount'], ENT_QUOTES, 'UTF-8') ?></span><span class="round-arrow"><svg class="icon" aria-hidden="true"><use href="#i-up-right"/></svg></span></span></a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </section>
 
-  <section class="home-section"><div class="container"><div class="data-band"><div class="data-band-copy"><h2><?= htmlspecialchars($labels['aboutData'], ENT_QUOTES, 'UTF-8') ?></h2><p><?= $isEnglish ? 'Counts are calculated directly from the currently published MedReview data.' : 'Các chỉ số được tính trực tiếp từ dữ liệu đang xuất bản trên MedReview.' ?></p></div><div class="data-stat"><strong><?= number_format($stats['facilities'], 0, ',', '.') ?></strong><span><?= htmlspecialchars($labels['facilityStat'], ENT_QUOTES, 'UTF-8') ?></span></div><div class="data-stat"><strong><?= number_format($stats['reviews'], 0, ',', '.') ?></strong><span><?= htmlspecialchars($labels['reviewStat'], ENT_QUOTES, 'UTF-8') ?></span></div><div class="data-stat"><strong><?= number_format($stats['doctors'], 0, ',', '.') ?></strong><span><?= htmlspecialchars($labels['doctorStat'], ENT_QUOTES, 'UTF-8') ?></span></div><div class="data-stat"><strong><?= number_format($stats['toplists'], 0, ',', '.') ?></strong><span><?= htmlspecialchars($labels['toplistStat'], ENT_QUOTES, 'UTF-8') ?></span></div></div></div></section>
+  <section class="section approach-section" aria-labelledby="home-approach-title">
+    <div class="container approach-grid">
+      <div class="approach-copy reveal"><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'Why MedReview?' : 'Vì sao có MedReview?', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-approach-title"><span class="desktop-copy"><?= $isEnglish ? 'A health choice needs<br>more than an advertisement.' : 'Lựa chọn sức khỏe,<br>cần nhiều hơn một lời quảng cáo.' ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Confidence, in 3 steps.' : 'An tâm, trong 3 bước.', ENT_QUOTES, 'UTF-8') ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'We help you see the information that matters, from provider profiles to services and shared experiences.' : 'Chúng tôi giúp bạn nhìn rõ thông tin cần thiết, từ hồ sơ cơ sở đến dịch vụ và những trải nghiệm được chia sẻ.', ENT_QUOTES, 'UTF-8') ?></p><a class="text-link" href="<?= htmlspecialchars(site_localized_path('/ve-chung-toi.php', $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'About MedReview' : 'Tìm hiểu về MedReview', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+      <div class="approach-steps" role="list">
+        <article class="step reveal" role="listitem"><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="step-number">01</span></span><h3><?= htmlspecialchars($labels['stepOne'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($labels['stepOneCopy'], ENT_QUOTES, 'UTF-8') ?></p></article>
+        <article class="step reveal" role="listitem"><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-compare"/></svg><span class="step-number">02</span></span><h3><?= htmlspecialchars($labels['stepTwo'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($isEnglish ? 'Compare profiles, prices and reviews.' : 'Xem hồ sơ, chi phí và đánh giá.', ENT_QUOTES, 'UTF-8') ?></p></article>
+        <article class="step reveal" role="listitem"><span class="step-icon"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span class="step-number">03</span></span><h3><?= htmlspecialchars($labels['stepThree'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars($isEnglish ? 'Connect with a provider you choose.' : 'Kết nối với cơ sở bạn chọn.', ENT_QUOTES, 'UTF-8') ?></p></article>
+      </div>
+    </div>
+  </section>
 
-  <section class="home-section"><div class="container"><div class="two-column"><section class="panel"><div class="panel-head"><h2><?= htmlspecialchars($labels['doctors'], ENT_QUOTES, 'UTF-8') ?></h2><a class="section-link" href="<?= htmlspecialchars($doctorsPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></a></div><?php if ($doctors !== []): ?><div class="doctor-list"><?php foreach ($doctors as $doctor): ?><a class="doctor-item" href="/bac-si-chi-tiet.php?slug=<?= rawurlencode((string) $doctor['slug']) ?>"><span class="doctor-avatar"><?php if (trim((string) $doctor['image_url']) !== ''): ?><img src="<?= htmlspecialchars((string) $doctor['image_url'], ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async"><?php else: ?><i class="ph ph-user-doctor"></i><?php endif; ?></span><span class="doctor-copy"><strong><?= htmlspecialchars((string) $doctor['name'], ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars(implode(' · ', array_filter([(string) ($doctor['specialty_text'] ?: $doctor['title_text']), (string) $doctor['city']])), ENT_QUOTES, 'UTF-8') ?></small></span><span class="doctor-rating"><i class="ph-fill ph-star"></i><?= number_format((float) $doctor['rating'], 1) ?></span></a><?php endforeach; ?></div><?php else: ?><div class="empty-state"><?= htmlspecialchars($labels['noDoctors'], ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?></section><section class="panel"><div class="panel-head"><h2><?= htmlspecialchars($labels['reviews'], ENT_QUOTES, 'UTF-8') ?></h2><a class="section-link" href="<?= htmlspecialchars($reviewsPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></a></div><?php if ($reviews !== []): ?><div class="review-list"><?php foreach ($reviews as $review): ?><a class="review-item" href="<?= trim((string) $review['facility_slug']) !== '' ? '/co-so-y-te-chi-tiet.php?slug=' . rawurlencode((string) $review['facility_slug']) : $reviewsPath ?>"><span class="review-quote"><i class="ph ph-quotes"></i></span><span class="review-copy"><strong><?= htmlspecialchars((string) ($review['title'] ?: $review['facility_name']), ENT_QUOTES, 'UTF-8') ?></strong><small><?= htmlspecialchars((string) ($review['author_text'] ?: $review['facility_name']), ENT_QUOTES, 'UTF-8') ?><?= trim((string) $review['source_text']) !== '' ? ' · ' . htmlspecialchars((string) $review['source_text'], ENT_QUOTES, 'UTF-8') : '' ?></small></span><span class="review-rating"><i class="ph-fill ph-star"></i><?= number_format((float) $review['rating'], 1) ?></span></a><?php endforeach; ?></div><?php else: ?><div class="empty-state"><?= htmlspecialchars($labels['noReviews'], ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?></section></div></div></section>
+  <section class="community-section" aria-labelledby="home-community-title">
+    <div class="container"><div class="community reveal"><div class="community-copy"><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'A caring community' : 'Một cộng đồng, nhiều sự sẻ chia', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-community-title"><span class="desktop-copy"><?= $isEnglish ? 'Your experience.<br>More peace of mind for others.' : 'Trải nghiệm của bạn.<br>An tâm cho nhiều người.' ?></span><span class="mobile-copy"><?= $isEnglish ? 'A small story.<br>A lasting difference.' : 'Chia sẻ nhỏ.<br>An tâm lớn.' ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'Every honest story can help someone else feel better informed about a health decision.' : 'Mỗi chia sẻ chân thực đều giúp một người khác có thêm thông tin trước khi đưa ra quyết định về sức khỏe.', ENT_QUOTES, 'UTF-8') ?></p><a class="button button-primary" href="<?= htmlspecialchars($reviewsPath, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'Explore reviews' : 'Khám phá những trải nghiệm', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div><div class="community-art" aria-hidden="true"><div class="question-card"><svg class="icon"><use href="#i-quote"/></svg><p><?= $isEnglish ? 'What helped you<br>feel more confident?' : 'Điều gì đã giúp bạn<br>cảm thấy an tâm hơn?' ?></p><div class="experience-chips"><span><?= htmlspecialchars($isEnglish ? 'Thoughtful care' : 'Sự tận tâm', ENT_QUOTES, 'UTF-8') ?></span><span><?= htmlspecialchars($isEnglish ? 'Clear information' : 'Thông tin rõ ràng', ENT_QUOTES, 'UTF-8') ?></span><span><?= htmlspecialchars($isEnglish ? 'Transparent costs' : 'Chi phí minh bạch', ENT_QUOTES, 'UTF-8') ?></span></div><p class="question-label"><?= htmlspecialchars($isEnglish ? 'A small review can make a big difference.' : 'Một chia sẻ nhỏ, một giá trị lớn.', ENT_QUOTES, 'UTF-8') ?></p></div><span class="community-badge"><svg class="icon"><use href="#i-message"/></svg></span><span class="heart-stamp"><svg class="icon"><use href="#i-heart"/></svg></span></div></div></div>
+  </section>
 </main>
 <script>
-  (function () {
-    var home = document.querySelector('.med-home');
-    if (!home) return;
+(() => {
+  const home = document.querySelector('.med-home.hc-home');
+  if (!home) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const input = home.querySelector('.search-field input[name="q"]');
+  const searchPanel = home.querySelector('.search-panel');
 
-    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reducedMotion && 'IntersectionObserver' in window) {
-      home.classList.add('is-motion-ready');
-      var sections = Array.prototype.slice.call(home.querySelectorAll('.home-section')).slice(1);
-      var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        });
-      }, { threshold: 0.08, rootMargin: '0px 0px -5% 0px' });
-      sections.forEach(function (section) {
-        section.classList.add('home-reveal');
-        observer.observe(section);
+  if (!reduced && 'IntersectionObserver' in window) {
+    home.classList.add('motion-ready');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
       });
-    }
+    }, {threshold: .06, rootMargin: '0px 0px -5% 0px'});
+    home.querySelectorAll('.reveal').forEach(item => observer.observe(item));
+  }
 
-    var input = home.querySelector('.hero-search-field input[name="q"]');
-    if (!input || reducedMotion) return;
-    var samples = <?= json_encode($isEnglish ? ['Trusted dental clinics in Hanoi', 'Spa services in Da Nang', 'Experienced dermatologists'] : ['Nha khoa Hà Nội uy tín', 'Spa tại Đà Nẵng', 'Bác sĩ da liễu giỏi'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    var defaultPlaceholder = input.getAttribute('placeholder') || '';
-    var phraseIndex = 0;
-    var characterIndex = 0;
-    var deleting = false;
-    var timer = null;
+  home.querySelectorAll('[data-home-query]').forEach(button => button.addEventListener('click', () => {
+    if (!input) return;
+    input.value = button.dataset.homeQuery || '';
+    input.focus();
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+  }));
 
-    function clearTimer() {
-      if (timer !== null) window.clearTimeout(timer);
-      timer = null;
-    }
-    function schedule(delay) {
-      clearTimer();
-      timer = window.setTimeout(typeNext, delay);
-    }
-    function typeNext() {
-      if (document.hidden || input.value || document.activeElement === input) return;
-      var phrase = samples[phraseIndex] || defaultPlaceholder;
-      if (!deleting) {
-        characterIndex += 1;
-        input.placeholder = phrase.slice(0, characterIndex);
-        if (characterIndex >= phrase.length) {
-          deleting = true;
-          schedule(1450);
-          return;
-        }
-        schedule(52);
-        return;
-      }
-      characterIndex -= 1;
-      input.placeholder = phrase.slice(0, Math.max(0, characterIndex));
-      if (characterIndex <= 0) {
-        deleting = false;
-        phraseIndex = (phraseIndex + 1) % samples.length;
-        schedule(330);
-        return;
-      }
-      schedule(28);
-    }
-    function startTyping() {
-      if (input.value || document.activeElement === input || document.hidden) return;
-      schedule(650);
-    }
-    input.addEventListener('focus', function () {
-      clearTimer();
-      input.placeholder = defaultPlaceholder;
+  if (input && !reduced) {
+    const phrases = <?= json_encode($popularTerms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const placeholder = input.placeholder;
+    let phrase = 0, length = 0, reverse = false, timer;
+    const tick = () => {
+      if (document.hidden || document.activeElement === input || input.value) return;
+      const sample = phrases[phrase] || placeholder;
+      length += reverse ? -1 : 1;
+      input.placeholder = sample.slice(0, Math.max(0, length));
+      if (length >= sample.length) { reverse = true; timer = setTimeout(tick, 1600); return; }
+      if (length <= 0) { reverse = false; phrase = (phrase + 1) % phrases.length; }
+      timer = setTimeout(tick, reverse ? 32 : 72);
+    };
+    const start = () => { clearTimeout(timer); if (!input.value && document.activeElement !== input) timer = setTimeout(tick, 1100); };
+    input.addEventListener('focus', () => {clearTimeout(timer); input.placeholder = placeholder;});
+    input.addEventListener('blur', () => {length = 0; reverse = false; input.placeholder = placeholder; start();});
+    input.addEventListener('input', () => clearTimeout(timer));
+    document.addEventListener('visibilitychange', () => {if (document.hidden) clearTimeout(timer); else start();});
+    start();
+  }
+
+  if (searchPanel) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'home-search-backdrop';
+    backdrop.hidden = true;
+    document.body.append(backdrop);
+    const sync = () => {backdrop.hidden = !searchPanel.classList.contains('is-open');};
+    new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
+    backdrop.addEventListener('click', () => {input?.blur(); sync();});
+  }
+
+  const facilityGrid = home.querySelector('#home-facility-grid');
+  const cards = facilityGrid ? [...facilityGrid.querySelectorAll('.facility-card')] : [];
+  const filters = [...home.querySelectorAll('.city-filters button')];
+  const empty = document.createElement('p');
+  empty.className = 'facility-empty';
+  empty.textContent = <?= json_encode($isEnglish ? 'No facilities in this city are featured right now. Explore the full directory.' : 'Chưa có cơ sở nổi bật tại thành phố này. Bạn có thể xem toàn bộ danh bạ.', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  empty.hidden = true;
+  facilityGrid?.append(empty);
+  const applyCity = region => {
+    let shown = 0;
+    cards.forEach(card => {
+      const match = region === 'all' || card.dataset.region === region;
+      card.hidden = !match || shown >= 3;
+      if (match) shown++;
     });
-    input.addEventListener('input', clearTimer);
-    input.addEventListener('blur', function () {
-      if (input.value) return;
-      characterIndex = 0;
-      deleting = false;
-      startTyping();
+    empty.hidden = shown > 0;
+    filters.forEach(button => button.setAttribute('aria-pressed', button.dataset.city === region ? 'true' : 'false'));
+    if (facilityGrid) facilityGrid.scrollLeft = 0;
+    facilityGrid?.dispatchEvent(new Event('rail-change'));
+  };
+  filters.forEach(button => button.addEventListener('click', () => applyCity(button.dataset.city || 'all')));
+  applyCity('all');
+
+  cards.forEach(card => {
+    const button = card.querySelector('.save-button');
+    if (!button) return;
+    const key = 'medreview:saved-facility:' + card.dataset.facilityId;
+    try {button.setAttribute('aria-pressed', localStorage.getItem(key) === '1' ? 'true' : 'false');} catch (_) {}
+    button.addEventListener('click', () => {
+      const saved = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', saved ? 'true' : 'false');
+      try {if (saved) localStorage.setItem(key, '1'); else localStorage.removeItem(key);} catch (_) {}
     });
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) clearTimer();
-      else if (!input.value && document.activeElement !== input) startTyping();
-    });
-    startTyping();
-  })();
+  });
+
+  const mobile = matchMedia('(max-width:760px)');
+  [facilityGrid, home.querySelector('#home-toplist-grid')].filter(Boolean).forEach(rail => {
+    const nav = document.createElement('div');
+    nav.className = 'rail-navigation';
+    nav.innerHTML = '<div class="rail-progress" aria-hidden="true"></div><div class="rail-actions"><button type="button" class="rail-prev" aria-label="Trước"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button><span class="rail-count" aria-hidden="true"></span><button type="button" class="rail-next" aria-label="Tiếp"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>';
+    rail.after(nav);
+    const prev = nav.querySelector('.rail-prev'), next = nav.querySelector('.rail-next');
+    const progress = nav.querySelector('.rail-progress'), count = nav.querySelector('.rail-count');
+    const visible = () => [...rail.children].filter(card => !card.hidden);
+    const update = () => {
+      const items = visible();
+      const scrollable = mobile.matches && items.length > 1 && rail.scrollWidth > rail.clientWidth + 2;
+      nav.hidden = !scrollable;
+      if (!scrollable) return;
+      const edge = rail.getBoundingClientRect().left + parseFloat(getComputedStyle(rail).paddingLeft || '0');
+      let active = items.reduce((best, card, index) => Math.abs(card.getBoundingClientRect().left-edge) < Math.abs(items[best].getBoundingClientRect().left-edge) ? index : best, 0);
+      if (rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 3) active = items.length - 1;
+      progress.innerHTML = items.map((_, i) => '<span class="' + (i === active ? 'active' : '') + '"></span>').join('');
+      count.textContent = (active + 1) + ' / ' + items.length;
+      prev.disabled = active === 0;
+      next.disabled = active === items.length - 1;
+    };
+    const move = direction => {
+      const items = visible();
+      if (!items.length) return;
+      const step = items[0].getBoundingClientRect().width + parseFloat(getComputedStyle(rail).columnGap || '0');
+      rail.scrollBy({left: direction * step, behavior: reduced ? 'instant' : 'smooth'});
+    };
+    prev.addEventListener('click', () => move(-1));
+    next.addEventListener('click', () => move(1));
+    rail.addEventListener('scroll', () => requestAnimationFrame(update), {passive:true});
+    rail.addEventListener('rail-change', () => requestAnimationFrame(update));
+    window.addEventListener('resize', update, {passive:true});
+    mobile.addEventListener('change', update);
+    update();
+  });
+})();
 </script>
