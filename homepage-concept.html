@@ -69,10 +69,10 @@
       .search-result{padding:13px;gap:10px}
       .search-result strong{font-size:13px}.search-result small{font-size:11px}
       .search-all{font-size:12px;min-height:48px}
-      .specialty-section{padding:30px 0 22px;border-bottom:0}
-      .specialty-heading{margin-bottom:16px}
-      .specialty-heading h2{font-size:18px;letter-spacing:-.5px}
-      .specialty-heading p,.specialty small{display:none}
+      .specialty-section{padding:30px 0 24px;border-bottom:0;background:#f8faf8}
+      .specialty-heading{align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:18px}
+      .specialty-heading h2{flex:1 1 auto;min-width:0;font-size:15px;letter-spacing:-.45px;line-height:1.35}
+      .specialty-heading p{display:block;flex:0 1 auto;margin:0 0 0 auto;font-size:9px;line-height:1.4;white-space:nowrap;color:#91a0a1}
       .section{padding:32px 0}
       .section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:21px}
       .section-heading h2{font-size:24px;line-height:1.25;letter-spacing:-.9px;margin:0}
@@ -83,10 +83,12 @@
       .mobile-rail::-webkit-scrollbar{display:none}
       .mobile-rail>*{min-width:0;scroll-snap-align:start}
       .mobile-rail:focus-visible{outline:2px solid #7aabff;outline-offset:-3px}
-      .specialty-grid{grid-auto-columns:103px;gap:10px;padding-bottom:4px}
-      .specialty{display:flex;flex-direction:column;justify-content:flex-start;gap:10px;padding:13px 7px 12px;border:0;border-radius:17px;text-align:center;background:#f4f7fc;min-height:110px}
-      .specialty:nth-child(2){background:#faf5fc}.specialty:nth-child(3){background:#f0f8f6}.specialty:nth-child(4){background:#fff8ef}.specialty:nth-child(5){background:#fff3f5}
-      .specialty strong{font-size:11px;line-height:1.5}.specialty .specialty-icon{width:41px;height:41px;border-radius:13px}.specialty .icon{width:23px;height:23px}
+      .specialty-grid{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-columns:auto;gap:9px;overflow:visible;overscroll-behavior:initial;scroll-snap-type:none;scroll-padding-inline:0;margin-inline:0;padding:0;min-height:0}
+      .specialty{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;padding:17px 13px 14px;border:0;border-radius:20px;text-align:left;background:#eaf0ff;min-height:158px;overflow:hidden}
+      .specialty:nth-child(2){background:#f6ecdf}.specialty:nth-child(3){background:#e7f2e9}.specialty:nth-child(4){background:#eee8fa}.specialty:nth-child(5){background:#f9e9eb}.specialty:nth-child(6){background:#e5f1f3}
+      .specialty>span:last-child{display:block;width:100%;margin-top:auto;padding-top:9px}
+      .specialty strong{display:block;font-size:12px;line-height:1.5;font-weight:650}.specialty small{display:block;margin-top:5px;font-size:10px;line-height:1.75;color:#738494}
+      .specialty .specialty-icon{display:grid;place-items:center;width:30px;height:34px;border-radius:0;background:transparent!important;color:#527ac4}.specialty:nth-child(2) .specialty-icon{color:#b78253}.specialty:nth-child(3) .specialty-icon{color:#4d8d72}.specialty:nth-child(4) .specialty-icon{color:#9274c4}.specialty:nth-child(5) .specialty-icon{color:#bd7580}.specialty:nth-child(6) .specialty-icon{color:#4c8b9b}.specialty .icon{width:24px;height:24px}
       .facility-toolbar{margin-bottom:15px}.toolbar-note{display:none}
       .city-filters{width:100%;gap:8px;margin-right:-20px;padding:1px 0 4px}
       .city-filters button{font-size:11px;min-height:40px;padding:10px 13px;border-radius:20px}
@@ -199,6 +201,7 @@
   <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 21V3h12v18M3 21h18M10 21v-4h4v4M9 7h6m-3-3v6M9 13h1m4 0h1"/></symbol>
   <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 5 2.5 6.5L21 14l-6.5 2.5L12 23l-2.5-6.5L3 14l6.5-2.5L12 5ZM5 1v6M2 4h6m12-2v5m-2.5-2.5h5"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C10 4 5 7 4 13c-1 5 3 7 7 6 6-1 9-6 9-15Z"/><path d="M3 21 14 10"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 4.8c-2-2-5.7-1.6-8.5 1.4-2.8-3-6.5-3.4-8.5-1.4C.5 8 3 13 12 21c9-8 11.5-13 8.5-16.2Z"/></symbol>
   <symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M5 3H3v5a5 5 0 0 0 10 0V3h-2M8 13v3a5 5 0 0 0 10 0v-3"/><circle cx="18" cy="10" r="3"/></symbol>
   <symbol id="i-compare" viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="15" rx="1"/><rect x="14" y="3" width="7" height="17" rx="1"/><path d="M5 9h3M5 12h3m8-5h3m-3 3h3m-3 3h3"/></symbol>
@@ -225,13 +228,13 @@
     <div class="hero-visual"><span class="hero-cross" aria-hidden="true"><svg class="icon"><use href="#i-plus"/></svg></span><figure class="hero-photo"><img src="uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg" style="object-position:right center" alt="Gia đình trong không gian y tế sáng, thân thiện — ảnh minh họa" width="1800" height="720" fetchpriority="high"><figcaption><span>Cùng bạn, từ lựa chọn đến an tâm.</span><span>Ảnh minh họa</span></figcaption></figure><div class="floating-note note-top"><span class="note-icon"><svg class="icon"><use href="#i-shield"/></svg></span><span><strong>Hiểu rõ trước khi lựa chọn</strong><small>Hồ sơ · Dịch vụ · Trải nghiệm</small></span></div><div class="floating-note note-bottom"><span class="note-icon"><svg class="icon"><use href="#i-heart"/></svg></span><span><strong>Sức khỏe của bạn là ưu tiên</strong><small>Tìm nơi chăm sóc phù hợp với mình</small></span></div><span class="hero-orbit" aria-hidden="true"></span></div>
   </div></section>
 
-  <section class="specialty-section" aria-labelledby="specialty-title"><div class="container"><div class="specialty-heading"><h2 id="specialty-title"><span class="desktop-copy">Bạn đang quan tâm đến điều gì?</span><span class="mobile-copy">Bạn cần chăm sóc gì?</span></h2><p>Bắt đầu từ nhu cầu của bạn</p></div><div class="specialty-grid mobile-rail" id="specialtyRail" data-rail="Chuyên khoa" role="region" aria-label="Chuyên khoa — vuốt ngang để khám phá">
-    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=nha+khoa"><span class="specialty-icon"><svg class="icon"><use href="#i-tooth"/></svg></span><span><strong>Nha khoa</strong><small>Nụ cười khỏe đẹp</small></span></a>
+  <section class="specialty-section" aria-labelledby="specialty-title"><div class="container"><div class="specialty-heading"><h2 id="specialty-title"><span class="desktop-copy">Bạn đang quan tâm đến điều gì?</span><span class="mobile-copy">Hôm nay, bạn muốn chăm sóc điều gì?</span></h2><p>Bắt đầu từ nhu cầu của bạn</p></div><div class="specialty-grid mobile-rail" id="specialtyRail" role="region" aria-label="Các chuyên khoa và nhu cầu chăm sóc sức khỏe">
+    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=nha+khoa"><span class="specialty-icon"><svg class="icon"><use href="#i-tooth"/></svg></span><span><strong>Nha khoa</strong><small><span class="desktop-copy">Nụ cười khỏe đẹp</span><span class="mobile-copy">Chăm chút nụ cười</span></small></span></a>
     <a class="specialty" href="https://medreview.vn/co-so-y-te?q=spa+thẩm+mỹ"><span class="specialty-icon"><svg class="icon"><use href="#i-sparkle"/></svg></span><span><strong>Thẩm mỹ &amp; Spa</strong><small>Tự tin là chính mình</small></span></a>
-    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=đa+khoa"><span class="specialty-icon"><svg class="icon"><use href="#i-building"/></svg></span><span><strong>Khám đa khoa</strong><small>Chăm sóc toàn diện</small></span></a>
-    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=mắt"><span class="specialty-icon"><svg class="icon"><use href="#i-eye"/></svg></span><span><strong>Chuyên khoa mắt</strong><small>Cho đôi mắt sáng</small></span></a>
+    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=da+liễu"><span class="specialty-icon"><svg class="icon"><use href="#i-leaf"/></svg></span><span><strong>Da liễu</strong><small><span class="desktop-copy">Chăm sóc làn da</span><span class="mobile-copy">Yêu làn da khỏe</span></small></span></a>
+    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=đa+khoa"><span class="specialty-icon"><svg class="icon"><use href="#i-building"/></svg></span><span><strong><span class="desktop-copy">Khám đa khoa</span><span class="mobile-copy">Khám tổng quát</span></strong><small><span class="desktop-copy">Chăm sóc toàn diện</span><span class="mobile-copy">Hiểu cơ thể hơn</span></small></span></a>
     <a class="specialty" href="https://medreview.vn/co-so-y-te?q=sản+phụ+khoa"><span class="specialty-icon"><svg class="icon"><use href="#i-heart"/></svg></span><span><strong>Sản phụ khoa</strong><small>Đồng hành yêu thương</small></span></a>
-    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=da+liễu"><span class="specialty-icon"><svg class="icon"><use href="#i-stethoscope"/></svg></span><span><strong>Da liễu</strong><small>Chăm sóc làn da</small></span></a>
+    <a class="specialty" href="https://medreview.vn/co-so-y-te?q=mắt"><span class="specialty-icon"><svg class="icon"><use href="#i-eye"/></svg></span><span><strong>Chuyên khoa mắt</strong><small><span class="desktop-copy">Cho đôi mắt sáng</span><span class="mobile-copy">Nhìn cuộc sống rõ hơn</span></small></span></a>
   </div></div></section>
 
   <section class="section" id="facilities" aria-labelledby="facilities-title"><div class="container"><div class="section-heading reveal"><div><p class="eyebrow">Khám phá cơ sở y tế</p><h2 id="facilities-title"><span class="desktop-copy">Thêm thông tin. Thêm an tâm.</span><span class="mobile-copy">Cơ sở nổi bật</span></h2><p>Những địa chỉ để bạn tìm hiểu, đối chiếu và lựa chọn phù hợp.</p></div><a class="text-link" href="https://medreview.vn/co-so-y-te"><span class="desktop-copy">Xem tất cả cơ sở</span><span class="mobile-copy">Tất cả</span><svg class="icon"><use href="#i-arrow"/></svg></a></div><div class="facility-toolbar"><div class="city-filters" role="group" aria-label="Lọc cơ sở theo thành phố"><button data-city="all" aria-pressed="true">Tất cả</button><button data-city="hcm" aria-pressed="false">TP. Hồ Chí Minh</button><button data-city="hanoi" aria-pressed="false">Hà Nội</button><button data-city="danang" aria-pressed="false">Đà Nẵng</button></div><span class="toolbar-note"><svg class="icon"><use href="#i-shield"/></svg>Hồ sơ từ MedReview</span></div><div class="facility-grid mobile-rail" id="facilityGrid" data-rail="Cơ sở y tế" role="region" aria-label="Cơ sở y tế — vuốt ngang để khám phá" aria-live="polite"></div><noscript><p>Vui lòng bật JavaScript để xem các thẻ cơ sở trong bản mockup.</p></noscript><p class="snapshot-note"><span class="desktop-copy">Thông tin và điểm đánh giá trích từ dữ liệu hiện có của dự án; dùng để minh họa bố cục.</span><span class="mobile-copy">Dữ liệu minh họa từ MedReview.</span></p></div></section>
