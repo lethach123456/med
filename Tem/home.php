@@ -419,7 +419,8 @@ $featuredFacilities = array_values($featuredFacilities);
 
   home.querySelectorAll('[data-home-query]').forEach(button => button.addEventListener('click', () => {
     if (!input) return;
-    input.value = button.dataset.homeQuery || '';
+    const quickQuery = (button.dataset.homeQuery || '').trim();
+    input.value = quickQuery ? `${quickQuery} ` : '';
     input.focus();
     input.dispatchEvent(new Event('input', {bubbles:true}));
   }));
@@ -453,22 +454,22 @@ $featuredFacilities = array_values($featuredFacilities);
     let overlayTimer;
     const sync = () => {backdrop.hidden = !searchPanel.classList.contains('is-open');};
     new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
-    const openSearch = () => {
-      clearTimeout(overlayTimer);
-      searchPanel.classList.add('is-open');
-      sync();
-    };
-    input?.addEventListener('pointerdown', openSearch, {passive:true});
-    input?.addEventListener('focus', openSearch);
     searchPanel.querySelector('.send-button')?.addEventListener('click', event => {
       event.preventDefault();
       input?.focus({preventScroll:true});
-      if (input) input.dispatchEvent(new Event('input', {bubbles:true}));
+      if (input) {
+        const committedQuery = input.value.trimEnd();
+        input.value = committedQuery ? `${committedQuery} ` : '';
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
     });
     input?.addEventListener('blur', () => {
       clearTimeout(overlayTimer);
       overlayTimer = setTimeout(() => {
-        if (!searchPanel.contains(document.activeElement)) searchPanel.classList.remove('is-open');
+        if (!searchPanel.contains(document.activeElement)) {
+          searchPanel.classList.remove('is-open');
+          searchPanel.dataset.homeSearchAutoScrolled = 'false';
+        }
       }, 100);
     });
     backdrop.addEventListener('click', () => {input?.blur(); sync();});

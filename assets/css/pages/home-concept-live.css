@@ -186,6 +186,7 @@
 body.site-home .med-home.hc-home .hero-copy>.eyebrow{margin:0!important;color:#2563ff!important;font-size:10px!important;line-height:1.6!important}
 body.site-home .med-home.hc-home .hero-copy>.hero-description{margin-top:20px!important;color:#64758b!important;font-size:15px!important;line-height:1.8!important}
 body.site-home .med-home.hc-home .hero-search-shell.is-open{position:relative;z-index:1002!important}
+body.site-home .med-home.hc-home .hero-search-shell.is-searching{position:relative;z-index:90!important}
 body.site-home .med-home.hc-home .hero:has(.hero-search-shell.is-open){z-index:auto!important;overflow:visible!important}
 body.site-home .med-home.hc-home .hero-grid:has(.hero-search-shell.is-open),
 body.site-home .med-home.hc-home .hero-copy:has(.hero-search-shell.is-open){z-index:auto!important}

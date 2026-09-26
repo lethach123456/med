@@ -142,6 +142,7 @@
     results.hidden = false;
     results.scrollTop = 0;
     syncScrollCue(shell, results);
+    shell.classList.remove('is-searching');
     shell.classList.add('is-open');
     shell.closest('.hero-wrap')?.classList.add('medical-search-active');
     setExpanded(input, true);
@@ -151,9 +152,10 @@
     results.hidden = true;
     results.innerHTML = '';
     results.classList.remove('has-scroll-cue');
+    results.classList.remove('at-scroll-end');
     shell.classList.remove('is-open');
+    shell.classList.remove('is-searching');
     shell.closest('.hero-wrap')?.classList.remove('medical-search-active');
-    shell.dataset.homeSearchAutoScrolled = 'false';
     input.removeAttribute('aria-activedescendant');
     setExpanded(input, false);
   };
@@ -204,24 +206,34 @@
     };
 
     const search = () => {
-      const query = input.value.trim();
+      const rawQuery = input.value;
+      const query = rawQuery.trim();
       clearTimeout(timer);
+      requestNumber++;
+      if (controller) {
+        controller.abort();
+        controller = null;
+      }
       activeIndex = -1;
       input.removeAttribute('aria-activedescendant');
-      if (query.length < minimumLength) {
-        if (controller) controller.abort();
-        hide(shell, input, results);
+      hide(shell, input, results);
+
+      // On the homepage, wait until at least one word is complete (for example,
+      // "nha ") before requesting suggestions. Other search fields keep their
+      // existing two-character threshold.
+      const hasCompletedHomeWord = /\S\s/.test(rawQuery);
+      const canSearch = shell.classList.contains('hero-search-shell')
+        ? hasCompletedHomeWord && query.length > 0
+        : query.length >= minimumLength;
+      if (!canSearch) {
         return;
       }
       timer = window.setTimeout(async () => {
         const currentRequest = ++requestNumber;
-        if (controller) controller.abort();
         controller = new AbortController();
         results.innerHTML = `<div class="medical-search-loading" role="status"><span class="medical-search-spinner" aria-hidden="true"></span>${escapeHtml(labels.loading)}</div>`;
         results.hidden = false;
-        shell.classList.add('is-open');
-        shell.closest('.hero-wrap')?.classList.add('medical-search-active');
-        setExpanded(input, true);
+        shell.classList.add('is-searching');
         scrollHomeSearchNearHeader();
         try {
           const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&limit=3&locale=${language}`, {signal: controller.signal, headers: {Accept: 'application/json'}});
@@ -232,9 +244,7 @@
           if (error.name === 'AbortError' || currentRequest !== requestNumber) return;
           results.innerHTML = `<div class="medical-search-empty" role="status">${escapeHtml(labels.unavailable)}</div>`;
           results.hidden = false;
-          shell.classList.add('is-open');
-          shell.closest('.hero-wrap')?.classList.add('medical-search-active');
-          setExpanded(input, true);
+          shell.classList.add('is-searching');
         }
       }, 220);
     };
