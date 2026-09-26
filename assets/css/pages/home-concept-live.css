@@ -185,10 +185,10 @@
 /* Live search and profile behavior, without changing the concept layout. */
 body.site-home .med-home.hc-home .hero-copy>.eyebrow{margin:0!important;color:#2563ff!important;font-size:10px!important;line-height:1.6!important}
 body.site-home .med-home.hc-home .hero-copy>.hero-description{margin-top:20px!important;color:#64758b!important;font-size:15px!important;line-height:1.8!important}
-.med-home.hc-home .search-panel.is-open{z-index:90}
-.med-home.hc-home .hero:has(.search-panel.is-open){z-index:90;overflow:visible}
+body.site-home .med-home.hc-home .hero-search-shell.is-open{position:relative;z-index:1002!important}
+body.site-home .med-home.hc-home .hero:has(.hero-search-shell.is-open){z-index:auto!important;overflow:visible!important}
 .med-home.hc-home .suggestions.medical-search-results{z-index:91;max-height:min(420px,56dvh);padding:4px}
-.home-search-backdrop{position:fixed;inset:0;z-index:71;background:#142b4a29;backdrop-filter:blur(5px);animation:fade .2s ease}
+.home-search-backdrop{position:fixed;inset:0;z-index:1001;background:#142b4a29;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:fade .2s ease}
 .home-search-backdrop[hidden]{display:none!important}
 .med-home.hc-home .facility-photo-placeholder{height:100%;display:grid;place-items:center;background:linear-gradient(145deg,#e9f1fd,#f7fbff);color:#5b8fe9}
 .med-home.hc-home .facility-photo-placeholder .icon{width:48px;height:48px}

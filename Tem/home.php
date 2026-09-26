@@ -452,6 +452,7 @@ $featuredFacilities = array_values($featuredFacilities);
     document.body.append(backdrop);
     const sync = () => {backdrop.hidden = !searchPanel.classList.contains('is-open');};
     new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
+    input?.addEventListener('focus', () => searchPanel.classList.add('is-open'));
     backdrop.addEventListener('click', () => {input?.blur(); sync();});
   }
 
