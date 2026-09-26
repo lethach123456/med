@@ -295,9 +295,9 @@ body.site-home .med-home.hc-home .facility-bottom{margin-top:13px;padding:12px 0
 }
 
 @media(max-width:760px){
-  body.site-home .med-home.hc-home .facility-grid.mobile-rail{display:grid;grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:min(88%,370px);align-items:stretch;gap:14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--mobile-gutter,20px));padding:3px var(--mobile-gutter,20px) 12px;-webkit-overflow-scrolling:touch}
+  body.site-home .med-home.hc-home .facility-grid.mobile-rail{display:grid;grid-auto-flow:column;grid-template-columns:none!important;grid-auto-columns:min(88%,370px);grid-auto-rows:max-content;align-items:start;gap:14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(-1 * var(--mobile-gutter,20px));padding:3px var(--mobile-gutter,20px) 12px;-webkit-overflow-scrolling:touch}
   body.site-home .med-home.hc-home .facility-grid.mobile-rail::-webkit-scrollbar{display:none}
-  body.site-home .med-home.hc-home .facility-card{height:100%;min-height:0;border-radius:20px}
+  body.site-home .med-home.hc-home .facility-grid.mobile-rail>.facility-card{width:100%;height:auto;min-height:0;align-self:start;border-radius:20px}
   body.site-home .med-home.hc-home .facility-media{height:auto;aspect-ratio:1.62}
   body.site-home .med-home.hc-home .facility-body{padding:15px 16px 0}
   body.site-home .med-home.hc-home .facility-location{margin-top:7px;line-height:1.5}
