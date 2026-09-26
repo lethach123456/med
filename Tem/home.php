@@ -78,6 +78,31 @@ if (!function_exists('medical_home_tags')) {
     }
 }
 
+if (!function_exists('medical_home_description')) {
+    function medical_home_description(array $facility, bool $isEnglish = false): string
+    {
+        $description = html_entity_decode(
+            strip_tags((string) ($facility['subtitle'] ?? '')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        $description = trim((string) preg_replace('/\s+/u', ' ', $description));
+
+        if ($description === '') {
+            $fallback = medical_home_tags($facility);
+            $description = (string) ($fallback[0] ?? ($isEnglish
+                ? 'See services and details in the full profile.'
+                : 'Xem dịch vụ và thông tin chi tiết trong hồ sơ.'));
+        }
+
+        if (mb_strlen($description, 'UTF-8') > 100) {
+            $description = rtrim(mb_substr($description, 0, 97, 'UTF-8')) . '…';
+        }
+
+        return $description;
+    }
+}
+
 $facilities = [];
 $toplists = [];
 $stats = ['facilities' => 0];
@@ -334,10 +359,10 @@ $featuredFacilities = array_values($featuredFacilities);
       <div class="section-heading reveal"><div><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'Discover healthcare facilities' : 'Khám phá cơ sở y tế', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-facilities-title"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'More information. More peace of mind.' : 'Thêm thông tin. Thêm an tâm.', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Featured facilities' : 'Cơ sở nổi bật', ENT_QUOTES, 'UTF-8') ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'Explore and compare places that may fit your needs.' : 'Những địa chỉ để bạn tìm hiểu, đối chiếu và lựa chọn phù hợp.', ENT_QUOTES, 'UTF-8') ?></p></div><a class="text-link" href="<?= htmlspecialchars($facilitiesPath, ENT_QUOTES, 'UTF-8') ?>"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'View all facilities' : 'Xem tất cả cơ sở', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
       <div class="facility-toolbar"><div class="city-filters" role="group" aria-label="<?= htmlspecialchars($isEnglish ? 'Filter by city' : 'Lọc cơ sở theo thành phố', ENT_QUOTES, 'UTF-8') ?>"><button type="button" data-city="all" aria-pressed="true"><?= htmlspecialchars($isEnglish ? 'All' : 'Tất cả', ENT_QUOTES, 'UTF-8') ?></button><button type="button" data-city="hcm" aria-pressed="false">TP. Hồ Chí Minh</button><button type="button" data-city="hanoi" aria-pressed="false">Hà Nội</button><button type="button" data-city="danang" aria-pressed="false">Đà Nẵng</button></div><span class="toolbar-note"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><?= htmlspecialchars($isEnglish ? 'Profiles on MedReview' : 'Hồ sơ từ MedReview', ENT_QUOTES, 'UTF-8') ?></span></div>
       <div class="facility-grid mobile-rail" id="home-facility-grid" data-rail="<?= htmlspecialchars($isEnglish ? 'Facilities' : 'Cơ sở y tế', ENT_QUOTES, 'UTF-8') ?>" role="region" aria-label="<?= htmlspecialchars($isEnglish ? 'Featured healthcare facilities' : 'Cơ sở y tế nổi bật — vuốt ngang để khám phá', ENT_QUOTES, 'UTF-8') ?>" aria-live="polite">
-        <?php foreach ($featuredFacilities as $index => $facility): $image = medical_home_image($facility); $tags = medical_home_tags($facility); $facilityUrl = medical_public_entity_path('facility', (string) $facility['slug'], $locale); ?>
+        <?php foreach ($featuredFacilities as $index => $facility): $image = medical_home_image($facility); $description = medical_home_description($facility, $isEnglish); $facilityUrl = medical_public_entity_path('facility', (string) $facility['slug'], $locale); ?>
           <article class="facility-card reveal" data-region="<?= htmlspecialchars(medical_home_region((string) $facility['city']), ENT_QUOTES, 'UTF-8') ?>" data-facility-id="<?= (int) $facility['id'] ?>"<?= $index >= 3 ? ' hidden' : '' ?>>
             <div class="facility-media"><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>"><?php if ($image !== ''): ?><img src="<?= htmlspecialchars($image, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>" width="640" height="356" loading="lazy" decoding="async"><?php else: ?><span class="facility-photo-placeholder"><svg class="icon" aria-hidden="true"><use href="#i-building"/></svg></span><?php endif; ?></a><span class="facility-label"><?= htmlspecialchars((string) $facility['category'], ENT_QUOTES, 'UTF-8') ?></span><button class="save-button" type="button" aria-pressed="false" aria-label="<?= htmlspecialchars($isEnglish ? 'Save this facility on this device' : 'Lưu cơ sở trên thiết bị này', ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button></div>
-            <div class="facility-body"><div class="facility-title"><h3><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?></a></h3><?php if ((int) $facility['verified'] === 1): ?><span class="verified" title="<?= htmlspecialchars($isEnglish ? 'Verified profile' : 'Hồ sơ xác thực', ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-verified"/></svg></span><?php endif; ?></div><p class="facility-location"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><?= htmlspecialchars((string) ($facility['address_text'] ?: $facility['city']), ENT_QUOTES, 'UTF-8') ?></p><div class="facility-tags"><?php foreach ($tags as $tag): ?><span><?= htmlspecialchars($tag, ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div><div class="facility-bottom"><span class="rating"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg><strong><?= (float) $facility['rating'] > 0 ? number_format((float) $facility['rating'], 1) : '—' ?></strong><small>(<?= number_format((int) $facility['reviews_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['reviewsCount'], ENT_QUOTES, 'UTF-8') ?>)</small></span><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'View profile' : 'Xem hồ sơ', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div></div>
+            <div class="facility-body"><div class="facility-title"><h3><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?></a></h3><?php if ((int) $facility['verified'] === 1): ?><span class="verified" title="<?= htmlspecialchars($isEnglish ? 'Verified profile' : 'Hồ sơ xác thực', ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-verified"/></svg></span><?php endif; ?></div><p class="facility-location"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><?= htmlspecialchars((string) ($facility['address_text'] ?: $facility['city']), ENT_QUOTES, 'UTF-8') ?></p><p class="facility-description"><?= htmlspecialchars($description, ENT_QUOTES, 'UTF-8') ?></p><div class="facility-bottom"><span class="rating"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg><strong><?= (float) $facility['rating'] > 0 ? number_format((float) $facility['rating'], 1) : '—' ?></strong><small>(<?= number_format((int) $facility['reviews_count'], 0, ',', '.') ?> <?= htmlspecialchars($labels['reviewsCount'], ENT_QUOTES, 'UTF-8') ?>)</small></span><a href="<?= htmlspecialchars($facilityUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($isEnglish ? 'View profile' : 'Xem hồ sơ', ENT_QUOTES, 'UTF-8') ?><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div></div>
           </article>
         <?php endforeach; ?>
         <?php if ($featuredFacilities === []): ?><div class="facility-empty"><?= htmlspecialchars($isEnglish ? 'Profiles will appear here soon.' : 'Hồ sơ cơ sở y tế sẽ sớm được cập nhật.', ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>

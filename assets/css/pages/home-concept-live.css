@@ -202,7 +202,7 @@ body.site-home .medical-footer{margin-top:0!important}
      so the eyebrow has breathing room below the fixed header. */
   .med-home.hc-home .hero{background:linear-gradient(155deg,#f6f9ff,#edf4ff)!important}
   .med-home.hc-home .hero-visual{display:none!important}
-  .med-home.hc-home .hero-grid{position:relative;z-index:1;padding-top:46px!important}
+  .med-home.hc-home .hero-grid{position:relative;z-index:1;padding-top:46px!important;padding-bottom:12px!important}
   .med-home.hc-home .specialty-heading .specialty-more{margin-left:auto;font-size:10px;line-height:1.4;white-space:nowrap}
   /* The legacy brand stylesheet styles a different Toplist card markup and
      was turning these image-overlay cards into a two-column grid on mobile. */
@@ -224,6 +224,21 @@ body.site-home .med-home.hc-home .facility-media{display:block;width:100%;height
 body.site-home .med-home.hc-home .facility-media>a{display:block;width:100%;height:100%}
 body.site-home .med-home.hc-home .facility-media img{display:block;width:100%;height:100%;object-fit:cover}
 body.site-home .med-home.hc-home .facility-body{width:100%;min-width:0}
+body.site-home .med-home.hc-home .section-heading>div,
+body.site-home .med-home.hc-home .section-heading .eyebrow,
+body.site-home .med-home.hc-home .section-heading h2,
+body.site-home .med-home.hc-home .section-heading>div>p:not(.eyebrow),
+body.site-home .med-home.hc-home .approach-copy h2,
+body.site-home .med-home.hc-home .approach-copy>p{text-align:left!important}
+body.site-home .med-home.hc-home .facility-description{display:-webkit-box;min-height:3.2em;margin:11px 0 0;overflow:hidden;color:#718198;font-size:13px;line-height:1.6;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+body.site-home .med-home.hc-home .facility-bottom{margin-top:13px;padding:12px 0}
+
+@media(min-width:761px) and (max-width:1020px){
+  body.site-home .med-home.hc-home .approach-copy{display:block!important}
+  body.site-home .med-home.hc-home .approach-copy h2{max-width:700px}
+  body.site-home .med-home.hc-home .approach-copy>p:not(.eyebrow){max-width:620px}
+  body.site-home .med-home.hc-home .approach-grid{gap:28px}
+}
 
 /* Improve small-label readability on desktop without changing the mobile scale. */
 @media(min-width:1021px){
@@ -286,10 +301,8 @@ body.site-home .med-home.hc-home .facility-body{width:100%;min-width:0}
   body.site-home .med-home.hc-home .facility-media{height:auto;aspect-ratio:1.62}
   body.site-home .med-home.hc-home .facility-body{padding:15px 16px 0}
   body.site-home .med-home.hc-home .facility-location{margin-top:7px;line-height:1.5}
-  body.site-home .med-home.hc-home .facility-tags{gap:6px;margin-top:11px;min-height:0}
-  body.site-home .med-home.hc-home .facility-tags span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  body.site-home .med-home.hc-home .facility-tags span:nth-child(n+3){display:none}
-  body.site-home .med-home.hc-home .facility-bottom{gap:8px;margin-top:12px;padding:12px 0 14px}
+  body.site-home .med-home.hc-home .facility-description{min-height:3.2em;margin-top:9px;font-size:13px;line-height:1.6}
+  body.site-home .med-home.hc-home .facility-bottom{gap:8px;margin-top:10px;padding:10px 0 12px}
   body.site-home .med-home.hc-home .snapshot-note{margin-top:9px;text-align:left}
   body.site-home .med-home.hc-home #facilities.section{padding-block:28px}
   body.site-home .med-home.hc-home #facilities .section-heading{margin-bottom:15px}
