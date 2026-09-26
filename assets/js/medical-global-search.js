@@ -6,11 +6,13 @@
     facilities: 'Healthcare facilities', doctors: 'Doctors', toplists: 'Toplists', reviews: 'reviews',
     facilitiesCount: 'facilities', updated: 'Updated', verified: 'Verified', noResults: 'No results found for',
     unavailable: 'Search is temporarily unavailable. Please try again.', loading: 'Searching...',
+    scrollMore: 'Scroll for more', swipeMore: 'Swipe down for more',
     curated: 'Curated healthcare list'
   } : {
     facilities: 'Cơ sở y tế', doctors: 'Bác sĩ', toplists: 'Toplist', reviews: 'đánh giá',
     facilitiesCount: 'cơ sở', updated: 'Cập nhật', verified: 'Đã xác thực', noResults: 'Không tìm thấy kết quả cho',
     unavailable: 'Không thể tìm kiếm lúc này. Vui lòng thử lại.', loading: 'Đang tìm kiếm...',
+    scrollMore: 'Cuộn xuống để xem thêm', swipeMore: 'Vuốt xuống để xem thêm',
     curated: 'Danh sách cơ sở được chọn lọc'
   };
 
@@ -91,6 +93,30 @@
 
   const setExpanded = (input, expanded) => input.setAttribute('aria-expanded', expanded ? 'true' : 'false');
 
+  const syncScrollCue = (shell, results) => {
+    if (!shell.classList.contains('hero-search-shell')) return;
+    const hasOverflow = results.scrollHeight > results.clientHeight + 2;
+    let cue = results.querySelector('.medical-search-scroll-cue');
+    if (!hasOverflow) {
+      cue?.remove();
+      results.classList.remove('has-scroll-cue');
+      results.classList.remove('at-scroll-end');
+      return;
+    }
+    if (!cue) {
+      cue = document.createElement('div');
+      cue.className = 'medical-search-scroll-cue';
+      cue.setAttribute('aria-hidden', 'true');
+      cue.innerHTML = '<span></span><i class="ph ph-caret-down"></i>';
+      results.append(cue);
+    }
+    cue.querySelector('span').textContent = window.matchMedia('(pointer: coarse)').matches
+      ? labels.swipeMore
+      : labels.scrollMore;
+    results.classList.add('has-scroll-cue');
+    results.classList.toggle('at-scroll-end', results.scrollTop + results.clientHeight >= results.scrollHeight - 2);
+  };
+
   const render = (shell, input, results, data, query) => {
     const groups = data && data.groups ? data.groups : {};
     const definitions = [
@@ -114,6 +140,8 @@
       });
     }
     results.hidden = false;
+    results.scrollTop = 0;
+    syncScrollCue(shell, results);
     shell.classList.add('is-open');
     shell.closest('.hero-wrap')?.classList.add('medical-search-active');
     setExpanded(input, true);
@@ -122,6 +150,7 @@
   const hide = (shell, input, results) => {
     results.hidden = true;
     results.innerHTML = '';
+    results.classList.remove('has-scroll-cue');
     shell.classList.remove('is-open');
     shell.closest('.hero-wrap')?.classList.remove('medical-search-active');
     shell.dataset.homeSearchAutoScrolled = 'false';
@@ -141,6 +170,10 @@
     input.setAttribute('aria-autocomplete', 'list');
     input.setAttribute('aria-controls', results.id);
     setExpanded(input, false);
+    window.addEventListener('resize', () => syncScrollCue(shell, results), {passive: true});
+    results.addEventListener('scroll', () => {
+      results.classList.toggle('at-scroll-end', results.scrollTop + results.clientHeight >= results.scrollHeight - 2);
+    }, {passive: true});
 
     let timer = 0;
     let controller = null;

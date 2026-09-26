@@ -190,6 +190,12 @@ body.site-home .med-home.hc-home .hero:has(.hero-search-shell.is-open){z-index:a
 body.site-home .med-home.hc-home .hero-grid:has(.hero-search-shell.is-open),
 body.site-home .med-home.hc-home .hero-copy:has(.hero-search-shell.is-open){z-index:auto!important}
 .med-home.hc-home .suggestions.medical-search-results{z-index:91;max-height:min(420px,56dvh);padding:4px;background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.med-home.hc-home .medical-search-results.has-scroll-cue{scrollbar-width:thin;scrollbar-color:#bfd1ee transparent}
+.med-home.hc-home .medical-search-scroll-cue{position:sticky;bottom:-4px;z-index:2;display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;margin:0 -4px -4px;padding:9px 10px 6px;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.94) 34%,#fff 100%);color:#657790;font-size:11px;font-weight:650;pointer-events:none;transition:opacity .22s ease,transform .22s ease}
+.med-home.hc-home .medical-search-scroll-cue .ph{color:#2563ff;font-size:15px;animation:medical-search-scroll-cue 1.2s ease-in-out infinite}
+.med-home.hc-home .medical-search-results.at-scroll-end .medical-search-scroll-cue{opacity:0;transform:translateY(5px)}
+@keyframes medical-search-scroll-cue{0%,100%{transform:translateY(-1px)}50%{transform:translateY(4px)}}
+@media(prefers-reduced-motion:reduce){.med-home.hc-home .medical-search-scroll-cue,.med-home.hc-home .medical-search-scroll-cue .ph{animation:none;transition:none}}
 .home-search-backdrop{position:fixed;inset:0;z-index:1001;background:rgba(12,29,54,.34);backdrop-filter:blur(14px) saturate(.9);-webkit-backdrop-filter:blur(14px) saturate(.9);animation:fade .3s cubic-bezier(.22,1,.36,1);transition:backdrop-filter .3s ease,background-color .3s ease}
 .home-search-backdrop[hidden]{display:none!important}
 body.site-home:has(.home-search-backdrop:not([hidden])) .medical-header{z-index:1003!important;background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
