@@ -453,12 +453,13 @@ $featuredFacilities = array_values($featuredFacilities);
     let overlayTimer;
     const sync = () => {backdrop.hidden = !searchPanel.classList.contains('is-open');};
     new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
-    input?.addEventListener('focus', () => {
+    const openSearch = () => {
       clearTimeout(overlayTimer);
-      overlayTimer = setTimeout(() => {
-        if (document.activeElement === input) searchPanel.classList.add('is-open');
-      }, 100);
-    });
+      searchPanel.classList.add('is-open');
+      sync();
+    };
+    input?.addEventListener('pointerdown', openSearch, {passive:true});
+    input?.addEventListener('focus', openSearch);
     input?.addEventListener('blur', () => {
       clearTimeout(overlayTimer);
       overlayTimer = setTimeout(() => {
