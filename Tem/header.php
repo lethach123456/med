@@ -1668,4 +1668,5 @@ $navItems = $isEnglish
     else decoratePublicInteractions();
   })();
 </script>
-<script src="/assets/js/medical-global-search.js" defer></script>
+<?php $medicalGlobalSearchScript = __DIR__ . '/../assets/js/medical-global-search.js'; ?>
+<script src="/assets/js/medical-global-search.js?v=<?= file_exists($medicalGlobalSearchScript) ? (int) filemtime($medicalGlobalSearchScript) : 1 ?>" defer></script>
