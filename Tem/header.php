@@ -1434,7 +1434,10 @@ $navItems = $isEnglish
       }
     }
     function syncBackdrop(){
-      var searchOpen = Boolean(searchShell && searchShell.classList.contains('is-mobile-search-open'));
+      var searchOpen = Boolean(searchShell && (
+        searchShell.classList.contains('is-mobile-search-open') ||
+        searchShell.classList.contains('is-desktop-search-open')
+      ));
       var hasPopover = Boolean((mobile && mobile.hasAttribute('open')) || (language && language.hasAttribute('open')) || searchOpen);
       header.classList.toggle('has-mobile-search', searchOpen);
       header.classList.toggle('has-mobile-popover', hasPopover);
@@ -1442,6 +1445,7 @@ $navItems = $isEnglish
     function closeSearch(){
       if (!searchShell) return;
       searchShell.classList.remove('is-mobile-search-open');
+      searchShell.classList.remove('is-desktop-search-open');
       searchShell.classList.remove('is-open');
       if (searchTrigger) searchTrigger.setAttribute('aria-expanded', 'false');
       if (searchResults) {
@@ -1518,7 +1522,18 @@ $navItems = $isEnglish
     }
     if (searchInput) {
       searchInput.addEventListener('focus', function(){
-        if (isPhone() && (!searchShell || !searchShell.classList.contains('is-mobile-search-open'))) openSearch();
+        if (isPhone()) {
+          if (!searchShell || !searchShell.classList.contains('is-mobile-search-open')) openSearch();
+          return;
+        }
+        closeDetails();
+        searchShell.classList.add('is-desktop-search-open');
+        syncBackdrop();
+      });
+      searchShell.addEventListener('focusout', function(){
+        window.setTimeout(function(){
+          if (searchShell.classList.contains('is-desktop-search-open') && !searchShell.contains(document.activeElement)) closeSearch();
+        }, 0);
       });
       searchInput.addEventListener('keydown', function(event){
         if (event.key === 'Escape') {
@@ -1534,6 +1549,11 @@ $navItems = $isEnglish
         closeDetails();
       });
     }
+    document.addEventListener('click', function(event){
+      if (searchShell && !searchShell.contains(event.target) && searchShell.classList.contains('is-desktop-search-open')) {
+        closeSearch();
+      }
+    });
     document.addEventListener('click', function(event){
       if (header.contains(event.target)) return;
       closeSearch();
