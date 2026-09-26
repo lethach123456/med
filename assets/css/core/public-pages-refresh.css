@@ -1,0 +1,285 @@
+/* Public page system: carry the homepage's calm spacing, readable type and
+   light surfaces across directories, profiles, reviews and editorial pages. */
+:root{
+  --public-ink:#10213d;
+  --public-muted:#687b96;
+  --public-blue:#2563eb;
+  --public-blue-dark:#1d4ed8;
+  --public-line:#e1eaf5;
+  --public-soft:#f5f8ff;
+  --public-shadow:0 14px 36px rgba(20,48,88,.065);
+  --public-shadow-hover:0 20px 42px rgba(20,48,88,.105);
+  --public-radius:22px;
+}
+
+:where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page,.categories-page,.facility-detail,.doctor-detail,.public-404).site-typo{
+  color:var(--public-ink);
+  font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  font-synthesis:none;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+:where(.facility-directory .directory-container,.doctor-directory .doctor-container,
+  .review-page>.container,.toplist-page>.container,.facility-page>.container,
+  .categories-page>.container,.facility-detail>.container,.doctor-detail>.container){
+  width:min(1248px,calc(100% - 48px));
+  margin-inline:auto;
+}
+
+:where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page,.categories-page,.facility-detail,.doctor-detail) :where(h1,h2,h3){
+  color:var(--public-ink);
+  text-wrap:balance;
+}
+
+/* Directory and listing introductions */
+.facility-directory .directory-hero,
+.doctor-directory .doctor-hero,
+.review-page .hero-note,
+.toplist-page .hero-note,
+.facility-page .hero-note{
+  border:1px solid var(--public-line);
+  border-radius:28px;
+  box-shadow:var(--public-shadow);
+}
+.facility-directory .directory-hero,
+.doctor-directory .doctor-hero{
+  padding:clamp(26px,3.2vw,42px);
+}
+.facility-directory .directory-hero h1,
+.doctor-directory .doctor-hero h1,
+.review-page .hero-head h1,
+.toplist-page .hero-head h1,
+.facility-page .hero-head h1,
+.categories-page .page-head h1{
+  font-size:clamp(30px,3.4vw,44px);
+  line-height:1.12;
+  letter-spacing:-.052em;
+}
+.facility-directory .directory-hero p,
+.doctor-directory .doctor-hero p,
+.review-page .hero-sub,
+.toplist-page .hero-sub,
+.facility-page .hero-sub,
+.categories-page .page-head p{
+  max-width:68ch;
+  color:var(--public-muted);
+  font-size:15px;
+  line-height:1.75;
+}
+.facility-directory .directory-filter,
+.doctor-directory .doctor-filter-options,
+.review-page .filter-bar,
+.toplist-page .filter-bar,
+.facility-page .filter-bar{
+  border-color:var(--public-line);
+  border-radius:22px;
+  background:rgba(255,255,255,.94);
+  box-shadow:var(--public-shadow);
+}
+:where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page) :where(input,select,textarea){
+  accent-color:var(--public-blue);
+}
+.facility-directory .filter-search,
+.doctor-directory .doctor-search,
+.review-page .filter-input,
+.review-page .filter-select,
+.toplist-page .filter-input,
+.toplist-page .filter-select,
+.facility-page .filter-input,
+.facility-page .filter-select{
+  border-color:#d8e4f2;
+  border-radius:14px;
+  background:#fff;
+  transition:border-color .2s ease,box-shadow .2s ease,background-color .2s ease;
+}
+:where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page) :where(input,select,textarea):focus{
+  outline:none;
+  border-color:#8db6fb;
+  box-shadow:0 0 0 4px rgba(37,99,235,.10);
+}
+
+/* Consistent, more legible result cards. */
+.facility-directory .facility-card,
+.doctor-directory .doctor-card,
+.review-page .review-card,
+.toplist-page .post,
+.facility-page .facility-card,
+.categories-page .category-card{
+  border:1px solid var(--public-line);
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 10px 28px rgba(20,48,88,.045);
+  transition:transform .24s cubic-bezier(.22,1,.36,1),border-color .24s ease,box-shadow .24s ease;
+}
+.facility-directory .facility-card{padding:13px}
+.facility-directory .facility-media,
+.doctor-directory .doctor-media,
+.toplist-page .post-media{border-radius:16px}
+.facility-directory .facility-name-row h2{font-size:clamp(17px,1.4vw,20px);line-height:1.32}
+.facility-directory .facility-eyebrow{font-size:10.5px}
+.facility-directory .facility-subtitle{font-size:13px;line-height:1.6}
+.facility-directory .facility-details span{font-size:12px;line-height:1.5}
+.facility-directory .service-tags span{font-size:10.5px;padding:5px 8px;border-radius:8px}
+.facility-directory .score-number{font-size:26px}
+.facility-directory .facility-score>span{font-size:11px}
+.facility-directory .facility-price span{font-size:10px}
+.facility-directory .facility-price strong{font-size:12px}
+.facility-directory .detail-button,
+.doctor-directory .doctor-action,
+.review-page .detail-btn,
+.toplist-page .detail-btn,
+.facility-page .detail-btn{
+  min-height:42px;
+  border-radius:13px;
+  font-size:12px;
+  font-weight:750;
+  transition:transform .2s cubic-bezier(.22,1,.36,1),box-shadow .2s ease,background-color .2s ease;
+}
+.doctor-directory .doctor-card{padding:13px}
+.doctor-directory .doctor-name-row h2{font-size:18px;line-height:1.35}
+.doctor-directory .doctor-eyebrow{font-size:10px}
+.doctor-directory .doctor-subtitle{font-size:12px;line-height:1.6}
+.doctor-directory .doctor-details span{font-size:11.5px;line-height:1.5}
+.doctor-directory .doctor-tag{font-size:10px;padding:5px 8px;border-radius:8px}
+.doctor-directory .doctor-score strong{font-size:22px}
+.doctor-directory .doctor-score>span:last-child{font-size:11px}
+.doctor-directory .doctor-pagination button,
+.facility-directory .pagination button{min-width:40px;height:40px;border-radius:12px}
+
+@media(hover:hover) and (pointer:fine){
+  .facility-directory .facility-card:hover,
+  .doctor-directory .doctor-card:hover,
+  .review-page .review-card:hover,
+  .toplist-page .post:hover,
+  .facility-page .facility-card:hover,
+  .categories-page .category-card:hover{
+    transform:translateY(-3px);
+    border-color:#cbdcf2;
+    box-shadow:var(--public-shadow-hover);
+  }
+}
+
+/* Detail pages: one surface language for profile panels and article sections. */
+.facility-detail .hero-main,
+.facility-detail .section,
+.facility-detail .side-card,
+.doctor-detail .card,
+.doctor-detail .bottom-cta{
+  border-color:var(--public-line);
+  border-radius:var(--public-radius);
+  box-shadow:var(--public-shadow);
+}
+.facility-detail .hero-head h1,
+.doctor-detail .hero-card h1{letter-spacing:-.05em}
+.facility-detail .section-copy,
+.doctor-detail .section-card :where(p,li),
+.doctor-detail .card :where(p,li){font-size:15px;line-height:1.8}
+.facility-detail .detail-nav,
+.doctor-detail .detail-nav{border-color:var(--public-line);border-radius:16px}
+.facility-detail .contact-actions a,
+.doctor-detail .doctor-action,
+.doctor-detail .bottom-cta a{border-radius:13px}
+
+/* Reviews, categories and editorial pages share the same panel rhythm. */
+.review-page .summary-card,
+.review-page .utility-card,
+.review-page .customer-box,
+.toplist-page .side-card,
+.categories-page .category-card,
+.about-page :where(.about-story,.about-value,.about-step,.about-cta),
+body > .section .card{
+  border-color:var(--public-line);
+  border-radius:22px;
+  box-shadow:var(--public-shadow);
+}
+.review-page .content-grid,
+.toplist-page .content-grid{gap:22px}
+.review-page .review-title h3,
+.toplist-page .post h3{letter-spacing:-.035em}
+.about-page{color:var(--public-ink);font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.about-page .about-shell{width:min(1248px,calc(100% - 48px))}
+
+@media(max-width:720px){
+  :where(.facility-directory .directory-container,.doctor-directory .doctor-container,
+    .review-page>.container,.toplist-page>.container,.facility-page>.container,
+    .categories-page>.container,.facility-detail>.container,.doctor-detail>.container){
+    width:calc(100% - 20px);
+  }
+  .facility-directory .directory-hero,
+  .doctor-directory .doctor-hero{padding:20px 17px;border-radius:22px}
+  .facility-directory .directory-hero h1,
+  .doctor-directory .doctor-hero h1,
+  .review-page .hero-head h1,
+  .toplist-page .hero-head h1,
+  .facility-page .hero-head h1,
+  .categories-page .page-head h1{font-size:clamp(25px,7vw,31px);line-height:1.16}
+  .facility-directory .directory-hero p,
+  .doctor-directory .doctor-hero p,
+  .review-page .hero-sub,
+  .toplist-page .hero-sub,
+  .facility-page .hero-sub,
+  .categories-page .page-head p{font-size:14px;line-height:1.65}
+  .facility-directory .directory-filter,
+  .doctor-directory .doctor-filter-options,
+  .review-page .filter-bar,
+  .toplist-page .filter-bar,
+  .facility-page .filter-bar{border-radius:18px}
+  .facility-directory :where(input,select,textarea),
+  .doctor-directory :where(input,select,textarea),
+  .review-page :where(input,select,textarea),
+  .toplist-page :where(input,select,textarea),
+  .facility-page :where(input,select,textarea){font-size:16px}
+
+  .facility-directory .facility-card,
+  .doctor-directory .doctor-card,
+  .review-page .review-card,
+  .toplist-page .post,
+  .facility-page .facility-card{border-radius:18px}
+  .facility-directory .facility-card{padding:11px}
+  .facility-directory .facility-name-row h2{font-size:16px;line-height:1.35}
+  .facility-directory .facility-eyebrow{font-size:10px}
+  .facility-directory .facility-subtitle{font-size:13px;line-height:1.55}
+  .facility-directory .facility-details span{font-size:12px;line-height:1.5}
+  .facility-directory .service-tags span{font-size:10px}
+  .facility-directory .score-number{font-size:22px}
+  .facility-directory .facility-score>span{font-size:10.5px}
+  .facility-directory .facility-price strong{font-size:11.5px}
+  .facility-directory .detail-button,
+  .doctor-directory .doctor-action,
+  .review-page .detail-btn,
+  .toplist-page .detail-btn,
+  .facility-page .detail-btn{min-height:40px;font-size:11.5px}
+
+  .doctor-directory .doctor-card{padding:10px;border-radius:17px}
+  .doctor-directory .doctor-name-row h2{font-size:15px;line-height:1.35}
+  .doctor-directory .doctor-eyebrow{font-size:9.5px}
+  .doctor-directory .doctor-details span{font-size:11.5px;line-height:1.45}
+  .doctor-directory .doctor-tag{font-size:10px}
+  .doctor-directory .doctor-score strong{font-size:19px}
+  .doctor-directory .doctor-score>span:last-child{font-size:10.5px}
+  .doctor-directory .doctor-pagination button,
+  .facility-directory .pagination button{min-width:36px;height:36px}
+
+  .facility-detail .hero-main,
+  .facility-detail .section,
+  .facility-detail .side-card,
+  .doctor-detail .card{border-radius:18px}
+  .facility-detail .section-copy,
+  .doctor-detail .section-card :where(p,li),
+  .doctor-detail .card :where(p,li){font-size:14px;line-height:1.75}
+  .review-page .summary-card,
+  .review-page .utility-card,
+  .review-page .customer-box,
+  .toplist-page .side-card{border-radius:18px}
+  .about-page .about-shell{width:calc(100% - 32px)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .facility-directory .facility-card,
+  .doctor-directory .doctor-card,
+  .review-page .review-card,
+  .toplist-page .post,
+  .facility-page .facility-card,
+  .categories-page .category-card{transition:none!important}
+}

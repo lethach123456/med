@@ -28,6 +28,8 @@ $brandRefreshStylesheetPath = __DIR__ . '/../assets/css/pages/brand-home-refresh
 $brandRefreshStylesheetVersion = is_file($brandRefreshStylesheetPath) ? (string) filemtime($brandRefreshStylesheetPath) : '1';
 $headerMatchStylesheetPath = __DIR__ . '/../assets/css/pages/brand-header-match.css';
 $headerMatchStylesheetVersion = is_file($headerMatchStylesheetPath) ? (string) filemtime($headerMatchStylesheetPath) : '1';
+$publicPagesStylesheetPath = __DIR__ . '/../assets/css/core/public-pages-refresh.css';
+$publicPagesStylesheetVersion = is_file($publicPagesStylesheetPath) ? (string) filemtime($publicPagesStylesheetPath) : '1';
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
@@ -1335,6 +1337,7 @@ $navItems = $isEnglish
 </style>
 <link rel="stylesheet" href="/assets/css/pages/brand-home-refresh.css?v=<?php echo htmlspecialchars($brandRefreshStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
 <link rel="stylesheet" href="/assets/css/pages/brand-header-match.css?v=<?php echo htmlspecialchars($headerMatchStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
+<link rel="stylesheet" href="/assets/css/core/public-pages-refresh.css?v=<?php echo htmlspecialchars($publicPagesStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
 <div class="medical-header-utility">
   <div class="container">
     <span><i class="ph ph-shield-check" aria-hidden="true"></i><?php echo htmlspecialchars($isEnglish ? 'Transparent information. Better choices.' : 'Thông tin minh bạch. Lựa chọn tốt hơn.', ENT_QUOTES, 'UTF-8'); ?></span>
