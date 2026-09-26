@@ -319,7 +319,7 @@ $featuredFacilities = array_values($featuredFacilities);
               <span class="sr-only"><?= htmlspecialchars($labels['placeholder'], ENT_QUOTES, 'UTF-8') ?></span>
               <input type="search" name="q" data-medical-search-input autocomplete="off" placeholder="<?= htmlspecialchars($isEnglish ? 'Facilities, doctors, services, cities…' : 'Cơ sở, bác sĩ, dịch vụ, thành phố…', ENT_QUOTES, 'UTF-8') ?>">
             </label>
-            <button class="send-button" type="submit" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
+            <button class="send-button" type="button" aria-label="<?= htmlspecialchars($labels['search'], ENT_QUOTES, 'UTF-8') ?>"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
           </form>
           <div class="medical-search-results suggestions" data-medical-search-results hidden></div>
         </div>
@@ -460,6 +460,11 @@ $featuredFacilities = array_values($featuredFacilities);
     };
     input?.addEventListener('pointerdown', openSearch, {passive:true});
     input?.addEventListener('focus', openSearch);
+    searchPanel.querySelector('.send-button')?.addEventListener('click', event => {
+      event.preventDefault();
+      input?.focus({preventScroll:true});
+      if (input) input.dispatchEvent(new Event('input', {bubbles:true}));
+    });
     input?.addEventListener('blur', () => {
       clearTimeout(overlayTimer);
       overlayTimer = setTimeout(() => {
