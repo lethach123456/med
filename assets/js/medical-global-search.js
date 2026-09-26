@@ -22,6 +22,15 @@
   const numberFormat = new Intl.NumberFormat(language === 'en' ? 'en-US' : 'vi-VN');
   const isVerified = (value) => value === true || value === 1 || value === '1' || value === 'true';
   const compactText = (values) => [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))].join(' · ');
+  const resultsCloseTimers = new WeakMap();
+
+  const cancelResultsClose = (results) => {
+    const timer = resultsCloseTimers.get(results);
+    if (timer) window.clearTimeout(timer);
+    resultsCloseTimers.delete(results);
+    results.classList.remove('is-closing');
+    results.removeAttribute('inert');
+  };
 
   const dateText = (value) => {
     if (!value) return '';
@@ -118,6 +127,7 @@
   };
 
   const render = (shell, input, results, data, query) => {
+    cancelResultsClose(results);
     const groups = data && data.groups ? data.groups : {};
     const definitions = [
       ['facilities', labels.facilities, 'ph ph-hospital'],
@@ -149,10 +159,25 @@
   };
 
   const hide = (shell, input, results) => {
-    results.hidden = true;
-    results.innerHTML = '';
-    results.classList.remove('has-scroll-cue');
-    results.classList.remove('at-scroll-end');
+    const closingTimer = resultsCloseTimers.get(results);
+    if (closingTimer) window.clearTimeout(closingTimer);
+    if (results.hidden || !results.childElementCount) {
+      results.hidden = true;
+      results.innerHTML = '';
+      results.classList.remove('is-closing', 'has-scroll-cue', 'at-scroll-end');
+      results.removeAttribute('inert');
+      resultsCloseTimers.delete(results);
+    } else {
+      results.classList.add('is-closing');
+      results.setAttribute('inert', '');
+      resultsCloseTimers.set(results, window.setTimeout(() => {
+        if (!results.classList.contains('is-closing')) return;
+        results.hidden = true;
+        results.innerHTML = '';
+        results.classList.remove('is-closing', 'has-scroll-cue', 'at-scroll-end');
+        resultsCloseTimers.delete(results);
+      }, 170));
+    }
     shell.classList.remove('is-open');
     shell.classList.remove('is-searching');
     shell.closest('.hero-wrap')?.classList.remove('medical-search-active');
@@ -231,6 +256,7 @@
       timer = window.setTimeout(async () => {
         const currentRequest = ++requestNumber;
         controller = new AbortController();
+        cancelResultsClose(results);
         results.innerHTML = `<div class="medical-search-loading" role="status"><span class="medical-search-spinner" aria-hidden="true"></span>${escapeHtml(labels.loading)}</div>`;
         results.hidden = false;
         shell.classList.add('is-searching');

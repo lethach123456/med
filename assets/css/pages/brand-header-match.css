@@ -628,3 +628,147 @@
   .medical-header .header-mobile .mobile-panel,
   .medical-header .mobile-panel>a:not(.header-login){transition:none!important;animation:none!important}
 }
+
+/* One calm, spring-free motion curve for shared header popovers. */
+@keyframes medical-popover-enter{
+  from{opacity:0;transform:translate3d(0,-7px,0) scale(.985)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes medical-popover-exit{
+  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
+  to{opacity:0;transform:translate3d(0,-4px,0) scale(.99)}
+}
+.medical-header .header-search-shell .medical-search-results:not([hidden]){
+  transform-origin:top center;
+  animation:medical-popover-enter .26s cubic-bezier(.22,1,.36,1) both;
+}
+.medical-header .header-search-shell .medical-search-results.is-closing{
+  pointer-events:none!important;
+  animation:medical-popover-exit .16s cubic-bezier(.4,0,1,1) both;
+}
+.mobile-popover-backdrop{
+  transition:opacity .26s cubic-bezier(.22,1,.36,1),backdrop-filter .3s ease,background-color .3s ease!important;
+}
+
+.medical-header .mobile-language .mobile-language-panel{
+  display:grid!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transform:translate3d(0,-6px,0) scale(.985)!important;
+  transform-origin:top right;
+  transition:opacity .18s ease,transform .24s cubic-bezier(.22,1,.36,1),visibility 0s linear .24s!important;
+}
+.medical-header .mobile-language[open] .mobile-language-panel,
+.medical-header .mobile-language.is-open .mobile-language-panel{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:translate3d(0,0,0) scale(1)!important;
+  transition-delay:0s!important;
+}
+
+@media(max-width:1020px){
+  .medical-header .header-mobile .mobile-panel{
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transform:translate3d(-50%,-8px,0) scale(.985)!important;
+    transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1),visibility 0s linear .3s!important;
+    will-change:opacity,transform;
+  }
+  .medical-header .header-mobile[open] .mobile-panel,
+  .medical-header .header-mobile.is-open .mobile-panel{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translate3d(-50%,0,0) scale(1)!important;
+    transition-delay:0s!important;
+  }
+  .medical-header .header-mobile .mobile-panel>*{
+    opacity:0!important;
+    transform:translate3d(0,-4px,0)!important;
+    transition:opacity .17s ease,transform .22s cubic-bezier(.22,1,.36,1)!important;
+    transition-delay:0s!important;
+  }
+  .medical-header .header-mobile[open] .mobile-panel>*,
+  .medical-header .header-mobile.is-open .mobile-panel>*{
+    opacity:1!important;
+    transform:translate3d(0,0,0)!important;
+  }
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(1),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(1){transition-delay:.02s!important}
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(2),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(2){transition-delay:.035s!important}
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(3),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(3){transition-delay:.05s!important}
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(4),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(4){transition-delay:.065s!important}
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(5),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(5){transition-delay:.08s!important}
+  .medical-header .header-mobile[open] .mobile-panel>:nth-child(n+6),
+  .medical-header .header-mobile.is-open .mobile-panel>:nth-child(n+6){transition-delay:.095s!important}
+
+  .medical-header .header-search-shell>.header-search{
+    display:flex!important;
+    position:fixed!important;
+    z-index:22!important;
+    top:calc(env(safe-area-inset-top,0px) + 80px)!important;
+    right:12px!important;
+    left:12px!important;
+    width:auto!important;
+    height:48px!important;
+    padding:0 14px!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transform:translate3d(0,-7px,0) scale(.985)!important;
+    transform-origin:top center;
+    transition:opacity .2s ease,transform .28s cubic-bezier(.22,1,.36,1),visibility 0s linear .28s!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open>.header-search{
+    display:flex!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translate3d(0,0,0) scale(1)!important;
+    transition-delay:0s!important;
+  }
+  .medical-header .header-search-shell .mobile-search-trigger{
+    visibility:visible!important;
+    transition:opacity .16s ease,transform .22s cubic-bezier(.22,1,.36,1)!important;
+  }
+  .medical-header .header-search-shell .mobile-search-close{
+    display:inline-flex!important;
+    opacity:0;
+    transform:scale(.9);
+    transition:opacity .16s ease,transform .22s cubic-bezier(.22,1,.36,1)!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open .mobile-search-trigger{
+    opacity:0!important;
+    visibility:visible!important;
+    pointer-events:none!important;
+    transform:scale(.88)!important;
+  }
+  .medical-header .header-search-shell.is-mobile-search-open .mobile-search-close{
+    opacity:1;
+    transform:scale(1);
+  }
+  .medical-header .header-search-shell .medical-search-results.is-closing{
+    position:fixed!important;
+    z-index:22!important;
+    top:calc(env(safe-area-inset-top,0px) + 136px)!important;
+    right:12px!important;
+    left:12px!important;
+    width:auto!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .mobile-popover-backdrop,
+  .medical-header .header-search-shell .header-search,
+  .medical-header .header-search-shell .medical-search-results,
+  .medical-header .header-mobile .mobile-panel,
+  .medical-header .header-mobile .mobile-panel>*,
+  .medical-header .mobile-language .mobile-language-panel{transition:none!important;animation:none!important;will-change:auto!important}
+}

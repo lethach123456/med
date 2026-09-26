@@ -318,3 +318,12 @@ body.site-home .med-home.hc-home .facility-bottom{margin-top:13px;padding:12px 0
   body.site-home .med-home.hc-home #facilities .section-heading{margin-bottom:15px}
   body.site-home .med-home.hc-home .facility-toolbar{margin-bottom:12px}
 }
+
+body.site-home .med-home.hc-home .medical-search-results:not([hidden]){
+  transform-origin:top center;
+  animation:medical-popover-enter .26s cubic-bezier(.22,1,.36,1) both;
+}
+body.site-home .med-home.hc-home .medical-search-results.is-closing{
+  pointer-events:none!important;
+  animation:medical-popover-exit .16s cubic-bezier(.4,0,1,1) both;
+}

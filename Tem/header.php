@@ -1442,16 +1442,31 @@ $navItems = $isEnglish
       header.classList.toggle('has-mobile-search', searchOpen);
       header.classList.toggle('has-mobile-popover', hasPopover);
     }
+    function closeResults(){
+      if (!searchResults) return;
+      if (searchResults.hidden || !searchResults.childElementCount) {
+        searchResults.hidden = true;
+        searchResults.innerHTML = '';
+        searchResults.classList.remove('is-closing');
+        searchResults.removeAttribute('inert');
+        return;
+      }
+      searchResults.classList.add('is-closing');
+      searchResults.setAttribute('inert', '');
+      window.setTimeout(function(){
+        if (!searchResults.classList.contains('is-closing')) return;
+        searchResults.hidden = true;
+        searchResults.innerHTML = '';
+        searchResults.classList.remove('is-closing');
+      }, 170);
+    }
     function closeSearch(){
       if (!searchShell) return;
       searchShell.classList.remove('is-mobile-search-open');
       searchShell.classList.remove('is-desktop-search-open');
       searchShell.classList.remove('is-open');
       if (searchTrigger) searchTrigger.setAttribute('aria-expanded', 'false');
-      if (searchResults) {
-        searchResults.hidden = true;
-        searchResults.innerHTML = '';
-      }
+      closeResults();
       if (searchInput && document.activeElement === searchInput) searchInput.blur();
       syncBackdrop();
     }
