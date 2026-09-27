@@ -268,9 +268,9 @@ body > .section .card{
   body:not(.site-home)>.section>.container,
   body:not(.site-home)>main>.container,
   body:not(.site-home)>main>section>.container{
-    width:calc(100% - 40px)!important;
+    width:calc(100% - 16px)!important;
   }
-  .about-page .about-shell{width:min(calc(100% - 40px),600px)!important}
+  .about-page .about-shell{width:min(calc(100% - 16px),600px)!important}
   .facility-directory .directory-hero,
   .doctor-directory .doctor-hero{padding:20px 17px;border-radius:22px}
   .facility-directory .directory-hero h1,
