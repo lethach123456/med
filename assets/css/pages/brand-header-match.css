@@ -566,8 +566,11 @@
   -webkit-backdrop-filter:blur(14px) saturate(.88);
 }
 .medical-header.has-mobile-search{
-  background:rgba(245,249,255,.76)!important;
+  z-index:1000!important;
+  background:rgba(255,255,255,.98)!important;
   border-bottom-color:rgba(191,219,254,.36)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   transition:background-color .3s ease,border-color .3s ease;
 }
 .medical-header.has-mobile-search .brand-link,
@@ -575,8 +578,8 @@
 .medical-header.has-mobile-search .mobile-language,
 .medical-header.has-mobile-search>.container .header-actions>.header-login,
 .medical-header.has-mobile-search .header-mobile{
-  filter:blur(5px);
-  opacity:.34;
+  filter:none!important;
+  opacity:1!important;
   transition:filter .28s ease,opacity .28s ease;
 }
 .medical-header .header-search-shell .header-search,
