@@ -162,6 +162,10 @@ try {
     if ($map === 'index') {
         $entries = ['pages' => 1];
         foreach ($sources as $name => $source) {
+            // Product URLs are intentionally excluded from the public sitemap index.
+            if ($name === 'products') {
+                continue;
+            }
             $count = medreview_sitemap_source_count($pdo, $source);
             if ($name === 'toplists' && !medreview_sitemap_table_exists($pdo, 'medical_toplists')) {
                 continue;
