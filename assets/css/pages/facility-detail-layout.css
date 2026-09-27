@@ -299,7 +299,7 @@
    padding:12px 2px!important;
    border:0!important;
    border-radius:0!important;
-   background:transparent!important;
+   background:#fff!important;
    box-shadow:none!important;
  }
  .facility-detail .facility-reading-main>.section#gioi-thieu>h2{
@@ -317,7 +317,7 @@
    border:0!important;
    border-bottom:1px solid #e8eef7!important;
    border-radius:0!important;
-   background:transparent!important;
+   background:#fff!important;
    box-shadow:none!important;
  }
  .facility-detail .facility-info-card-head{gap:8px;margin-bottom:8px!important}
