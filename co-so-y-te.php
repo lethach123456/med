@@ -722,6 +722,22 @@ function facility_page_card(array $item): string
   </style>
   <style id="mobile-reading-balance">
     @media (max-width:560px){
+      /* Use one deliberate spacing rhythm across the mobile directory: 8 / 12 / 16 / 20px. */
+      .facility-directory{padding:12px 0 36px}
+      .directory-breadcrumb{margin-bottom:14px}
+      .directory-hero{gap:16px;padding:18px 16px;border-radius:18px}
+      .directory-hero > :first-child{gap:0}
+      .directory-hero h1{margin:12px 0 8px}
+      .directory-search{margin:14px 0 0}
+      .directory-stats{gap:8px;margin-top:0}
+      .directory-stat{min-height:68px;padding:10px 12px}
+      .directory-content{margin-top:20px;gap:16px}
+      .result-topline{margin-bottom:12px}
+      .facility-list{gap:12px}
+      .facility-card{gap:10px 12px;padding:12px}
+      .directory-aside{gap:12px}
+      .pagination{gap:6px;margin-top:18px}
+      .empty-state{padding:30px 16px}
       .directory-hero h1{font-size:clamp(22px,6.4vw,26px);line-height:1.2}
       .directory-hero p{font-size:14px;line-height:1.6}
       .directory-search .filter-search input{font-size:16px}
@@ -735,7 +751,7 @@ function facility_page_card(array $item): string
     @media (max-width:360px){
       .directory-hero h1{font-size:21px}
       .directory-hero{padding:16px 13px}
-      .facility-card{grid-template-columns:68px minmax(0,1fr) auto;gap:8px;padding:9px}
+      .facility-card{grid-template-columns:68px minmax(0,1fr) auto;gap:8px 10px;padding:10px}
       .facility-media{height:68px}
       .facility-name-row h2{font-size:15px}
       .facility-details span{font-size:11.5px}
