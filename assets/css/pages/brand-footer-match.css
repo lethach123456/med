@@ -219,3 +219,16 @@
     text-align: left;
   }
 }
+
+/* Desktop text should remain readable without letting long Vietnamese links
+   crowd the four-column footer layout. */
+@media (min-width: 1021px) {
+  .medical-footer .footer-brand-label { font-size: 10px; }
+  .medical-footer .footer-intro { font-size: 12px; }
+  .medical-footer .footer-section h3 { font-size: 13px; }
+  .medical-footer .footer-links a { font-size: 12px; }
+  .medical-footer .footer-listen-copy,
+  .medical-footer .footer-contact-link { font-size: 12px; }
+  .medical-footer .footer-bottom { font-size: 10px; }
+  .medical-footer .footer-disclaimer { font-size: 11px; }
+}

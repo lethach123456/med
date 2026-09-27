@@ -174,3 +174,25 @@
   .page.site-typo .doctor-review-shell .review-toolbar-group select { flex: 1; width: 0; }
   .page.site-typo .review-feed .review-switch { margin-left: 0; }
 }
+
+@media (min-width:1021px) {
+  .page.site-typo .hero-meta span,
+  .page.site-typo .toplist-facility-actions button,
+  .page.site-typo .review-more :is(button,a) { font-size:13px!important; }
+  .page.site-typo .section-head span,
+  .page.site-typo .facility-profile-eyebrow { font-size:12px!important; }
+  .page.site-typo .tag { font-size:12px!important; }
+  .page.site-typo .fact small { font-size:11px; }
+  .page.site-typo :is(.fact strong,.fact a) { font-size:13px; }
+  .page.site-typo .toplist-quick-compare th { font-size:12px!important; }
+  .page.site-typo .toplist-quick-compare td { font-size:13px!important; }
+  .page.site-typo .quick-services span { font-size:11px; }
+  .page.site-typo .review-summary-row,
+  .page.site-typo .review-feed .review-image-toggle,
+  .page.site-typo .review-actions,
+  .page.site-typo .review-source,
+  .page.site-typo .compare-meta,
+  .page.site-typo .toc a { font-size:12px; }
+  .page.site-typo .verified-tag { font-size:11px!important; }
+  .page.site-typo .compare-item strong { font-size:13px; }
+}

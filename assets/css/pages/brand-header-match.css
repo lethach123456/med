@@ -772,3 +772,17 @@
   .medical-header .header-mobile .mobile-panel>*,
   .medical-header .mobile-language .mobile-language-panel{transition:none!important;animation:none!important;will-change:auto!important}
 }
+
+/* Desktop readability pass: keep utility copy, navigation and brand support
+   text comfortably legible, including the compact desktop breakpoint. */
+@media (min-width:1021px){
+  .medical-header-utility{font-size:11px}
+  .medical-header .brand-copy>.brand-tagline{font-size:10px!important;line-height:1.35!important}
+  .medical-header .header-nav a{font-size:12px!important}
+  .medical-header .mobile-language summary{font-size:12px!important}
+  .medical-header .header-login{font-size:13px!important}
+}
+@media (min-width:1191px){
+  .medical-header .header-nav a{font-size:13px!important}
+  .medical-header .brand-copy>.brand-tagline{font-size:10.5px!important}
+}

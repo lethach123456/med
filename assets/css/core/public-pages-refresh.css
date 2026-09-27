@@ -348,3 +348,124 @@ body > .section .card{
   .facility-page .facility-card,
   .categories-page .category-card{transition:none!important}
 }
+
+/* Desktop readability pass for the menu pages and profile details. Keep this
+   separate from the phone rules so the established mobile sizing is intact. */
+@media (min-width:1021px){
+  :where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page,.categories-page,.facility-detail,.doctor-detail) .breadcrumb,
+  .doctor-detail .breadcrumbs{font-size:13px}
+
+  .facility-directory .facility-eyebrow{font-size:12px}
+  .facility-directory .media-label{font-size:11px}
+  .facility-directory .directory-kicker{font-size:12px}
+  .facility-directory .directory-stat span{font-size:12px}
+  .facility-directory .directory-hero p{font-size:15px}
+  .facility-directory .facility-subtitle{font-size:14px}
+  .facility-directory .facility-details span{font-size:13px}
+  .facility-directory .service-tags span{font-size:11.5px}
+  .facility-directory .facility-score>span{font-size:12px}
+  .facility-directory .facility-price span{font-size:11px}
+  .facility-directory .facility-price strong{font-size:13px}
+  .facility-directory .detail-button{font-size:13px}
+
+  .doctor-directory .doctor-eyebrow{font-size:12px}
+  .doctor-directory .doctor-kicker{font-size:12px}
+  .doctor-directory .doctor-hero p{font-size:15px}
+  .doctor-directory .doctor-subtitle{font-size:14px}
+  .doctor-directory .doctor-stat span{font-size:12px}
+  .doctor-directory .doctor-search-field input{font-size:15px}
+  .doctor-directory .doctor-details span{font-size:13px}
+  .doctor-directory .doctor-tag,
+  .doctor-directory .doctor-verified{font-size:11px}
+  .doctor-directory .doctor-score>span:last-child{font-size:12px}
+  .doctor-directory .doctor-action{font-size:13px}
+  .doctor-directory .doctor-score strong small,
+  .doctor-directory .doctor-price span{font-size:11px}
+  .doctor-directory .doctor-price strong,
+  .doctor-directory .doctor-select-wrap select{font-size:12px}
+  .doctor-directory .doctor-source,
+  .doctor-directory .doctor-filter-field label,
+  .doctor-directory .doctor-filter-reset,
+  .doctor-directory .doctor-filter-toggle{font-size:12px}
+
+  .review-page .title-pill,
+  .review-page .filter-item label,
+  .review-page .filter-input,
+  .review-page .filter-select,
+  .review-page .summary-caption,
+  .review-page .rating-row,
+  .review-page .utility-item p,
+  .review-page .customer-box p{font-size:13px}
+  .review-page .hero-note strong{font-size:14px}
+  .review-page .hero-note span{font-size:13px}
+  .review-page .page-foot{font-size:12px}
+  .review-page .detail-btn{font-size:13px}
+
+  .toplist-page .hero-note strong{font-size:14px}
+  .toplist-page .hero-note span:last-child{font-size:12px}
+  .toplist-page .filter-item label,
+  .toplist-page .filter-input,
+  .toplist-page .filter-select,
+  .toplist-page .facility-sub,
+  .toplist-page .meta-row{font-size:13px}
+  .toplist-page .title-pill{font-size:13px}
+  .toplist-page .score-meta{font-size:12px}
+  .toplist-page .cta-col strong,
+  .toplist-page .detail-btn{font-size:13px}
+
+  .facility-page .hero-note strong{font-size:13px}
+  .facility-page .hero-note span:last-child{font-size:12px}
+  .facility-page .filter-item label,
+  .facility-page .filter-input,
+  .facility-page .filter-select,
+  .facility-page .facility-sub,
+  .facility-page .meta-row{font-size:13px}
+  .facility-page .title-pill{font-size:13px}
+  .facility-page .media-count{font-size:12px}
+  .facility-page .score-meta{font-size:12px}
+  .facility-page .cta-col strong,
+  .facility-page .detail-btn{font-size:13px}
+  .facility-page .summary-card p,
+  .facility-page .utility-item p{font-size:13px}
+  .facility-page .utility-item strong{font-size:13px}
+
+  .facility-detail .facility-eyebrow,
+  .doctor-detail .fact-item strong{font-size:12px}
+  .facility-detail .contact-item strong{font-size:12px}
+  .facility-detail .contact-item :is(span,a){font-size:14px}
+  .facility-detail .detail-nav a{font-size:13px}
+  .facility-detail .facility-fact-list dt{font-size:11px}
+  .facility-detail .facility-fact-list dd{font-size:13px}
+  .facility-detail .facility-subsection li,
+  .facility-detail .section-copy{font-size:15px}
+  .facility-detail .service-chips span{font-size:13px}
+  .facility-detail #danh-gia :is(.summary-caption,.rating-row,.review-date,.review-author .meta-line){font-size:12px}
+  .facility-detail #danh-gia :is(.review-badge,.review-service,.review-source){font-size:11px}
+  .doctor-detail .fact-item span{font-size:14px}
+  .doctor-detail .hero-rating,
+  .doctor-detail .review-filter-pill,
+  .doctor-detail .review-sort-pill,
+  .doctor-detail .review-switch,
+  .doctor-detail .review-author .meta-line,
+  .doctor-detail .review-date,
+  .doctor-detail .review-service,
+  .doctor-detail .review-source{font-size:12px}
+  .doctor-detail .hero-desc,
+  .doctor-detail .intro-text p,
+  .doctor-detail .highlight-item span:last-child,
+  .doctor-detail .review-content p{font-size:14px}
+  .doctor-detail .mini-stat span,
+  .doctor-detail .fact-item strong,
+  .doctor-detail .review-summary-card p,
+  .doctor-detail .review-summary-row,
+  .doctor-detail .review-verified small{font-size:12px}
+  .doctor-detail .action-btn,
+  .doctor-detail .tab,
+  .doctor-detail .section-head a,
+  .doctor-detail .review-write-btn,
+  .doctor-detail .bottom-cta a{font-size:13px}
+  .doctor-detail .service-card .sub,
+  .doctor-detail .service-card .meta,
+  .doctor-detail .review-verified span,
+  .doctor-detail .bottom-cta span{font-size:13px}
+}
