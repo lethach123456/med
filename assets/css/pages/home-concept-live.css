@@ -184,6 +184,16 @@
 @keyframes home-reassurance-float-up{0%,100%{translate:0 0}50%{translate:0 -6px}}
 @keyframes home-reassurance-float-down{0%,100%{translate:0 0}50%{translate:0 5px}}
 
+/* Add a slower float to the community illustration and a softer stagger to its badges. */
+@media (min-width:761px) and (prefers-reduced-motion:no-preference){
+  body.site-home .med-home.hc-home .community-art{translate:0 0;animation:home-community-art-float 8s ease-in-out infinite}
+  body.site-home .med-home.hc-home .community-badge{translate:0 0;animation:home-community-badge-float 6s ease-in-out -1.4s infinite}
+  body.site-home .med-home.hc-home .heart-stamp{translate:0 0;animation:home-community-heart-float 7s ease-in-out -2.2s infinite}
+}
+@keyframes home-community-art-float{0%,100%{translate:0 0}50%{translate:0 -5px}}
+@keyframes home-community-badge-float{0%,100%{translate:0 0}50%{translate:0 -4px}}
+@keyframes home-community-heart-float{0%,100%{translate:0 0}50%{translate:0 3px}}
+
 .med-home.hc-home{padding:0!important;background:#fff!important;color:#172e4d;font-family:Inter,Arial,sans-serif;overflow:visible!important;isolation:auto!important}
 .med-home.hc-home::before,.med-home.hc-home::after{display:none!important}
 .med-home.hc-home .container{width:min(1248px,calc(100% - 96px))!important;max-width:none!important;padding:0!important;margin-inline:auto!important}
