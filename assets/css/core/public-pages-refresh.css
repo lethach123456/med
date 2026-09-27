@@ -10,6 +10,7 @@
   --public-shadow:0 14px 36px rgba(20,48,88,.065);
   --public-shadow-hover:0 20px 42px rgba(20,48,88,.105);
   --public-radius:22px;
+  --site-content-max:1248px;
 }
 
 :where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page,.categories-page,.facility-detail,.doctor-detail,.public-404).site-typo{
@@ -20,11 +21,30 @@
   text-rendering:optimizeLegibility;
 }
 
-:where(.facility-directory .directory-container,.doctor-directory .doctor-container,
-  .review-page>.container,.toplist-page>.container,.facility-page>.container,
-  .categories-page>.container,.facility-detail>.container,.doctor-detail>.container){
-  width:min(1248px,calc(100% - 48px));
-  margin-inline:auto;
+.medical-header-utility>.container,
+.medical-header>.container,
+.medical-footer>.container,
+.medical-footer .footer-cta>.container,
+.facility-directory .directory-container,
+.doctor-directory .doctor-container,
+.review-page>.container,
+.toplist-page>.container,
+.facility-page>.container,
+.categories-page>.container,
+.facility-detail>.container,
+.doctor-detail>.container,
+.site-typo>.container,
+.site-typo>section.container,
+.public-404>.container,
+.public-404__layout,
+.about-page .about-shell,
+body:not(.site-home)>.hero>.container,
+body:not(.site-home)>.section>.container,
+body:not(.site-home)>main>.container,
+body:not(.site-home)>main>section>.container{
+  width:min(var(--site-content-max),calc(100% - 96px))!important;
+  max-width:none!important;
+  margin-inline:auto!important;
 }
 
 :where(.facility-directory,.doctor-directory,.review-page,.toplist-page,.facility-page,.categories-page,.facility-detail,.doctor-detail) :where(h1,h2,h3){
@@ -198,14 +218,59 @@ body > .section .card{
 .review-page .review-title h3,
 .toplist-page .post h3{letter-spacing:-.035em}
 .about-page{color:var(--public-ink);font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-.about-page .about-shell{width:min(1248px,calc(100% - 48px))}
+.about-page .about-shell{width:min(var(--site-content-max),calc(100% - 96px))!important}
 
-@media(max-width:720px){
-  :where(.facility-directory .directory-container,.doctor-directory .doctor-container,
-    .review-page>.container,.toplist-page>.container,.facility-page>.container,
-    .categories-page>.container,.facility-detail>.container,.doctor-detail>.container){
-    width:calc(100% - 20px);
+@media(min-width:761px) and (max-width:1020px){
+  .medical-header-utility>.container,
+  .medical-header>.container,
+  .medical-footer>.container,
+  .medical-footer .footer-cta>.container,
+  .facility-directory .directory-container,
+  .doctor-directory .doctor-container,
+  .review-page>.container,
+  .toplist-page>.container,
+  .facility-page>.container,
+  .categories-page>.container,
+  .facility-detail>.container,
+  .doctor-detail>.container,
+  .site-typo>.container,
+  .site-typo>section.container,
+  .public-404>.container,
+  .public-404__layout,
+  .about-page .about-shell,
+  body:not(.site-home)>.hero>.container,
+  body:not(.site-home)>.section>.container,
+  body:not(.site-home)>main>.container,
+  body:not(.site-home)>main>section>.container{
+    width:calc(100% - 64px)!important;
   }
+}
+
+@media(max-width:760px){
+  .medical-header-utility>.container,
+  .medical-header>.container,
+  .medical-footer>.container,
+  .medical-footer .footer-cta>.container,
+  .facility-directory .directory-container,
+  .doctor-directory .doctor-container,
+  .review-page>.container,
+  .toplist-page>.container,
+  .facility-page>.container,
+  .categories-page>.container,
+  .facility-detail>.container,
+  .doctor-detail>.container,
+  .site-typo>.container,
+  .site-typo>section.container,
+  .public-404>.container,
+  .public-404__layout,
+  .about-page .about-shell,
+  body:not(.site-home)>.hero>.container,
+  body:not(.site-home)>.section>.container,
+  body:not(.site-home)>main>.container,
+  body:not(.site-home)>main>section>.container{
+    width:calc(100% - 40px)!important;
+  }
+  .about-page .about-shell{width:min(calc(100% - 40px),600px)!important}
   .facility-directory .directory-hero,
   .doctor-directory .doctor-hero{padding:20px 17px;border-radius:22px}
   .facility-directory .directory-hero h1,
