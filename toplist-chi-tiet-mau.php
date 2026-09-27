@@ -233,6 +233,44 @@ HTML;
 }
 </style>
 HTML;
+    $css .= <<<'HTML'
+<style id="toplist-lightbox-clean-viewer">
+.toplist-lightbox{isolation:isolate;padding:24px;color:#fff}
+.toplist-lightbox-backdrop{background:rgba(8,18,36,.3);backdrop-filter:blur(24px) saturate(1.08) brightness(.72);-webkit-backdrop-filter:blur(24px) saturate(1.08) brightness(.72);transform:none}
+.toplist-lightbox.is-open .toplist-lightbox-backdrop{background:rgba(8,18,36,.3);backdrop-filter:blur(24px) saturate(1.08) brightness(.72);-webkit-backdrop-filter:blur(24px) saturate(1.08) brightness(.72);transform:none}
+.toplist-lightbox-dialog{display:flex;width:min(100%,1680px);height:min(100%,940px);max-height:none;min-height:220px;overflow:visible;border:0;border-radius:0;background:transparent;box-shadow:none;color:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;transform:translate3d(0,18px,0) scale(.97);filter:none;transition:opacity .3s ease,transform .42s cubic-bezier(.16,1,.3,1)}
+.toplist-lightbox-dialog:before{display:none}
+.toplist-lightbox.is-open .toplist-lightbox-dialog{border:0;border-radius:0;background:transparent;box-shadow:none;opacity:1;transform:translate3d(0,0,0) scale(1);filter:none}
+.toplist-lightbox.is-closing .toplist-lightbox-dialog{transform:translate3d(0,12px,0) scale(.985)}
+.toplist-lightbox-top{position:absolute;z-index:3;inset:0;display:block;min-height:0;padding:0;border:0;background:transparent;pointer-events:none}
+.toplist-lightbox-title{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.toplist-lightbox-close{position:absolute;top:0;right:0;display:grid;width:44px;height:44px;place-items:center;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(15,23,42,.38);box-shadow:none;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:auto}
+.toplist-lightbox-close:hover{background:rgba(15,23,42,.58);border-color:rgba(255,255,255,.5)}
+.toplist-lightbox-stage{position:relative;display:flex;flex:1;align-items:center;justify-content:center;width:100%;min-width:0;min-height:0;padding:58px 68px 42px;overflow:visible;border:0;border-radius:0;background:transparent;box-shadow:none}
+.toplist-lightbox-stage:after{display:none}
+.toplist-lightbox-image{position:relative;z-index:1;display:block;max-width:100%;max-height:calc(100vh - 100px);width:auto;height:auto;object-fit:contain;border:0;border-radius:10px;box-shadow:0 16px 48px rgba(0,0,0,.28)}
+.toplist-lightbox-foot{position:absolute;z-index:3;inset:0;display:block;min-height:0;padding:0;border:0;background:transparent;pointer-events:none}
+.toplist-lightbox-counter{position:absolute;top:0;left:0;display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;background:rgba(15,23,42,.38);box-shadow:none;color:#fff;font-size:13px;font-weight:700;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.toplist-lightbox-caption{position:absolute;bottom:0;left:50%;max-width:calc(100% - 150px);padding:7px 11px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(15,23,42,.38);color:#fff;text-align:center;text-shadow:none;transform:translateX(-50%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.toplist-lightbox-nav{width:50px;height:50px;border:1px solid rgba(255,255,255,.28);background:rgba(15,23,42,.38);box-shadow:none;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.toplist-lightbox-nav:hover:not(:disabled){background:rgba(15,23,42,.58);border-color:rgba(255,255,255,.5);box-shadow:none}
+.toplist-lightbox-loader{border-color:rgba(255,255,255,.24);border-top-color:#fff}
+@media(max-width:700px){
+  .toplist-lightbox{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+  .toplist-lightbox-dialog{width:100%;height:100%;max-height:none;border:0;border-radius:0;background:transparent;box-shadow:none}
+  .toplist-lightbox.is-open .toplist-lightbox-dialog{border:0;border-radius:0;background:transparent;box-shadow:none}
+  .toplist-lightbox-close{width:42px;height:42px}
+  .toplist-lightbox-stage{padding:56px 44px 40px}
+  .toplist-lightbox-image{max-height:calc(100dvh - 108px);border-radius:9px}
+  .toplist-lightbox-counter{min-height:32px;font-size:12px}
+  .toplist-lightbox-caption{display:none}
+  .toplist-lightbox-nav{width:42px;height:42px}
+  .toplist-lightbox-nav.prev{left:8px}
+  .toplist-lightbox-nav.next{right:8px}
+}
+@media(prefers-reduced-motion:reduce){.toplist-lightbox,.toplist-lightbox-backdrop,.toplist-lightbox-dialog,.toplist-lightbox-image,.toplist-lightbox-close,.toplist-lightbox-nav{animation:none!important;transition:none!important}}
+</style>
+HTML;
     $script .= '<script id="toplist-gallery-lightbox-data" type="application/json">' . ($galleryLightboxJson ?: '{}') . '</script>';
     $script .= <<<'HTML'
 <script>
