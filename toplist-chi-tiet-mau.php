@@ -32,9 +32,13 @@ foreach ($facilityStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $item = medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($row), true);
     // The Toplist gallery/lightbox consumes URLs. Keep gallery metadata in the
     // facility record itself, but avoid rendering PHP arrays as image sources.
-    $item['gallery'] = medical_directory_gallery_urls((array) ($item['gallery'] ?? []));
+    $item['gallery'] = array_values(array_unique(array_filter(array_map(
+        'site_absolute_media_url',
+        medical_directory_gallery_urls((array) ($item['gallery'] ?? []))
+    ))));
+    $item['image'] = site_absolute_media_url((string) ($item['image'] ?? $item['image_url'] ?? ''));
     $item['rank'] = (int) $row['rank_order'];
-    if (trim((string) ($item['image'] ?? '')) === '') {
+    if ($item['image'] === '') {
         $gallery = (array) ($item['gallery'] ?? []);
         $item['image'] = (string) ($gallery[0] ?? '');
     }
@@ -48,7 +52,7 @@ if (trim($description) === '' && trim((string) ($toplist['content'] ?? '')) !== 
 if (trim($description) === '') $description = $title . ' — danh sách cơ sở y tế được giới thiệu trên MedReview.';
 $description = site_meta_description($description);
 $canonicalUrl = $toplistNotFound ? '' : site_absolute_url(medical_public_entity_path('toplist', $slug, $toplistLanguage));
-$heroImage = trim((string) ($toplist['featured_image_url'] ?? ''));
+$heroImage = site_absolute_media_url((string) ($toplist['featured_image_url'] ?? ''));
 if ($heroImage === '' && isset($facilities[0])) $heroImage = (string) ($facilities[0]['image'] ?? '');
 $toplistSchema = [
     '@context' => 'https://schema.org',
@@ -649,6 +653,29 @@ HTML;
         return '<img' . $attributes . ' loading="lazy" decoding="async">';
     }, $html) ?? $html;
     $html = str_replace('</head>', $css . '</head>', $html);
+    $script .= <<<'HTML'
+<script id="toplist-image-recovery">
+(() => {
+  const selectors = '.hero-image img, .facility-cover img, .toplist-gallery-thumb img, .facility-gallery-strip img';
+  const recover = (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.matches(selectors)) return;
+    image.hidden = true;
+    const holder = image.parentElement;
+    if (!holder || holder.querySelector('.toplist-photo-fallback')) return;
+    const fallback = document.createElement('span');
+    fallback.className = 'toplist-photo-fallback';
+    fallback.setAttribute('aria-hidden', 'true');
+    fallback.innerHTML = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+    holder.append(fallback);
+  };
+  document.addEventListener('error', recover, true);
+  document.querySelectorAll(selectors).forEach((image) => {
+    if (image.complete && image.naturalWidth === 0) recover({ target: image });
+  });
+})();
+</script>
+HTML;
     return str_replace('</body>', $script . '</body>', $html);
 });
 ?>

@@ -27,9 +27,16 @@ foreach ($rows as &$row) {
       $gallery = medical_directory_gallery_urls((string) ($facility['gallery_json'] ?? ''));
       $image = trim((string) ($gallery[0] ?? ''));
     }
+    $image = site_absolute_media_url($image);
     if ($image !== '') { $images[] = $image; }
   }
+  $row['featured_image_url'] = site_absolute_media_url((string) ($row['featured_image_url'] ?? ''));
   $row['collage_images'] = array_values(array_unique($images));
+  if ($row['collage_images'] === [] && $row['featured_image_url'] !== '') {
+    $row['collage_images'][] = $row['featured_image_url'];
+  } elseif ($row['featured_image_url'] !== '' && count($row['collage_images']) < 4 && !in_array($row['featured_image_url'], $row['collage_images'], true)) {
+    $row['collage_images'][] = $row['featured_image_url'];
+  }
 }
 unset($row);
 $seo = front_editor_page_seo('toplist', [
@@ -83,6 +90,14 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
 @keyframes toplist-surface-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .hero-head,.filter-bar,.content-grid{animation:toplist-surface-in .42s cubic-bezier(.2,.8,.2,1) both}.filter-bar{animation-delay:.055s}.content-grid{animation-delay:.1s}.list-wrap{transition:opacity .18s ease}.list-wrap.is-revealing .facility-card{animation:toplist-surface-in .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(min(var(--reveal-index,0),6) * 42ms)}.facility-card,.detail-btn,.filter-input,.filter-select,.summary-card,.utility-card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background-color .18s ease}.facility-card:focus-within{border-color:#a9c8f7;box-shadow:0 16px 34px rgba(30,64,175,.1)}.detail-btn:focus-visible{outline:3px solid rgba(37,99,235,.23);outline-offset:3px}@media(hover:hover){.facility-card:hover{transform:translateY(-2px);border-color:#c8daf5;box-shadow:0 16px 34px rgba(30,64,175,.09)}.facility-card:hover .facility-media>img{transform:scale(1.035)}.detail-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(37,99,235,.22)}.summary-card:hover,.utility-card:hover{transform:translateY(-2px);box-shadow:0 13px 28px rgba(15,23,42,.06)}}@media(hover:none){.facility-card:active,.detail-btn:active{transform:scale(.985)}.detail-btn:active{box-shadow:none}}.facility-media>img,.toplist-collage img{transition:transform .32s ease,opacity .22s ease}.toplist-collage img{opacity:0}.toplist-collage.is-ready img{opacity:1}.toplist-collage.is-ready img:nth-child(2){transition-delay:.035s}.toplist-collage.is-ready img:nth-child(3){transition-delay:.07s}.toplist-collage.is-ready img:nth-child(4){transition-delay:.105s}@media(prefers-reduced-motion:reduce){.hero-head,.filter-bar,.content-grid,.list-wrap.is-revealing .facility-card{animation:none!important}.facility-card,.detail-btn,.filter-input,.filter-select,.summary-card,.utility-card,.facility-media>img,.toplist-collage img{transition-duration:.01ms!important}}
 </style><style id="toplist-directory-mobile-balance">
+.toplist-image-placeholder{display:grid;place-items:center;width:100%;height:100%;min-height:72px;background:linear-gradient(145deg,#edf4ff,#e2ecfb);color:#7291bd}
+.toplist-image-placeholder svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.toplist-collage-cell{position:relative;min-width:0;min-height:0;overflow:hidden;background:#eaf2ff}
+.toplist-collage-cell img{width:100%;height:100%;object-fit:cover}
+.toplist-collage-cell.is-broken{display:none}
+.toplist-collage[data-count="1"]{grid-template-columns:1fr;grid-template-rows:1fr}
+.toplist-collage[data-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr}
+.toplist-collage[data-count="3"] .toplist-collage-cell:last-child{grid-column:1/-1}
 @media(max-width:560px){
   .facility-page{padding:14px 0 36px}
   .breadcrumb{gap:7px;font-size:11px;overflow:hidden;white-space:nowrap}
@@ -93,20 +108,20 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
   .hero-sub{font-size:14px;line-height:1.55}
   .hero-note{width:100%;max-width:none;padding:10px 12px}
   .hero-note span:last-child{font-size:12px}
-  .facility-card{grid-template-columns:88px minmax(0,1fr);grid-template-areas:"media main" "score cta";gap:0 10px;padding:9px;border-radius:15px}
-  .facility-media{grid-area:media;aspect-ratio:auto;height:88px;min-height:0;border-radius:10px}
-  .media-count{bottom:5px;left:5px;padding:4px 6px;font-size:9px}
-  .facility-main{grid-area:main;min-width:0;padding:0 2px 8px 0}
+  .facility-card{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"media media" "main main" "score cta";gap:0;padding:0;border-radius:16px}
+  .facility-media{grid-area:media;aspect-ratio:16/9;height:auto;min-height:120px;border-radius:0}
+  .media-count{bottom:9px;left:9px;padding:5px 8px;font-size:10px}
+  .facility-main{grid-area:main;min-width:0;padding:13px 14px 10px}
   .facility-title{align-items:flex-start;gap:6px}
   .rank-badge{flex:0 0 24px;width:24px;height:24px;font-size:11px}
   .facility-title h2{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
   .facility-sub{display:-webkit-box;margin-top:4px;overflow:hidden;font-size:12px;line-height:1.45;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .meta-row{margin-top:5px;font-size:11px}
-  .score-col{grid-area:score;flex-direction:row;align-items:center;gap:6px;padding:8px 3px 2px 4px;border-top:1px solid var(--border);border-left:0}
-  .score-main{font-size:20px}
+  .score-col{grid-area:score;flex-direction:row;align-items:center;gap:7px;padding:11px 8px 13px 14px;border-top:1px solid var(--border);border-left:0}
+  .score-main{font-size:21px}
   .score-main small{font-size:11px}
   .score-meta{margin:0;font-size:11px}
-  .cta-col{grid-area:cta;flex-direction:row;align-items:center;justify-content:flex-end;gap:8px;padding:8px 2px 2px;border-top:1px solid var(--border);border-left:0}
+  .cta-col{grid-area:cta;flex-direction:row;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px 12px 8px;border-top:1px solid var(--border);border-left:0}
   .cta-col strong{display:none}
   .detail-btn{min-height:36px;margin:0;padding:8px 11px;font-size:11px}
   .sidebar{grid-template-columns:1fr}
@@ -116,8 +131,7 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
 @media(max-width:360px){
   .container{width:calc(100% - 20px)}
   .hero-head h1{font-size:21px}
-  .facility-card{grid-template-columns:78px minmax(0,1fr);column-gap:8px}
-  .facility-media{height:78px}
+  .facility-media{min-height:112px}
   .facility-title h2{font-size:13.5px}
   .facility-sub{font-size:11.5px}
 }
@@ -132,7 +146,7 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
       <?php foreach ($rows as $index => $row): ?>
         <article class="facility-card">
           <div class="facility-media">
-            <?php if (trim((string) $row['featured_image_url']) !== ''): ?><img src="<?= htmlspecialchars($row['featured_image_url'], ENT_QUOTES) ?>" alt="<?= htmlspecialchars($row['title'], ENT_QUOTES) ?>" loading="lazy" decoding="async"><?php endif; ?>
+            <?php if (trim((string) $row['featured_image_url']) !== ''): ?><img src="<?= htmlspecialchars($row['featured_image_url'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($row['title'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async"><?php else: ?><span class="toplist-image-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></span><?php endif; ?>
             <span class="media-count"><i data-lucide="list-ordered"></i> Toplist</span>
           </div>
           <div class="facility-main">
@@ -158,6 +172,13 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
     const collages = <?= json_encode($toplistCollageMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
     const imageAlt = <?= json_encode($labels['imageAlt'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const makeImagePlaceholder = () => {
+      const placeholder = document.createElement('span');
+      placeholder.className = 'toplist-image-placeholder';
+      placeholder.setAttribute('aria-hidden', 'true');
+      placeholder.innerHTML = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+      return placeholder;
+    };
     const list = document.querySelector('.list-wrap');
     if (list) {
       list.querySelectorAll(':scope > .facility-card').forEach((card, index) => card.style.setProperty('--reveal-index', String(index)));
@@ -167,21 +188,42 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
       const href = card.querySelector('.detail-btn')?.getAttribute('href') || '';
       const slug = new URL(href, location.origin).searchParams.get('slug') || '';
       const images = (collages[slug] || []).slice(0, 4);
-      if (images.length < 2) return;
       const media = card.querySelector('.facility-media');
       const original = media?.querySelector(':scope > img');
       if (!media) return;
+      if (images.length < 1) {
+        if (original) {
+          const recoverOriginal = () => original.replaceWith(makeImagePlaceholder());
+          original.addEventListener('error', recoverOriginal, { once: true });
+          if (original.complete && original.naturalWidth === 0) recoverOriginal();
+        }
+        return;
+      }
       const collage = document.createElement('div');
       collage.className = 'toplist-collage';
+      collage.dataset.count = String(images.length);
+      let failedCount = 0;
       images.forEach(source => {
+        const cell = document.createElement('span');
+        cell.className = 'toplist-collage-cell';
         const image = document.createElement('img');
-        image.src = source;
         image.alt = imageAlt;
-        collage.append(image);
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => {
+          cell.classList.add('is-broken');
+          failedCount += 1;
+          collage.dataset.count = String(images.length - failedCount);
+          if (failedCount === images.length) collage.replaceWith(makeImagePlaceholder());
+        }, { once: true });
+        image.src = source;
+        cell.append(image);
+        collage.append(cell);
       });
       if (original) {
         original.replaceWith(collage);
       } else {
+        media.querySelector(':scope > .toplist-image-placeholder')?.remove();
         media.prepend(collage);
       }
       if (!reduceMotion) requestAnimationFrame(() => collage.classList.add('is-ready'));

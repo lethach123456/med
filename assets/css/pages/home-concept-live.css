@@ -345,3 +345,17 @@ body.site-home .med-home.hc-home .medical-search-results.is-closing{
   pointer-events:none!important;
   animation:medical-popover-exit .16s cubic-bezier(.4,0,1,1) both;
 }
+
+/* The homepage's Toplist cards use their cover photo as a full-bleed backdrop. */
+.med-home.hc-home .toplist-card{isolation:isolate}
+.med-home.hc-home .toplist-card>.toplist-photo-placeholder{position:absolute;inset:0;z-index:-2;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 72% 28%,#ffffff70,transparent 25%),linear-gradient(135deg,#cfe0fa,#9bb8e4 58%,#7798cf);color:#fff}
+.med-home.hc-home .toplist-photo-placeholder .icon{width:76px;height:76px;opacity:.5;stroke-width:1.1}
+.med-home.hc-home .toplist-card.has-image-fallback>.toplist-photo-placeholder{background:radial-gradient(circle at 72% 28%,#ffffff70,transparent 25%),linear-gradient(135deg,#cfe0fa,#9bb8e4 58%,#7798cf)}
+@media(max-width:760px){
+  .med-home.hc-home #home-toplist-grid>.toplist-card{min-height:clamp(250px,67vw,290px);padding:18px;border-radius:20px}
+  .med-home.hc-home #home-toplist-grid>.toplist-card .editorial-tag{top:16px;left:16px}
+  .med-home.hc-home #home-toplist-grid>.toplist-card .toplist-number{top:48px;right:17px;font-size:40px}
+  .med-home.hc-home #home-toplist-grid>.toplist-card .toplist-location{margin-bottom:9px;font-size:10px;letter-spacing:1.2px}
+  .med-home.hc-home #home-toplist-grid>.toplist-card h3{max-width:100%;font-size:20px;line-height:1.35;overflow-wrap:anywhere}
+  .med-home.hc-home #home-toplist-grid>.toplist-card .toplist-meta{min-height:42px;margin-top:14px;padding-top:10px}
+}

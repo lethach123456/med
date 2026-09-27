@@ -196,3 +196,27 @@
   .page.site-typo .verified-tag { font-size:11px!important; }
   .page.site-typo .compare-item strong { font-size:13px; }
 }
+
+/* Keep Toplist photography resilient and the detail cards comfortable on phones. */
+.page.site-typo .hero-image,
+.page.site-typo .facility-cover { position:relative; overflow:hidden; background:#eaf2ff; }
+.page.site-typo .hero-image img,
+.page.site-typo .facility-cover img { width:100%; height:100%; object-fit:cover; }
+.page.site-typo .toplist-gallery-thumb,
+.page.site-typo .facility-gallery-strip button { position:relative; }
+.page.site-typo .toplist-gallery-thumb img,
+.page.site-typo .facility-gallery-strip img { display:block; width:100%; height:100%; object-fit:cover; }
+.page.site-typo .toplist-photo-fallback { position:absolute; inset:0; display:grid; place-items:center; min-height:60px; background:linear-gradient(145deg,#edf4ff,#e2ecfb); color:#7291bd; }
+.page.site-typo .toplist-photo-fallback svg { width:32px; height:32px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+@media(max-width:700px) {
+  .page.site-typo { padding:12px 0 30px; }
+  .page.site-typo .container { width:calc(100% - 28px)!important; }
+  .page.site-typo .hero { padding:16px; gap:14px; }
+  .page.site-typo .hero-image { height:auto; aspect-ratio:16/9; min-height:0; }
+  .page.site-typo .facility-cover { height:auto; aspect-ratio:16/9; }
+  .page.site-typo .facility-body { padding:16px; }
+  .page.site-typo .section-head { align-items:flex-start; flex-direction:column; gap:4px; }
+  .page.site-typo .facility .facility-title .rating { margin-top:12px; }
+  .page.site-typo .toplist-gallery-strip,
+  .page.site-typo .facility-gallery-strip { padding:8px; }
+}
