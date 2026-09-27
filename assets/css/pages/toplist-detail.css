@@ -24,6 +24,10 @@
 .page.site-typo :is(.intro,.facility-body,.toplist-quick-compare) { padding: 28px; }
 .page.site-typo :is(.intro,.facility-content) { overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
 .page.site-typo :is(.intro,.facility-content) p { font-size: 14px; line-height: 1.85; margin: 0 0 16px; color: #46566e; }
+/* Toplist article paragraphs should use the full content card width. The shared
+   desktop reading measure caps these at 78ch, which leaves a visible blank
+   strip even though the intro card itself spans the full main column. */
+.page.site-typo .intro p { max-width: none !important; }
 .page.site-typo :is(.intro,.facility-content) :is(h2,h3,h4) { color: #203b62; font-weight: 700; line-height: 1.45; margin: 26px 0 12px; }
 .page.site-typo :is(.intro,.facility-content) h2 { font-size: 21px; }
 .page.site-typo :is(.intro,.facility-content) h3 { font-size: 18px; }
