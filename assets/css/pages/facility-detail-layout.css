@@ -288,3 +288,49 @@
  .facility-detail .facility-price-table thead th{font-size:9.5px}
  .facility-detail .section-copy{font-size:13.5px}
 }
+
+/* On phones, flatten the article panels so the copy can use nearly the full
+   viewport. Keep subtle separators between information groups instead of
+   nested card borders and shadows. */
+@media(max-width:767px){
+ .facility-detail .container{width:calc(100% - 16px)!important;max-width:none}
+ .facility-detail .facility-reading-layout{gap:8px;margin-top:8px}
+ .facility-detail .facility-reading-main>.section#gioi-thieu{
+   padding:12px 2px!important;
+   border:0!important;
+   border-radius:0!important;
+   background:transparent!important;
+   box-shadow:none!important;
+ }
+ .facility-detail .facility-reading-main>.section#gioi-thieu>h2{
+   margin:0 0 10px!important;
+   padding:0 0 9px!important;
+   border-bottom:1px solid #e8eef7!important;
+ }
+ .facility-detail #gioi-thieu .section-copy p{margin:0 0 10px}
+ .facility-detail #gioi-thieu .facility-subsection{margin-top:12px;padding-top:11px}
+ .facility-detail .facility-info-area{margin-top:16px}
+ .facility-detail .facility-info-heading{margin:0 2px 8px;gap:6px}
+ .facility-detail .facility-info-grid{gap:0}
+ .facility-detail .facility-info-card{
+   padding:12px 2px!important;
+   border:0!important;
+   border-bottom:1px solid #e8eef7!important;
+   border-radius:0!important;
+   background:transparent!important;
+   box-shadow:none!important;
+ }
+ .facility-detail .facility-info-card-head{gap:8px;margin-bottom:8px!important}
+ .facility-detail .facility-info-icon{width:32px;height:32px;border-radius:9px}
+ .facility-detail .facility-info-icon svg{width:16px;height:16px}
+ .facility-detail .facility-info-card-head h3{font-size:14px}
+ .facility-detail .facility-info-card-head p{font-size:11px}
+ .facility-detail .facility-fact-list>div{padding:8px 0}
+ .facility-detail .facility-fact-list dt{font-size:10px}
+ .facility-detail .facility-fact-list dd{margin-top:3px;font-size:13px;line-height:1.55}
+ .facility-detail .facility-info-note{padding:8px 0;border:0;border-left:2px solid #dbeafe;border-radius:0;background:transparent}
+ .facility-detail .facility-source-grid{gap:6px}
+ .facility-detail .facility-source-item{padding:7px 0;border:0;border-top:1px solid #e8eef7;border-radius:0;background:transparent}
+ .facility-detail .facility-doctor-list article{padding:8px 0;border:0;border-bottom:1px solid #e8eef7;border-radius:0;background:transparent}
+ .facility-detail .facility-team-column+.facility-team-column{padding-top:10px}
+}
