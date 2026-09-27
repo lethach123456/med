@@ -334,3 +334,60 @@
  .facility-detail .facility-doctor-list article{padding:8px 0;border:0;border-bottom:1px solid #e8eef7;border-radius:0;background:transparent}
  .facility-detail .facility-team-column+.facility-team-column{padding-top:10px}
 }
+
+/* Mobile profile layout: let text sit on the page's white canvas instead of
+   nesting every section inside a rounded panel. Retain rhythm with dividers. */
+@media(max-width:767px){
+ .facility-detail{background:#fff}
+ .facility-detail.site-typo>section.container{
+   width:100%!important;
+   max-width:none!important;
+   padding-inline:12px;
+ }
+ .facility-detail .hero-main,
+ .facility-detail .facility-contact-sidebar .side-card,
+ .facility-detail .facility-reading-main>.section,
+ .facility-detail #danh-gia,
+ .facility-detail .facility-info-card{
+   border:0!important;
+   border-radius:0!important;
+   background:transparent!important;
+   box-shadow:none!important;
+ }
+ .facility-detail .hero-main{padding:14px 0!important}
+ .facility-detail .hero-gallery .hero-image{border-radius:12px}
+ .facility-detail .facility-contact-sidebar .side-card{padding:12px 0!important}
+ .facility-detail .facility-reading-main .detail-nav{
+   padding:0 0 8px;
+   border:0;
+   border-bottom:1px solid #e8eef7;
+   border-radius:0;
+   background:transparent;
+   box-shadow:none;
+ }
+ .facility-detail .facility-reading-main>.section#gioi-thieu{padding:14px 0!important}
+ .facility-detail .facility-info-card{
+   padding:14px 0!important;
+   border-bottom:1px solid #e8eef7!important;
+ }
+ .facility-detail #danh-gia{padding:16px 0 0!important}
+ .facility-detail #danh-gia .review-feed{
+   border:0;
+   border-radius:0;
+   background:transparent;
+   box-shadow:none;
+ }
+ .facility-detail #danh-gia .review-row{
+   border:0!important;
+   border-bottom:1px solid #e8eef7!important;
+   border-radius:0!important;
+   background:transparent!important;
+   box-shadow:none!important;
+ }
+ .facility-detail #danh-gia .summary-box{
+   border:1px solid #e7eef8;
+   border-radius:14px;
+   background:#f7faff;
+   box-shadow:none;
+ }
+}
