@@ -10,11 +10,24 @@ if (!in_array($type, $allowedTypes, true)) $type = 'facility';
 $where = "status = 'published' AND COALESCE(TRIM(content),'') = ''";
 $cityPriority = medical_directory_major_city_priority_sql('city');
 $total = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE {$where}")->fetchColumn();
-$stmt = $pdo->prepare("SELECT id, slug, name, category, city, address_text, phone_text, website_url, image_url, gallery_json, subtitle, content, full_json, price_text, price_table_html, hours_text, services_json, intro_json, updated_at FROM medical_facilities WHERE {$where} ORDER BY {$cityPriority} ASC, id ASC LIMIT :limit OFFSET :offset");
+$stmt = $pdo->prepare("SELECT id, slug, name, category, city, address_text, phone_text, website_url, image_url, gallery_json, subtitle, content, full_json, price_text, price_table_html, hours_text, services_json, intro_json, ai_writer_claim_json, updated_at FROM medical_facilities WHERE {$where} ORDER BY {$cityPriority} ASC, id ASC LIMIT :limit OFFSET :offset");
 $stmt->bindValue(':limit', $limit, PDO::PARAM_INT); $stmt->bindValue(':offset', $offset, PDO::PARAM_INT); $stmt->execute();
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$now = time();
 $resolvedPromptCache = [];
 foreach ($items as &$item) {
+    $storedClaim = json_decode((string) ($item['ai_writer_claim_json'] ?? ''), true);
+    $activeClaim = is_array($storedClaim) && (int) ($storedClaim['expires_at'] ?? 0) > $now;
+    $item['writer_claimed'] = $activeClaim;
+    $item['writer_claim'] = null;
+    if ($activeClaim) {
+        $item['writer_claim'] = array_intersect_key($storedClaim, array_flip([
+            'provider', 'model', 'task', 'instance_id', 'instance_label', 'account_label',
+            'worker_id', 'claimed_at', 'heartbeat_at', 'expires_at',
+        ]));
+    }
+    // Never expose the private claim token in the normal queue response.
+    unset($item['ai_writer_claim_json']);
     $category = $type === 'facility' ? (string) ($item['category'] ?? '') : '';
     $cacheKey = $type . '|' . medical_directory_ai_prompt_normalize_category($category);
     if (!array_key_exists($cacheKey, $resolvedPromptCache)) {
@@ -42,4 +55,5 @@ foreach ($items as &$item) {
     ]);
 }
 unset($item);
-json_response(['ok' => true, 'page' => $page, 'limit' => $limit, 'total' => $total, 'pages' => (int) ceil($total / $limit), 'prompt_type' => $type, 'prompt_selection' => $type === 'facility' ? 'per_facility_category_with_default_fallback' : 'default', 'ordering' => 'major_cities_first_then_remaining', 'priority_cities' => medical_directory_major_city_priority_labels(), 'items' => $items]);
+$claimedCount = count(array_filter($items, static fn(array $item): bool => !empty($item['writer_claimed'])));
+json_response(['ok' => true, 'page' => $page, 'limit' => $limit, 'total' => $total, 'pages' => (int) ceil($total / $limit), 'claimed_count' => $claimedCount, 'prompt_type' => $type, 'prompt_selection' => $type === 'facility' ? 'per_facility_category_with_default_fallback' : 'default', 'ordering' => 'major_cities_first_then_remaining', 'priority_cities' => medical_directory_major_city_priority_labels(), 'items' => $items]);

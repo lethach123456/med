@@ -143,6 +143,21 @@ function medical_api_content_bool(mixed $value): int
     return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
 }
 
+function medical_api_content_writer_claim(mixed $raw): array
+{
+    if (!is_string($raw) || trim($raw) === '') return [];
+    $claim = json_decode($raw, true);
+    return is_array($claim) ? $claim : [];
+}
+
+function medical_api_content_writer_label(array $claim): string
+{
+    $provider = trim((string) ($claim['provider'] ?? 'AI')) ?: 'AI';
+    $instance = trim((string) ($claim['instance_label'] ?? 'thiết bị khác')) ?: 'thiết bị khác';
+    $account = trim((string) ($claim['account_label'] ?? ''));
+    return $provider . ' trên ' . $instance . ($account !== '' ? ' (' . $account . ')' : '');
+}
+
 $body = read_json_body();
 // Hỗ trợ cả payload chuẩn {items:[...]} và payload tiện ích bọc JSON AI trong content.
 if (isset($body['items']) && is_array($body['items'])) {
@@ -161,6 +176,7 @@ if (isset($body['items']) && is_array($body['items'])) {
 $pdo = db();
 if (!medical_directory_table_exists($pdo, 'medical_facilities')) medical_directory_ensure_tables($pdo);
 medical_directory_ensure_facility_content_columns($pdo);
+medical_directory_ensure_ai_writer_claim_columns($pdo);
 $updated = [];
 $errors = [];
 $reviewsCreated = 0;
@@ -176,8 +192,19 @@ $processedItems = [];
 try { foreach ($items as $item) {
     if (!is_array($item)) continue; $id = (int) ($item['id'] ?? 0); $slug = trim((string) ($item['slug'] ?? ''));
     if ($id <= 0 && $slug === '') { $errors[] = 'Thiếu id hoặc slug.'; continue; }
-    $where = $id > 0 ? 'id = :lookup_id' : 'slug = :lookup_slug'; $lookup = $pdo->prepare("SELECT id, slug, name, image_url FROM medical_facilities WHERE {$where} LIMIT 1"); $lookup->execute($id > 0 ? [':lookup_id'=>$id] : [':lookup_slug'=>$slug]); $facilityRow = $lookup->fetch(PDO::FETCH_ASSOC) ?: []; $facilityId = (int) ($facilityRow['id'] ?? 0);
+    $where = $id > 0 ? 'id = :lookup_id' : 'slug = :lookup_slug'; $lookup = $pdo->prepare("SELECT id, slug, name, image_url, ai_writer_claim_json FROM medical_facilities WHERE {$where} LIMIT 1"); $lookup->execute($id > 0 ? [':lookup_id'=>$id] : [':lookup_slug'=>$slug]); $facilityRow = $lookup->fetch(PDO::FETCH_ASSOC) ?: []; $facilityId = (int) ($facilityRow['id'] ?? 0);
     if ($facilityId <= 0) { $errors[] = 'Không tìm thấy cơ sở: ' . ($slug ?: $id); continue; }
+    $claimToken = trim((string) ($item['writer_claim_token'] ?? ''));
+    $currentClaim = medical_api_content_writer_claim($facilityRow['ai_writer_claim_json'] ?? null);
+    $claimIsActive = (int) ($currentClaim['expires_at'] ?? 0) > time();
+    if ($claimIsActive && ($claimToken === '' || !hash_equals((string) ($currentClaim['claim_token'] ?? ''), $claimToken))) {
+        $errors[] = 'Không lưu được bài ' . (string) ($facilityRow['name'] ?? $facilityId) . ': bài đang được viết bởi ' . medical_api_content_writer_label($currentClaim) . '.';
+        continue;
+    }
+    if ($claimToken !== '' && (!$claimIsActive || !hash_equals((string) ($currentClaim['claim_token'] ?? ''), $claimToken))) {
+        $errors[] = 'Không lưu được bài ' . (string) ($facilityRow['name'] ?? $facilityId) . ': claim đã hết hạn hoặc không còn thuộc máy này. Hãy nhận bài lại trước khi gửi.';
+        continue;
+    }
     $fields = [
         'name' => 'name', 'category' => 'category', 'city' => 'city',
         'address' => 'address_text', 'address_text' => 'address_text',
@@ -201,6 +228,7 @@ try { foreach ($items as $item) {
     // URLs remain the source URLs until the independent media worker has
     // downloaded and replaced them with locally owned files.
     $normalizedItem = $item;
+    unset($normalizedItem['writer_claim_token'], $normalizedItem['writer_claim'], $normalizedItem['writer_claimed']);
     $set = ['full_json' => ':full_json'];
     $params = [':id' => $facilityId];
     foreach ($fields as $input => $column) {
@@ -343,8 +371,45 @@ try { foreach ($items as $item) {
         $params[':' . $column] = is_array($value) ? medical_api_json($value) : medical_api_json([(string) $value]);
     }
     $params[':full_json'] = medical_api_json($normalizedItem);
-    $sql = 'UPDATE medical_facilities SET ' . implode(', ', array_map(static fn($column, $placeholder) => $column . '=' . $placeholder, array_keys($set), array_values($set))) . ' WHERE id=:id';
-    $pdo->prepare($sql)->execute($params);
+    // Clear a completed lease in the same atomic write that saves the article.
+    // A legacy client without a token may write only when no unexpired worker
+    // owns the row; a leased client must still own the same unexpired token.
+    $safeClaimJsonSql = "CASE WHEN JSON_VALID(ai_writer_claim_json) = 1 THEN ai_writer_claim_json ELSE '{}' END";
+    $claimExpirySql = "CAST(COALESCE(JSON_UNQUOTE(JSON_EXTRACT({$safeClaimJsonSql}, '$.expires_at')), '0') AS UNSIGNED)";
+    $claimTokenSql = "JSON_UNQUOTE(JSON_EXTRACT({$safeClaimJsonSql}, '$.claim_token'))";
+    $set['ai_writer_claim_json'] = "CASE WHEN {$claimExpirySql} <= :claim_clear_now OR {$claimTokenSql} = :claim_clear_token THEN NULL ELSE ai_writer_claim_json END";
+    $params[':claim_clear_now'] = time();
+    $params[':claim_clear_token'] = $claimToken;
+    if ($claimToken !== '') {
+        $leaseWhere = "{$claimExpirySql} > :claim_where_now AND {$claimTokenSql} = :claim_where_token";
+        $params[':claim_where_now'] = time();
+        $params[':claim_where_token'] = $claimToken;
+    } else {
+        $leaseWhere = "ai_writer_claim_json IS NULL OR {$claimExpirySql} <= :claim_where_now";
+        $params[':claim_where_now'] = time();
+    }
+    $sql = 'UPDATE medical_facilities SET ' . implode(', ', array_map(static fn($column, $placeholder) => $column . '=' . $placeholder, array_keys($set), array_values($set))) . ' WHERE id=:id AND (' . $leaseWhere . ')';
+    $updateStmt = $pdo->prepare($sql);
+    $updateStmt->execute($params);
+    if ($updateStmt->rowCount() === 0) {
+        $latestStmt = $pdo->prepare('SELECT ai_writer_claim_json FROM medical_facilities WHERE id = :id LIMIT 1');
+        $latestStmt->execute([':id' => $facilityId]);
+        $latestRawClaim = $latestStmt->fetchColumn();
+        if ($latestRawClaim === false) {
+            $errors[] = 'Không lưu được bài ' . (string) ($facilityRow['name'] ?? $facilityId) . ': bài viết không còn tồn tại.';
+            continue;
+        }
+        $latestClaim = medical_api_content_writer_claim($latestRawClaim);
+        $latestIsActive = (int) ($latestClaim['expires_at'] ?? 0) > time();
+        if ($claimToken !== '' && (!$latestIsActive || !hash_equals((string) ($latestClaim['claim_token'] ?? ''), $claimToken))) {
+            $errors[] = 'Không lưu được bài ' . (string) ($facilityRow['name'] ?? $facilityId) . ': claim đã hết hạn hoặc được trả lại; hãy nhận bài lại trước khi gửi.';
+            continue;
+        }
+        if ($latestIsActive && ($claimToken === '' || !hash_equals((string) ($latestClaim['claim_token'] ?? ''), $claimToken))) {
+            $errors[] = 'Không lưu được bài ' . (string) ($facilityRow['name'] ?? $facilityId) . ': claim đã chuyển sang ' . medical_api_content_writer_label($latestClaim) . '.';
+            continue;
+        }
+    }
     $updated[] = $facilityId;
     // Queue is a best-effort optimization.  A background scanner can still
     // discover the remote URLs in gallery_json if queue storage is temporarily

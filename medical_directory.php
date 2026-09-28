@@ -231,6 +231,29 @@ function medical_directory_ensure_facility_content_columns(PDO $pdo): void
     }
 }
 
+/**
+ * Adds the cross-device AI writer lease field to facilities and doctors.
+ * Lease data is JSON and expires automatically if a browser stops heartbeating.
+ */
+function medical_directory_ensure_ai_writer_claim_columns(PDO $pdo): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    foreach (['medical_facilities', 'medical_doctors'] as $table) {
+        if (!medical_directory_table_exists($pdo, $table) || medical_directory_column_exists($pdo, $table, 'ai_writer_claim_json')) {
+            continue;
+        }
+        try {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN ai_writer_claim_json MEDIUMTEXT NULL");
+        } catch (Throwable $e) {
+            // Another request may have completed the same migration first.
+            if (!medical_directory_column_exists($pdo, $table, 'ai_writer_claim_json')) $checked = false;
+        }
+    }
+}
+
 /** Machine-oriented rules appended to facility prompts served through APIs. */
 function medical_directory_facility_json_transport_rules(string $template): string
 {
@@ -374,6 +397,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             category VARCHAR(120) NOT NULL DEFAULT 'Cơ sở y tế',
             city VARCHAR(120) NOT NULL DEFAULT '',
             subtitle TEXT NULL,
+            ai_writer_claim_json MEDIUMTEXT NULL,
             verified TINYINT(1) NOT NULL DEFAULT 1,
             rating DECIMAL(3,1) NOT NULL DEFAULT 0.0,
             reviews_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -526,6 +550,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             specialties_json MEDIUMTEXT NULL,
             gallery_json MEDIUMTEXT NULL,
             bio_json MEDIUMTEXT NULL,
+            ai_writer_claim_json MEDIUMTEXT NULL,
             status ENUM('draft','published') NOT NULL DEFAULT 'published',
             display_order INT NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -539,6 +564,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
     medreview_ensure_translation_columns($pdo, 'medical_doctors');
+    medical_directory_ensure_ai_writer_claim_columns($pdo);
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS medical_ai_prompts (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT, prompt_key VARCHAR(40) NOT NULL, label VARCHAR(120) NOT NULL,
