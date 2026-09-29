@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
 medical_api_auth();
+header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 
 if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     header('Allow: POST');
@@ -123,12 +124,21 @@ $claim = [
 
 try {
     $pdo->beginTransaction();
-    $lock = $pdo->prepare("SELECT id, slug, name, status, ai_writer_claim_json FROM `{$table}` WHERE id = :id FOR UPDATE");
+    $contentColumn = $type === 'facility' ? ', content' : '';
+    $lock = $pdo->prepare("SELECT id, slug, name, status, ai_writer_claim_json{$contentColumn} FROM `{$table}` WHERE id = :id FOR UPDATE");
     $lock->execute([':id' => $id]);
     $row = $lock->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         $pdo->rollBack();
         json_response(['ok' => false, 'message' => 'Không tìm thấy bài viết.'], 404);
+    }
+    if ((string) ($row['status'] ?? '') !== 'published') {
+        $pdo->rollBack();
+        json_response(['ok' => true, 'claimed' => false, 'reason' => 'not_published', 'type' => $type, 'id' => $id, 'message' => 'Bài không còn ở trạng thái xuất bản.'], 409);
+    }
+    if ($type === 'facility' && trim((string) ($row['content'] ?? '')) !== '') {
+        $pdo->rollBack();
+        json_response(['ok' => true, 'claimed' => false, 'reason' => 'content_exists', 'type' => $type, 'id' => $id, 'message' => 'Cơ sở đã có nội dung; bỏ qua để tránh viết trùng.'], 409);
     }
     $current = medical_api_writer_claim_decode($row['ai_writer_claim_json'] ?? null);
     if ((int) ($current['expires_at'] ?? 0) > $now) {

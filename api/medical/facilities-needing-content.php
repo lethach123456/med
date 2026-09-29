@@ -2,16 +2,49 @@
 declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
 medical_api_auth();
+header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 $pdo = db(); medical_directory_ensure_tables($pdo);
 $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25))); $offset = ($page - 1) * $limit;
 $type = trim((string) ($_GET['type'] ?? 'facility'));
 $allowedTypes = ['facility', 'doctor', 'review'];
 if (!in_array($type, $allowedTypes, true)) $type = 'facility';
 $where = "status = 'published' AND COALESCE(TRIM(content),'') = ''";
+$requestedIds = [];
+if (array_key_exists('ids', $_GET)) {
+    if (!is_string($_GET['ids'])) {
+        json_response(['ok' => false, 'message' => 'ids phải là danh sách ID nguyên dương, phân cách bằng dấu phẩy.'], 422);
+    }
+    foreach (explode(',', $_GET['ids']) as $rawId) {
+        $rawId = trim($rawId);
+        if ($rawId === '' || !ctype_digit($rawId) || (int) $rawId <= 0) {
+            json_response(['ok' => false, 'message' => 'ids phải là danh sách ID nguyên dương, phân cách bằng dấu phẩy.'], 422);
+        }
+        $requestedIds[(int) $rawId] = (int) $rawId;
+    }
+    $requestedIds = array_values($requestedIds);
+    if ($requestedIds === [] || count($requestedIds) > 100) {
+        json_response(['ok' => false, 'message' => 'ids cần có từ 1 đến 100 ID.'], 422);
+    }
+}
+$params = [];
+if ($requestedIds !== []) {
+    $idPlaceholders = [];
+    foreach ($requestedIds as $index => $requestedId) {
+        $placeholder = ':requested_id_' . $index;
+        $idPlaceholders[] = $placeholder;
+        $params[$placeholder] = $requestedId;
+    }
+    $where .= ' AND id IN (' . implode(', ', $idPlaceholders) . ')';
+}
 $cityPriority = medical_directory_major_city_priority_sql('city');
-$total = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE {$where}")->fetchColumn();
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM medical_facilities WHERE {$where}");
+$countStmt->execute($params);
+$total = (int) $countStmt->fetchColumn();
 $stmt = $pdo->prepare("SELECT id, slug, name, category, city, address_text, phone_text, website_url, image_url, gallery_json, subtitle, content, full_json, price_text, price_table_html, hours_text, services_json, intro_json, ai_writer_claim_json, updated_at FROM medical_facilities WHERE {$where} ORDER BY {$cityPriority} ASC, id ASC LIMIT :limit OFFSET :offset");
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT); $stmt->bindValue(':offset', $offset, PDO::PARAM_INT); $stmt->execute();
+$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+foreach ($params as $key => $value) $stmt->bindValue($key, $value, PDO::PARAM_INT);
+$stmt->execute();
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $now = time();
 $resolvedPromptCache = [];
@@ -56,4 +89,4 @@ foreach ($items as &$item) {
 }
 unset($item);
 $claimedCount = count(array_filter($items, static fn(array $item): bool => !empty($item['writer_claimed'])));
-json_response(['ok' => true, 'page' => $page, 'limit' => $limit, 'total' => $total, 'pages' => (int) ceil($total / $limit), 'claimed_count' => $claimedCount, 'prompt_type' => $type, 'prompt_selection' => $type === 'facility' ? 'per_facility_category_with_default_fallback' : 'default', 'ordering' => 'major_cities_first_then_remaining', 'priority_cities' => medical_directory_major_city_priority_labels(), 'items' => $items]);
+json_response(['ok' => true, 'page' => $page, 'limit' => $limit, 'total' => $total, 'pages' => (int) ceil($total / $limit), 'claimed_count' => $claimedCount, 'prompt_type' => $type, 'prompt_selection' => $type === 'facility' ? 'per_facility_category_with_default_fallback' : 'default', 'ordering' => 'major_cities_first_then_remaining', 'priority_cities' => medical_directory_major_city_priority_labels(), 'checked_ids' => $requestedIds !== [] ? $requestedIds : null, 'eligibility_check' => $requestedIds !== [] ? 'published_with_empty_content' : null, 'items' => $items]);
