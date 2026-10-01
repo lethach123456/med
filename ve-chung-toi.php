@@ -251,7 +251,7 @@ $aboutScriptVersion = (string) filemtime(__DIR__ . '/assets/js/about-medreview.j
                 <span class="mr-about__provider-icon"><i class="ph ph-hospital" aria-hidden="true"></i></span>
                 <p class="mr-about__eyebrow"><?php echo $aboutEscape($aboutCopy['providerLabel']); ?></p><h3><?php echo $aboutEscape($aboutCopy['providerHeading']); ?></h3><p><?php echo $aboutEscape($aboutCopy['providerCopy']); ?></p>
                 <ul><?php foreach (['providerPointOne', 'providerPointTwo', 'providerPointThree'] as $key): ?><li><i class="ph ph-check-circle" aria-hidden="true"></i><?php echo $aboutEscape($aboutCopy[$key]); ?></li><?php endforeach; ?></ul>
-                <a class="mr-about__text-link" href="<?php echo $aboutEscape($aboutContactPath); ?>"><?php echo $aboutEscape($aboutCopy['providerLink']); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+                <a class="mr-about__text-link" href="<?php echo $aboutEscape($aboutContactPath . '?topic=provider#gui-lien-he'); ?>"><?php echo $aboutEscape($aboutCopy['providerLink']); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
             </article>
         </div>
     </section>

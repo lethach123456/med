@@ -1341,7 +1341,7 @@ $navItems = $isEnglish
 <div class="medical-header-utility">
   <div class="container">
     <span><i class="ph ph-shield-check" aria-hidden="true"></i><?php echo htmlspecialchars($isEnglish ? 'Transparent information. Better choices.' : 'Thông tin minh bạch. Lựa chọn tốt hơn.', ENT_QUOTES, 'UTF-8'); ?></span>
-    <a href="<?php echo htmlspecialchars($contactPath, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($providerLinkLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+    <a href="<?php echo htmlspecialchars($contactPath . '?topic=provider#gui-lien-he', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($providerLinkLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
   </div>
 </div>
 <header class="medical-header">

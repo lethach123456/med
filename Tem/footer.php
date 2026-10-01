@@ -57,12 +57,12 @@ $quickLinks = $isEnglish ? [
     ['label' => 'Our story', 'href' => $aboutPath . '#cau-chuyen'],
     ['label' => 'Values & how it works', 'href' => $aboutPath . '#gia-tri'],
     ['label' => 'Contact & feedback', 'href' => $contactPath],
-    ['label' => 'For healthcare providers', 'href' => $contactPath],
+    ['label' => 'For healthcare providers', 'href' => $contactPath . '?topic=provider#gui-lien-he'],
 ] : [
     ['label' => 'Câu chuyện của chúng tôi', 'href' => $aboutPath . '#cau-chuyen'],
     ['label' => 'Giá trị & cách hoạt động', 'href' => $aboutPath . '#gia-tri'],
     ['label' => 'Liên hệ & góp ý', 'href' => $contactPath],
-    ['label' => 'Dành cho cơ sở y tế', 'href' => $contactPath],
+    ['label' => 'Dành cho cơ sở y tế', 'href' => $contactPath . '?topic=provider#gui-lien-he'],
 ];
 
 $escape = static fn (?string $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
