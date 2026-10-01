@@ -54,13 +54,13 @@ $featuredLinks = $isEnglish ? [
     ['label' => 'Toplist chọn lọc', 'href' => site_localized_path(medical_public_toplist_path(), $locale)],
 ];
 $quickLinks = $isEnglish ? [
-    ['label' => 'About us', 'href' => $aboutPath],
-    ['label' => 'Values & how it works', 'href' => $aboutPath],
+    ['label' => 'Our story', 'href' => $aboutPath . '#cau-chuyen'],
+    ['label' => 'Values & how it works', 'href' => $aboutPath . '#gia-tri'],
     ['label' => 'Contact & feedback', 'href' => $contactPath],
     ['label' => 'For healthcare providers', 'href' => $contactPath],
 ] : [
-    ['label' => 'Câu chuyện của chúng tôi', 'href' => $aboutPath],
-    ['label' => 'Giá trị & cách hoạt động', 'href' => $aboutPath],
+    ['label' => 'Câu chuyện của chúng tôi', 'href' => $aboutPath . '#cau-chuyen'],
+    ['label' => 'Giá trị & cách hoạt động', 'href' => $aboutPath . '#gia-tri'],
     ['label' => 'Liên hệ & góp ý', 'href' => $contactPath],
     ['label' => 'Dành cho cơ sở y tế', 'href' => $contactPath],
 ];
