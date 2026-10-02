@@ -302,9 +302,13 @@ function medical_search_cache_doctors(PDO $pdo): array
 
     $items = [];
     foreach ($rows as $row) {
+        $doctorServiceRows = json_decode((string) ($row['services_json'] ?? ''), true);
+        $doctorServiceNames = is_array($doctorServiceRows)
+            ? array_filter(array_column($doctorServiceRows, 'name'), 'is_string') : [];
         $specialties = array_values(array_unique(array_merge(
             medical_search_cache_json_strings($row['specialties_json'] ?? ''),
-            medical_search_cache_json_strings($row['specialty_text'] ?? '')
+            medical_search_cache_json_strings($row['specialty_text'] ?? ''),
+            $doctorServiceNames
         )));
         $gallery = medical_search_cache_gallery_urls($row['gallery_json'] ?? '');
         $image = trim((string) ($row['image_url'] ?? ''));
@@ -318,6 +322,7 @@ function medical_search_cache_doctors(PDO $pdo): array
             (string) ($row['city'] ?? ''),
             (string) ($row['facility_name'] ?? ''),
             (string) ($row['slug'] ?? ''),
+            (string) ($row['subtitle'] ?? ''),
         ], $specialties, medical_search_cache_json_strings($row['tags_json'] ?? ''), medical_search_cache_json_strings($row['bio_json'] ?? ''));
 
         $items[] = [

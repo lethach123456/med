@@ -49,7 +49,7 @@ $values = [
     'city' => '',
     'facility_slug' => '',
     'facility_name' => '',
-    'verified' => '1',
+    'verified' => '0',
     'rating' => '',
     'reviews_count' => '0',
     'followers_count' => '0',
@@ -100,8 +100,19 @@ if ($isEdit) {
 }
 
 $errors = [];
+$researchKeys = array_keys(medical_doctor_column_definitions());
+$researchKeys = array_values(array_diff($researchKeys, ['full_json', 'last_researched_at', 'reviewed_at', 'reviewed_by', 'verification_status']));
+$researchValues = [];
+foreach ($researchKeys as $key) {
+    $researchValues[$key] = (string) ($doctorTranslationRow[$key] ?? (str_ends_with($key, '_json') ? '[]' : ''));
+}
+$researchFields = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf = (string) ($_POST['_csrf'] ?? '');
+    if ($csrf === '' || !hash_equals(admin_csrf_token(), $csrf)) $errors[] = 'Phiên biểu mẫu đã hết hạn. Tải lại trang rồi thử lại.';
+}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '') === 'create_en') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === [] && ($_POST['_translation_action'] ?? '') === 'create_en') {
     try {
         $translationId = medical_directory_create_translation_copy($pdo, 'doctor', $id);
         flash_toast_set('success', 'Đã tạo bản tiếng Anh ở trạng thái nháp. Hãy dịch nội dung rồi xuất bản.', 'fa-solid fa-language');
@@ -115,6 +126,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    foreach ($researchKeys as $key) $researchValues[$key] = trim((string) ($_POST['research'][$key] ?? $researchValues[$key]));
+    $researchInput = $researchValues;
+    $researchInput['insufficient_data'] = ($researchValues['insufficient_data'] ?? '') === '1';
+    $researchInput['experience_start_year'] = $researchValues['experience_start_year'] === '' ? null : (int) $researchValues['experience_start_year'];
+    try { $researchFields = medical_doctor_normalize_payload($researchInput, false); }
+    catch (InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));
     }
@@ -128,6 +145,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $values['status'] = in_array($values['status'], ['draft', 'published'], true) ? $values['status'] : 'draft';
     $values['verified'] = $values['verified'] === '1' ? '1' : '0';
+    if (!admin_is_admin()) {
+        // An editor may edit facts but only an admin may approve the revised profile.
+        $values['verified'] = '0';
+    }
     $values['display_order'] = (string) max(0, (int) $values['display_order']);
 
     $ratingFloat = (float) $values['rating'];
@@ -151,6 +172,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $bio = doctor_text_to_lines($values['bio_lines']);
 
     if ($errors === []) {
+        $saveResearchFields = static function (int $doctorId) use ($pdo, $researchFields, &$values, $doctorTranslationRow): void {
+            $fields = $researchFields;
+            $fields['verification_status'] = $values['verified'] === '1' ? 'reviewed' : 'unreviewed';
+            $fields['reviewed_at'] = $values['verified'] === '1' ? gmdate('Y-m-d H:i:s') : null;
+            $fields['reviewed_by'] = $values['verified'] === '1' ? (int) ($_SESSION['admin_user_id'] ?? 0) : null;
+            $sets = []; $params = [':doctor_id' => $doctorId];
+            foreach ($fields as $key => $value) { $sets[] = "`{$key}`=:research_{$key}"; $params[':research_' . $key] = $value; }
+            if (isset($fields['locations_json'])) {
+                medical_doctor_sync_locations($pdo, $doctorId, medical_directory_json_decode($fields['locations_json']), ($doctorTranslationRow['language_code'] ?? 'vi'));
+            }
+            $pdo->prepare('UPDATE medical_doctors SET ' . implode(',', $sets) . ' WHERE id=:doctor_id')->execute($params);
+        };
+        try {
+        $pdo->beginTransaction();
         $params = [
             ':slug' => $values['slug'],
             ':name' => $values['name'],
@@ -201,6 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $params[':id'] = $id;
             $stmt->execute($params);
+            $saveResearchFields($id);
+            $pdo->commit();
             medical_search_cache_invalidate();
             flash_toast_set('success', 'Đã lưu bác sĩ.', 'fa-solid fa-circle-check');
             header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $id);
@@ -220,10 +257,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $stmt->execute($params);
         $newId = (int) $pdo->lastInsertId();
+        $saveResearchFields($newId);
+        $pdo->commit();
         medical_search_cache_invalidate();
         flash_toast_set('success', 'Đã tạo bác sĩ.', 'fa-solid fa-circle-check');
         header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $newId);
         exit;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $errors[] = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Không thể lưu hồ sơ bác sĩ; dữ liệu chưa bị thay đổi.';
+            error_log('Admin doctor save: ' . $e->getMessage());
+        }
     }
 }
 
@@ -282,6 +326,7 @@ $mediaGalleryValue = $values['gallery_lines'];
               <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_doctor_edit.php') . '?id=' . (int) $doctorTranslationCounterpart['id'], ENT_QUOTES, 'UTF-8'); ?>">Mở bản tiếng Anh · <?php echo htmlspecialchars((string) $doctorTranslationCounterpart['status'], ENT_QUOTES, 'UTF-8'); ?></a>
             <?php elseif ($doctorLanguage === 'vi'): ?>
               <form method="post" class="m-0" onsubmit="return confirm('Tạo bản tiếng Anh nháp từ dữ liệu hiện tại?');">
+                <input type="hidden" name="_csrf" value="<?php echo htmlspecialchars(admin_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
                 <input type="hidden" name="_translation_action" value="create_en">
                 <button class="btn btn-primary" type="submit"><i class="fa-solid fa-language me-2" aria-hidden="true"></i>Tạo bản tiếng Anh</button>
@@ -291,6 +336,7 @@ $mediaGalleryValue = $values['gallery_lines'];
         <?php endif; ?>
 
         <form method="post" class="row g-3">
+          <input type="hidden" name="_csrf" value="<?php echo htmlspecialchars(admin_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
           <?php if ($isEdit): ?>
             <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
           <?php endif; ?>
@@ -399,6 +445,22 @@ $mediaGalleryValue = $values['gallery_lines'];
             <div class="form-text">Mỗi dòng là một đoạn giới thiệu.</div>
           </div>
 
+          <div class="col-12">
+            <details class="border rounded-3 p-3">
+              <summary class="fw-semibold">Dữ liệu chuyên sâu & nguồn tham khảo</summary>
+              <p class="text-secondary small mt-3">Các danh sách dùng JSON array; mỗi thông tin có source_ids liên kết với sources_json. Không nhập thông tin chưa có bằng chứng. Chỉ quản trị viên được bật xác thực.</p>
+              <?php if ($isEdit): ?><p class="small">Lần nghiên cứu: <?php echo htmlspecialchars((string) ($doctorTranslationRow['last_researched_at'] ?? 'Chưa có'), ENT_QUOTES, 'UTF-8'); ?> · Xác minh: <?php echo htmlspecialchars((string) ($doctorTranslationRow['verification_status'] ?? 'unreviewed'), ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+              <div class="row g-3">
+              <?php foreach ($researchKeys as $key): ?>
+                <div class="col-12 <?php echo $key === 'content' ? '' : 'col-lg-6'; ?>">
+                  <label class="form-label" for="research_<?php echo $key; ?>"><?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?></label>
+                  <textarea class="form-control mono" id="research_<?php echo $key; ?>" name="research[<?php echo $key; ?>]" rows="<?php echo $key === 'content' ? '8' : '3'; ?>"><?php echo htmlspecialchars($researchValues[$key], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                  <?php if ($key === 'insufficient_data'): ?><small class="text-secondary">1 = thiếu dữ liệu; 0 = đủ dữ liệu.</small><?php endif; ?>
+                </div>
+              <?php endforeach; ?>
+              </div>
+            </details>
+          </div>
           <div class="col-12 d-grid d-sm-flex gap-2">
             <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-2"></i>Lưu bác sĩ</button>
             <?php if ($isEdit): ?>

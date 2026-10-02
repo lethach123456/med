@@ -27,7 +27,7 @@ if (is_array($doctor) && $doctor !== []) {
     $facilitySlug = (string) ($doctor['facility_slug'] ?? '');
     if ($facilitySlug !== '') {
         $facility = medical_directory_facility_row_by_slug($facilitySlug, true);
-        $relatedReviews = array_slice(medical_directory_reviews_for_facility_slug($facilitySlug, true), 0, 4);
+        // A facility review is not evidence that this doctor treated the reviewer.
     }
 
     $relatedDoctors = array_values(array_filter(medical_directory_doctor_rows(true, $doctorLanguage), static function (array $item) use ($doctor): bool {
@@ -36,8 +36,13 @@ if (is_array($doctor) && $doctor !== []) {
     $relatedDoctors = array_slice($relatedDoctors, 0, 3);
 }
 
-$title = (string) ($doctor['name'] ?? 'Bác sĩ') . ' • MedReview';
-$description = trim((string) ($doctor['title_text'] ?? ''));
+$title = trim((string) ($doctor['seo_title'] ?? ''));
+if ($title === '') $title = (string) ($doctor['name'] ?? 'Bác sĩ') . ' • MedReview';
+$description = '';
+foreach (['seo_description', 'subtitle', 'title_text'] as $field) {
+    $description = trim((string) ($doctor[$field] ?? ''));
+    if ($description !== '') break;
+}
 if ($description === '') {
     $specialtyForDescription = trim((string) ($doctor['specialty_text'] ?? ''));
     $description = trim((string) ($doctor['name'] ?? 'Bác sĩ'))
@@ -49,30 +54,14 @@ $heroImage = trim((string) ($doctor['image_url'] ?? ''));
 $specialties = array_values(array_filter((array) ($doctor['specialties'] ?? []), static function ($item): bool {
     return trim((string) $item) !== '';
 }));
-if ($specialties === []) {
-    $specialties = [
-        'Trồng răng Implant: Implant đơn lẻ, Implant toàn hàm, All-on-4, All-on-6',
-        'Răng sứ thẩm mỹ: Veneer, Crown, Smile Design',
-        'Niềng răng mắc cài và invisalign: Niềng mắc cài kim loại trong suốt và Invisalign',
-        'Phục hình thẩm mỹ toàn diện: Nụ cười hài hoà, nâng tầm gương mặt',
-        'Điều trị tổng quát: Điều trị tuỷ, nhổ răng, trám răng thẩm mỹ',
-    ];
-}
 
 $bio = array_values(array_filter((array) ($doctor['bio'] ?? []), static function ($item): bool {
     return trim((string) $item) !== '';
 }));
-if ($bio === []) {
-    $bio = [
-        'ThS.BS Phạm Hoàng Nam tốt nghiệp Thạc sĩ Răng Hàm Mặt tại Đại học Y Dược TP.HCM.',
-        'Với hơn 10 năm kinh nghiệm, bác sĩ đã điều trị thành công hàng nghìn ca phục hình, implant và chỉnh nha phức tạp.',
-        'Bác sĩ nổi bật với định hướng tư vấn rõ ràng, kế hoạch điều trị chi tiết và phong cách theo dõi sát sau điều trị.',
-    ];
-}
 
 $totalReviewCount = (int) ($doctor['reviews_count'] ?? 0);
 $doctorRatingValue = (float) ($doctor['rating'] ?? 0);
-$ratingBars = [5 => 85, 4 => 11, 3 => 2, 2 => 1, 1 => 0];
+$ratingBars = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
 if ($relatedReviews !== []) {
     $ratingBars = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
     foreach ($relatedReviews as $item) {
@@ -89,9 +78,9 @@ if ($relatedReviews !== []) {
 
 $facilityName = (string) ($facility['name'] ?? $doctor['facility_name'] ?? 'Nha khoa Kim');
 $facilityCity = (string) ($facility['city'] ?? $doctor['city'] ?? 'Quận 1, TP.HCM');
-$facilityAddress = (string) ($facility['address_text'] ?? '181 Nguyễn Thị Minh Khai, Quận 1, TP.HCM');
-$facilityPhone = (string) ($facility['phone_text'] ?? '1900 6899');
-$facilityWebsite = (string) ($facility['website_url'] ?? 'www.nhakhoakim.com');
+$facilityAddress = (string) ($doctor['address_text'] ?: ($facility['address_text'] ?? ''));
+$facilityPhone = (string) ($doctor['phone_text'] ?: ($facility['phone_text'] ?? ''));
+$facilityWebsite = (string) ($doctor['website_url'] ?: ($facility['website_url'] ?? ''));
 $facilityRating = (string) ($facility['rating'] ?? '4.8');
 $followersText = (string) ($doctor['followers'] ?? '2.500+');
 $doctorCanonicalUrl = site_absolute_url(medical_public_entity_path('doctor', (string) $doctor['slug'], $doctorLanguage));
@@ -113,59 +102,33 @@ if ($facilityName !== '') {
 }
 
 $profileFacts = [
-    ['icon' => 'fa-solid fa-user-doctor', 'label' => 'Học vị', 'value' => 'Thạc sĩ Răng Hàm Mặt'],
-    ['icon' => 'fa-solid fa-graduation-cap', 'label' => 'Tốt nghiệp', 'value' => 'ĐH Y Dược TP.HCM'],
+    ['icon' => 'fa-solid fa-user-doctor', 'label' => 'Học vị', 'value' => (string) ($doctor['degree_text'] ?? '')],
+    ['icon' => 'fa-solid fa-graduation-cap', 'label' => 'Đào tạo', 'value' => implode(', ', array_filter(array_column($doctor['education_json'] ?? [], 'institution')))],
     ['icon' => 'fa-solid fa-stethoscope', 'label' => 'Chuyên khoa', 'value' => (string) ($doctor['specialty_text'] ?? 'Răng Hàm Mặt')],
-    ['icon' => 'fa-solid fa-briefcase-medical', 'label' => 'Kinh nghiệm', 'value' => '10+ năm'],
-    ['icon' => 'fa-solid fa-language', 'label' => 'Ngoại ngữ', 'value' => 'Tiếng Việt, English'],
-    ['icon' => 'fa-solid fa-users', 'label' => 'Số bệnh nhân', 'value' => (string) $followersText],
+    ['icon' => 'fa-solid fa-briefcase-medical', 'label' => 'Bắt đầu hành nghề', 'value' => (string) ($doctor['experience_start_year'] ?? '')],
+    ['icon' => 'fa-solid fa-language', 'label' => 'Ngôn ngữ', 'value' => implode(', ', array_filter(array_column($doctor['languages_supported_json'] ?? [], 'name')))],
+    ['icon' => 'fa-solid fa-users', 'label' => 'Lượt quan tâm', 'value' => (string) $followersText],
 ];
+$profileFacts = array_values(array_filter($profileFacts, static fn(array $fact): bool => trim($fact['value']) !== ''));
 
-$certificates = [
-    ['title' => 'Thống chỉ Implant', 'subtitle' => 'Nobel Biocare'],
-    ['title' => 'Chứng chỉ Invisalign', 'subtitle' => 'Invisalign Provider'],
-    ['title' => 'Chứng chỉ nâng xoang', 'subtitle' => 'Straumann Course'],
-    ['title' => 'Chứng chỉ Phục hình', 'subtitle' => 'Prosthodontics'],
-    ['title' => 'Chứng chỉ Laser', 'subtitle' => 'Laser Dentistry'],
-];
+$certificates = [];
+foreach ($doctor['certifications_json'] ?? [] as $entry) {
+    if (!is_array($entry) || empty($entry['name'])) continue;
+    $certificates[] = ['title' => $entry['name'], 'subtitle' => trim(($entry['issuer'] ?? '') . ' ' . ($entry['year'] ?? ''))];
+}
 
-$associations = [
-    ['title' => 'Hội Răng Hàm Mặt Việt Nam', 'short' => 'VOSA'],
-    ['title' => 'Hiệp hội Implant Quốc tế', 'short' => 'ICOI'],
-    ['title' => 'Hội Chỉnh nha Thẩm mỹ', 'short' => 'AAO'],
-    ['title' => 'Hội Nha khoa Thẩm mỹ', 'short' => 'AACD'],
-];
+$associations = [];
+foreach ($doctor['memberships_json'] ?? [] as $entry) {
+    if (!is_array($entry) || empty($entry['name'])) continue;
+    $associations[] = ['title' => $entry['name'], 'short' => $entry['role'] ?? ''];
+}
 
-$serviceCards = [
-    [
-        'title' => 'Trồng răng Implant',
-        'subtitle' => 'Phục hình răng mất',
-        'price' => '25.000.000đ',
-        'duration' => 'Thời gian: 2 - 3 tháng',
-        'image' => 'https://images.unsplash.com/photo-1609840114035-3c981b782dfe?auto=format&fit=crop&w=700&q=80',
-    ],
-    [
-        'title' => 'Răng sứ thẩm mỹ',
-        'subtitle' => 'Veneer Ceramic',
-        'price' => '6.000.000đ/răng',
-        'duration' => 'Thời gian: 2 - 3 ngày',
-        'image' => 'https://images.unsplash.com/photo-1629909615957-be7fc68c89ad?auto=format&fit=crop&w=700&q=80',
-    ],
-    [
-        'title' => 'Niềng răng trong suốt',
-        'subtitle' => 'Invisalign',
-        'price' => '60.000.000đ',
-        'duration' => 'Thời gian: 12 - 24 tháng',
-        'image' => 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=700&q=80',
-    ],
-    [
-        'title' => 'Niềng răng mắc cài',
-        'subtitle' => 'Kim loại / sứ',
-        'price' => '35.000.000đ',
-        'duration' => 'Thời gian: 18 - 24 tháng',
-        'image' => 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=700&q=80',
-    ],
-];
+$serviceCards = [];
+foreach ($doctor['services_json'] ?? [] as $entry) {
+    if (!is_array($entry) || empty($entry['name'])) continue;
+    $serviceCards[] = ['title' => $entry['name'], 'subtitle' => $entry['description'] ?? '',
+        'price' => '', 'duration' => '', 'image' => ''];
+}
 
 $patientReviews = [];
 foreach ($relatedReviews as $item) {
@@ -198,73 +161,6 @@ foreach ($relatedReviews as $item) {
         'thumbs' => array_slice($thumbs, 0, 2),
     ];
 }
-if ($patientReviews === []) {
-    $patientReviews = [
-        [
-            'author' => 'Nguyễn Thị Trang',
-            'title' => 'Bọc răng sứ tự nhiên, khớp cắn hài hoà',
-            'excerpt' => 'Bác sĩ tư vấn kỹ, xử lý kỹ lưỡng. Làm răng sứ nhẹ, tự nhiên, ăn nhai thoải mái.',
-            'rating' => '5.0',
-            'price' => 'Chi phí: 12.000.000đ',
-            'date' => '26/03/2024',
-            'service' => 'Răng sứ',
-            'slug' => '',
-            'thumbs' => [
-                'https://images.unsplash.com/photo-1629909615957-be7fc68c89ad?auto=format&fit=crop&w=700&q=80',
-                'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=700&q=80',
-            ],
-        ],
-        [
-            'author' => 'Lê Minh Đức',
-            'title' => 'Trồng Implant nhẹ nhàng, phục hình nhanh',
-            'excerpt' => 'Trồng implant không đau như mình nghĩ, bác sĩ làm nhẹ nhàng và theo dõi rất kỹ.',
-            'rating' => '5.0',
-            'price' => 'Chi phí: 25.500.000đ',
-            'date' => '12/05/2024',
-            'service' => 'Implant',
-            'slug' => '',
-            'thumbs' => [
-                'https://images.unsplash.com/photo-1609840114035-3c981b782dfe?auto=format&fit=crop&w=700&q=80',
-                'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=700&q=80',
-            ],
-        ],
-        [
-            'author' => 'Phạm Hồng An',
-            'title' => 'Niềng răng thay đổi nụ cười rõ rệt',
-            'excerpt' => 'Niềng rất vừa ý, không ảnh hưởng giao tiếp nhiều. Bác sĩ theo dõi sát suốt quá trình.',
-            'rating' => '4.9',
-            'price' => 'Chi phí: 60.000.000đ',
-            'date' => '28/04/2024',
-            'service' => 'Nha chu',
-            'slug' => '',
-            'thumbs' => [
-                'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=700&q=80',
-                'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=700&q=80',
-            ],
-        ],
-    ];
-}
-
-$patientMetaDefaults = [
-    ['age' => '32 tuổi', 'location' => 'Đà Nẵng', 'likes' => 76, 'comments' => 15],
-    ['age' => '29 tuổi', 'location' => 'Hội An', 'likes' => 58, 'comments' => 7],
-    ['age' => '26 tuổi', 'location' => 'Huế', 'likes' => 33, 'comments' => 4],
-    ['age' => '31 tuổi', 'location' => 'Quảng Nam', 'likes' => 24, 'comments' => 3],
-];
-foreach ($patientReviews as $index => &$item) {
-    $meta = $patientMetaDefaults[$index % count($patientMetaDefaults)];
-    $item['age'] = (string) ($item['age'] ?? $meta['age']);
-    $item['location'] = (string) ($item['location'] ?? $meta['location']);
-    $item['likes'] = (int) ($item['likes'] ?? $meta['likes']);
-    $item['comments'] = (int) ($item['comments'] ?? $meta['comments']);
-    $item['verified'] = (bool) ($item['verified'] ?? true);
-    $item['avatar'] = (string) ($item['thumbs'][0] ?? '');
-    if (count((array) $item['thumbs']) < 3) {
-        $item['thumbs'][] = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=700&q=80';
-    }
-    $item['thumbs'] = array_slice((array) $item['thumbs'], 0, 3);
-}
-unset($item);
 
 ?>
 <!doctype html>
@@ -927,29 +823,29 @@ unset($item);
                     <span class="stars">
                       <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
                     </span>
-                    <span><?php echo number_format($totalReviewCount > 0 ? $totalReviewCount : 1248, 0, ',', '.'); ?> đánh giá</span>
+                    <span><?php echo number_format($totalReviewCount, 0, ',', '.'); ?> đánh giá</span>
                     <?php if ((string) ($doctor['verified'] ?? '') !== ''): ?>
                       <span style="color:var(--brand);font-weight:800"><i class="fa-solid fa-circle-check"></i> <?php echo htmlspecialchars((string) ($doctor['verified'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                     <?php endif; ?>
                   </div>
 
-                  <p class="hero-desc"><?php echo htmlspecialchars($bio[0] ?? 'Hơn 10 năm kinh nghiệm trong lĩnh vực Răng Hàm Mặt. Thế mạnh: trồng implant, răng sứ thẩm mỹ, niềng răng trong suốt.', ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p class="hero-desc"><?php echo htmlspecialchars($doctor['subtitle'] ?: ($bio[0] ?? 'Thông tin hồ sơ đang được cập nhật.'), ENT_QUOTES, 'UTF-8'); ?></p>
 
                   <div class="mini-stats">
                     <div class="mini-stat">
-                      <strong>10+ năm</strong>
-                      <span>Kinh nghiệm</span>
+                      <strong><?php echo htmlspecialchars((string) ($doctor['experience_start_year'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                      <span>Bắt đầu hành nghề</span>
                     </div>
                     <div class="mini-stat">
                       <strong><?php echo htmlspecialchars($followersText, ENT_QUOTES, 'UTF-8'); ?></strong>
-                      <span>Bệnh nhân</span>
+                      <span>Lượt quan tâm</span>
                     </div>
                     <div class="mini-stat">
-                      <strong>98%</strong>
-                      <span>Hài lòng</span>
+                      <strong><?php echo count($doctor['education_json'] ?? []); ?></strong>
+                      <span>Mốc đào tạo</span>
                     </div>
                     <div class="mini-stat">
-                      <strong>4.9/5</strong>
+                      <strong><?php echo htmlspecialchars((string) ($doctor['rating'] ?? '0.0'), ENT_QUOTES, 'UTF-8'); ?>/5</strong>
                       <span>Đánh giá</span>
                     </div>
                   </div>
@@ -981,9 +877,13 @@ unset($item);
                 <h2><span class="section-icon"><i class="fa-regular fa-user"></i></span>Giới thiệu về bác sĩ</h2>
               </div>
               <div class="intro-text">
+                <?php if (!empty($doctor['content'])): ?>
+                  <?php echo medical_doctor_sanitize_html($doctor['content']); ?>
+                <?php else: ?>
                 <?php foreach ($bio as $paragraph): ?>
                   <p><?php echo htmlspecialchars((string) $paragraph, ENT_QUOTES, 'UTF-8'); ?></p>
                 <?php endforeach; ?>
+                <?php endif; ?>
               </div>
               <div class="fact-grid">
                 <?php foreach ($profileFacts as $fact): ?>
@@ -996,6 +896,7 @@ unset($item);
               </div>
             </section>
 
+            <?php require __DIR__ . '/Tem/doctor-research-sections.php'; ?>
             <section class="card section-card" id="kinh-nghiem">
               <div class="section-head">
                 <h2><span class="section-icon"><i class="fa-solid fa-stethoscope"></i></span>Chuyên môn & thế mạnh</h2>
@@ -1051,7 +952,7 @@ unset($item);
               <div class="service-grid">
                 <?php foreach ($serviceCards as $item): ?>
                   <article class="service-card">
-                    <img src="<?php echo htmlspecialchars((string) $item['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
+                    <?php if ($item['image'] !== ''): ?><img src="<?php echo htmlspecialchars((string) $item['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async"><?php endif; ?>
                     <div class="body">
                       <strong><?php echo htmlspecialchars((string) $item['title'], ENT_QUOTES, 'UTF-8'); ?></strong>
                       <span class="sub"><?php echo htmlspecialchars((string) $item['subtitle'], ENT_QUOTES, 'UTF-8'); ?></span>
@@ -1070,12 +971,12 @@ unset($item);
             <section class="card section-card doctor-reviews-wide" id="danh-gia">
               <div class="section-head">
                 <h2><span class="section-icon"><i class="fa-regular fa-star"></i></span>Đánh giá từ bệnh nhân</h2>
-                <span class="review-section-count"><?php echo number_format($totalReviewCount > 0 ? $totalReviewCount : 1248, 0, ',', '.'); ?> đánh giá</span>
+                <span class="review-section-count"><?php echo number_format($totalReviewCount, 0, ',', '.'); ?> đánh giá</span>
               </div>
               <div class="doctor-review-shell">
                 <div class="review-summary-card">
                   <h3>Đánh giá thực tế</h3>
-                  <p>Dựa trên <?php echo number_format($totalReviewCount > 0 ? $totalReviewCount : 1248, 0, ',', '.'); ?> đánh giá xác thực</p>
+                  <p><?php echo number_format($totalReviewCount, 0, ',', '.'); ?> đánh giá đã ghi nhận</p>
                   <div class="review-score">
                     <strong><?php echo htmlspecialchars((string) ($doctor['rating'] ?? '4.7'), ENT_QUOTES, 'UTF-8'); ?></strong>
                     <span>/5</span>
@@ -1083,7 +984,7 @@ unset($item);
                   <div class="stars">
                     <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i>
                   </div>
-                  <div class="review-total"><?php echo number_format($totalReviewCount > 0 ? $totalReviewCount : 1248, 0, ',', '.'); ?> đánh giá</div>
+                  <div class="review-total"><?php echo number_format($totalReviewCount, 0, ',', '.'); ?> đánh giá</div>
                   <div class="review-summary-bars">
                     <?php for ($star = 5; $star >= 1; $star--): ?>
                       <div class="review-summary-row">
@@ -1094,9 +995,8 @@ unset($item);
                     <?php endfor; ?>
                   </div>
                   <div class="review-verified">
-                    <strong>100%</strong>
-                    <span>Đánh giá xác thực</span>
-                    <small>Tất cả đánh giá đều được xác minh thông tin.</small>
+                    <span>Thông tin đánh giá</span>
+                    <small>Đánh giá cơ sở không được coi là đánh giá riêng của bác sĩ.</small>
                   </div>
                   <a class="review-write-btn" href="/lien-he.php">Viết đánh giá</a>
                 </div>
@@ -1192,7 +1092,7 @@ unset($item);
               <div class="stars">
                 <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
               </div>
-              <div style="margin-top:6px;color:#98a2b3;font-size:11px"><?php echo number_format($totalReviewCount > 0 ? $totalReviewCount : 1248, 0, ',', '.'); ?> đánh giá</div>
+              <div style="margin-top:6px;color:#98a2b3;font-size:11px"><?php echo number_format($totalReviewCount, 0, ',', '.'); ?> đánh giá</div>
               <div class="rating-bars">
                 <?php for ($star = 5; $star >= 1; $star--): ?>
                   <div class="rating-row">
@@ -1208,13 +1108,10 @@ unset($item);
             <section class="card side-card">
               <h3><span class="section-icon"><i class="fa-regular fa-clock"></i></span>Lịch khám</h3>
               <div class="schedule-list">
-                <div class="schedule-row"><strong>Thứ 2</strong><span><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?? '08:00 - 17:00'), ENT_QUOTES, 'UTF-8'); ?></span></div>
-                <div class="schedule-row"><strong>Thứ 3</strong><span><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?? '08:00 - 17:00'), ENT_QUOTES, 'UTF-8'); ?></span></div>
-                <div class="schedule-row"><strong>Thứ 4</strong><span><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?? '08:00 - 17:00'), ENT_QUOTES, 'UTF-8'); ?></span></div>
-                <div class="schedule-row"><strong>Thứ 5</strong><span><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?? '08:00 - 17:00'), ENT_QUOTES, 'UTF-8'); ?></span></div>
-                <div class="schedule-row"><strong>Thứ 6</strong><span><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?? '08:00 - 17:00'), ENT_QUOTES, 'UTF-8'); ?></span></div>
-                <div class="schedule-row"><strong>Thứ 7</strong><span>08:00 - 12:00</span></div>
-                <div class="schedule-row"><strong>Chủ nhật</strong><span>Nghỉ</span></div>
+                <?php foreach ($doctor['schedule_json'] ?? [] as $entry): if (!is_array($entry)) continue; ?>
+                  <div class="schedule-row"><strong><?php echo htmlspecialchars((string) ($entry['day'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></strong><span><?php echo htmlspecialchars((string) ($entry['time_text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></div>
+                <?php endforeach; ?>
+                <?php if (empty($doctor['schedule_json'])): ?><p><?php echo htmlspecialchars((string) ($doctor['hours_text'] ?: 'Liên hệ nơi khám để xác nhận lịch.'), ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
               </div>
               <div style="margin-top:14px">
                 <a class="side-button" href="/lien-he.php"><i class="fa-solid fa-calendar-check"></i>Đặt lịch khám</a>

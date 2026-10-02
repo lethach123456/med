@@ -14,6 +14,7 @@ if (!medical_directory_table_exists($pdo, 'medical_facilities') || !medical_dire
     medical_directory_ensure_tables($pdo);
 }
 medical_directory_ensure_ai_writer_claim_columns($pdo);
+medical_directory_ensure_doctor_content_columns($pdo);
 
 /** Decode a stored writer lease without ever returning its secret token. */
 function medical_api_writer_claim_decode(mixed $raw): array
@@ -124,7 +125,7 @@ $claim = [
 
 try {
     $pdo->beginTransaction();
-    $contentColumn = $type === 'facility' ? ', content' : '';
+    $contentColumn = $type === 'facility' ? ', content' : ', content, language_code, last_researched_at';
     $lock = $pdo->prepare("SELECT id, slug, name, status, ai_writer_claim_json{$contentColumn} FROM `{$table}` WHERE id = :id FOR UPDATE");
     $lock->execute([':id' => $id]);
     $row = $lock->fetch(PDO::FETCH_ASSOC);
@@ -139,6 +140,11 @@ try {
     if ($type === 'facility' && trim((string) ($row['content'] ?? '')) !== '') {
         $pdo->rollBack();
         json_response(['ok' => true, 'claimed' => false, 'reason' => 'content_exists', 'type' => $type, 'id' => $id, 'message' => 'Cơ sở đã có nội dung; bỏ qua để tránh viết trùng.'], 409);
+    }
+    if ($type === 'doctor' && !medical_doctor_needs_content($row)) {
+        $pdo->rollBack();
+        json_response(['ok' => true, 'claimed' => false, 'reason' => 'content_exists', 'type' => $type,
+            'id' => $id, 'message' => 'Bác sĩ đã được xử lý hoặc không phải hồ sơ tiếng Việt cần viết.'], 409);
     }
     $current = medical_api_writer_claim_decode($row['ai_writer_claim_json'] ?? null);
     if ((int) ($current['expires_at'] ?? 0) > $now) {

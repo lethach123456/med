@@ -9,6 +9,20 @@ $allowed=['facility','facility_image_prompt','toplist','doctor','review','transl
 if ($name === '' && $type !== 'translation') json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
 $pdo=db(); medical_directory_ensure_tables($pdo);
 $resolved = medical_directory_resolve_ai_prompt($pdo, $type, $type === 'facility' ? $category : '');
+if ($type === 'doctor') {
+    $source = ['id' => (int) ($_GET['id'] ?? 0), 'name' => $name,
+        'city' => (string) ($_GET['city'] ?? ''), 'specialty_text' => (string) ($_GET['specialty'] ?? ''),
+        'facility_name' => (string) ($_GET['facility_name'] ?? '')];
+    if ($source['id'] > 0) {
+        $stmt = $pdo->prepare('SELECT * FROM medical_doctors WHERE id=:id');
+        $stmt->execute([':id' => $source['id']]);
+        $source = $stmt->fetch(PDO::FETCH_ASSOC) ?: $source;
+    }
+    json_response(['ok' => true, 'type' => 'doctor', 'label' => $resolved['label'],
+        'prompt_source' => $resolved['source'], 'name' => $source['name'],
+        'output_template' => medical_doctor_output_template((int) $source['id'], (string) $source['name']),
+        'prompt' => medical_doctor_research_prompt($resolved['template'] ?: medical_doctor_default_prompt(), $source)]);
+}
 if ((string) $resolved['template'] === '') json_response(['ok'=>false,'message'=>'Chưa có prompt cho loại này.'],404);
 $promptTemplate = $type === 'facility'
     ? medical_directory_facility_json_transport_rules((string) $resolved['template'])

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
+require_once __DIR__ . '/medical_doctor_content.php';
 
 function medical_directory_table_exists(PDO $pdo, string $table): bool
 {
@@ -539,7 +540,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             city VARCHAR(120) NOT NULL DEFAULT '',
             facility_slug VARCHAR(191) NULL,
             facility_name VARCHAR(160) NOT NULL DEFAULT '',
-            verified TINYINT(1) NOT NULL DEFAULT 1,
+            verified TINYINT(1) NOT NULL DEFAULT 0,
             rating DECIMAL(3,1) NOT NULL DEFAULT 0.0,
             reviews_count INT UNSIGNED NOT NULL DEFAULT 0,
             followers_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -564,6 +565,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
     medreview_ensure_translation_columns($pdo, 'medical_doctors');
+    medical_directory_ensure_doctor_content_columns($pdo);
     medical_directory_ensure_ai_writer_claim_columns($pdo);
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS medical_ai_prompts (
@@ -601,7 +603,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
         'facility_image_prompt' => medical_directory_ai_image_prompt_default(),
         'translation' => ['Dịch nội dung y tế sang tiếng Anh', "Bạn là biên tập viên y tế song ngữ Việt–Anh. Hãy chuyển dữ liệu nguồn tiếng Việt sang tiếng Anh tự nhiên, chính xác và chuyên nghiệp cho độc giả quốc tế.\n\nLoại nội dung: {{type}}\nMã bản gốc cần giữ nguyên: {{source_id}}\nCác trường được phép dịch: {{fields}}\n\nQuy tắc bắt buộc:\n- Dịch đầy đủ các khóa trong output_template, kể cả giá trị rỗng; không tự bỏ khóa.\n- Giữ nguyên source_id, loại nội dung và cấu trúc dữ liệu; không tạo id mới, không tự thêm review, dịch vụ, chứng chỉ, mức giá, số liệu hay thông tin y tế không có trong nguồn.\n- Giữ nguyên tên riêng/thương hiệu, tên bác sĩ, URL, email, số điện thoại, tọa độ, mã giấy phép, ngày tháng và con số. Có thể dùng cách viết tiếng Anh phổ biến của địa danh nhưng không đổi địa chỉ đường phố.\n- Chỉ dịch các giá trị văn bản trong những trường được phép. Giữ mảng/object đúng kiểu và đúng thứ tự; không dịch URL hoặc khóa JSON.\n- Với content HTML và price_table_html: chỉ dịch chữ hiển thị; giữ nguyên cấu trúc thẻ, thuộc tính, liên kết, URL, số tiền và đơn vị. Không thêm script/style.\n- Với slug nếu có: tạo slug tiếng Anh ngắn, chữ thường, không dấu, nối bằng dấu gạch ngang.\n- Nếu trường nguồn rỗng, giữ nguyên giá trị rỗng/null/[] theo output_template; không tự đoán.\n- BẮT BUỘC trả toàn bộ kết quả trong đúng một Markdown code block có nhãn json, bắt đầu bằng dòng ```json và kết thúc bằng dòng ```; bên ngoài block không có lời dẫn.\n- Nhắc lại: phải trả JSON bên trong block code ```json, không trả JSON trần và không thêm nội dung bên ngoài.\n- Trước khi gửi, kiểm tra lần cuối rằng câu trả lời đã nằm trọn trong block code ```json.\n\nJSON nguồn:\n{{source_json}}\n\nKhung JSON cần điền đầy đủ:\n{\"type\":\"{{type}}\",\"source_id\":{{source_id}},\"translated\":{{output_template}}}"] ,
         'toplist' => ['Danh sách cơ sở cho Toplist', "Hãy lập danh sách cơ sở y tế phù hợp cho bài Toplist '{{title}}'. Thông tin hiện có của bài: {{excerpt}} {{content}}. Tìm và chỉ chọn các cơ sở thực sự phù hợp với tiêu chí của tiêu đề; ưu tiên website chính thức hoặc nguồn đáng tin cậy để đối chiếu. Không tự bịa tên, địa chỉ, số điện thoại hoặc website. Chỉ trả về JSON hợp lệ, không markdown, theo mẫu: {\"toplist_id\":{{id}},\"facilities\":[{\"facility_id\":0,\"name\":\"Tên cơ sở\",\"category\":\"Cơ sở y tế\",\"city\":\"Tỉnh/thành\",\"address\":\"Địa chỉ\",\"phone\":\"Số điện thoại nếu có\",\"website\":\"Website chính thức nếu có\",\"rank_order\":1}]}. Ghi chú trường: toplist_id là ID bài Toplist, phải giữ nguyên để cập nhật đúng bài; facilities là danh sách cơ sở theo thứ hạng; facility_id chỉ dùng khi biết chắc ID cơ sở đã có trong hệ thống, không biết thì để 0; name là tên cơ sở; category là nhóm cơ sở; city là tỉnh/thành; address là địa chỉ; phone là số điện thoại; website là website chính thức; rank_order là thứ hạng bắt đầu từ 1. Không đưa cơ sở không đủ thông tin nhận diện."],
-        'doctor' => ['Bác sĩ', "Hãy viết bài giới thiệu chuyên môn về bác sĩ \"{{name}}\". Trình bày chuyên khoa, kinh nghiệm, dịch vụ và điểm nổi bật bằng giọng văn đáng tin cậy. Chỉ dùng thông tin được cung cấp, không bịa chứng chỉ hoặc thành tích. Chỉ trả về JSON hợp lệ theo mẫu: {\"name\":\"{{name}}\",\"title_text\":\"...\",\"specialty_text\":\"...\",\"bio\":\"HTML 300-500 từ\",\"services\":[\"...\"],\"address\":\"...\",\"phone\":\"...\",\"website\":\"...\"}"],
+        'doctor' => ['Bác sĩ', medical_doctor_default_prompt()],
         'review' => ['Review y tế', "Hãy viết một bài review khách quan về \"{{name}}\". Nêu ưu điểm, điểm cần lưu ý, dịch vụ, chi phí tham khảo và trải nghiệm thực tế. Không khẳng định tuyệt đối và không bịa đánh giá. Chỉ trả về JSON hợp lệ theo mẫu: {\"facility_id\":{{id}},\"facility_slug\":\"...\",\"facility_name\":\"{{name}}\",\"title\":\"...\",\"rating\":0,\"service_text\":\"...\",\"price_text\":\"...\",\"address\":\"{{address}}\",\"phone\":\"{{phone}}\",\"website\":\"{{website}}\",\"excerpt\":\"...\",\"content\":\"HTML 300-500 từ\"}"],
     ];
     $check = $pdo->prepare('SELECT id FROM medical_ai_prompts WHERE prompt_key = :k LIMIT 1');
@@ -707,6 +709,8 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
     }
 
     unset($source['id'], $source['created_at'], $source['updated_at']);
+    // Writer leases belong to a task/record, never to its translation copy.
+    if (array_key_exists('ai_writer_claim_json', $source)) $source['ai_writer_claim_json'] = null;
     $source['slug'] = $candidate;
     $source['language_code'] = 'en';
     $source['translation_of_id'] = $sourceId;
@@ -738,6 +742,9 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
         foreach ($source as $column => $value) $params[':' . $column] = $value;
         $insert->execute($params);
         $newId = (int) $pdo->lastInsertId();
+        if ($entity === 'doctor' && !empty($source['locations_json'])) {
+            medical_doctor_sync_locations($pdo, $newId, medical_directory_json_decode($source['locations_json']), 'en');
+        }
 
         if ($entity === 'toplist' && medical_directory_table_exists($pdo, 'medical_toplist_facilities')) {
             // Only link facilities that already have a published English
@@ -3164,12 +3171,12 @@ function medical_directory_doctor_from_row(array $row): array
     $followersCount = (int) ($row['followers_count'] ?? 0);
     $rating = number_format((float) ($row['rating'] ?? 0), 1, '.', '');
     $image = (string) ($row['image_url'] ?? '');
-    $gallery = medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), (array) ($row['gallery'] ?? []));
+    $gallery = medical_directory_gallery_urls($row['gallery_json'] ?? $row['gallery'] ?? []);
     if ($image !== '' && !in_array($image, $gallery, true)) {
         array_unshift($gallery, $image);
     }
 
-    return [
+    $result = [
         'id' => (int) ($row['id'] ?? 0),
         'slug' => (string) ($row['slug'] ?? ''),
         'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
@@ -3204,6 +3211,15 @@ function medical_directory_doctor_from_row(array $row): array
         'status' => (string) ($row['status'] ?? 'draft'),
         'display_order' => (int) ($row['display_order'] ?? 0),
     ];
+    foreach (medical_doctor_text_fields() as $field => $_limit) $result[$field] = (string) ($row[$field] ?? '');
+    foreach (medical_doctor_json_fields() as $field) {
+        $result[$field] = medical_directory_json_decode((string) ($row[$field] ?? ''), []);
+    }
+    foreach (['experience_start_year', 'last_researched_at', 'reviewed_at', 'verification_status', 'insufficient_data'] as $field) {
+        $result[$field] = $row[$field] ?? null;
+    }
+    if ($result['subtitle'] === '') $result['subtitle'] = (string) ($row['title_text'] ?? '');
+    return $result;
 }
 
 function medical_directory_facility_rows(bool $publishedOnly = true, string $locale = 'vi'): array

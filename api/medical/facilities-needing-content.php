@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+// Legacy utilities used this endpoint with type=doctor. Route to the real doctor queue.
+if (($_GET['type'] ?? '') === 'doctor') { require __DIR__ . '/doctors-needing-content.php'; exit; }
 require_once __DIR__ . '/_auth.php';
 medical_api_auth();
 header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');

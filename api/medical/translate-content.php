@@ -67,7 +67,7 @@ function medical_api_translation_field_map(string $type): array
         ];
     }
     if ($type === 'doctor') {
-        return [
+        $fields = [
             'slug' => $slug(), 'name' => $text(['name'], 160), 'title_text' => $text(['title_text', 'title'], 190),
             'specialty_text' => $text(['specialty_text', 'specialty'], 160), 'city' => $text(['city'], 120),
             'facility_name' => $text(['facility_name'], 160), 'hours_text' => $text(['hours_text', 'hours'], 120),
@@ -75,6 +75,15 @@ function medical_api_translation_field_map(string $type): array
             'specialties_json' => $json(['specialties_json', 'specialties']), 'gallery_json' => $json(['gallery_json']),
             'bio_json' => $json(['bio_json', 'bio']),
         ];
+        foreach (['subtitle', 'content', 'degree_text', 'address_text', 'seo_title', 'seo_description', 'seo_keywords', 'notes_for_editor'] as $field) {
+            $fields[$field] = $text([$field], medical_doctor_text_fields()[$field]);
+        }
+        foreach (medical_doctor_json_fields() as $field) {
+            // Source URLs/IDs and regulator documents are evidence, not translated facts.
+            if (in_array($field, ['sources_json', 'practice_license_json', 'social_links_json', 'video_urls_json'], true)) continue;
+            $fields[$field] = $json([$field]);
+        }
+        return $fields;
     }
     return [
         'title' => $text(['title', 'name'], 220), 'slug' => $slug(),
@@ -92,6 +101,7 @@ function medical_api_translation_fields(string $type): array
 function medical_api_translation_source(string $type, array $row): array
 {
     unset($row['target_translation_id'], $row['target_translation_slug'], $row['target_translation_status']);
+    unset($row['ai_writer_claim_json'], $row['reviewed_by']);
     foreach ($row as $column => $value) {
         if (!is_string($value) || !($column === 'full_json' || str_ends_with($column, '_json')) || trim($value) === '') continue;
         $decoded = json_decode($value, true);
@@ -140,7 +150,7 @@ function medical_api_translation_has_content_sql(string $type): string
             'insurance_accepted_json', 'payment_methods_json', 'languages_supported_json', 'equipment_mentioned_json',
             'doctors_json', 'aggregate_ratings_json',
         ],
-        'doctor' => ['title_text', 'specialty_text', 'bio_json', 'specialties_json', 'tags_json', 'gallery_json'],
+        'doctor' => ['content', 'subtitle', 'title_text', 'specialty_text', 'bio_json', 'education_json', 'experience_json', 'specialties_json', 'tags_json', 'gallery_json'],
         'toplist' => ['excerpt', 'content'],
         default => [],
     };
@@ -212,6 +222,7 @@ function medical_api_translation_normalize_fields(string $type, array $translate
             $value = trim(substr($value, 0, 191), '-');
             if ($value === '') throw new InvalidArgumentException('Slug tiếng Anh không hợp lệ.');
         }
+        if ($type === 'doctor' && $column === 'content') $value = medical_doctor_sanitize_html($value);
         $fields[$column] = $value;
     }
     return $fields;
@@ -453,7 +464,14 @@ foreach ($items as $index => $item) {
         // translated payload has passed validation and all fields are saved.
         $sets[] = "`status` = 'published'";
         $update = $pdo->prepare("UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :target_id AND translation_of_id = :source_id AND language_code = 'en'");
+        if ($type === 'doctor') $pdo->beginTransaction();
         $update->execute($params);
+        if ($type === 'doctor') {
+            if (isset($normalized['locations_json'])) {
+                medical_doctor_sync_locations($pdo, $targetId, medical_directory_json_decode($normalized['locations_json']), 'en');
+            }
+            $pdo->commit();
+        }
         medical_search_cache_invalidate();
         $targetStatus = 'published';
         $results[] = [
@@ -467,8 +485,10 @@ foreach ($items as $index => $item) {
             'message' => $targetStatus === 'draft' ? 'Đã nhận bản dịch tiếng Anh ở trạng thái nháp.' : 'Đã cập nhật bản tiếng Anh đã xuất bản.',
         ];
     } catch (InvalidArgumentException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         $errors[] = ['index' => $index, 'type' => $type, 'source_id' => $sourceId, 'message' => $e->getMessage()];
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('medical translation receive failed: ' . $e->getMessage());
         $errors[] = ['index' => $index, 'type' => $type, 'source_id' => $sourceId, 'message' => 'Không thể lưu bản dịch này. Kiểm tra source_id, cột dữ liệu và thử lại.'];
     }
