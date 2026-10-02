@@ -9,6 +9,10 @@ admin_require_login();
 $pdo = db();
 medical_directory_ensure_tables($pdo);
 toplist_directory_ensure_tables($pdo);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals(admin_csrf_token(), (string) ($_POST['_csrf'] ?? ''))) {
+    flash_toast_set('danger', 'Phiên biểu mẫu hết hạn. Tải lại trang rồi thử lại.');
+    header('Location: /admin/medical_toplists.php'); exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     $id = (int) ($_POST['id'] ?? 0);
@@ -23,8 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'import_json') {
     $rawJson = trim((string) ($_POST['toplist_json'] ?? ''));
-    $payload = json_decode($rawJson, true);
+    $rawJson = preg_replace('/\A```(?:json)?\s*\R([\s\S]*?)\R```\s*\z/i', '$1', $rawJson) ?? $rawJson;
+    $payload = strlen($rawJson) <= 8 * 1024 * 1024 ? json_decode($rawJson, true) : null;
     $importMode = (string) ($_POST['json_mode'] ?? 'full');
+    $fallbackType = ($_POST['json_entity_type'] ?? 'facility') === 'doctor' ? 'doctor' : 'facility';
 
     if (!is_array($payload)) {
         flash_toast_set('danger', 'JSON không hợp lệ. Hãy kiểm tra lại cú pháp JSON.');
@@ -48,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
         foreach ($draftItems as $draftItem) {
             if (!is_array($draftItem)) continue;
             $title = trim((string) ($draftItem['title'] ?? $draftItem['tieu_de'] ?? ''));
-            if ($title !== '') $validDrafts[] = $title;
+            if ($title !== '') $validDrafts[] = $draftItem;
         }
         if ($validDrafts === []) {
             flash_toast_set('danger', 'JSON nhập nhanh cần có ít nhất một trường title.');
@@ -57,49 +63,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
 
         try {
             $pdo->beginTransaction();
-            $draftStmt = $pdo->prepare("INSERT INTO medical_toplists (title, slug, excerpt, content, featured_image_url, status) VALUES (:title, :slug, '', '', '', 'draft')");
-            foreach ($validDrafts as $title) {
-                $draftStmt->execute([
-                    ':title' => $title,
-                    ':slug' => unique_slug($pdo, 'medical_toplists', $title),
-                ]);
-            }
+            if (count($validDrafts) > 1000) throw new InvalidArgumentException('Tối đa 1.000 bài nháp mỗi lần.');
+            foreach ($validDrafts as $draft) toplist_directory_import_article($pdo, $draft, $fallbackType, true);
             $pdo->commit();
-            flash_toast_set('success', 'Đã tạo ' . count($validDrafts) . ' bài Toplist nháp. Bạn có thể bổ sung nội dung và cơ sở sau.', 'fa-solid fa-circle-check');
+            medical_search_cache_invalidate();
+            flash_toast_set('success', 'Đã tạo ' . count($validDrafts) . ' bài Toplist nháp. Bạn có thể bổ sung nội dung và cơ sở hoặc bác sĩ sau.', 'fa-solid fa-circle-check');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             flash_toast_set('danger', 'Không thể nhập JSON: ' . $e->getMessage());
         }
     } else {
-        $items = $payload['facilities'] ?? $payload['co_so'] ?? $payload['co_so_y_te'] ?? [];
-        if (!is_array($items) || trim((string) ($payload['title'] ?? $payload['tieu_de'] ?? '')) === '') {
-            flash_toast_set('danger', 'JSON đầy đủ cần có title và facilities.');
-            header('Location: /admin/medical_toplists.php'); exit;
-        }
         try {
-            $pdo->beginTransaction();
-            $title = trim((string) ($payload['title'] ?? $payload['tieu_de']));
-            $slug = unique_slug($pdo, 'medical_toplists', (string) ($payload['slug'] ?? $title));
-            $stmt = $pdo->prepare("INSERT INTO medical_toplists (title, slug, excerpt, content, featured_image_url, status) VALUES (:title, :slug, :excerpt, :content, :image, :status)");
-            $stmt->execute([':title' => $title, ':slug' => $slug, ':excerpt' => (string) ($payload['excerpt'] ?? $payload['mo_ta'] ?? ''), ':content' => (string) ($payload['content'] ?? $payload['noi_dung'] ?? ''), ':image' => (string) ($payload['featured_image_url'] ?? $payload['image_url'] ?? $payload['anh'] ?? ''), ':status' => (($payload['status'] ?? 'draft') === 'published' ? 'published' : 'draft')]);
-            $toplistId = (int) $pdo->lastInsertId();
-            $facilityIds = [];
-            $facilityStmt = $pdo->prepare("INSERT INTO medical_facilities (slug, name, category, city, address_text, phone_text, website_url, price_text, image_url, status, display_order) VALUES (:slug, :name, :category, :city, :address, :phone, :website, :price, :image, 'published', :display_order)");
-            foreach ($items as $index => $item) {
-                if (!is_array($item)) continue;
-                $name = trim((string) ($item['name'] ?? $item['ten'] ?? ''));
-                $address = trim((string) ($item['address_text'] ?? $item['address'] ?? $item['dia_chi'] ?? ''));
-                if ($name === '') continue;
-                $facilityStmt->execute([':slug' => unique_slug($pdo, 'medical_facilities', $name . '-' . $address . '-' . $index), ':name' => $name, ':category' => (string) ($item['category'] ?? $item['group'] ?? $item['nhom'] ?? 'Cơ sở y tế'), ':city' => (string) ($item['city'] ?? $item['province'] ?? $item['tinh_thanh'] ?? ''), ':address' => $address, ':phone' => (string) ($item['phone_text'] ?? $item['phone'] ?? ''), ':website' => (string) ($item['website_url'] ?? $item['website'] ?? ''), ':price' => (string) ($item['price_text'] ?? $item['price'] ?? ''), ':image' => (string) ($item['image_url'] ?? $item['image'] ?? ''), ':display_order' => $index]);
-                $facilityIds[] = (int) $pdo->lastInsertId();
-            }
-            toplist_directory_sync_facilities($pdo, $toplistId, $facilityIds);
-            $pdo->commit();
-            // The helper also marks the cache stale, but it runs inside this
-            // transaction. Invalidate once more after commit so a concurrent
-            // rebuild can never snapshot the pre-commit relationship rows.
-            medical_search_cache_invalidate();
-            flash_toast_set('success', 'Đã nhập Toplist và tạo ' . count($facilityIds) . ' cơ sở mới.', 'fa-solid fa-circle-check');
+            $imported = toplist_directory_import_article($pdo, $payload, $fallbackType);
+            flash_toast_set('success', 'Đã nhập Toplist với ' . count($imported['ids']) . ($imported['entity_type'] === 'doctor' ? ' bác sĩ' : ' cơ sở') . ', tạo mới ' . count($imported['created_ids']) . ' hồ sơ.', 'fa-solid fa-circle-check');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             flash_toast_set('danger', 'Không thể nhập JSON: ' . $e->getMessage());
@@ -110,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
 
 $adminPageTitle = 'Admin • Toplist y tế';
 $adminHeaderTitle = 'Toplist y tế';
-$adminHeaderSubtitle = 'Tạo bài xếp hạng và quản lý cơ sở xuất hiện trong từng bài';
+$adminHeaderSubtitle = 'Tạo bài xếp hạng và quản lý cơ sở hoặc bác sĩ xuất hiện trong từng bài';
 $adminActive = 'medical-toplists';
 require __DIR__ . '/_layout_start.php';
 ?>
@@ -122,6 +98,7 @@ require __DIR__ . '/_layout_start.php';
   <div class="collapse mb-4" id="importToplistJson">
     <div class="border rounded-4 bg-light p-3 p-md-4">
       <form method="post">
+        <input type="hidden" name="_csrf" value="<?php echo htmlspecialchars(admin_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
         <input type="hidden" name="action" value="import_json">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
           <div>
@@ -135,7 +112,7 @@ require __DIR__ . '/_layout_start.php';
             <input class="btn-check" type="radio" name="json_mode" id="jsonModeFull" value="full" checked>
             <label class="btn btn-outline-primary w-100 text-start h-100 p-3" for="jsonModeFull">
               <span class="d-block fw-semibold"><i class="fa-solid fa-list-check me-2"></i>Nhập đầy đủ</span>
-              <span class="small text-secondary">Bài viết, nội dung, ảnh và danh sách cơ sở.</span>
+              <span class="small text-secondary">Bài viết, nội dung, ảnh và danh sách cơ sở hoặc bác sĩ.</span>
             </label>
           </div>
           <div class="col-md-6">
@@ -147,8 +124,9 @@ require __DIR__ . '/_layout_start.php';
           </div>
         </div>
         <label class="form-label fw-semibold" id="toplistJsonLabel" for="toplistJson">JSON bài Toplist và danh sách cơ sở</label>
+        <div class="mb-3"><label class="form-label" for="jsonEntityType">Loại Toplist / mẫu JSON</label><select class="form-select" id="jsonEntityType" name="json_entity_type"><option value="facility">Cơ sở y tế</option><option value="doctor">Bác sĩ</option></select><div class="form-text">JSON có entity_type hoặc doctors sẽ tự nhận diện loại; bài chỉ có tiêu đề dùng lựa chọn tại đây.</div></div>
         <textarea class="form-control mono" id="toplistJson" name="toplist_json" rows="9" placeholder="Dán JSON bài viết đầy đủ theo mẫu bên dưới..." required></textarea>
-        <div class="small text-secondary mt-2" id="toplistJsonHelp">Dạng đầy đủ cần có <code>title</code> và <code>facilities</code>. Cơ sở trong JSON sẽ được tạo mới và thêm vào bài Toplist.</div>
+        <div class="small text-secondary mt-2" id="toplistJsonHelp">Dạng đầy đủ cần có title và danh sách facilities hoặc doctors. Dùng ID có sẵn để liên kết; hồ sơ chưa có sẽ được tạo mới.</div>
         <details class="mt-3">
           <summary class="small text-primary" style="cursor:pointer">Xem mẫu JSON theo dạng đã chọn</summary>
           <pre class="small bg-white border rounded-3 p-3 mt-2 mb-0" id="fullJsonSample" style="max-height:280px;overflow:auto;white-space:pre-wrap">{
@@ -170,7 +148,24 @@ require __DIR__ . '/_layout_start.php';
   { "title": "Top 5 cơ sở y tế uy tín tại Đà Nẵng" },
   { "title": "Top 10 phòng khám đáng tham khảo tại Huế" }
 ]</pre>
+          <pre class="small bg-white border rounded-3 p-3 mt-2 mb-0 d-none" id="doctorJsonSample" style="max-height:280px;overflow:auto;white-space:pre-wrap">{
+  "title": "Top bác sĩ chuyên khoa mắt tại Hà Nội đáng tham khảo",
+  "entity_type": "doctor",
+  "excerpt": "Danh sách bác sĩ có thông tin chuyên môn và nơi công tác công khai.",
+  "content": "&lt;h2&gt;Tiêu chí tham khảo&lt;/h2&gt;&lt;p&gt;Đối chiếu chuyên môn và nơi khám từ nguồn chính thức, không cam kết kết quả điều trị.&lt;/p&gt;",
+  "status": "draft",
+  "doctors": [{
+    "doctor_id": 0,
+    "name": "Tên bác sĩ đã đối chiếu nguồn",
+    "title_text": "Chức danh theo nguồn",
+    "specialty_text": "Nhãn khoa",
+    "city": "Hà Nội",
+    "facility_name": "Tên cơ sở công tác theo nguồn",
+    "rank_order": 1
+  }]
+}</pre>
         </details>
+        <details class="mt-3"><summary class="small text-primary">Prompt AI tạo JSON</summary><textarea readonly class="form-control mono mt-2" id="toplistImportPrompt" rows="6"></textarea><button class="btn btn-sm btn-outline-primary mt-2" type="button" id="copyToplistImportPrompt">Sao chép prompt</button></details>
         <div class="d-flex justify-content-end mt-3"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-cloud-arrow-up me-2"></i><span id="toplistJsonSubmitText">Nhập và tạo mới</span></button></div>
       </form>
     </div>
@@ -182,7 +177,7 @@ require __DIR__ . '/_layout_start.php';
     </div>
     <div class="col-auto"><button class="btn btn-outline-primary" type="submit"><i class="fa-solid fa-magnifying-glass me-2"></i>Tìm kiếm</button></div>
   </form>
-  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Tiêu đề</th><th>Slug</th><th>Cơ sở</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr></thead><tbody id="medicalToplistsTbody"><tr><td colspan="6" class="text-center text-secondary py-5">Đang tải danh sách Toplist...</td></tr></tbody></table></div>
+  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Tiêu đề</th><th>Slug</th><th>Hồ sơ liên kết</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr></thead><tbody id="medicalToplistsTbody"><tr><td colspan="6" class="text-center text-secondary py-5">Đang tải danh sách Toplist...</td></tr></tbody></table></div>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3" id="medicalToplistsPager" aria-live="polite"></div>
 </div></div>
 <script>
@@ -195,24 +190,43 @@ document.addEventListener('DOMContentLoaded', function () {
   var submitText = document.getElementById('toplistJsonSubmitText');
   var fullSample = document.getElementById('fullJsonSample');
   var titleSample = document.getElementById('titleOnlyJsonSample');
+  var doctorSample = document.getElementById('doctorJsonSample');
+  var entitySelect = document.getElementById('jsonEntityType');
+  var importPrompt = document.getElementById('toplistImportPrompt');
   if (!fullMode || !titleOnlyMode || !label || !textarea || !help || !submitText || !fullSample || !titleSample) return;
 
   function updateJsonMode() {
     var isTitleOnly = titleOnlyMode.checked;
-    label.textContent = isTitleOnly ? 'JSON danh sách bài Toplist (chỉ tiêu đề)' : 'JSON bài Toplist và danh sách cơ sở';
+    var isDoctor = entitySelect.value === 'doctor';
+    var subject = isDoctor ? 'bác sĩ' : 'cơ sở';
+    var arrayKey = isDoctor ? 'doctors' : 'facilities';
+    label.textContent = isTitleOnly ? 'JSON danh sách bài Toplist (chỉ tiêu đề)' : 'JSON bài Toplist và danh sách ' + subject;
     textarea.placeholder = isTitleOnly
       ? 'Dán một bài {"title":"..."} hoặc danh sách [{"title":"..."}, ...]'
       : 'Dán JSON bài viết đầy đủ theo mẫu bên dưới...';
     help.innerHTML = isTitleOnly
-      ? 'Mỗi bài chỉ cần <code>title</code> (có thể dùng <code>tieu_de</code>). Bài được tạo ở trạng thái nháp; nội dung, ảnh và cơ sở được bổ sung sau.'
-      : 'Dạng đầy đủ cần có <code>title</code> và <code>facilities</code>. Cơ sở trong JSON sẽ được tạo mới và thêm vào bài Toplist.';
+      ? 'Mỗi bài chỉ cần <code>title</code>. Bài nháp sẽ dùng loại ' + subject + ' đã chọn hoặc <code>entity_type</code> của từng bài; bổ sung liên kết sau.'
+      : 'Dạng đầy đủ cần <code>title</code> và <code>' + arrayKey + '</code>. Dùng <code>' + (isDoctor ? 'doctor_id' : 'facility_id') + '</code> có sẵn để liên kết, không ghi đè hồ sơ. ID bằng 0 hoặc thiếu sẽ tạo hồ sơ cơ bản chưa xác minh; bác sĩ mới cần chuyên khoa và thành phố hoặc nơi công tác.';
     submitText.textContent = isTitleOnly ? 'Tạo bài nháp' : 'Nhập và tạo mới';
-    fullSample.classList.toggle('d-none', isTitleOnly);
+    fullSample.classList.toggle('d-none', isTitleOnly || isDoctor);
+    doctorSample.classList.toggle('d-none', isTitleOnly || !isDoctor);
     titleSample.classList.toggle('d-none', !isTitleOnly);
+    titleSample.textContent = JSON.stringify([{title: isDoctor ? 'Top bác sĩ chuyên khoa mắt tại Hà Nội' : 'Top cơ sở y tế tại Đà Nẵng', entity_type: entitySelect.value}], null, 2);
+    importPrompt.value = 'Tạo ' + (isTitleOnly ? 'danh sách tiêu đề bài Toplist' : 'bài Toplist và danh sách') + ' về ' + subject + ' theo yêu cầu tôi cung cấp. ' +
+      'Chỉ dùng dữ liệu công khai đã đối chiếu nguồn chính thức; không bịa danh tính, chuyên khoa, chức danh, nơi công tác, liên hệ, giá hoặc đánh giá. ' +
+      'Không tự tạo ID: dùng ID tôi cung cấp; chưa có ID thì 0. Một bài chỉ có một loại xếp hạng. ' +
+      'Giữ entity_type=' + entitySelect.value + ', rank_order bắt đầu từ 1; trường không rõ để rỗng. ' +
+      'Chỉ trả JSON hợp lệ trong một block code json, không lời dẫn bên ngoài. Cấu trúc mẫu (thay dữ liệu mẫu bằng thông tin thật):\n' +
+      (isTitleOnly ? titleSample.textContent : (isDoctor ? doctorSample.textContent : fullSample.textContent));
   }
 
   fullMode.addEventListener('change', updateJsonMode);
   titleOnlyMode.addEventListener('change', updateJsonMode);
+  entitySelect.addEventListener('change', updateJsonMode);
+  document.getElementById('copyToplistImportPrompt').addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText(importPrompt.value); this.textContent = 'Đã sao chép'; }
+    catch (_) { importPrompt.focus(); importPrompt.select(); this.textContent = 'Chọn prompt rồi sao chép'; }
+  });
   updateJsonMode();
 });
 </script>
@@ -230,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var limit = 20;
   var endpoint = '/admin/api/medical/toplists_list.php';
   var editUrl = <?= json_encode(admin_url('medical_toplist_edit.php?id='), JSON_UNESCAPED_SLASHES) ?>;
+  var csrf = <?= json_encode(admin_csrf_token()) ?>;
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, function (char) {
@@ -262,11 +277,11 @@ document.addEventListener('DOMContentLoaded', function () {
       return '<tr>' +
         '<td class="fw-semibold">' + escapeHtml(row.title) + '</td>' +
         '<td class="text-secondary small mono">' + escapeHtml(row.slug) + '</td>' +
-        '<td><span class="badge text-bg-light">' + number(row.facility_count) + ' cơ sở</span></td>' +
+        '<td><span class="badge text-bg-light">' + number(row.entity_type === 'doctor' ? row.doctor_count : row.facility_count) + (row.entity_type === 'doctor' ? ' bác sĩ' : ' cơ sở') + '</span></td>' +
         '<td><span class="badge ' + (status === 'published' ? 'text-bg-success' : 'text-bg-secondary') + '">' + escapeHtml(status) + '</span></td>' +
         '<td class="small text-secondary">' + escapeHtml(row.updated_at) + '</td>' +
         '<td><div class="d-flex gap-2 justify-content-end"><a class="btn btn-sm btn-primary" href="' + editUrl + encodeURIComponent(row.id || 0) + '">Sửa</a>' +
-          '<form method="post" onsubmit="return confirm(\'Xoá bài Toplist này?\');"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' + escapeHtml(row.id) + '"><button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button></form></div></td>' +
+          '<form method="post" onsubmit="return confirm(\'Xoá bài Toplist này?\');"><input type="hidden" name="_csrf" value="' + escapeHtml(csrf) + '"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' + escapeHtml(row.id) + '"><button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button></form></div></td>' +
         '</tr>';
     }).join('');
   }

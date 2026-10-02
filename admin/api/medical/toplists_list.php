@@ -29,11 +29,11 @@ $page = min($page, $totalPages);
 $offset = ($page - 1) * $limit;
 
 $stmt = $pdo->prepare(
-    'SELECT t.id, t.title, t.slug, t.status, t.updated_at, COUNT(tf.id) AS facility_count
+    'SELECT t.id, t.title, t.slug, t.entity_type, t.status, t.updated_at,
+        (SELECT COUNT(*) FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) AS facility_count,
+        (SELECT COUNT(*) FROM medical_toplist_doctors td WHERE td.toplist_id=t.id) AS doctor_count
      FROM medical_toplists t
-     LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id
      ' . $where . '
-     GROUP BY t.id, t.title, t.slug, t.status, t.updated_at
      ORDER BY t.updated_at DESC, t.id DESC
      LIMIT :limit OFFSET :offset'
 );

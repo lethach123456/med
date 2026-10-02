@@ -9,6 +9,18 @@ $allowed=['facility','facility_image_prompt','toplist','doctor','review','transl
 if ($name === '' && $type !== 'translation') json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
 $pdo=db(); medical_directory_ensure_tables($pdo);
 $resolved = medical_directory_resolve_ai_prompt($pdo, $type, $type === 'facility' ? $category : '');
+if ($type === 'toplist') {
+    require_once __DIR__ . '/../../toplist_directory.php';
+    toplist_directory_ensure_tables($pdo);
+    $toplist = ['id' => (int) ($_GET['id'] ?? 0), 'title' => $name, 'excerpt' => $_GET['excerpt'] ?? '', 'content' => $_GET['content'] ?? '', 'entity_type' => $_GET['entity_type'] ?? 'facility'];
+    if ($toplist['id'] > 0) {
+        $lookup = $pdo->prepare('SELECT id,title,excerpt,content,entity_type FROM medical_toplists WHERE id=:id');
+        $lookup->execute([':id' => $toplist['id']]); $toplist = $lookup->fetch(PDO::FETCH_ASSOC) ?: $toplist;
+    }
+    try { $prompt = toplist_directory_research_prompt($resolved['template'], $toplist); }
+    catch (InvalidArgumentException $e) { json_response(['ok' => false, 'message' => $e->getMessage()], 422); }
+    json_response(['ok' => true, 'type' => 'toplist', 'entity_type' => $toplist['entity_type'], 'label' => $resolved['label'], 'name' => $toplist['title'], 'prompt' => $prompt]);
+}
 if ($type === 'doctor') {
     $source = ['id' => (int) ($_GET['id'] ?? 0), 'name' => $name,
         'city' => (string) ($_GET['city'] ?? ''), 'specialty_text' => (string) ($_GET['specialty'] ?? ''),

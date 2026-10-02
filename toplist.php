@@ -7,21 +7,24 @@ medical_redirect_legacy_path('/toplist.php', medical_public_toplist_path());
 $locale = site_page_locale('toplist');
 $isEnglish = $locale === 'en';
 $pdo = db();
+medical_directory_ensure_tables($pdo);
 toplist_directory_ensure_tables($pdo);
 $hasToplistLanguage = medreview_ensure_translation_columns($pdo, 'medical_toplists');
 if (!$hasToplistLanguage && $locale === 'en') {
   $rows = [];
 } else {
   $languageClause = $hasToplistLanguage ? ' AND t.language_code=:locale' : '';
-  $toplistRows = $pdo->prepare("SELECT t.id,t.title,t.slug,t.excerpt,t.featured_image_url,t.updated_at,COUNT(tf.id) AS facility_count FROM medical_toplists t LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id=t.id WHERE t.status='published'{$languageClause} GROUP BY t.id ORDER BY t.updated_at DESC,t.id DESC");
+  $toplistRows = $pdo->prepare("SELECT t.id,t.title,t.slug,t.language_code,t.entity_type,t.excerpt,t.featured_image_url,t.updated_at,
+    (SELECT COUNT(*) FROM medical_toplist_facilities tf JOIN medical_facilities f ON f.id=tf.facility_id WHERE tf.toplist_id=t.id AND f.status='published' AND f.language_code=t.language_code) AS facility_count,
+    (SELECT COUNT(*) FROM medical_toplist_doctors td JOIN medical_doctors d ON d.id=td.doctor_id WHERE td.toplist_id=t.id AND d.status='published' AND d.language_code=t.language_code) AS doctor_count
+    FROM medical_toplists t WHERE t.status='published'{$languageClause} ORDER BY t.updated_at DESC,t.id DESC");
   $toplistRows->execute($hasToplistLanguage ? [':locale' => $locale] : []);
   $rows = $toplistRows->fetchAll(PDO::FETCH_ASSOC);
 }
-$collageStatement = $pdo->prepare('SELECT f.image_url, f.gallery_json FROM medical_toplist_facilities tf JOIN medical_facilities f ON f.id=tf.facility_id WHERE tf.toplist_id=:toplist_id AND f.status=\'published\' ORDER BY tf.rank_order ASC, tf.id ASC LIMIT 4');
 foreach ($rows as &$row) {
-  $collageStatement->execute([':toplist_id' => (int) $row['id']]);
+  $row['member_count'] = (int) ($row[$row['entity_type'] === 'doctor' ? 'doctor_count' : 'facility_count'] ?? 0);
   $images = [];
-  foreach ($collageStatement->fetchAll(PDO::FETCH_ASSOC) as $facility) {
+  foreach (toplist_directory_linked_rows($pdo, $row, 4) as $facility) {
     $image = trim((string) ($facility['image_url'] ?? ''));
     if ($image === '') {
       $gallery = medical_directory_gallery_urls((string) ($facility['gallery_json'] ?? ''));
@@ -154,7 +157,7 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
             <p class="facility-sub"><?= htmlspecialchars((string) ($row['excerpt'] ?: $labels['fallbackExcerpt']), ENT_QUOTES) ?></p>
             <div class="meta-row"><i data-lucide="calendar-days"></i><span><?= htmlspecialchars($labels['updatedPrefix'], ENT_QUOTES) ?> <?= htmlspecialchars(date('d/m/Y', strtotime((string) $row['updated_at'])), ENT_QUOTES) ?></span></div>
           </div>
-          <div class="score-col"><div class="score-main"><?= (int) $row['facility_count'] ?></div><div class="score-meta"><?= htmlspecialchars($labels['facilities'], ENT_QUOTES, 'UTF-8') ?></div></div>
+          <div class="score-col"><div class="score-main"><?= (int) $row['member_count'] ?></div><div class="score-meta"><?= htmlspecialchars($row['entity_type'] === 'doctor' ? ($isEnglish ? 'doctors in this list' : 'bác sĩ trong danh sách') : $labels['facilities'], ENT_QUOTES, 'UTF-8') ?></div></div>
           <div class="cta-col"><strong><?= htmlspecialchars($labels['explore'], ENT_QUOTES, 'UTF-8') ?></strong><a class="detail-btn" href="<?= htmlspecialchars(medical_public_entity_path('toplist', (string) $row['slug'], $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['details'], ENT_QUOTES, 'UTF-8') ?></a></div>
         </article>
       <?php endforeach; ?>

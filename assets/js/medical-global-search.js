@@ -4,13 +4,13 @@
   const language = document.documentElement.lang?.toLowerCase().startsWith('en') ? 'en' : 'vi';
   const labels = language === 'en' ? {
     facilities: 'Healthcare facilities', doctors: 'Doctors', toplists: 'Toplists', reviews: 'reviews',
-    facilitiesCount: 'facilities', updated: 'Updated', verified: 'Verified', noResults: 'No results found for',
+    facilitiesCount: 'facilities', doctorsCount: 'doctors', updated: 'Updated', verified: 'Verified', noResults: 'No results found for',
     unavailable: 'Search is temporarily unavailable. Please try again.', loading: 'Searching...',
     scrollMore: 'Scroll for more', swipeMore: 'Swipe down for more',
     curated: 'Curated healthcare list'
   } : {
     facilities: 'Cơ sở y tế', doctors: 'Bác sĩ', toplists: 'Toplist', reviews: 'đánh giá',
-    facilitiesCount: 'cơ sở', updated: 'Cập nhật', verified: 'Đã xác thực', noResults: 'Không tìm thấy kết quả cho',
+    facilitiesCount: 'cơ sở', doctorsCount: 'bác sĩ', updated: 'Cập nhật', verified: 'Đã xác thực', noResults: 'Không tìm thấy kết quả cho',
     unavailable: 'Không thể tìm kiếm lúc này. Vui lòng thử lại.', loading: 'Đang tìm kiếm...',
     scrollMore: 'Cuộn xuống để xem thêm', swipeMore: 'Vuốt xuống để xem thêm',
     curated: 'Danh sách cơ sở được chọn lọc'
@@ -81,10 +81,11 @@
       facts = ratingMarkup(item);
     } else {
       context = item.excerpt || labels.curated;
-      const facilityCount = Math.max(0, Number.parseInt(item.facility_count || 0, 10) || 0);
+      const doctorList = item.entity_type === 'doctor';
+      const memberCount = Math.max(0, Number.parseInt((doctorList ? item.doctor_count : item.facility_count) || 0, 10) || 0);
       const updated = dateText(item.updated_at);
       facts = `<span class="medical-search-facts">
-        ${facilityCount > 0 ? `<span class="medical-search-toplist-count"><i class="ph ph-buildings" aria-hidden="true"></i>${numberFormat.format(facilityCount)} ${escapeHtml(labels.facilitiesCount)}</span>` : ''}
+        ${memberCount > 0 ? `<span class="medical-search-toplist-count"><i class="ph ${doctorList ? 'ph-stethoscope' : 'ph-buildings'}" aria-hidden="true"></i>${numberFormat.format(memberCount)} ${escapeHtml(doctorList ? labels.doctorsCount : labels.facilitiesCount)}</span>` : ''}
         ${updated ? `<span class="medical-search-updated"><i class="ph ph-calendar-blank" aria-hidden="true"></i>${escapeHtml(labels.updated)} ${escapeHtml(updated)}</span>` : ''}
       </span>`;
     }

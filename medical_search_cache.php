@@ -362,14 +362,18 @@ function medical_search_cache_toplists(PDO $pdo): array
         $languageSelect = $hasTranslationColumns ? 't.language_code' : "'vi' AS language_code";
         $languageGroup = $hasTranslationColumns ? ', t.language_code' : '';
         $rows = $pdo->query(
-            "SELECT t.id, t.slug, {$languageSelect}, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at,
+            "SELECT t.id, t.slug, {$languageSelect}, t.entity_type, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at,
                     COUNT(DISTINCT f.id) AS facility_count,
-                    GROUP_CONCAT(DISTINCT CONCAT_WS(' ', f.name, f.category, f.city, f.featured_services_json, f.services_json) SEPARATOR ' ') AS facility_search_text
+                    COUNT(DISTINCT d.id) AS doctor_count,
+                    GROUP_CONCAT(DISTINCT CONCAT_WS(' ', f.name, f.category, f.city, f.featured_services_json, f.services_json) SEPARATOR ' ') AS facility_search_text,
+                    GROUP_CONCAT(DISTINCT CONCAT_WS(' ', d.name, d.specialty_text, d.city, d.facility_name) SEPARATOR ' ') AS doctor_search_text
              FROM medical_toplists t
-             LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id
-             LEFT JOIN medical_facilities f ON f.id = tf.facility_id AND f.status = 'published'
+             LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id AND t.entity_type='facility'
+             LEFT JOIN medical_facilities f ON f.id = tf.facility_id AND f.status = 'published' AND f.language_code=t.language_code
+             LEFT JOIN medical_toplist_doctors td ON td.toplist_id = t.id AND t.entity_type='doctor'
+             LEFT JOIN medical_doctors d ON d.id=td.doctor_id AND d.status='published' AND d.language_code=t.language_code
              WHERE t.status = 'published'
-             GROUP BY t.id, t.slug{$languageGroup}, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at"
+             GROUP BY t.id, t.slug{$languageGroup}, t.entity_type, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at"
         )->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable) {
         return [];
@@ -383,6 +387,7 @@ function medical_search_cache_toplists(PDO $pdo): array
             (string) ($row['excerpt'] ?? ''),
             (string) ($row['content'] ?? ''),
             (string) ($row['facility_search_text'] ?? ''),
+            (string) ($row['doctor_search_text'] ?? ''),
         ];
         $items[] = [
             'id' => (int) ($row['id'] ?? 0),
@@ -394,6 +399,8 @@ function medical_search_cache_toplists(PDO $pdo): array
             'featured_image_url' => trim((string) ($row['featured_image_url'] ?? '')),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
             'facility_count' => (int) ($row['facility_count'] ?? 0),
+            'doctor_count' => (int) ($row['doctor_count'] ?? 0),
+            'entity_type' => (string) ($row['entity_type'] ?? 'facility'),
             'name_key' => medical_search_cache_normalize((string) ($row['title'] ?? '')),
             'category_key' => '',
             'city_key' => '',
@@ -625,6 +632,8 @@ function medical_search_cache_public_item(string $type, array $item, string $ser
             'featured_image_url' => (string) ($item['featured_image_url'] ?? ''),
             'updated_at' => (string) ($item['updated_at'] ?? ''),
             'facility_count' => (int) ($item['facility_count'] ?? 0),
+            'doctor_count' => (int) ($item['doctor_count'] ?? 0),
+            'entity_type' => (string) ($item['entity_type'] ?? 'facility'),
         ];
     }
     $public = [

@@ -10,6 +10,7 @@ medical_directory_ensure_tables($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payload = read_json_body();
+    if (!hash_equals(admin_csrf_token(), (string) ($payload['_csrf'] ?? ''))) json_response(['ok' => false, 'message' => 'Phiên biểu mẫu hết hạn.'], 403);
     $name = trim((string) ($payload['name'] ?? ''));
     $address = trim((string) ($payload['address_text'] ?? ''));
     $category = trim((string) ($payload['category'] ?? 'Cơ sở y tế')) ?: 'Cơ sở y tế';

@@ -7,8 +7,8 @@ require_once __DIR__ . '/medical_directory.php';
 $incomingToplistSlug = trim((string) ($_GET['slug'] ?? ''));
 
 $pdo = db();
-toplist_directory_ensure_tables($pdo);
 medical_directory_ensure_tables($pdo);
+toplist_directory_ensure_tables($pdo);
 $slug = trim((string) ($_GET['slug'] ?? ''));
 $stmt = $pdo->prepare("SELECT * FROM medical_toplists WHERE slug=:slug AND status='published' LIMIT 1");
 $stmt->execute([':slug' => $slug]);
@@ -25,10 +25,10 @@ $toplistLanguageLinks = !$toplistNotFound
     : ['current' => 'vi', 'vi' => medical_public_toplist_path(), 'en' => medical_public_entity_path('toplist', '', 'en'), 'has_counterpart' => false];
 $GLOBALS['site_forced_locale'] = $toplistLanguage;
 $GLOBALS['site_language_links'] = $toplistLanguageLinks;
-$facilityStmt = $pdo->prepare("SELECT f.*,tf.rank_order FROM medical_toplist_facilities tf JOIN medical_facilities f ON f.id=tf.facility_id WHERE tf.toplist_id=:id AND f.status='published' ORDER BY tf.rank_order ASC,tf.id ASC");
-$facilityStmt->execute([':id'=>(int)$toplist['id']]);
+$toplistEntityType = toplist_directory_entity_type($toplist);
+$linkedRows = $toplistNotFound ? [] : toplist_directory_linked_rows($pdo, $toplist);
 $facilities = [];
-foreach ($facilityStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+foreach ($toplistEntityType === 'facility' ? $linkedRows : [] as $row) {
     $item = medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($row), true);
     // The Toplist gallery/lightbox consumes URLs. Keep gallery metadata in the
     // facility record itself, but avoid rendering PHP arrays as image sources.
@@ -49,11 +49,12 @@ $description = (string) ($toplist['excerpt'] ?? '');
 if (trim($description) === '' && trim((string) ($toplist['content'] ?? '')) !== '') {
     $description = preg_replace('/\s+/u', ' ', trim(strip_tags((string) $toplist['content']))) ?? '';
 }
-if (trim($description) === '') $description = $title . ' — danh sách cơ sở y tế được giới thiệu trên MedReview.';
+if (trim($description) === '') $description = $title . ($toplistEntityType === 'doctor' ? ' — danh sách bác sĩ trên MedReview.' : ' — danh sách cơ sở y tế được giới thiệu trên MedReview.');
 $description = site_meta_description($description);
 $canonicalUrl = $toplistNotFound ? '' : site_absolute_url(medical_public_entity_path('toplist', $slug, $toplistLanguage));
 $heroImage = site_absolute_media_url((string) ($toplist['featured_image_url'] ?? ''));
 if ($heroImage === '' && isset($facilities[0])) $heroImage = (string) ($facilities[0]['image'] ?? '');
+if ($heroImage === '' && $toplistEntityType === 'doctor') $heroImage = site_absolute_media_url((string) ($linkedRows[0]['image_url'] ?? ''));
 $toplistSchema = [
     '@context' => 'https://schema.org',
     '@type' => 'Article',
@@ -65,6 +66,10 @@ $toplistSchema = [
 ];
 if (($heroImageAbsolute = site_absolute_media_url($heroImage)) !== '') {
     $toplistSchema['image'] = $heroImageAbsolute;
+}
+if ($toplistEntityType === 'doctor' && !$toplistNotFound) {
+    require __DIR__ . '/Tem/toplist-doctor-detail.php';
+    exit;
 }
 function toplist_services(array $facility): array {
     $services = array_filter((array) ($facility['services'] ?? []), static function ($service): bool {

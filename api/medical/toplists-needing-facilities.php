@@ -5,6 +5,8 @@ require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../../toplist_directory.php';
 
 medical_api_auth();
+header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok' => false, 'message' => 'Chỉ hỗ trợ GET.'], 405);
 
 $pdo = db();
 medical_directory_ensure_tables($pdo);
@@ -14,10 +16,16 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25)));
 $offset = ($page - 1) * $limit;
 
-$where = 'NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id = t.id)';
+$filterType = $_GET['entity_type'] ?? null;
+if ($filterType !== null && !in_array($filterType, ['facility', 'doctor'], true)) json_response(['ok' => false, 'message' => 'entity_type phải là facility hoặc doctor.'], 422);
+// Existing Chrome clients parse only `facilities`; doctor queues are explicitly opt-in.
+if ($filterType === null && !defined('MEDICAL_TOPLIST_QUEUE_ALL')) $filterType = 'facility';
+$where = "t.language_code='vi' AND ((t.entity_type='facility' AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
+    OR (t.entity_type='doctor' AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id)))";
+if ($filterType !== null) $where .= $filterType === 'doctor' ? " AND t.entity_type='doctor'" : " AND t.entity_type='facility'";
 $total = (int) $pdo->query("SELECT COUNT(*) FROM medical_toplists t WHERE {$where}")->fetchColumn();
 $stmt = $pdo->prepare(
-    "SELECT t.id, t.slug, t.title, t.excerpt, t.content, t.featured_image_url, t.status, t.updated_at
+    "SELECT t.id, t.slug, t.title, t.entity_type, t.excerpt, t.content, t.featured_image_url, t.status, t.updated_at
      FROM medical_toplists t
      WHERE {$where}
      ORDER BY t.id ASC
@@ -35,14 +43,8 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 foreach ($items as &$item) {
     $item['prompt_type'] = 'toplist';
     $item['prompt_label'] = (string) $promptRow['label'];
-    $item['prompt'] = strtr((string) $promptRow['template'], [
-        '{{id}}' => (string) $item['id'],
-        '{{toplist_id}}' => (string) $item['id'],
-        '{{title}}' => (string) $item['title'],
-        '{{name}}' => (string) $item['title'],
-        '{{excerpt}}' => (string) ($item['excerpt'] ?? ''),
-        '{{content}}' => (string) ($item['content'] ?? ''),
-    ]);
+    $item['receive_endpoint'] = '/api/medical/toplist-members-update.php';
+    $item['prompt'] = toplist_directory_research_prompt((string) $promptRow['template'], $item);
 }
 unset($item);
 
@@ -53,5 +55,6 @@ json_response([
     'total' => $total,
     'pages' => (int) ceil($total / $limit),
     'prompt_type' => 'toplist',
+    'entity_type' => $filterType ?? 'all',
     'items' => $items,
 ]);
