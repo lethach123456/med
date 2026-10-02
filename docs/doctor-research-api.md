@@ -40,6 +40,15 @@ Admin > Doctor edit has an expandable research editor. CSRF protection covers sa
 and translation creation. Only administrators can approve a profile; editing by a
 non-admin clears approval. Custom saved doctor prompts are preserved.
 
+The built-in editorial prompt is `MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V2`: identity
+matching, official-source research, all research JSON shapes, fact-checking, neutral
+Vietnamese writing/SEO and mandatory fenced JSON output. Queue/manual prompt APIs
+read the saved **Doctor** prompt from `medical_ai_prompts`; the transport contract is
+appended regardless of customization. Editing its admin textarea affects future requests.
+To explicitly replace a saved Doctor prompt with this built-in version, first back up its
+current text, then run `php scripts/migrate_doctor_content.php --replace-doctor-prompt`.
+Without that flag, custom prompts are never overwritten.
+
 ## Endpoints
 
 | Endpoint | Method | Purpose |

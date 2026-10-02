@@ -5,14 +5,18 @@ require_once dirname(__DIR__) . '/medical_directory.php';
 try {
     $pdo = db();
     medical_directory_ensure_doctor_content_columns($pdo);
-    // Upgrade ONLY the built-in legacy template. Never replace a custom admin prompt.
+    // Normal migrations preserve custom prompts. Explicit replacement is opt-in only.
     $stmt = $pdo->prepare("SELECT id, template FROM medical_ai_prompts WHERE prompt_key='doctor'");
     $stmt->execute(); $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $legacy = 'Hãy viết bài giới thiệu chuyên môn về bác sĩ "{{name}}". Trình bày chuyên khoa, kinh nghiệm, dịch vụ và điểm nổi bật bằng giọng văn đáng tin cậy. Chỉ dùng thông tin được cung cấp, không bịa chứng chỉ hoặc thành tích. Chỉ trả về JSON hợp lệ theo mẫu: {"name":"{{name}}","title_text":"...","specialty_text":"...","bio":"HTML 300-500 từ","services":["..."],"address":"...","phone":"...","website":"..."}';
-    if ($row && $row['template'] === $legacy) {
+    $replacePrompt = in_array('--replace-doctor-prompt', $argv, true);
+    if ($row && ($row['template'] === $legacy || $replacePrompt)) {
         $pdo->prepare('UPDATE medical_ai_prompts SET template=:template WHERE id=:id AND template=:old')
-            ->execute([':template' => medical_doctor_default_prompt(), ':id' => $row['id'], ':old' => $legacy]);
-        echo "Built-in doctor prompt upgraded.\n";
+            ->execute([':template' => medical_doctor_default_prompt(), ':id' => $row['id'], ':old' => $row['template']]);
+        $check = $pdo->prepare('SELECT template FROM medical_ai_prompts WHERE id=:id');
+        $check->execute([':id' => $row['id']]);
+        if ($check->fetchColumn() !== medical_doctor_default_prompt()) throw new RuntimeException('Prompt vừa thay đổi bởi người khác; không ghi đè.');
+        echo $replacePrompt ? "Saved doctor prompt replaced on explicit request.\n" : "Built-in doctor prompt upgraded.\n";
     } elseif (!$row) {
         $pdo->prepare("INSERT INTO medical_ai_prompts (prompt_key,label,template) VALUES ('doctor','Bác sĩ',:template)")
             ->execute([':template' => medical_doctor_default_prompt()]);

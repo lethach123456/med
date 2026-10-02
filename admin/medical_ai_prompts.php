@@ -312,7 +312,7 @@ $promptNotes = [
     'facility' => 'Prompt fallback. Khi cơ sở không khớp prompt theo ngành nào, tiện ích sẽ dùng mẫu này.',
     'facility_image_prompt' => 'Dùng để AI tạo ảnh đại diện cho cơ sở y tế. Chỉ mô tả khung cảnh, không chèn chữ, logo, số điện thoại hoặc thông tin chưa được cung cấp.',
     'toplist' => 'Dùng để AI lập danh sách cơ sở cho bài Toplist chưa có cơ sở. Giữ nguyên {{id}} / {{toplist_id}} và trả về mảng facilities theo rank_order.',
-    'doctor' => 'Nghiên cứu hồ sơ bác sĩ đúng người, ưu tiên nguồn chính thức. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{source_json}}, {{output_template}}. API luôn bổ sung khung JSON đầy đủ và yêu cầu trả trong block code json; không bịa chứng chỉ, đánh giá hoặc tự bật xác minh.',
+    'doctor' => 'Prompt nghiên cứu hồ sơ bác sĩ: nhận diện đúng người, đào tạo/công tác, giấy phép, chuyên môn, nơi khám, lịch/giá, nguồn chứng minh và SEO. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{address}}, {{phone}}, {{website}}, {{source_json}}, {{output_template}}. API lấy bản đang lưu tại đây và bổ sung contract JSON đầy đủ; kết quả bắt buộc nằm trong block code json, AI không tự xác minh hoặc tạo đánh giá.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
     'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON; dịch đúng các trường được cho phép. API sẽ yêu cầu AI trả kết quả trong một block code ```json.',
 ];
