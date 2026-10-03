@@ -32,14 +32,14 @@ foreach ($items as $index => $item) {
         $type = toplist_directory_entity_type($item, $row['entity_type']);
         if ($type !== $row['entity_type']) throw new InvalidArgumentException('Loại danh sách không khớp Toplist. Đổi đối tượng xếp hạng trong trang chỉnh sửa trước.');
         if (defined('MEDICAL_TOPLIST_EXPECTED_TYPE') && $type !== MEDICAL_TOPLIST_EXPECTED_TYPE) throw new InvalidArgumentException('Endpoint này chỉ nhận Toplist bác sĩ.');
-        $members = $type === 'doctor' ? ($item['doctors'] ?? $item['bac_si'] ?? []) : ($item['facilities'] ?? $item['co_so'] ?? $item['co_so_y_te'] ?? []);
-        if (!is_array($members) || $members === []) throw new InvalidArgumentException('Cần danh sách ' . ($type === 'doctor' ? 'doctors' : 'facilities') . ' không rỗng.');
+        $members = toplist_directory_payload_members($item, $type);
+        if ($members === []) throw new InvalidArgumentException('Cần danh sách hồ sơ không rỗng.');
         $saved = toplist_directory_import_members($pdo, (int) $id, $type, $members);
         $pdo->commit();
         $updated[] = (int) $id;
-        if ($type === 'doctor') $createdDoctors = array_merge($createdDoctors, $saved['created_ids']);
-        else $createdFacilities = array_merge($createdFacilities, $saved['created_ids']);
-        $results[] = ['index' => $index, 'toplist_id' => (int) $id, 'entity_type' => $type, 'member_ids' => $saved['ids']];
+        $createdDoctors = array_merge($createdDoctors, $saved['created_doctor_ids']);
+        $createdFacilities = array_merge($createdFacilities, $saved['created_facility_ids']);
+        $results[] = ['index' => $index, 'toplist_id' => (int) $id, 'entity_type' => $type, 'member_ids' => $saved['ids'], 'members' => $saved['members']];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $status = $e instanceof InvalidArgumentException ? 422 : 500;

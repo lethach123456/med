@@ -68,10 +68,11 @@ function toplist_directory_entity_type(array $payload, string $fallback = 'facil
     if ($type === null) {
         $hasDoctors = array_key_exists('doctors', $payload) || array_key_exists('bac_si', $payload);
         $hasFacilities = array_key_exists('facilities', $payload) || array_key_exists('co_so', $payload) || array_key_exists('co_so_y_te', $payload);
-        if ($hasDoctors && $hasFacilities) throw new InvalidArgumentException('Một Toplist chỉ xếp hạng cơ sở hoặc bác sĩ; hãy chọn một danh sách.');
-        $type = $hasDoctors ? 'doctor' : ($hasFacilities ? 'facility' : $fallback);
+        $type = array_key_exists('members', $payload) || ($hasDoctors && $hasFacilities) ? 'mixed' : ($hasDoctors ? 'doctor' : ($hasFacilities ? 'facility' : $fallback));
     }
-    if (!in_array($type, ['facility', 'doctor'], true)) throw new InvalidArgumentException('entity_type phải là facility hoặc doctor.');
+    if (!in_array($type, ['facility', 'doctor', 'mixed'], true)) throw new InvalidArgumentException('entity_type phải là facility, doctor hoặc mixed.');
+    if ($type === 'mixed') return $type;
+    if (array_key_exists('members', $payload)) throw new InvalidArgumentException('Danh sách members cần entity_type=mixed.');
     $other = $type === 'doctor' ? ($payload['facilities'] ?? $payload['co_so'] ?? $payload['co_so_y_te'] ?? []) : ($payload['doctors'] ?? $payload['bac_si'] ?? []);
     if ($other !== []) throw new InvalidArgumentException('Danh sách JSON không khớp loại Toplist đã chọn.');
     return $type;
@@ -84,32 +85,85 @@ function toplist_directory_member_config(string $type): array
     throw new InvalidArgumentException('Loại liên kết Toplist không hợp lệ.');
 }
 
+/** Normalize either one typed array or a combined ranking. Preserve cross-type rank_order. */
+function toplist_directory_payload_members(array $payload, string $type): array
+{
+    if ($type !== 'mixed') {
+        $items = $type === 'doctor' ? ($payload['doctors'] ?? $payload['bac_si'] ?? null) : ($payload['facilities'] ?? $payload['co_so'] ?? $payload['co_so_y_te'] ?? null);
+        if (!is_array($items) || !array_is_list($items)) throw new InvalidArgumentException('Cần JSON array ' . ($type === 'doctor' ? 'doctors' : 'facilities') . '.');
+        return $items;
+    }
+    $facilities = $payload['facilities'] ?? $payload['co_so'] ?? $payload['co_so_y_te'] ?? [];
+    $doctors = $payload['doctors'] ?? $payload['bac_si'] ?? [];
+    if (array_key_exists('members', $payload)) {
+        if ($facilities !== [] || $doctors !== []) throw new InvalidArgumentException('Dùng members hoặc hai mảng facilities/doctors, không dùng cả hai cấu trúc đồng thời.');
+        $items = $payload['members'];
+    } else {
+        if (!array_key_exists('facilities', $payload) && !array_key_exists('co_so', $payload) && !array_key_exists('co_so_y_te', $payload) && !array_key_exists('doctors', $payload) && !array_key_exists('bac_si', $payload)) throw new InvalidArgumentException('Toplist hỗn hợp cần members hoặc facilities/doctors.');
+        if (!is_array($facilities) || !array_is_list($facilities) || !is_array($doctors) || !array_is_list($doctors)) throw new InvalidArgumentException('facilities và doctors cần là JSON array.');
+        $items = [];
+        foreach (['facility' => $facilities, 'doctor' => $doctors] as $memberType => $rows) {
+            foreach ($rows as $row) {
+                if (!is_array($row) || array_is_list($row)) throw new InvalidArgumentException('Hồ sơ cần là JSON object.');
+                if (isset($row['type']) && $row['type'] !== $memberType) throw new InvalidArgumentException('type của hồ sơ không khớp mảng chứa nó.');
+                $items[] = ['type' => $memberType] + $row;
+            }
+        }
+    }
+    if (!is_array($items) || !array_is_list($items) || count($items) > 1000) throw new InvalidArgumentException('members cần JSON array tối đa 1.000 hồ sơ.');
+    foreach ($items as $item) {
+        if (!is_array($item) || array_is_list($item)) throw new InvalidArgumentException('Mỗi member cần JSON object.');
+        $memberType = $item['type'] ?? $item['member_type'] ?? '';
+        if (!is_string($memberType)) throw new InvalidArgumentException('type của hồ sơ phải là facility hoặc doctor.');
+        toplist_directory_member_config($memberType);
+    }
+    return $items;
+}
+
 /** Atomic replacement; IDs, publication and language are validated before any link is removed. */
 function toplist_directory_sync_members(PDO $pdo, int $toplistId, string $type, array $memberIds): void
 {
-    $config = toplist_directory_member_config($type);
-    $ids = [];
-    foreach ($memberIds as $value) {
+    toplist_directory_member_config($type);
+    toplist_directory_sync_ranked_members($pdo, $toplistId, $type, array_map(static fn($id): array => ['type' => $type, 'id' => $id], $memberIds));
+}
+
+/** Type-qualified identity allows facility #1 and doctor #1 to coexist; rank is global. */
+function toplist_directory_sync_ranked_members(PDO $pdo, int $toplistId, string $type, array $members): void
+{
+    toplist_directory_entity_type(['entity_type' => $type]);
+    if (!array_is_list($members) || count($members) > 1000) throw new InvalidArgumentException('Toplist tối đa 1.000 hồ sơ.');
+    $ranked = []; $seen = [];
+    foreach ($members as $member) {
+        if (!is_array($member)) throw new InvalidArgumentException('Liên kết cần type và id.');
+        $memberType = $member['type'] ?? '';
+        if (!is_string($memberType)) throw new InvalidArgumentException('type của hồ sơ không hợp lệ.');
+        toplist_directory_member_config($memberType);
+        if ($type !== 'mixed' && $type !== $memberType) throw new InvalidArgumentException('Danh sách có cả cơ sở và bác sĩ cần chọn Toplist hỗn hợp.');
+        $value = $member['id'] ?? null;
         if ((!is_int($value) && !(is_string($value) && ctype_digit($value))) || (int) $value <= 0) throw new InvalidArgumentException('ID liên kết phải là số nguyên dương.');
-        if (!in_array((int) $value, $ids, true)) $ids[] = (int) $value;
+        $key = $memberType . ':' . (int) $value;
+        if (!isset($seen[$key])) { $ranked[] = ['type' => $memberType, 'id' => (int) $value]; $seen[$key] = true; }
     }
-    if (count($ids) > 1000) throw new InvalidArgumentException('Toplist tối đa 1.000 hồ sơ.');
     $ownsTransaction = !$pdo->inTransaction();
     if ($ownsTransaction) $pdo->beginTransaction();
     try {
         $lock = $pdo->prepare('SELECT language_code FROM medical_toplists WHERE id=:id FOR UPDATE');
         $lock->execute([':id' => $toplistId]); $locale = $lock->fetchColumn();
         if ($locale === false) throw new InvalidArgumentException('Không tìm thấy Toplist.');
-        $lookup = $pdo->prepare("SELECT id FROM {$config['table']} WHERE id=:id AND status='published' AND language_code=:locale");
-        foreach ($ids as $id) {
-            $lookup->execute([':id' => $id, ':locale' => $locale]);
-            if (!$lookup->fetchColumn()) throw new InvalidArgumentException('Hồ sơ ' . $config['label'] . ' #' . $id . ' không tồn tại, chưa xuất bản hoặc sai ngôn ngữ.');
+        $lookups = []; $inserts = [];
+        foreach (['facility', 'doctor'] as $memberType) {
+            $config = toplist_directory_member_config($memberType);
+            $lookups[$memberType] = $pdo->prepare("SELECT id FROM {$config['table']} WHERE id=:id AND status='published' AND language_code=:locale");
+            $inserts[$memberType] = $pdo->prepare("INSERT INTO {$config['links']} (toplist_id,{$config['key']},rank_order) VALUES (:toplist_id,:member_id,:rank)");
+        }
+        foreach ($ranked as $member) {
+            $lookups[$member['type']]->execute([':id' => $member['id'], ':locale' => $locale]);
+            if (!$lookups[$member['type']]->fetchColumn()) throw new InvalidArgumentException('Hồ sơ ' . $member['type'] . ' #' . $member['id'] . ' không tồn tại, chưa xuất bản hoặc sai ngôn ngữ.');
         }
         foreach (['medical_toplist_facilities', 'medical_toplist_doctors'] as $table) {
             $pdo->prepare("DELETE FROM {$table} WHERE toplist_id=:id")->execute([':id' => $toplistId]);
         }
-        $insert = $pdo->prepare("INSERT INTO {$config['links']} (toplist_id,{$config['key']},rank_order) VALUES (:toplist_id,:member_id,:rank)");
-        foreach ($ids as $rank => $id) $insert->execute([':toplist_id' => $toplistId, ':member_id' => $id, ':rank' => $rank + 1]);
+        foreach ($ranked as $rank => $member) $inserts[$member['type']]->execute([':toplist_id' => $toplistId, ':member_id' => $member['id'], ':rank' => $rank + 1]);
         $pdo->prepare('UPDATE medical_toplists SET entity_type=:type, updated_at=CURRENT_TIMESTAMP WHERE id=:id')->execute([':type' => $type, ':id' => $toplistId]);
         if ($ownsTransaction) { $pdo->commit(); medical_search_cache_invalidate(); }
     } catch (Throwable $e) {
@@ -120,12 +174,18 @@ function toplist_directory_sync_members(PDO $pdo, int $toplistId, string $type, 
 
 function toplist_directory_linked_rows(PDO $pdo, array $toplist, int $limit = 0): array
 {
-    $config = toplist_directory_member_config(toplist_directory_entity_type($toplist));
+    $type = toplist_directory_entity_type($toplist);
     $limitSql = $limit > 0 ? ' LIMIT ' . min(1000, $limit) : '';
-    $stmt = $pdo->prepare("SELECT m.*, r.rank_order FROM {$config['links']} r JOIN {$config['table']} m ON m.id=r.{$config['key']}
-        WHERE r.toplist_id=:id AND m.status='published' AND m.language_code=:locale ORDER BY r.rank_order,r.id{$limitSql}");
-    $stmt->execute([':id' => (int) $toplist['id'], ':locale' => $toplist['language_code'] ?? 'vi']);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = [];
+    foreach ($type === 'mixed' ? ['facility', 'doctor'] : [$type] as $memberType) {
+        $config = toplist_directory_member_config($memberType);
+        $stmt = $pdo->prepare("SELECT m.*, r.rank_order FROM {$config['links']} r JOIN {$config['table']} m ON m.id=r.{$config['key']}
+            WHERE r.toplist_id=:id AND m.status='published' AND m.language_code=:locale ORDER BY r.rank_order,r.id{$limitSql}");
+        $stmt->execute([':id' => (int) $toplist['id'], ':locale' => $toplist['language_code'] ?? 'vi']);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) $rows[] = ['member_type' => $memberType] + $row;
+    }
+    usort($rows, static fn(array $a, array $b): int => ((int) $a['rank_order'] <=> (int) $b['rank_order']) ?: strcmp($a['member_type'], $b['member_type']) ?: ((int) $a['id'] <=> (int) $b['id']));
+    return $limit > 0 ? array_slice($rows, 0, $limit) : $rows;
 }
 
 function toplist_directory_unique_slug(PDO $pdo, string $table, string $value): string
@@ -145,6 +205,8 @@ function toplist_directory_unique_slug(PDO $pdo, string $table, string $value): 
 function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, string $locale = 'vi'): array
 {
     $config = toplist_directory_member_config($type);
+    $oppositeKey = $type === 'doctor' ? 'facility_id' : 'doctor_id';
+    if (array_key_exists($oppositeKey, $item)) throw new InvalidArgumentException('Hồ sơ ' . $type . ' phải dùng ' . $config['key'] . ', không dùng ' . $oppositeKey . '.');
     $id = $item[$config['key']] ?? $item['id'] ?? 0;
     if ((!is_int($id) && !(is_string($id) && ctype_digit($id))) || (int) $id < 0) throw new InvalidArgumentException($config['key'] . ' phải là số nguyên không âm.');
     $text = static function (string $key, int $limit, array $aliases = []) use ($item): string {
@@ -222,19 +284,34 @@ function toplist_directory_import_members(PDO $pdo, int $toplistId, string $type
     $stmt = $pdo->prepare('SELECT language_code,entity_type FROM medical_toplists WHERE id=:id FOR UPDATE');
     $stmt->execute([':id' => $toplistId]); $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) throw new InvalidArgumentException('Không tìm thấy Toplist.');
-    $ranked = []; $created = [];
+    $ranked = []; $created = []; $createdByType = ['facility' => [], 'doctor' => []];
     foreach ($items as $index => $item) {
         if (!is_array($item) || array_is_list($item)) throw new InvalidArgumentException('Mục #' . ($index + 1) . ' phải là object.');
         $rank = $item['rank_order'] ?? $item['rank'] ?? $index + 1;
         if ((!is_int($rank) && !(is_string($rank) && ctype_digit($rank))) || (int) $rank < 1) throw new InvalidArgumentException('rank_order phải là số nguyên dương.');
-        $resolved = toplist_directory_resolve_member($pdo, $type, $item, $row['language_code']);
-        $ranked[] = ['id' => $resolved['id'], 'rank' => (int) $rank, 'index' => $index];
-        if ($resolved['created']) $created[] = $resolved['id'];
+        $memberType = $type === 'mixed' ? ($item['type'] ?? $item['member_type'] ?? '') : $type;
+        if (!is_string($memberType)) throw new InvalidArgumentException('type của hồ sơ không hợp lệ.');
+        toplist_directory_member_config($memberType);
+        if (isset($item['type']) && $item['type'] !== $memberType) throw new InvalidArgumentException('type không khớp loại Toplist.');
+        if (isset($item['member_type']) && $item['member_type'] !== $memberType) throw new InvalidArgumentException('member_type không khớp type của hồ sơ.');
+        $resolved = toplist_directory_resolve_member($pdo, $memberType, $item, $row['language_code']);
+        $ranked[] = ['type' => $memberType, 'id' => $resolved['id'], 'rank' => (int) $rank, 'index' => $index];
+        if ($resolved['created']) {
+            $created[] = $type === 'mixed' ? ['type' => $memberType, 'id' => $resolved['id']] : $resolved['id'];
+            $createdByType[$memberType][] = $resolved['id'];
+        }
     }
     usort($ranked, static fn(array $a, array $b): int => ($a['rank'] <=> $b['rank']) ?: ($a['index'] <=> $b['index']));
-    $ids = array_values(array_unique(array_column($ranked, 'id')));
-    toplist_directory_sync_members($pdo, $toplistId, $type, $ids);
-    return ['ids' => $ids, 'created_ids' => $created];
+    $members = []; $seen = [];
+    foreach ($ranked as $member) {
+        $identity = $member['type'] . ':' . $member['id'];
+        if (isset($seen[$identity])) continue;
+        $seen[$identity] = true;
+        $members[] = ['type' => $member['type'], 'id' => $member['id']];
+    }
+    toplist_directory_sync_ranked_members($pdo, $toplistId, $type, $members);
+    return ['ids' => $type === 'mixed' ? $members : array_column($members, 'id'), 'members' => $members, 'created_ids' => $created,
+        'created_facility_ids' => $createdByType['facility'], 'created_doctor_ids' => $createdByType['doctor']];
 }
 
 function toplist_directory_import_article(PDO $pdo, array $payload, string $fallbackType = 'facility', bool $titleOnly = false): array
@@ -242,9 +319,7 @@ function toplist_directory_import_article(PDO $pdo, array $payload, string $fall
     $title = $payload['title'] ?? $payload['tieu_de'] ?? '';
     if (!is_string($title) || trim($title) === '' || mb_strlen($title) > 220) throw new InvalidArgumentException('title là bắt buộc và tối đa 220 ký tự.');
     $type = toplist_directory_entity_type($payload, $fallbackType);
-    $key = $type === 'doctor' ? 'doctors' : 'facilities';
-    $items = $type === 'doctor' ? ($payload['doctors'] ?? $payload['bac_si'] ?? null) : ($payload['facilities'] ?? $payload['co_so'] ?? $payload['co_so_y_te'] ?? null);
-    if (!$titleOnly && (!is_array($items) || !array_is_list($items))) throw new InvalidArgumentException('JSON đầy đủ cần danh sách ' . $key . '.');
+    $items = $titleOnly ? [] : toplist_directory_payload_members($payload, $type);
     $values = ['title' => trim($title), 'entity_type' => $type, 'status' => $titleOnly ? 'draft' : (($payload['status'] ?? 'draft') === 'published' ? 'published' : 'draft')];
     foreach (['excerpt' => ['excerpt', 'mo_ta'], 'content' => ['content', 'noi_dung'], 'featured_image_url' => ['featured_image_url', 'image_url', 'anh']] as $field => $aliases) {
         $value = '';
@@ -281,21 +356,26 @@ function toplist_directory_research_prompt(string $template, array $toplist): st
 {
     $type = toplist_directory_entity_type($toplist);
     $doctor = $type === 'doctor';
-    $key = $doctor ? 'doctors' : 'facilities';
+    $key = $type === 'mixed' ? 'members' : ($doctor ? 'doctors' : 'facilities');
     $example = $doctor
         ? ['doctor_id' => 0, 'name' => '', 'title_text' => '', 'specialty_text' => '', 'city' => '', 'facility_name' => '', 'address' => '', 'phone' => '', 'website' => '', 'rank_order' => 1]
         : ['facility_id' => 0, 'name' => '', 'category' => 'Cơ sở y tế', 'city' => '', 'address' => '', 'phone' => '', 'website' => '', 'rank_order' => 1];
-    $output = medical_directory_json_encode(['toplist_id' => (int) $toplist['id'], 'entity_type' => $type, $key => [$example]]);
-    // An old facility-only template cannot drive a doctor Toplist.
-    if (trim($template) === '' || ($doctor && !str_contains($template, '{{entity_type}}') && !str_contains($template, '{{member_key}}'))) $template = toplist_directory_default_prompt();
+    $examples = $type === 'mixed' ? [
+        ['type' => 'facility'] + $example,
+        ['type' => 'doctor', 'doctor_id' => 0, 'name' => '', 'specialty_text' => '', 'city' => '', 'facility_name' => '', 'rank_order' => 2],
+    ] : [$example];
+    $output = medical_directory_json_encode(['toplist_id' => (int) $toplist['id'], 'entity_type' => $type, $key => $examples]);
+    // Old facility-only templates cannot drive doctor or mixed Toplists.
+    if (trim($template) === '' || ($type !== 'facility' && !str_contains($template, '{{entity_type}}') && !str_contains($template, '{{member_key}}'))) $template = toplist_directory_default_prompt();
     $rendered = medical_directory_ai_prompt_render_template($template, [
         'id' => (string) $toplist['id'], 'toplist_id' => (string) $toplist['id'], 'title' => $toplist['title'], 'name' => $toplist['title'],
         'excerpt' => $toplist['excerpt'] ?? '', 'content' => $toplist['content'] ?? '', 'entity_type' => $type,
-        'entity_label' => $doctor ? 'bác sĩ' : 'cơ sở y tế', 'member_key' => $key, 'output_template' => $output,
+        'entity_label' => $type === 'mixed' ? 'cơ sở y tế và bác sĩ trong cùng danh sách' : ($doctor ? 'bác sĩ' : 'cơ sở y tế'), 'member_key' => $key, 'output_template' => $output,
     ]);
     return $rendered . "\n\nMEDREVIEW_TOPLIST_MEMBERS_CONTRACT_V1:\nGiữ toplist_id, entity_type={$type}; chỉ trả danh sách {$key}, không đổi sang loại khác. Không tạo rating/verified.\n"
-        . ($doctor ? "Bác sĩ mới cần name, specialty_text và city hoặc facility_name; bác sĩ trùng tên phải đối chiếu nơi công tác. Không dùng giờ mở cửa cơ sở làm lịch bác sĩ.\n" : '')
-        . "rank_order nguyên dương bắt đầu từ 1. Các URL phải HTTP(S) thô, không Markdown. ID hồ sơ đã có phải đúng người/cơ sở và cùng ngôn ngữ của bài.\n"
+        . ($type !== 'facility' ? "Bác sĩ mới cần name, specialty_text và city hoặc facility_name; bác sĩ trùng tên phải đối chiếu nơi công tác. Không dùng giờ mở cửa cơ sở làm lịch bác sĩ.\n" : '')
+        . ($type === 'mixed' ? "Mỗi member bắt buộc type=facility hoặc type=doctor và khóa facility_id hoặc doctor_id tương ứng. Hai loại có thể cùng xuất hiện; ID cùng số khác type là hai hồ sơ khác nhau.\n" : '')
+        . "rank_order nguyên dương bắt đầu từ 1, dùng chung thứ tự cho toàn bộ danh sách, không đánh số lại theo từng loại. Các URL phải HTTP(S) thô, không Markdown. ID hồ sơ đã có phải đúng người/cơ sở và cùng ngôn ngữ của bài.\n"
         . "Không tìm được hồ sơ đáng tin cậy thì trả {$key}:[], không bịa cho đủ số lượng; hệ thống không lưu danh sách rỗng.\nKhung JSON bắt buộc:\n{$output}\n"
         . "BẮT BUỘC trả đúng một JSON object trong block code ```json ... ```; không thêm lời dẫn. Nhắc lại: JSON phải nằm trong block code json.";
 }

@@ -49,12 +49,12 @@ $description = (string) ($toplist['excerpt'] ?? '');
 if (trim($description) === '' && trim((string) ($toplist['content'] ?? '')) !== '') {
     $description = preg_replace('/\s+/u', ' ', trim(strip_tags((string) $toplist['content']))) ?? '';
 }
-if (trim($description) === '') $description = $title . ($toplistEntityType === 'doctor' ? ' — danh sách bác sĩ trên MedReview.' : ' — danh sách cơ sở y tế được giới thiệu trên MedReview.');
+if (trim($description) === '') $description = $title . ($toplistEntityType === 'mixed' ? ' — danh sách cơ sở y tế và bác sĩ trên MedReview.' : ($toplistEntityType === 'doctor' ? ' — danh sách bác sĩ trên MedReview.' : ' — danh sách cơ sở y tế được giới thiệu trên MedReview.'));
 $description = site_meta_description($description);
 $canonicalUrl = $toplistNotFound ? '' : site_absolute_url(medical_public_entity_path('toplist', $slug, $toplistLanguage));
 $heroImage = site_absolute_media_url((string) ($toplist['featured_image_url'] ?? ''));
 if ($heroImage === '' && isset($facilities[0])) $heroImage = (string) ($facilities[0]['image'] ?? '');
-if ($heroImage === '' && $toplistEntityType === 'doctor') $heroImage = site_absolute_media_url((string) ($linkedRows[0]['image_url'] ?? ''));
+if ($heroImage === '' && $toplistEntityType !== 'facility') $heroImage = site_absolute_media_url((string) ($linkedRows[0]['image_url'] ?? ''));
 $toplistSchema = [
     '@context' => 'https://schema.org',
     '@type' => 'Article',
@@ -67,7 +67,7 @@ $toplistSchema = [
 if (($heroImageAbsolute = site_absolute_media_url($heroImage)) !== '') {
     $toplistSchema['image'] = $heroImageAbsolute;
 }
-if ($toplistEntityType === 'doctor' && !$toplistNotFound) {
+if ($toplistEntityType !== 'facility' && !$toplistNotFound) {
     require __DIR__ . '/Tem/toplist-doctor-detail.php';
     exit;
 }

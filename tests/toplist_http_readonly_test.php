@@ -34,6 +34,11 @@ $assert($status === 422, 'queue rejects unknown type');
 $assert($status === 200 && ($prompt['entity_type'] ?? '') === 'doctor' && str_contains($prompt['prompt'] ?? '', '"doctors"') && str_contains($prompt['prompt'] ?? '', '```json'), 'doctor manual prompt contract');
 [$status, $prompt] = $request('prompt.php?type=toplist&entity_type=facility&title=Facility%20Test');
 $assert($status === 200 && str_contains($prompt['prompt'] ?? '', '"facilities"'), 'facility prompt retained');
+[$status, $queue] = $request('toplists-needing-members.php?entity_type=mixed&limit=1');
+$assert($status === 200 && ($queue['entity_type'] ?? '') === 'mixed' && is_array($queue['items'] ?? null), 'mixed queue filter');
+foreach ($queue['items'] as $item) $assert(($item['entity_type'] ?? '') === 'mixed' && str_contains($item['prompt'] ?? '', '"members"'), 'mixed queue item prompt');
+[$status, $prompt] = $request('prompt.php?type=toplist&entity_type=mixed&title=Mixed%20Test');
+$assert($status === 200 && ($prompt['entity_type'] ?? '') === 'mixed' && str_contains($prompt['prompt'] ?? '', '"members"') && str_contains($prompt['prompt'] ?? '', '```json'), 'mixed manual prompt contract');
 if (in_array('--queue-only', $argv, true)) { echo "Toplist queue/prompt HTTP: {$checks} checks passed.\n"; exit; }
 foreach (['toplist-members-update.php', 'toplist-doctors-update.php', 'toplist-facilities-update.php'] as $endpoint) {
     [$status] = $request($endpoint, 'POST', '{}', false);
@@ -47,5 +52,7 @@ foreach (['toplist-members-update.php', 'toplist-doctors-update.php', 'toplist-f
     // Deliberately invalid ID: never enters a record update or inserts any profile.
     [$status, $result] = $request($endpoint, 'POST', '{"toplist_id":0,"entity_type":"doctor","doctors":[{"doctor_id":1}]}');
     $assert($status === 422 && ($result['updated_count'] ?? -1) === 0, $endpoint . ' refuses invalid record');
+    [$status, $result] = $request($endpoint, 'POST', '{"toplist_id":0,"entity_type":"mixed","members":[{"type":"facility","facility_id":1},{"type":"doctor","doctor_id":1}]}');
+    $assert($status === 422 && ($result['updated_count'] ?? -1) === 0, $endpoint . ' refuses invalid mixed record');
 }
 echo "Toplist HTTP: {$checks} checks passed. No real article/profile updated.\n";

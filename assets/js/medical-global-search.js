@@ -82,10 +82,12 @@
     } else {
       context = item.excerpt || labels.curated;
       const doctorList = item.entity_type === 'doctor';
-      const memberCount = Math.max(0, Number.parseInt((doctorList ? item.doctor_count : item.facility_count) || 0, 10) || 0);
+      const mixedList = item.entity_type === 'mixed';
+      const memberCount = mixedList ? Math.max(0, Number(item.facility_count) || 0) + Math.max(0, Number(item.doctor_count) || 0) : Math.max(0, Number.parseInt((doctorList ? item.doctor_count : item.facility_count) || 0, 10) || 0);
+      const countLabel = mixedList ? (document.documentElement.lang === 'en' ? 'providers' : 'hồ sơ') : (doctorList ? labels.doctorsCount : labels.facilitiesCount);
       const updated = dateText(item.updated_at);
       facts = `<span class="medical-search-facts">
-        ${memberCount > 0 ? `<span class="medical-search-toplist-count"><i class="ph ${doctorList ? 'ph-stethoscope' : 'ph-buildings'}" aria-hidden="true"></i>${numberFormat.format(memberCount)} ${escapeHtml(doctorList ? labels.doctorsCount : labels.facilitiesCount)}</span>` : ''}
+        ${memberCount > 0 ? `<span class="medical-search-toplist-count"><i class="ph ${mixedList ? 'ph-users' : doctorList ? 'ph-stethoscope' : 'ph-buildings'}" aria-hidden="true"></i>${numberFormat.format(memberCount)} ${escapeHtml(countLabel)}</span>` : ''}
         ${updated ? `<span class="medical-search-updated"><i class="ph ph-calendar-blank" aria-hidden="true"></i>${escapeHtml(labels.updated)} ${escapeHtml(updated)}</span>` : ''}
       </span>`;
     }

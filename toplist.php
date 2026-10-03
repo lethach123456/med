@@ -22,7 +22,7 @@ if (!$hasToplistLanguage && $locale === 'en') {
   $rows = $toplistRows->fetchAll(PDO::FETCH_ASSOC);
 }
 foreach ($rows as &$row) {
-  $row['member_count'] = (int) ($row[$row['entity_type'] === 'doctor' ? 'doctor_count' : 'facility_count'] ?? 0);
+  $row['member_count'] = $row['entity_type'] === 'mixed' ? (int) $row['facility_count'] + (int) $row['doctor_count'] : (int) ($row[$row['entity_type'] === 'doctor' ? 'doctor_count' : 'facility_count'] ?? 0);
   $images = [];
   foreach (toplist_directory_linked_rows($pdo, $row, 4) as $facility) {
     $image = trim((string) ($facility['image_url'] ?? ''));
@@ -157,7 +157,7 @@ $seoCanonical = site_localized_path($seoCanonical, $locale);
             <p class="facility-sub"><?= htmlspecialchars((string) ($row['excerpt'] ?: $labels['fallbackExcerpt']), ENT_QUOTES) ?></p>
             <div class="meta-row"><i data-lucide="calendar-days"></i><span><?= htmlspecialchars($labels['updatedPrefix'], ENT_QUOTES) ?> <?= htmlspecialchars(date('d/m/Y', strtotime((string) $row['updated_at'])), ENT_QUOTES) ?></span></div>
           </div>
-          <div class="score-col"><div class="score-main"><?= (int) $row['member_count'] ?></div><div class="score-meta"><?= htmlspecialchars($row['entity_type'] === 'doctor' ? ($isEnglish ? 'doctors in this list' : 'bác sĩ trong danh sách') : $labels['facilities'], ENT_QUOTES, 'UTF-8') ?></div></div>
+          <div class="score-col"><div class="score-main"><?= (int) $row['member_count'] ?></div><div class="score-meta"><?= htmlspecialchars($row['entity_type'] === 'mixed' ? ($isEnglish ? 'providers in this list' : 'cơ sở & bác sĩ') : ($row['entity_type'] === 'doctor' ? ($isEnglish ? 'doctors in this list' : 'bác sĩ trong danh sách') : $labels['facilities']), ENT_QUOTES, 'UTF-8') ?></div></div>
           <div class="cta-col"><strong><?= htmlspecialchars($labels['explore'], ENT_QUOTES, 'UTF-8') ?></strong><a class="detail-btn" href="<?= htmlspecialchars(medical_public_entity_path('toplist', (string) $row['slug'], $locale), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($labels['details'], ENT_QUOTES, 'UTF-8') ?></a></div>
         </article>
       <?php endforeach; ?>

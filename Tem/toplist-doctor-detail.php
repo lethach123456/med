@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
-// Render doctor rankings separately: clinic reviews, fees and galleries must not be attributed to a doctor.
+// Typed cards keep facility data separate from doctor data within a shared ranking.
 $tdEnglish = $toplistLanguage === 'en';
+$tdMixed = $toplistEntityType === 'mixed';
 $tdLabels = $tdEnglish ? [
     'home' => 'Home', 'article' => 'Doctor Toplist', 'updated' => 'Updated', 'count' => 'doctors',
     'list' => 'Doctors in this list', 'profile' => 'View doctor profile', 'workplace' => 'Practice location',
@@ -15,13 +16,21 @@ $tdLabels = $tdEnglish ? [
     'toc' => 'So sánh nhanh', 'empty' => 'Danh sách đang được bổ sung hồ sơ bác sĩ.',
     'note' => 'Danh sách là thông tin tham khảo, không phải cam kết chất lượng điều trị. Hãy đối chiếu bằng cấp và lịch khám trực tiếp với nơi công tác.',
 ];
+if ($tdMixed) {
+    $tdLabels['article'] = $tdEnglish ? 'Healthcare Toplist' : 'Toplist y tế';
+    $tdLabels['count'] = $tdEnglish ? 'providers' : 'hồ sơ';
+    $tdLabels['list'] = $tdEnglish ? 'Facilities & doctors in this list' : 'Cơ sở y tế & bác sĩ trong danh sách';
+    $tdLabels['empty'] = $tdEnglish ? 'Provider profiles are being added to this list.' : 'Danh sách đang được bổ sung cơ sở y tế và bác sĩ.';
+}
+$tdLabels['category'] = $tdEnglish ? 'Provider type' : 'Nhóm cơ sở';
+$tdLabels['address'] = $tdEnglish ? 'Address' : 'Địa chỉ';
 $tdEscape = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $tdSchema = ['@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => $title,
     'numberOfItems' => count($linkedRows), 'itemListElement' => []];
 foreach ($linkedRows as $tdRow) {
     $tdSchema['itemListElement'][] = ['@type' => 'ListItem', 'position' => (int) $tdRow['rank_order'],
-        'item' => ['@type' => 'Physician', 'name' => $tdRow['name'],
-            'url' => site_absolute_url(medical_public_entity_path('doctor', (string) $tdRow['slug'], $toplistLanguage))]];
+        'item' => ['@type' => $tdRow['member_type'] === 'doctor' ? 'Physician' : 'MedicalClinic', 'name' => $tdRow['name'],
+            'url' => site_absolute_url(medical_public_entity_path($tdRow['member_type'], (string) $tdRow['slug'], $toplistLanguage))]];
 }
 ?>
 <!doctype html>
@@ -58,8 +67,11 @@ foreach ($linkedRows as $tdRow) {
         <h2 class="td-list-title"><?= $tdEscape($tdLabels['list']) ?></h2>
         <?php if ($linkedRows === []): ?><p><?= $tdEscape($tdLabels['empty']) ?></p><?php endif; ?>
         <?php foreach ($linkedRows as $tdDoctor):
+            $tdIsDoctor = $tdDoctor['member_type'] === 'doctor';
             $tdImage = site_absolute_media_url((string) ($tdDoctor['image_url'] ?? ''));
-            $tdProfile = medical_public_entity_path('doctor', (string) $tdDoctor['slug'], $toplistLanguage);
+            $tdProfile = medical_public_entity_path($tdDoctor['member_type'], (string) $tdDoctor['slug'], $toplistLanguage);
+            $tdKind = $tdIsDoctor ? ($tdEnglish ? 'Doctor' : 'Bác sĩ') : ($tdEnglish ? 'Medical facility' : 'Cơ sở y tế');
+            $tdProfileLabel = $tdIsDoctor ? $tdLabels['profile'] : ($tdEnglish ? 'View facility profile' : 'Xem hồ sơ cơ sở');
             $tdBio = trim((string) ($tdDoctor['subtitle'] ?? ''));
             if ($tdBio === '') $tdBio = trim(strip_tags((string) ($tdDoctor['content'] ?? '')));
             $tdBio = site_meta_description($tdBio, 260);
@@ -68,27 +80,27 @@ foreach ($linkedRows as $tdRow) {
             <div class="td-doctor-heading">
               <span class="td-rank"><?= str_pad((string) $tdDoctor['rank_order'], 2, '0', STR_PAD_LEFT) ?></span>
               <?php if ($tdImage !== ''): ?><img class="td-portrait" src="<?= $tdEscape($tdImage) ?>" alt="<?= $tdEscape($tdDoctor['name']) ?>" width="120" height="120" loading="lazy" decoding="async"><?php endif; ?>
-              <div><h2><a href="<?= $tdEscape($tdProfile) ?>"><?= $tdEscape($tdDoctor['name']) ?></a></h2>
+              <div><span class="td-kind"><?= $tdEscape($tdKind) ?></span><h2><a href="<?= $tdEscape($tdProfile) ?>"><?= $tdEscape($tdDoctor['name']) ?></a></h2>
                 <?php if (trim((string) ($tdDoctor['title_text'] ?? '')) !== ''): ?><p><?= $tdEscape($tdDoctor['title_text']) ?></p><?php endif; ?>
                 <?php if ((int) ($tdDoctor['verified'] ?? 0) === 1): ?><span class="td-verified"><?= $tdEscape($tdLabels['verified']) ?></span><?php endif; ?>
               </div>
             </div>
             <dl class="td-facts">
-              <?php foreach (['specialty_text' => 'specialty', 'facility_name' => 'workplace', 'city' => 'city'] as $tdField => $tdLabel): if (trim((string) ($tdDoctor[$tdField] ?? '')) !== ''): ?>
+              <?php foreach ($tdIsDoctor ? ['specialty_text' => 'specialty', 'facility_name' => 'workplace', 'city' => 'city'] : ['category' => 'category', 'city' => 'city', 'address_text' => 'address'] as $tdField => $tdLabel): if (trim((string) ($tdDoctor[$tdField] ?? '')) !== ''): ?>
                 <div><dt><?= $tdEscape($tdLabels[$tdLabel]) ?></dt><dd><?= $tdEscape($tdDoctor[$tdField]) ?></dd></div>
               <?php endif; endforeach; ?>
             </dl>
             <?php if ($tdBio !== ''): ?><p class="td-bio"><?= $tdEscape($tdBio) ?></p><?php endif; ?>
             <div class="td-doctor-bottom">
               <?php if ((int) ($tdDoctor['reviews_count'] ?? 0) > 0 && (float) ($tdDoctor['rating'] ?? 0) > 0): ?><span>★ <?= number_format((float) $tdDoctor['rating'], 1) ?>/5 · <?= (int) $tdDoctor['reviews_count'] ?> <?= $tdEscape($tdLabels['reviews']) ?></span><?php endif; ?>
-              <a class="td-profile-link" href="<?= $tdEscape($tdProfile) ?>"><?= $tdEscape($tdLabels['profile']) ?> <span aria-hidden="true">→</span></a>
+              <a class="td-profile-link" href="<?= $tdEscape($tdProfile) ?>"><?= $tdEscape($tdProfileLabel) ?> <span aria-hidden="true">→</span></a>
             </div>
           </article>
         <?php endforeach; ?>
         <p class="td-disclaimer"><?= $tdEscape($tdLabels['note']) ?></p>
       </div>
       <?php if ($linkedRows !== []): ?><aside class="td-sidebar"><h2><?= $tdEscape($tdLabels['toc']) ?></h2><nav>
-        <?php foreach ($linkedRows as $tdDoctor): ?><a href="#rank-<?= (int) $tdDoctor['rank_order'] ?>"><span class="td-mini-rank"><?= (int) $tdDoctor['rank_order'] ?></span><span><strong><?= $tdEscape($tdDoctor['name']) ?></strong><small><?= $tdEscape($tdDoctor['specialty_text'] ?? '') ?></small></span></a><?php endforeach; ?>
+        <?php foreach ($linkedRows as $tdDoctor): ?><a href="#rank-<?= (int) $tdDoctor['rank_order'] ?>"><span class="td-mini-rank"><?= (int) $tdDoctor['rank_order'] ?></span><span><strong><?= $tdEscape($tdDoctor['name']) ?></strong><small><?= $tdEscape($tdDoctor['member_type'] === 'doctor' ? ($tdDoctor['specialty_text'] ?? 'Bác sĩ') : ($tdDoctor['category'] ?? 'Cơ sở y tế')) ?></small></span></a><?php endforeach; ?>
       </nav></aside><?php endif; ?>
     </div>
   </div>

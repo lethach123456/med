@@ -756,8 +756,8 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
                 JOIN medical_facilities f_vi ON f_vi.id = tf.facility_id
                 JOIN medical_facilities f_en ON f_en.translation_of_id = f_vi.id AND f_en.language_code = 'en' AND f_en.status = 'published'
                 WHERE tf.toplist_id = :source_id");
-            if (($source['entity_type'] ?? 'facility') === 'facility') $copyLinks->execute([':new_id' => $newId, ':source_id' => $sourceId]);
-            if (medical_directory_table_exists($pdo, 'medical_toplist_doctors') && ($source['entity_type'] ?? 'facility') === 'doctor') {
+            if (in_array($source['entity_type'] ?? 'facility', ['facility', 'mixed'], true)) $copyLinks->execute([':new_id' => $newId, ':source_id' => $sourceId]);
+            if (medical_directory_table_exists($pdo, 'medical_toplist_doctors') && in_array($source['entity_type'] ?? 'facility', ['doctor', 'mixed'], true)) {
                 $copyDoctors = $pdo->prepare("INSERT IGNORE INTO medical_toplist_doctors (toplist_id,doctor_id,rank_order)
                     SELECT :new_id,d_en.id,td.rank_order FROM medical_toplist_doctors td
                     JOIN medical_doctors d_vi ON d_vi.id=td.doctor_id

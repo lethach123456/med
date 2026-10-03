@@ -17,12 +17,13 @@ $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25)));
 $offset = ($page - 1) * $limit;
 
 $filterType = $_GET['entity_type'] ?? null;
-if ($filterType !== null && !in_array($filterType, ['facility', 'doctor'], true)) json_response(['ok' => false, 'message' => 'entity_type phải là facility hoặc doctor.'], 422);
+if ($filterType !== null && !in_array($filterType, ['facility', 'doctor', 'mixed'], true)) json_response(['ok' => false, 'message' => 'entity_type phải là facility, doctor hoặc mixed.'], 422);
 // Existing Chrome clients parse only `facilities`; doctor queues are explicitly opt-in.
 if ($filterType === null && !defined('MEDICAL_TOPLIST_QUEUE_ALL')) $filterType = 'facility';
 $where = "t.language_code='vi' AND ((t.entity_type='facility' AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
-    OR (t.entity_type='doctor' AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id)))";
-if ($filterType !== null) $where .= $filterType === 'doctor' ? " AND t.entity_type='doctor'" : " AND t.entity_type='facility'";
+    OR (t.entity_type='doctor' AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))
+    OR (t.entity_type='mixed' AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id)))";
+if ($filterType !== null) $where .= " AND t.entity_type='{$filterType}'";
 $total = (int) $pdo->query("SELECT COUNT(*) FROM medical_toplists t WHERE {$where}")->fetchColumn();
 $stmt = $pdo->prepare(
     "SELECT t.id, t.slug, t.title, t.entity_type, t.excerpt, t.content, t.featured_image_url, t.status, t.updated_at

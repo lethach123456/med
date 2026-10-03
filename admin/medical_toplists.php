@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
     $rawJson = preg_replace('/\A```(?:json)?\s*\R([\s\S]*?)\R```\s*\z/i', '$1', $rawJson) ?? $rawJson;
     $payload = strlen($rawJson) <= 8 * 1024 * 1024 ? json_decode($rawJson, true) : null;
     $importMode = (string) ($_POST['json_mode'] ?? 'full');
-    $fallbackType = ($_POST['json_entity_type'] ?? 'facility') === 'doctor' ? 'doctor' : 'facility';
+    $fallbackType = in_array($_POST['json_entity_type'] ?? '', ['facility', 'doctor', 'mixed'], true) ? $_POST['json_entity_type'] : 'facility';
 
     if (!is_array($payload)) {
         flash_toast_set('danger', 'JSON không hợp lệ. Hãy kiểm tra lại cú pháp JSON.');
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'impor
     } else {
         try {
             $imported = toplist_directory_import_article($pdo, $payload, $fallbackType);
-            flash_toast_set('success', 'Đã nhập Toplist với ' . count($imported['ids']) . ($imported['entity_type'] === 'doctor' ? ' bác sĩ' : ' cơ sở') . ', tạo mới ' . count($imported['created_ids']) . ' hồ sơ.', 'fa-solid fa-circle-check');
+            flash_toast_set('success', 'Đã nhập Toplist với ' . count($imported['ids']) . ' hồ sơ, tạo mới ' . count($imported['created_ids']) . ' hồ sơ.', 'fa-solid fa-circle-check');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             flash_toast_set('danger', 'Không thể nhập JSON: ' . $e->getMessage());
@@ -124,7 +124,7 @@ require __DIR__ . '/_layout_start.php';
           </div>
         </div>
         <label class="form-label fw-semibold" id="toplistJsonLabel" for="toplistJson">JSON bài Toplist và danh sách cơ sở</label>
-        <div class="mb-3"><label class="form-label" for="jsonEntityType">Loại Toplist / mẫu JSON</label><select class="form-select" id="jsonEntityType" name="json_entity_type"><option value="facility">Cơ sở y tế</option><option value="doctor">Bác sĩ</option></select><div class="form-text">JSON có entity_type hoặc doctors sẽ tự nhận diện loại; bài chỉ có tiêu đề dùng lựa chọn tại đây.</div></div>
+        <div class="mb-3"><label class="form-label" for="jsonEntityType">Loại Toplist / mẫu JSON</label><select class="form-select" id="jsonEntityType" name="json_entity_type"><option value="mixed">Cơ sở y tế & bác sĩ</option><option value="facility">Chỉ cơ sở y tế</option><option value="doctor">Chỉ bác sĩ</option></select><div class="form-text">Dùng members để xếp hạng chung hai loại; cũng nhận cả facilities và doctors trong cùng JSON. Bài chỉ có tiêu đề dùng lựa chọn tại đây.</div></div>
         <textarea class="form-control mono" id="toplistJson" name="toplist_json" rows="9" placeholder="Dán JSON bài viết đầy đủ theo mẫu bên dưới..." required></textarea>
         <div class="small text-secondary mt-2" id="toplistJsonHelp">Dạng đầy đủ cần có title và danh sách facilities hoặc doctors. Dùng ID có sẵn để liên kết; hồ sơ chưa có sẽ được tạo mới.</div>
         <details class="mt-3">
@@ -165,6 +165,16 @@ require __DIR__ . '/_layout_start.php';
   }]
 }</pre>
         </details>
+        <pre class="small bg-white border rounded-3 p-3 mt-2 mb-0 d-none" id="mixedJsonSample" style="max-height:280px;overflow:auto;white-space:pre-wrap">{
+  "title": "Cơ sở và bác sĩ nha khoa tại Đà Nẵng đáng tham khảo",
+  "entity_type": "mixed",
+  "excerpt": "Đối chiếu hồ sơ cơ sở và chuyên môn bác sĩ trước khi lựa chọn.",
+  "status": "draft",
+  "members": [
+    {"type": "facility", "facility_id": 0, "name": "Tên cơ sở theo nguồn", "city": "Đà Nẵng", "address": "Địa chỉ theo nguồn", "rank_order": 1},
+    {"type": "doctor", "doctor_id": 0, "name": "Tên bác sĩ theo nguồn", "specialty_text": "Răng Hàm Mặt", "city": "Đà Nẵng", "facility_name": "Tên nơi công tác", "rank_order": 2}
+  ]
+}</pre>
         <details class="mt-3"><summary class="small text-primary">Prompt AI tạo JSON</summary><textarea readonly class="form-control mono mt-2" id="toplistImportPrompt" rows="6"></textarea><button class="btn btn-sm btn-outline-primary mt-2" type="button" id="copyToplistImportPrompt">Sao chép prompt</button></details>
         <div class="d-flex justify-content-end mt-3"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-cloud-arrow-up me-2"></i><span id="toplistJsonSubmitText">Nhập và tạo mới</span></button></div>
       </form>
@@ -191,6 +201,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var fullSample = document.getElementById('fullJsonSample');
   var titleSample = document.getElementById('titleOnlyJsonSample');
   var doctorSample = document.getElementById('doctorJsonSample');
+  var mixedSample = document.getElementById('mixedJsonSample');
   var entitySelect = document.getElementById('jsonEntityType');
   var importPrompt = document.getElementById('toplistImportPrompt');
   if (!fullMode || !titleOnlyMode || !label || !textarea || !help || !submitText || !fullSample || !titleSample) return;
@@ -198,26 +209,28 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateJsonMode() {
     var isTitleOnly = titleOnlyMode.checked;
     var isDoctor = entitySelect.value === 'doctor';
-    var subject = isDoctor ? 'bác sĩ' : 'cơ sở';
-    var arrayKey = isDoctor ? 'doctors' : 'facilities';
+    var isMixed = entitySelect.value === 'mixed';
+    var subject = isMixed ? 'cơ sở và bác sĩ' : (isDoctor ? 'bác sĩ' : 'cơ sở');
+    var arrayKey = isMixed ? 'members' : (isDoctor ? 'doctors' : 'facilities');
     label.textContent = isTitleOnly ? 'JSON danh sách bài Toplist (chỉ tiêu đề)' : 'JSON bài Toplist và danh sách ' + subject;
     textarea.placeholder = isTitleOnly
       ? 'Dán một bài {"title":"..."} hoặc danh sách [{"title":"..."}, ...]'
       : 'Dán JSON bài viết đầy đủ theo mẫu bên dưới...';
     help.innerHTML = isTitleOnly
       ? 'Mỗi bài chỉ cần <code>title</code>. Bài nháp sẽ dùng loại ' + subject + ' đã chọn hoặc <code>entity_type</code> của từng bài; bổ sung liên kết sau.'
-      : 'Dạng đầy đủ cần <code>title</code> và <code>' + arrayKey + '</code>. Dùng <code>' + (isDoctor ? 'doctor_id' : 'facility_id') + '</code> có sẵn để liên kết, không ghi đè hồ sơ. ID bằng 0 hoặc thiếu sẽ tạo hồ sơ cơ bản chưa xác minh; bác sĩ mới cần chuyên khoa và thành phố hoặc nơi công tác.';
+      : 'Dạng đầy đủ cần <code>title</code> và <code>' + arrayKey + '</code>. ' + (isMixed ? 'Mỗi member có <code>type: facility/doctor</code> cùng <code>facility_id/doctor_id</code> tương ứng. Thứ hạng dùng chung cho cả hai loại. ' : '') + 'Dùng ID có sẵn để liên kết, không ghi đè hồ sơ. ID bằng 0 hoặc thiếu tạo hồ sơ cơ bản chưa xác minh; bác sĩ mới cần chuyên khoa và thành phố hoặc nơi công tác.';
     submitText.textContent = isTitleOnly ? 'Tạo bài nháp' : 'Nhập và tạo mới';
-    fullSample.classList.toggle('d-none', isTitleOnly || isDoctor);
+    fullSample.classList.toggle('d-none', isTitleOnly || isDoctor || isMixed);
     doctorSample.classList.toggle('d-none', isTitleOnly || !isDoctor);
+    mixedSample.classList.toggle('d-none', isTitleOnly || !isMixed);
     titleSample.classList.toggle('d-none', !isTitleOnly);
     titleSample.textContent = JSON.stringify([{title: isDoctor ? 'Top bác sĩ chuyên khoa mắt tại Hà Nội' : 'Top cơ sở y tế tại Đà Nẵng', entity_type: entitySelect.value}], null, 2);
     importPrompt.value = 'Tạo ' + (isTitleOnly ? 'danh sách tiêu đề bài Toplist' : 'bài Toplist và danh sách') + ' về ' + subject + ' theo yêu cầu tôi cung cấp. ' +
       'Chỉ dùng dữ liệu công khai đã đối chiếu nguồn chính thức; không bịa danh tính, chuyên khoa, chức danh, nơi công tác, liên hệ, giá hoặc đánh giá. ' +
-      'Không tự tạo ID: dùng ID tôi cung cấp; chưa có ID thì 0. Một bài chỉ có một loại xếp hạng. ' +
-      'Giữ entity_type=' + entitySelect.value + ', rank_order bắt đầu từ 1; trường không rõ để rỗng. ' +
+      'Không tự tạo ID: dùng ID tôi cung cấp; chưa có ID thì 0. Bài hỗn hợp có cả cơ sở và bác sĩ; mỗi member phải có type và ID tương ứng, không nhầm ID giữa hai loại. ' +
+      'Giữ entity_type=' + entitySelect.value + ', rank_order bắt đầu từ 1 và xếp chung cả danh sách; trường không rõ để rỗng. ' +
       'Chỉ trả JSON hợp lệ trong một block code json, không lời dẫn bên ngoài. Cấu trúc mẫu (thay dữ liệu mẫu bằng thông tin thật):\n' +
-      (isTitleOnly ? titleSample.textContent : (isDoctor ? doctorSample.textContent : fullSample.textContent));
+      (isTitleOnly ? titleSample.textContent : (isMixed ? mixedSample.textContent : isDoctor ? doctorSample.textContent : fullSample.textContent));
   }
 
   fullMode.addEventListener('change', updateJsonMode);
@@ -277,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return '<tr>' +
         '<td class="fw-semibold">' + escapeHtml(row.title) + '</td>' +
         '<td class="text-secondary small mono">' + escapeHtml(row.slug) + '</td>' +
-        '<td><span class="badge text-bg-light">' + number(row.entity_type === 'doctor' ? row.doctor_count : row.facility_count) + (row.entity_type === 'doctor' ? ' bác sĩ' : ' cơ sở') + '</span></td>' +
+        '<td><span class="badge text-bg-light">' + (row.entity_type === 'mixed' ? number(row.facility_count) + ' cơ sở · ' + number(row.doctor_count) + ' bác sĩ' : number(row.entity_type === 'doctor' ? row.doctor_count : row.facility_count) + (row.entity_type === 'doctor' ? ' bác sĩ' : ' cơ sở')) + '</span></td>' +
         '<td><span class="badge ' + (status === 'published' ? 'text-bg-success' : 'text-bg-secondary') + '">' + escapeHtml(status) + '</span></td>' +
         '<td class="small text-secondary">' + escapeHtml(row.updated_at) + '</td>' +
         '<td><div class="d-flex gap-2 justify-content-end"><a class="btn btn-sm btn-primary" href="' + editUrl + encodeURIComponent(row.id || 0) + '">Sửa</a>' +

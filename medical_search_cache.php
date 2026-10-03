@@ -368,9 +368,9 @@ function medical_search_cache_toplists(PDO $pdo): array
                     GROUP_CONCAT(DISTINCT CONCAT_WS(' ', f.name, f.category, f.city, f.featured_services_json, f.services_json) SEPARATOR ' ') AS facility_search_text,
                     GROUP_CONCAT(DISTINCT CONCAT_WS(' ', d.name, d.specialty_text, d.city, d.facility_name) SEPARATOR ' ') AS doctor_search_text
              FROM medical_toplists t
-             LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id AND t.entity_type='facility'
+             LEFT JOIN medical_toplist_facilities tf ON tf.toplist_id = t.id AND t.entity_type IN ('facility','mixed')
              LEFT JOIN medical_facilities f ON f.id = tf.facility_id AND f.status = 'published' AND f.language_code=t.language_code
-             LEFT JOIN medical_toplist_doctors td ON td.toplist_id = t.id AND t.entity_type='doctor'
+             LEFT JOIN medical_toplist_doctors td ON td.toplist_id = t.id AND t.entity_type IN ('doctor','mixed')
              LEFT JOIN medical_doctors d ON d.id=td.doctor_id AND d.status='published' AND d.language_code=t.language_code
              WHERE t.status = 'published'
              GROUP BY t.id, t.slug{$languageGroup}, t.entity_type, t.title, t.excerpt, t.content, t.featured_image_url, t.updated_at"
