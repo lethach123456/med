@@ -7,8 +7,6 @@ require_once __DIR__ . '/../medical_directory.php';
 admin_require_login();
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-medical_directory_seed_defaults($pdo);
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;

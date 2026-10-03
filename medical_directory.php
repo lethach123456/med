@@ -152,6 +152,7 @@ function medical_directory_ai_image_prompt_default(): array
 /** Adds the separate generated-image field without touching normal image_url. */
 function medical_directory_ensure_facility_ai_image_column(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     if (medical_directory_column_exists($pdo, 'medical_facilities', 'ai_image_url')) {
         return;
     }
@@ -175,6 +176,7 @@ function medical_directory_ensure_facility_ai_image_column(PDO $pdo): void
  */
 function medical_directory_ensure_facility_content_columns(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     static $checked = false;
     if ($checked || !medical_directory_table_exists($pdo, 'medical_facilities')) {
         return;
@@ -238,6 +240,7 @@ function medical_directory_ensure_facility_content_columns(PDO $pdo): void
  */
 function medical_directory_ensure_ai_writer_claim_columns(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     static $checked = false;
     if ($checked) return;
     $checked = true;
@@ -272,6 +275,7 @@ function medical_directory_facility_json_transport_rules(string $template): stri
 /** Inserts the image-prompt default once while preserving any admin edits. */
 function medical_directory_ensure_ai_image_prompt(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     if (!medical_directory_table_exists($pdo, 'medical_ai_prompts')) {
         return;
     }
@@ -414,8 +418,10 @@ BẮT BUỘC đặt toàn bộ JSON trong đúng một block code có nhãn json
 PROMPT];
 }
 
+/** Backward-compatible migration helper; a normal web caller does no DB work. */
 function medical_directory_ensure_tables(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS medical_facilities (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -2865,9 +2871,24 @@ function medical_directory_default_doctors(): array
     ];
 }
 
+/** Run all medical schema/prompt upgrades from CLI or the explicit admin action. */
+function medical_directory_run_schema_migrations(PDO $pdo): void
+{
+    $previous = $GLOBALS['medreview_explicit_schema_migration'] ?? false;
+    $GLOBALS['medreview_explicit_schema_migration'] = true;
+    try {
+        medical_directory_ensure_tables($pdo);
+        require_once __DIR__ . '/toplist_directory.php';
+        toplist_directory_ensure_tables($pdo);
+    } finally {
+        $GLOBALS['medreview_explicit_schema_migration'] = $previous;
+    }
+}
+
+/** Demo data is CLI-only and does not create/upgrade schema or reset records. */
 function medical_directory_seed_defaults(PDO $pdo): void
 {
-    medical_directory_ensure_tables($pdo);
+    if (PHP_SAPI !== 'cli') throw new LogicException('Seed dữ liệu mẫu chỉ được chạy riêng qua CLI.');
 
     $facilityCount = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities")->fetchColumn();
     if ($facilityCount === 0) {
@@ -2918,6 +2939,7 @@ function medical_directory_seed_defaults(PDO $pdo): void
         }
     }
 
+    $seededFacilitySlugs = [];
     $existingReviewSlugs = [];
     if (medical_directory_table_exists($pdo, 'medical_reviews')) {
         $slugs = $pdo->query("SELECT slug FROM medical_reviews")->fetchAll(PDO::FETCH_COLUMN);
@@ -2984,6 +3006,7 @@ function medical_directory_seed_defaults(PDO $pdo): void
             ':display_order' => (int) ($row['display_order'] ?? 0),
         ]);
         $existingReviewSlugs[$slug] = true;
+        $seededFacilitySlugs[(string) ($row['facility_slug'] ?? '')] = true;
     }
 
     $existingDoctorSlugs = [];
@@ -3040,14 +3063,10 @@ function medical_directory_seed_defaults(PDO $pdo): void
         $existingDoctorSlugs[$slug] = true;
     }
 
-    if (medical_directory_table_exists($pdo, 'medical_facilities')) {
-        $facilitySlugs = $pdo->query("SELECT slug FROM medical_facilities")->fetchAll(PDO::FETCH_COLUMN);
-        if (is_array($facilitySlugs)) {
-            foreach ($facilitySlugs as $facilitySlug) {
-                medical_directory_refresh_facility_aggregates($pdo, (string) $facilitySlug);
-            }
-        }
+    foreach (array_keys($seededFacilitySlugs) as $facilitySlug) {
+        medical_directory_refresh_facility_aggregates($pdo, $facilitySlug, false);
     }
+    medical_search_cache_invalidate();
 }
 
 function medical_directory_facility_from_row(array $row): array
@@ -3612,7 +3631,7 @@ function medical_directory_doctor_row_by_slug(string $slug, bool $publishedOnly 
     return null;
 }
 
-function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilitySlug): void
+function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilitySlug, bool $invalidateCache = true): void
 {
     $facilitySlug = trim($facilitySlug);
     if ($facilitySlug === '') {
@@ -3640,5 +3659,5 @@ function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilit
         ':rating' => $rating,
         ':slug' => $facilitySlug,
     ]);
-    medical_search_cache_invalidate();
+    if ($invalidateCache) medical_search_cache_invalidate();
 }

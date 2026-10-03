@@ -249,8 +249,8 @@ try {
         }
     }
 
-    medical_directory_ensure_tables($pdo);
-    medical_directory_seed_defaults($pdo);
+    // Explicit maintenance action only. Never insert demo medical records here.
+    medical_directory_run_schema_migrations($pdo);
 
     $seedHome = 'skipped';
     try {

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/db.php';
 
 /** Doctor research schema and transport contract. No database work on include. */
 function medical_doctor_json_fields(): array
@@ -30,6 +31,7 @@ function medical_doctor_column_definitions(): array
 /** Additive and idempotent; existing rows, language links and leases are preserved. */
 function medical_directory_ensure_doctor_content_columns(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     $columns = $pdo->query("SELECT COLUMN_NAME, COLUMN_DEFAULT FROM information_schema.columns
         WHERE table_schema=DATABASE() AND table_name='medical_doctors'")->fetchAll(PDO::FETCH_KEY_PAIR);
     if ($columns === []) throw new RuntimeException('Bảng medical_doctors chưa được cài đặt.');
@@ -62,6 +64,14 @@ function medical_directory_ensure_doctor_content_columns(PDO $pdo): void
             KEY idx_location_facility (facility_id), UNIQUE KEY uniq_doctor_facility (doctor_id, facility_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
+}
+
+/** A cheap, read-only readiness check; never migrates or seeds on API requests. */
+function medical_doctor_require_schema(PDO $pdo): void
+{
+    $fields = array_merge(['id', 'name', 'language_code', 'translation_of_id', 'ai_writer_claim_json'], array_keys(medical_doctor_column_definitions()));
+    $pdo->query('SELECT `' . implode('`,`', $fields) . '` FROM medical_doctors LIMIT 0');
+    $pdo->query('SELECT doctor_id, facility_id FROM medical_doctor_facilities LIMIT 0');
 }
 
 function medical_doctor_text_fields(): array

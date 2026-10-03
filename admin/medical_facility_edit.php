@@ -7,8 +7,6 @@ require_once __DIR__ . '/../medical_directory.php';
 admin_require_login();
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-medical_directory_seed_defaults($pdo);
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -320,28 +318,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':display_order' => (int) $values['display_order'],
                 ':id' => $id,
             ]);
-            // This facility row is already persisted. Invalidate before the
-            // follow-up review synchronization so an exception there cannot
-            // leave public search showing the old profile until TTL expiry.
-            medical_search_cache_invalidate();
-
-            if ($values['slug'] !== '' && $values['slug'] !== $oldSlug) {
-                $stmt = $pdo->prepare('UPDATE medical_reviews SET facility_slug = :new_slug, facility_name = :facility_name WHERE facility_slug = :old_slug');
-                $stmt->execute([
-                    ':new_slug' => $values['slug'],
-                    ':facility_name' => $values['name'],
-                    ':old_slug' => $oldSlug,
-                ]);
-                medical_directory_refresh_facility_aggregates($pdo, $values['slug']);
-            } elseif ($values['slug'] !== '') {
-                $stmt = $pdo->prepare('UPDATE medical_reviews SET facility_name = :facility_name WHERE facility_slug = :facility_slug');
-                $stmt->execute([
-                    ':facility_name' => $values['name'],
-                    ':facility_slug' => $values['slug'],
-                ]);
-                medical_directory_refresh_facility_aggregates($pdo, $values['slug']);
+            // Invalidate once after synchronization, even if the review update
+            // fails: the facility row has already been persisted at this point.
+            try {
+                if ($values['slug'] !== '' && $values['slug'] !== $oldSlug) {
+                    $stmt = $pdo->prepare('UPDATE medical_reviews SET facility_slug = :new_slug, facility_name = :facility_name WHERE facility_slug = :old_slug');
+                    $stmt->execute([
+                        ':new_slug' => $values['slug'],
+                        ':facility_name' => $values['name'],
+                        ':old_slug' => $oldSlug,
+                    ]);
+                    medical_directory_refresh_facility_aggregates($pdo, $values['slug'], false);
+                } elseif ($values['slug'] !== '') {
+                    $stmt = $pdo->prepare('UPDATE medical_reviews SET facility_name = :facility_name WHERE facility_slug = :facility_slug');
+                    $stmt->execute([
+                        ':facility_name' => $values['name'],
+                        ':facility_slug' => $values['slug'],
+                    ]);
+                    medical_directory_refresh_facility_aggregates($pdo, $values['slug'], false);
+                }
+            } finally {
+                medical_search_cache_invalidate();
             }
-
             flash_toast_set('success', 'Đã lưu cơ sở y tế.', 'fa-solid fa-circle-check');
             header('Location: /admin/medical_facility_edit.php?id=' . $id);
             exit;

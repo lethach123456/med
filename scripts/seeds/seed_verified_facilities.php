@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
 /**
  * Adds public, source-verified facility contact profiles.
@@ -22,7 +23,6 @@ $facilities = [
 ];
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
 
 $statement = $pdo->prepare(
     'INSERT INTO medical_facilities (

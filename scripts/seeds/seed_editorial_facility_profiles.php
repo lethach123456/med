@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
 /**
  * Creates transparent editorial information entries for imported facilities.
@@ -18,7 +19,6 @@ $facilitySlugs = [
 ];
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
 
 $placeholders = implode(', ', array_fill(0, count($facilitySlugs), '?'));
 $facilityStmt = $pdo->prepare(

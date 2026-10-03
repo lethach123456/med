@@ -1,5 +1,10 @@
 <?php
 declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+if (!in_array('--demo', $argv, true)) {
+    fwrite(STDERR, "Demo seed is opt-in. Run migrations first, then: php scripts/seeds/seed_medical_directory.php --demo\nExisting records will not be reset.\n");
+    exit(1);
+}
 
 require_once dirname(__DIR__, 2) . '/db.php';
 require_once dirname(__DIR__, 2) . '/medical_directory.php';
@@ -8,37 +13,12 @@ header('Content-Type: text/plain; charset=utf-8');
 
 $pdo = db();
 
-$forceReset = true;
-
 echo "=== Seeding Medical Directory Data ===\n\n";
-
-try {
-    medical_directory_ensure_tables($pdo);
-    echo "[OK] Tables ensured (created if missing).\n";
-} catch (Throwable $e) {
-    echo "[FAIL] Ensure tables: " . $e->getMessage() . "\n";
-    exit(1);
-}
 
 $beforeFc = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities")->fetchColumn();
 $beforeRc = (int) $pdo->query("SELECT COUNT(*) FROM medical_reviews")->fetchColumn();
 $beforeDc = (int) $pdo->query("SELECT COUNT(*) FROM medical_doctors")->fetchColumn();
 echo "[BEFORE] facilities={$beforeFc}, reviews={$beforeRc}, doctors={$beforeDc}\n";
-
-if ($forceReset) {
-    echo "\n[RESET] Truncating medical tables (force seed latest 10 facilities)...\n";
-    try {
-        $pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
-        $pdo->exec("TRUNCATE TABLE medical_reviews");
-        $pdo->exec("TRUNCATE TABLE medical_doctors");
-        $pdo->exec("TRUNCATE TABLE medical_facilities");
-        $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
-        echo "[OK] Tables cleared.\n";
-    } catch (Throwable $e) {
-        echo "[FAIL] Clear tables: " . $e->getMessage() . "\n";
-        exit(1);
-    }
-}
 
 try {
     medical_directory_seed_defaults($pdo);

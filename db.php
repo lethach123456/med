@@ -127,13 +127,26 @@ function medical_public_entity_path(string $entity, string $slug = '', string $l
     return $slug === '' ? $route : $route . '/' . rawurlencode($slug);
 }
 
-/** Add language/translation metadata to the three paired medical entities. */
+/** Schema changes are maintenance work, never part of a normal web request. */
+function medreview_schema_migration_allowed(): bool
+{
+    return PHP_SAPI === 'cli' || ($GLOBALS['medreview_explicit_schema_migration'] ?? false) === true;
+}
+
+/** Add language/translation metadata only during an explicit migration. */
 function medreview_ensure_translation_columns(PDO $pdo, string $table): bool
 {
     static $done = [];
     $allowed = ['medical_facilities', 'medical_doctors', 'medical_toplists'];
     if (!in_array($table, $allowed, true)) return false;
     if (array_key_exists($table, $done)) return $done[$table];
+    if (!medreview_schema_migration_allowed()) {
+        // Translation requests may verify readiness, but must not ALTER/CREATE.
+        try {
+            $pdo->query("SELECT language_code, translation_of_id FROM `{$table}` LIMIT 0");
+            return $done[$table] = true;
+        } catch (Throwable) { return $done[$table] = false; }
+    }
 
     $columnExists = static function (string $column) use ($pdo, $table): bool {
         try {

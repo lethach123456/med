@@ -12,7 +12,7 @@ if (in_array($origin, ['https://chatgpt.com', 'https://grok.com', 'https://x.com
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { http_response_code(204); exit; }
 medical_api_auth();
-try { $pdo = db(); medical_directory_ensure_doctor_content_columns($pdo); }
+try { $pdo = db(); medical_doctor_require_schema($pdo); }
 catch (Throwable $e) {
     error_log('Doctor schema unavailable: ' . $e->getMessage());
     json_response(['ok' => false, 'message' => 'Chưa sẵn sàng schema bác sĩ. Chạy scripts/migrate_doctor_content.php.'], 503);

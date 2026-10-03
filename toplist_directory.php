@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/medical_search_cache.php';
+require_once __DIR__ . '/medical_directory.php';
 
 function toplist_directory_ensure_tables(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS medical_toplists (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
