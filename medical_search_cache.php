@@ -145,7 +145,7 @@ function medical_search_cache_read(): ?array
         return null;
     }
     $decoded = json_decode($raw, true);
-    if (!is_array($decoded) || (int) ($decoded['schema'] ?? 0) !== 1) {
+    if (!is_array($decoded) || (int) ($decoded['schema'] ?? 0) !== 2) {
         return null;
     }
     foreach (['facilities', 'doctors', 'toplists', 'cities'] as $key) {
@@ -225,7 +225,7 @@ function medical_search_cache_facilities(PDO $pdo): array
     $hasTranslationColumns = medreview_translation_schema_ready($pdo, 'medical_facilities');
     $languageSelect = $hasTranslationColumns ? 'language_code' : "'vi' AS language_code";
     $rows = $pdo->query(
-        "SELECT id, slug, {$languageSelect}, name, subtitle, category, city, address_text, image_url, gallery_json,
+        "SELECT id, slug, {$languageSelect}, name, subtitle, content, category, city, address_text, image_url, gallery_json,
                 verified, rating, reviews_count, followers_count, price_text, hours_text, images_label,
                 featured_services_json, services_json, tags_json, highlights_json, display_order, updated_at
          FROM medical_facilities
@@ -258,6 +258,7 @@ function medical_search_cache_facilities(PDO $pdo): array
             'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
             'url' => medical_public_entity_path('facility', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'name' => (string) ($row['name'] ?? ''),
+            'has_content' => trim(preg_replace('/[\s\x{00A0}\x{200B}]+/u', '', html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '') !== '',
             'subtitle' => trim((string) ($row['subtitle'] ?? '')),
             'category' => trim((string) ($row['category'] ?? 'Cơ sở y tế')),
             'city' => trim((string) ($row['city'] ?? '')),
@@ -458,7 +459,7 @@ function medical_search_cache_rebuild(PDO $pdo): array
     $toplists = medical_search_cache_toplists($pdo);
 
     return [
-        'schema' => 1,
+        'schema' => 2,
         'generated_at' => $generatedAt,
         'expires_at' => $generatedAt + medical_search_cache_ttl(),
         'facilities' => $facilities,
@@ -737,8 +738,20 @@ function medical_search_cache_directory_item(array $item): array
  * @param array<string,mixed> $filters
  * @return array{items:array<int,array<string,mixed>>,paging:array<string,int|bool>,meta:array<string,string>}
  */
+/** Keep directory cards, facets and totals limited to written profiles. */
+function medical_search_cache_facility_directory_index(array $index): array
+{
+    $index['facilities'] = array_values(array_filter(
+        (array) ($index['facilities'] ?? []),
+        static fn(array $item): bool => !empty($item['has_content'])
+    ));
+    $index['cities'] = medical_search_cache_cities($index['facilities']);
+    return $index;
+}
+
 function medical_search_cache_directory_search(array $index, array $filters): array
 {
+    $index = medical_search_cache_facility_directory_index($index);
     $page = max(1, (int) ($filters['page'] ?? 1));
     $limit = min(24, max(6, (int) ($filters['limit'] ?? 12)));
     $query = trim((string) ($filters['q'] ?? ''));

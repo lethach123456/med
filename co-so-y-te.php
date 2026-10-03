@@ -83,7 +83,7 @@ function facility_page_filters(): array
 
 function facility_page_query(PDO $pdo, array $filters, int $page = 1, int $limit = 12): array
 {
-    $where = ["status = 'published'"];
+    $where = ["status = 'published'", "TRIM(COALESCE(content, '')) <> ''"];
     $params = [];
     $queryCity = '';
     if ($filters['q'] !== '' && $filters['city'] === '') {
@@ -174,7 +174,7 @@ try {
     // AJAX endpoint. MySQL is only touched when the TTL has expired or an
     // editor/API update invalidates the snapshot.
     $cache = medical_search_cache_index();
-    $index = medical_search_cache_filter_locale($cache['index'], $locale);
+    $index = medical_search_cache_facility_directory_index(medical_search_cache_filter_locale($cache['index'], $locale));
     $directory = medical_search_cache_directory_search($index, $filters + ['page' => $requestedPage, 'limit' => 12]);
     $initial = [
         'items' => $directory['items'],
