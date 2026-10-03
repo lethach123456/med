@@ -168,15 +168,13 @@ if (isset($body['items']) && is_array($body['items'])) {
 } else {
     $items = [$body];
 }
-// The schema is installed by setup/admin migrations. Running the full schema
-// bootstrap here used to issue several CREATE/ALTER statements on every API
-// request, which can wait for MySQL metadata locks long enough for the Chrome
-// extension's 30-second request timer to abort. Only bootstrap a genuinely
-// new install; normal article updates use the existing schema directly.
+// Schema is installed by explicit maintenance, never by an article receiver.
 $pdo = db();
-if (!medical_directory_table_exists($pdo, 'medical_facilities')) medical_directory_ensure_tables($pdo);
-medical_directory_ensure_facility_content_columns($pdo);
-medical_directory_ensure_ai_writer_claim_columns($pdo);
+try {
+    $pdo->query('SELECT id, content, full_json, ai_writer_claim_json FROM medical_facilities LIMIT 0');
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng schema nội dung. Chạy php scripts/migrate_medical_directory.php.'], 503);
+}
 $updated = [];
 $errors = [];
 $reviewsCreated = 0;

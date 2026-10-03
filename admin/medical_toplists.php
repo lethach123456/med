@@ -7,8 +7,6 @@ require_once __DIR__ . '/../toplist_directory.php';
 
 admin_require_login();
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals(admin_csrf_token(), (string) ($_POST['_csrf'] ?? ''))) {
     flash_toast_set('danger', 'Phiên biểu mẫu hết hạn. Tải lại trang rồi thử lại.');
     header('Location: /admin/medical_toplists.php'); exit;

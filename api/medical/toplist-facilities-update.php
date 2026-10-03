@@ -18,7 +18,7 @@ if (isset($body['content']) && is_string($body['content']) && !isset($body['topl
 if (!is_array($body)) json_response(['ok' => false, 'message' => 'Body cần object hoặc danh sách object.'], 422);
 $items = $body['items'] ?? (array_is_list($body) ? $body : [$body]);
 if (!is_array($items) || !array_is_list($items) || $items === [] || count($items) > 25) json_response(['ok' => false, 'message' => 'items cần 1–25 object.'], 422);
-$pdo = db(); medical_directory_ensure_tables($pdo); toplist_directory_ensure_tables($pdo);
+$pdo = db();
 $updated = []; $createdFacilities = []; $createdDoctors = []; $errors = []; $results = [];
 foreach ($items as $index => $item) {
     try {

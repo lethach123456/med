@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../_bootstrap.php';
 require_once __DIR__ . '/../../../medical_directory.php';
 require_once __DIR__ . '/../../../toplist_directory.php';
 admin_require_login();
-$pdo = db(); medical_directory_ensure_tables($pdo);
+$pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payload = read_json_body();
     if (!hash_equals(admin_csrf_token(), (string) ($payload['_csrf'] ?? ''))) json_response(['ok' => false, 'message' => 'Phiên biểu mẫu hết hạn.'], 403);

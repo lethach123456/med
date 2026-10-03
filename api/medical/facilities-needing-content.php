@@ -5,7 +5,7 @@ if (($_GET['type'] ?? '') === 'doctor') { require __DIR__ . '/doctors-needing-co
 require_once __DIR__ . '/_auth.php';
 medical_api_auth();
 header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
-$pdo = db(); medical_directory_ensure_tables($pdo);
+$pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1)); $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25))); $offset = ($page - 1) * $limit;
 $type = trim((string) ($_GET['type'] ?? 'facility'));
 $allowedTypes = ['facility', 'doctor', 'review'];

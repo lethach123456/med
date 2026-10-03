@@ -82,10 +82,10 @@ function medical_api_ai_image_folder(int $facilityId, string $facilitySlug): str
 }
 
 $pdo = db();
-if (!medical_directory_table_exists($pdo, 'medical_facilities')) {
-    medical_directory_ensure_tables($pdo);
-} else {
-    medical_directory_ensure_facility_ai_image_column($pdo);
+try {
+    $pdo->query('SELECT id, ai_image_url FROM medical_facilities LIMIT 0');
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng schema ảnh AI. Chạy php scripts/migrate_medical_directory.php.'], 503);
 }
 
 $body = read_json_body();

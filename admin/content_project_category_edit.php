@@ -6,7 +6,6 @@ require_once __DIR__ . '/_bootstrap.php';
 admin_require_login();
 
 $pdo = db();
-ensure_content_language_columns($pdo);
 
 $isModal = (isset($_GET['modal']) && (string) $_GET['modal'] === '1') || (isset($_POST['modal']) && (string) $_POST['modal'] === '1');
 

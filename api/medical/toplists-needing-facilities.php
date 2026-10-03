@@ -9,8 +9,6 @@ header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0')
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok' => false, 'message' => 'Chỉ hỗ trợ GET.'], 405);
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
 
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25)));

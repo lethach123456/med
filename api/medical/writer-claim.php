@@ -10,11 +10,13 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 }
 
 $pdo = db();
-if (!medical_directory_table_exists($pdo, 'medical_facilities') || !medical_directory_table_exists($pdo, 'medical_doctors')) {
-    medical_directory_ensure_tables($pdo);
+try {
+    foreach (['medical_facilities', 'medical_doctors'] as $table) {
+        $pdo->query("SELECT id, ai_writer_claim_json FROM {$table} LIMIT 0");
+    }
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng khóa viết bài. Chạy php scripts/migrate_medical_directory.php.'], 503);
 }
-medical_directory_ensure_ai_writer_claim_columns($pdo);
-medical_directory_ensure_doctor_content_columns($pdo);
 
 /** Decode a stored writer lease without ever returning its secret token. */
 function medical_api_writer_claim_decode(mixed $raw): array

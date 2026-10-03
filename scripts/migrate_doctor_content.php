@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__) . '/medical_directory.php';
 try {
     $pdo = db();
-    medical_directory_ensure_doctor_content_columns($pdo);
+    medreview_with_schema_migration(static fn() => medical_directory_ensure_doctor_content_columns($pdo));
     // Normal migrations preserve custom prompts. Explicit replacement is opt-in only.
     $stmt = $pdo->prepare("SELECT id, template FROM medical_ai_prompts WHERE prompt_key='doctor'");
     $stmt->execute(); $row = $stmt->fetch(PDO::FETCH_ASSOC);

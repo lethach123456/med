@@ -130,7 +130,29 @@ function medical_public_entity_path(string $entity, string $slug = '', string $l
 /** Schema changes are maintenance work, never part of a normal web request. */
 function medreview_schema_migration_allowed(): bool
 {
-    return PHP_SAPI === 'cli' || ($GLOBALS['medreview_explicit_schema_migration'] ?? false) === true;
+    // CLI workers/cron are runtime too: only an explicit maintenance scope may migrate.
+    return ($GLOBALS['medreview_explicit_schema_migration'] ?? false) === true;
+}
+
+/** Restore the permission even when a migration fails or scopes are nested. */
+function medreview_with_schema_migration(callable $migration): mixed
+{
+    $previous = $GLOBALS['medreview_explicit_schema_migration'] ?? false;
+    $GLOBALS['medreview_explicit_schema_migration'] = true;
+    try { return $migration(); }
+    finally { $GLOBALS['medreview_explicit_schema_migration'] = $previous; }
+}
+
+/** Read-only readiness, including CLI search-index builders and image workers. */
+function medreview_translation_schema_ready(PDO $pdo, string $table): bool
+{
+    static $ready = [];
+    if (!in_array($table, ['medical_facilities', 'medical_doctors', 'medical_toplists'], true)) return false;
+    if (array_key_exists($table, $ready)) return $ready[$table];
+    try {
+        $pdo->query("SELECT language_code, translation_of_id FROM `{$table}` LIMIT 0");
+        return $ready[$table] = true;
+    } catch (Throwable) { return $ready[$table] = false; }
 }
 
 /** Add language/translation metadata only during an explicit migration. */
@@ -139,14 +161,10 @@ function medreview_ensure_translation_columns(PDO $pdo, string $table): bool
     static $done = [];
     $allowed = ['medical_facilities', 'medical_doctors', 'medical_toplists'];
     if (!in_array($table, $allowed, true)) return false;
-    if (array_key_exists($table, $done)) return $done[$table];
     if (!medreview_schema_migration_allowed()) {
-        // Translation requests may verify readiness, but must not ALTER/CREATE.
-        try {
-            $pdo->query("SELECT language_code, translation_of_id FROM `{$table}` LIMIT 0");
-            return $done[$table] = true;
-        } catch (Throwable) { return $done[$table] = false; }
+        return medreview_translation_schema_ready($pdo, $table);
     }
+    if (array_key_exists($table, $done)) return $done[$table];
 
     $columnExists = static function (string $column) use ($pdo, $table): bool {
         try {
@@ -878,13 +896,12 @@ function front_editor_page_catalog(): array
 
 function ensure_front_editor_page_profiles_table(PDO $pdo): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     static $done = false;
     if ($done) {
         return;
     }
-    $done = true;
-    try {
-        $pdo->exec(
+    $pdo->exec(
             "CREATE TABLE IF NOT EXISTS front_editor_page_profiles (
                 id INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 page_key VARCHAR(120) NOT NULL,
@@ -898,9 +915,8 @@ function ensure_front_editor_page_profiles_table(PDO $pdo): void
                 UNIQUE KEY uniq_front_editor_page_key (page_key),
                 UNIQUE KEY uniq_front_editor_page_slug (slug)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-        );
-    } catch (Throwable $e) {
-    }
+    );
+    $done = true;
 }
 
 function front_editor_page_reserved_slugs(): array
@@ -928,7 +944,6 @@ function front_editor_page_profile_row(string $pageKey): ?array
     }
     try {
         $pdo = db();
-        ensure_front_editor_page_profiles_table($pdo);
         $stmt = $pdo->prepare(
             "SELECT page_key, slug, seo_title, seo_description, seo_keywords, updated_at
              FROM front_editor_page_profiles
@@ -1421,7 +1436,6 @@ function front_editor_page_find_by_slug(string $slug): ?array
     }
     try {
         $pdo = db();
-        ensure_front_editor_page_profiles_table($pdo);
         $stmt = $pdo->prepare(
             "SELECT page_key, slug, seo_title, seo_description, seo_keywords, updated_at
              FROM front_editor_page_profiles
@@ -1523,7 +1537,8 @@ function post_template_default_content(array $post): string
         . '</section>';
 }
 
-function post_template_seed_content(array $post): array
+/** Resolve a blank template for display/editing only; never persist during a read. */
+function post_template_resolve_content(array $post, ?PDO $pdo = null): array
 {
     $postId = (int) ($post['id'] ?? 0);
     $slug = trim((string) ($post['slug'] ?? ''));
@@ -1533,9 +1548,9 @@ function post_template_seed_content(array $post): array
         return $post;
     }
 
-    $seedContent = '';
+    $resolvedContent = '';
     try {
-        $pdo = db();
+        $pdo ??= db();
         $relatedSlugs = post_template_related_slugs($slug);
         foreach ($relatedSlugs as $candidateSlug) {
             if ($candidateSlug === $slug) {
@@ -1554,37 +1569,26 @@ function post_template_seed_content(array $post): array
             ]);
             $candidateContent = trim((string) $stmt->fetchColumn());
             if ($candidateContent !== '') {
-                $seedContent = $candidateContent;
+                $resolvedContent = $candidateContent;
                 break;
             }
         }
 
-        if ($seedContent === '') {
+        if ($resolvedContent === '') {
             $legacyFile = post_template_legacy_file($slug);
             if ($legacyFile !== null) {
                 $raw = file_get_contents($legacyFile);
                 if (is_string($raw) && trim($raw) !== '') {
-                    $seedContent = $raw;
+                    $resolvedContent = $raw;
                 }
             }
         }
 
-        if ($seedContent === '') {
-            $seedContent = post_template_default_content($post);
+        if ($resolvedContent === '') {
+            $resolvedContent = post_template_default_content($post);
         }
 
-        if ($seedContent !== '') {
-            $stmt = $pdo->prepare(
-                "UPDATE posts
-                 SET content = :content
-                 WHERE id = :id AND (content IS NULL OR TRIM(content) = '')"
-            );
-            $stmt->execute([
-                ':content' => $seedContent,
-                ':id' => $postId,
-            ]);
-            $post['content'] = $seedContent;
-        }
+        if ($resolvedContent !== '') $post['content'] = $resolvedContent;
     } catch (Throwable $e) {
         return $post;
     }
@@ -1596,7 +1600,7 @@ function front_editor_source_read(string $pageKey): ?array
 {
     $postInfo = front_editor_post_page_info($pageKey);
     if ($postInfo) {
-        $postInfo = post_template_seed_content($postInfo);
+        $postInfo = post_template_resolve_content($postInfo);
         return [
             'type' => 'post',
             'post_id' => (int) ($postInfo['id'] ?? 0),
@@ -2596,14 +2600,14 @@ function front_editor_scan_blocks(string $pageKey): array
     return $items;
 }
 
-function front_editor_templates_ensure_table(): void
+function front_editor_templates_ensure_table(?PDO $pdo = null): void
 {
+    if (!medreview_schema_migration_allowed()) return;
     static $done = false;
     if ($done) {
         return;
     }
-    $done = true;
-    $pdo = db();
+    $pdo ??= db();
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS front_editor_templates (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -2622,6 +2626,7 @@ function front_editor_templates_ensure_table(): void
             KEY idx_fet_user (admin_user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    $done = true;
 }
 
 function front_editor_template_save(string $pageKey, string $blockId, string $name, bool $saveAll = false): array
@@ -2664,7 +2669,6 @@ function front_editor_template_save(string $pageKey, string $blockId, string $na
     }
 
     try {
-        front_editor_templates_ensure_table();
         admin_front_session_boot();
         $adminUserId = isset($_SESSION['admin_user_id']) && is_int($_SESSION['admin_user_id']) ? (int) $_SESSION['admin_user_id'] : null;
         $pdo = db();
@@ -2696,7 +2700,6 @@ function front_editor_template_save(string $pageKey, string $blockId, string $na
 function front_editor_template_list(int $limit = 100): array
 {
     try {
-        front_editor_templates_ensure_table();
         $limit = max(1, min(200, $limit));
         $pdo = db();
         $stmt = $pdo->prepare("SELECT id, name, page_key, source_element_id, tag_name, preview_text, html_content, admin_user_id, created_at, updated_at
@@ -2737,7 +2740,6 @@ function front_editor_template_update(int $id, string $name, string $html): arra
         return ['ok' => false, 'message' => 'Tên và nội dung template không được rỗng.'];
     }
     try {
-        front_editor_templates_ensure_table();
         $previewSource = preg_replace('~<\?(?:php|=)?[\s\S]*?\?>~i', ' ', $html) ?? $html;
         $preview = trim(preg_replace('/\s+/u', ' ', strip_tags($previewSource)) ?? '');
         $preview = mb_substr($preview, 0, 160, 'UTF-8');
@@ -2768,7 +2770,6 @@ function front_editor_template_delete(int $id): array
         return ['ok' => false, 'message' => 'ID template không hợp lệ.'];
     }
     try {
-        front_editor_templates_ensure_table();
         $pdo = db();
         $stmt = $pdo->prepare("DELETE FROM front_editor_templates WHERE id = :id");
         $stmt->execute([':id' => $id]);
@@ -2786,7 +2787,6 @@ function front_editor_template_apply(string $pageKey, string $blockId, int $temp
     }
 
     try {
-        front_editor_templates_ensure_table();
         $pdo = db();
         $stmt = $pdo->prepare("SELECT id, name, source_element_id, tag_name, html_content FROM front_editor_templates WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $templateId]);

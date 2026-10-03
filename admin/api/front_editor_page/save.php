@@ -6,7 +6,11 @@ require_once __DIR__ . '/../../_bootstrap.php';
 admin_require_login();
 
 $pdo = db();
-ensure_front_editor_page_profiles_table($pdo);
+try {
+    $pdo->query('SELECT page_key, slug, seo_title, seo_description, seo_keywords FROM front_editor_page_profiles LIMIT 0');
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng cấu hình trang. Chạy php scripts/migrate_all.php.'], 503);
+}
 
 $input = read_json_body();
 $pageKey = trim((string) ($input['page_key'] ?? ''));

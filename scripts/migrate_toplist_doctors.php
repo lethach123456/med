@@ -9,8 +9,10 @@ try {
     foreach (['medical_toplists', 'medical_toplist_facilities', 'medical_doctors'] as $table) {
         if (medical_directory_table_exists($pdo, $table)) $before[$table] = (int) $pdo->query("SELECT COUNT(*) FROM `{$table}`")->fetchColumn();
     }
-    if (!medical_directory_table_exists($pdo, 'medical_doctors') || !medical_directory_table_exists($pdo, 'medical_facilities')) medical_directory_ensure_tables($pdo);
-    toplist_directory_ensure_tables($pdo);
+    medreview_with_schema_migration(static function () use ($pdo): void {
+        if (!medical_directory_table_exists($pdo, 'medical_doctors') || !medical_directory_table_exists($pdo, 'medical_facilities')) medical_directory_ensure_tables($pdo);
+        toplist_directory_ensure_tables($pdo);
+    });
     foreach ($before as $table => $count) {
         $after = (int) $pdo->query("SELECT COUNT(*) FROM `{$table}`")->fetchColumn();
         echo "{$table}: {$count} before, {$after} after.\n";

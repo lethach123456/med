@@ -8,11 +8,10 @@ if ($type === 'toplist_doctor') { $type = 'toplist'; $_GET['entity_type'] = 'doc
 if ($type === 'toplist' && $name === '') $name = $title;
 $allowed=['facility','facility_image_prompt','toplist','doctor','review','translation']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
 if ($name === '' && $type !== 'translation') json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
-$pdo=db(); medical_directory_ensure_tables($pdo);
+$pdo=db();
 $resolved = medical_directory_resolve_ai_prompt($pdo, $type, $type === 'facility' ? $category : '');
 if ($type === 'toplist') {
     require_once __DIR__ . '/../../toplist_directory.php';
-    toplist_directory_ensure_tables($pdo);
     $toplist = ['id' => (int) ($_GET['id'] ?? 0), 'title' => $name, 'excerpt' => $_GET['excerpt'] ?? '', 'content' => $_GET['content'] ?? '', 'entity_type' => $_GET['entity_type'] ?? 'facility'];
     if ($toplist['id'] > 0) {
         $lookup = $pdo->prepare('SELECT id,title,excerpt,content,entity_type FROM medical_toplists WHERE id=:id');

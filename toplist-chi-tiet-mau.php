@@ -7,8 +7,6 @@ require_once __DIR__ . '/medical_directory.php';
 $incomingToplistSlug = trim((string) ($_GET['slug'] ?? ''));
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
 $slug = trim((string) ($_GET['slug'] ?? ''));
 $stmt = $pdo->prepare("SELECT * FROM medical_toplists WHERE slug=:slug AND status='published' LIMIT 1");
 $stmt->execute([':slug' => $slug]);

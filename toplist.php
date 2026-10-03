@@ -7,9 +7,7 @@ medical_redirect_legacy_path('/toplist.php', medical_public_toplist_path());
 $locale = site_page_locale('toplist');
 $isEnglish = $locale === 'en';
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
-$hasToplistLanguage = medreview_ensure_translation_columns($pdo, 'medical_toplists');
+$hasToplistLanguage = medreview_translation_schema_ready($pdo, 'medical_toplists');
 if (!$hasToplistLanguage && $locale === 'en') {
   $rows = [];
 } else {

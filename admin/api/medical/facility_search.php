@@ -6,7 +6,6 @@ require_once __DIR__ . '/../../../medical_directory.php';
 
 admin_require_login();
 $pdo = db();
-medical_directory_ensure_tables($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payload = read_json_body();
@@ -32,7 +31,7 @@ if (mb_strlen($term, 'UTF-8') < 2) {
 
 $excluded = array_values(array_unique(array_filter(array_map('intval', explode(',', (string) ($_GET['exclude'] ?? ''))))));
 $locale = site_normalize_locale((string) ($_GET['locale'] ?? 'vi'));
-$hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_facilities');
+$hasTranslationColumns = medreview_translation_schema_ready($pdo, 'medical_facilities');
 if (!$hasTranslationColumns && $locale === 'en') {
     json_response(['ok' => true, 'items' => []]);
 }

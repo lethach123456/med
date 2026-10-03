@@ -64,7 +64,7 @@ if (!$post) {
     $categoryName = '';
     $templateMode = false;
 } else {
-    $post = post_template_seed_content($post);
+    $post = post_template_resolve_content($post);
     $title = (string) ($post['title'] ?? '');
     $excerpt = (string) ($post['excerpt'] ?? '');
     $content = (string) ($post['content'] ?? '');

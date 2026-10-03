@@ -7,8 +7,6 @@ require_once __DIR__ . '/../toplist_directory.php';
 
 admin_require_login();
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
 
 $id = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 $isEdit = $id > 0;

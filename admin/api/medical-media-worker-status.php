@@ -36,7 +36,11 @@ function medical_media_worker_pending_summary(PDO $pdo, array $status): array
 }
 
 $pdo = db();
-medical_media_jobs_ensure_table($pdo);
+try {
+    medical_media_jobs_require_schema($pdo);
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng hàng chờ ảnh. Chạy php scripts/migrate_medical_directory.php.'], 503);
+}
 $status = medical_media_jobs_status($pdo);
 
 json_response([

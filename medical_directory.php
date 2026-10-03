@@ -665,7 +665,7 @@ function medical_directory_translation_table(string $entity): ?string
 function medical_directory_translation_counterpart(PDO $pdo, string $entity, array $row, bool $publishedOnly = true): ?array
 {
     $table = medical_directory_translation_table($entity);
-    if ($table === null || !medreview_ensure_translation_columns($pdo, $table)) return null;
+    if ($table === null || !medreview_translation_schema_ready($pdo, $table)) return null;
     $language = strtolower(trim((string) ($row['language_code'] ?? 'vi'))) === 'en' ? 'en' : 'vi';
     $id = (int) ($row['id'] ?? 0);
     if ($id <= 0) return null;
@@ -714,7 +714,7 @@ function medical_directory_translation_switch_links(PDO $pdo, string $entity, ar
 function medical_directory_create_translation_copy(PDO $pdo, string $entity, int $sourceId): int
 {
     $table = medical_directory_translation_table($entity);
-    if ($table === null || $sourceId <= 0 || !medreview_ensure_translation_columns($pdo, $table)) {
+    if ($table === null || $sourceId <= 0 || !medreview_translation_schema_ready($pdo, $table)) {
         throw new RuntimeException('Không thể khởi tạo liên kết bản dịch cho nội dung này.');
     }
     $sourceStmt = $pdo->prepare("SELECT * FROM `{$table}` WHERE id = :id LIMIT 1");
@@ -753,7 +753,7 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
 
     // If the doctor already belongs to a facility with a published English
     // twin, point the new doctor profile to that translated facility.
-    if ($entity === 'doctor' && trim((string) ($source['facility_slug'] ?? '')) !== '' && medreview_ensure_translation_columns($pdo, 'medical_facilities')) {
+    if ($entity === 'doctor' && trim((string) ($source['facility_slug'] ?? '')) !== '' && medreview_translation_schema_ready($pdo, 'medical_facilities')) {
         $facilityStmt = $pdo->prepare("SELECT f_en.slug, f_en.name FROM medical_facilities f_vi JOIN medical_facilities f_en ON f_en.translation_of_id = f_vi.id AND f_en.language_code = 'en' AND f_en.status = 'published' WHERE f_vi.slug = :slug AND f_vi.language_code = 'vi' LIMIT 1");
         $facilityStmt->execute([':slug' => $source['facility_slug']]);
         $translatedFacility = $facilityStmt->fetch(PDO::FETCH_ASSOC);
@@ -2874,15 +2874,13 @@ function medical_directory_default_doctors(): array
 /** Run all medical schema/prompt upgrades from CLI or the explicit admin action. */
 function medical_directory_run_schema_migrations(PDO $pdo): void
 {
-    $previous = $GLOBALS['medreview_explicit_schema_migration'] ?? false;
-    $GLOBALS['medreview_explicit_schema_migration'] = true;
-    try {
+    medreview_with_schema_migration(static function () use ($pdo): void {
         medical_directory_ensure_tables($pdo);
         require_once __DIR__ . '/toplist_directory.php';
         toplist_directory_ensure_tables($pdo);
-    } finally {
-        $GLOBALS['medreview_explicit_schema_migration'] = $previous;
-    }
+        require_once __DIR__ . '/medical_media_worker.php';
+        medical_media_jobs_ensure_table($pdo);
+    });
 }
 
 /** Demo data is CLI-only and does not create/upgrade schema or reset records. */
@@ -3289,7 +3287,7 @@ function medical_directory_facility_rows(bool $publishedOnly = true, string $loc
     }
 
     $locale = site_normalize_locale($locale);
-    medreview_ensure_translation_columns($pdo, 'medical_facilities');
+    medreview_translation_schema_ready($pdo, 'medical_facilities');
     $hasLanguageColumn = medical_directory_column_exists($pdo, 'medical_facilities', 'language_code');
     if (!$hasLanguageColumn && $locale === 'en') return [];
     $sql = "SELECT * FROM medical_facilities";
@@ -3574,7 +3572,7 @@ function medical_directory_doctor_rows(bool $publishedOnly = true, string $local
     }
 
     $locale = site_normalize_locale($locale);
-    medreview_ensure_translation_columns($pdo, 'medical_doctors');
+    medreview_translation_schema_ready($pdo, 'medical_doctors');
     $hasLanguageColumn = medical_directory_column_exists($pdo, 'medical_doctors', 'language_code');
     if (!$hasLanguageColumn && $locale === 'en') return [];
     $sql = "SELECT * FROM medical_doctors";

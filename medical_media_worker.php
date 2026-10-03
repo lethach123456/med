@@ -15,6 +15,7 @@ require_once __DIR__ . '/medical_media_library.php';
 if (!function_exists('medical_media_jobs_ensure_table')) {
     function medical_media_jobs_ensure_table(PDO $pdo): void
     {
+        if (!medreview_schema_migration_allowed()) return;
         static $ready = false;
         if ($ready) return;
 
@@ -54,6 +55,24 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
         $ready = true;
     }
 
+    /** Validate an installed queue without creating/altering it, including CLI cron. */
+    function medical_media_jobs_require_schema(PDO $pdo): void
+    {
+        static $ready = null;
+        $ready ??= new WeakMap();
+        if (isset($ready[$pdo])) return;
+        try {
+            $pdo->query('SELECT id, entity_type, entity_id, field_name, source_url, source_hash, status, attempts, local_url, last_error, next_attempt_at, locked_at, updated_at FROM medical_media_jobs LIMIT 0');
+            $column = $pdo->query("SHOW COLUMNS FROM medical_media_jobs LIKE 'status'")->fetch(PDO::FETCH_ASSOC);
+            if (!str_contains(strtolower((string) ($column['Type'] ?? '')), "'downloaded'")) {
+                throw new RuntimeException('Missing downloaded queue state.');
+            }
+        } catch (Throwable $e) {
+            throw new RuntimeException('Chưa sẵn sàng bảng hàng chờ ảnh. Chạy php scripts/migrate_medical_directory.php.', 0, $e);
+        }
+        $ready[$pdo] = true;
+    }
+
     function medical_media_jobs_is_remote_url(string $url): bool
     {
         $url = trim($url);
@@ -77,7 +96,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
      */
     function medical_media_jobs_enqueue_entity_urls(PDO $pdo, string $entityType, int $entityId, array $sources, bool $requeueExisting = true): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $entityType = $entityType === 'doctor' ? 'doctor' : 'facility';
         if ($entityId <= 0) return ['queued' => 0, 'skipped' => 0];
 
@@ -157,7 +176,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
      */
     function medical_media_jobs_scan_remote_entities(PDO $pdo, string $type = 'all', int $limit = 100): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $type = in_array($type, ['facility', 'doctor', 'all'], true) ? $type : 'all';
         $limit = max(1, min(500, $limit));
         $configs = [];
@@ -204,7 +223,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
      */
     function medical_media_jobs_recover_stale(PDO $pdo, int $seconds = 300): int
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $seconds = max(90, min(1800, $seconds));
         $stmt = $pdo->prepare("UPDATE medical_media_jobs
             SET status = IF(local_url IS NULL, 'failed', 'downloaded'),
@@ -220,7 +239,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
     /** @return array{facility:array<string,int>,doctor:array<string,int>,total:array<string,int>} */
     function medical_media_jobs_status(PDO $pdo): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         medical_media_jobs_recover_stale($pdo);
         $zero = ['pending' => 0, 'processing' => 0, 'downloaded' => 0, 'done' => 0, 'failed' => 0];
         $result = ['facility' => $zero, 'doctor' => $zero, 'total' => $zero];
@@ -245,7 +264,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
      */
     function medical_media_jobs_active_items(PDO $pdo, int $limit = 8): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $limit = max(1, min(12, $limit));
         $rows = $pdo->query("SELECT id, entity_type, entity_id, source_url, local_url, locked_at
             FROM medical_media_jobs
@@ -445,7 +464,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
     /** @return array<int,array<string,mixed>> */
     function medical_media_jobs_claim(PDO $pdo, string $type, int $limit, string $mode = 'full'): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $mode = in_array($mode, ['download', 'compress', 'full'], true) ? $mode : 'full';
         // A browser request can be interrupted mid-batch. A short recovery
         // time keeps the UI responsive without a second Worker ever claiming
@@ -619,7 +638,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
      */
     function medical_media_worker_run(PDO $pdo, string $type = 'all', int $limit = 3, int $parallel = 3, bool $scan = true, string $mode = 'download'): array
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $mode = in_array($mode, ['download', 'compress', 'full'], true) ? $mode : 'download';
         $lockPath = sys_get_temp_dir() . '/medreview-medical-media-worker.lock';
         $lock = @fopen($lockPath, 'c');
@@ -640,7 +659,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
 
     function medical_media_jobs_retry_failed(PDO $pdo, string $type = 'all'): int
     {
-        medical_media_jobs_ensure_table($pdo);
+        medical_media_jobs_require_schema($pdo);
         $type = in_array($type, ['facility', 'doctor', 'all'], true) ? $type : 'all';
         $sql = "UPDATE medical_media_jobs SET status = 'pending', attempts = 0, last_error = NULL, next_attempt_at = NULL, locked_at = NULL WHERE status = 'failed'";
         $params = [];

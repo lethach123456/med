@@ -322,20 +322,8 @@ function normalize_content_language(?string $value): string
 
 function ensure_content_language_columns(PDO $pdo): void
 {
-    static $done = false;
-    if ($done) {
-        return;
-    }
-    $done = true;
-
-    $tables = ['categories', 'posts', 'product_categories', 'products', 'project_categories', 'projects'];
-    foreach ($tables as $table) {
-        if (db_has_column($pdo, $table, 'language')) {
-            continue;
-        }
-        try {
-            $pdo->exec("ALTER TABLE {$table} ADD COLUMN language VARCHAR(5) NOT NULL DEFAULT 'vi'");
-        } catch (Throwable $e) {
-        }
-    }
+    // Legacy compatibility; no schema work on page open/save/clone or CLI workers.
+    if (!medreview_schema_migration_allowed()) return;
+    require_once dirname(__DIR__) . '/schema_migrations.php';
+    medreview_migrate_content_columns($pdo);
 }

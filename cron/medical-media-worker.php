@@ -5,6 +5,7 @@ declare(strict_types=1);
 /**
  * Hostinger / server cron entry example (every minute):
  * * * * * /usr/bin/php /absolute/path/to/top/cron/medical-media-worker.php --type=all --mode=download --limit=10 --parallel=3 >> /absolute/path/to/top/storage/logs/medical-media-worker.log 2>&1
+ * Install/upgrade schema first with scripts/migrate_medical_directory.php; cron never migrates.
  */
 
 require_once dirname(__DIR__) . '/db.php';

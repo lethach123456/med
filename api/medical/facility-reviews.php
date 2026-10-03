@@ -5,7 +5,6 @@ require_once __DIR__ . '/../../medical_directory.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
 $facilityId = (int) ($_GET['facility_id'] ?? 0);
 $slug = trim((string) ($_GET['facility_slug'] ?? ''));
 $page = max(1, (int) ($_GET['page'] ?? 1));

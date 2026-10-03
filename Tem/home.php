@@ -109,8 +109,6 @@ $stats = ['facilities' => 0];
 
 try {
     $pdo = db();
-    medical_directory_ensure_tables($pdo);
-    toplist_directory_ensure_tables($pdo);
 
     $stats['facilities'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published'")->fetchColumn();
     $facilities = $pdo->query(

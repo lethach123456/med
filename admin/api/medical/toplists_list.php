@@ -8,8 +8,6 @@ require_once __DIR__ . '/../../../toplist_directory.php';
 admin_require_login();
 
 $pdo = db();
-medical_directory_ensure_tables($pdo);
-toplist_directory_ensure_tables($pdo);
 
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = min(100, max(5, (int) ($_GET['limit'] ?? 20)));

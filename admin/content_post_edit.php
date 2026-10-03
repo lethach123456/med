@@ -6,18 +6,10 @@ require_once __DIR__ . '/_bootstrap.php';
 admin_require_login();
 
 $pdo = db();
-ensure_content_language_columns($pdo);
 
 $isModal = (isset($_GET['modal']) && (string) $_GET['modal'] === '1') || (isset($_POST['modal']) && (string) $_POST['modal'] === '1');
 $hasFeaturedImage = db_has_column($pdo, 'posts', 'featured_image_url');
 $hasTemplateMode = db_has_column($pdo, 'posts', 'template');
-if (!$hasTemplateMode) {
-    try {
-        $pdo->exec("ALTER TABLE posts ADD COLUMN template TINYINT(1) NOT NULL DEFAULT 0 AFTER featured_image_url");
-    } catch (Throwable $e) {
-    }
-    $hasTemplateMode = db_has_column($pdo, 'posts', 'template');
-}
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $isEdit = $id > 0;

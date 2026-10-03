@@ -66,7 +66,6 @@ if (!isset($map[$type]) || $id <= 0) {
 
 try {
     $pdo = db();
-    ensure_content_language_columns($pdo);
 
     $config = $map[$type];
     $table = $config['table'];

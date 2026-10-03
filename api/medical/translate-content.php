@@ -244,10 +244,8 @@ function medical_api_translation_unique_slug(PDO $pdo, string $table, string $sl
 
 function medical_api_translation_prepare_tables(PDO $pdo): bool
 {
-    medical_directory_ensure_tables($pdo);
-    toplist_directory_ensure_tables($pdo);
     foreach (['medical_facilities', 'medical_doctors', 'medical_toplists'] as $table) {
-        if (!medical_directory_table_exists($pdo, $table) || !medreview_ensure_translation_columns($pdo, $table)) return false;
+        if (!medical_directory_table_exists($pdo, $table) || !medreview_translation_schema_ready($pdo, $table)) return false;
     }
     return true;
 }
@@ -260,7 +258,7 @@ if (!in_array($method, ['GET', 'POST'], true)) {
 
 $pdo = db();
 if (!medical_api_translation_prepare_tables($pdo)) {
-    json_response(['ok' => false, 'message' => 'Chưa thể khởi tạo cột ngôn ngữ cho cơ sở, bác sĩ và Toplist.'], 503);
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng cột ngôn ngữ. Chạy php scripts/migrate_medical_directory.php.'], 503);
 }
 
 if ($method === 'GET') {

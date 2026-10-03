@@ -9,11 +9,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $pdo = db();
-if (!medical_directory_table_exists($pdo, 'medical_facilities') || !medical_directory_table_exists($pdo, 'medical_ai_prompts')) {
-    medical_directory_ensure_tables($pdo);
-} else {
-    medical_directory_ensure_facility_ai_image_column($pdo);
-    medical_directory_ensure_ai_image_prompt($pdo);
+try {
+    $pdo->query('SELECT id, ai_image_url, gallery_json FROM medical_facilities LIMIT 0');
+    $pdo->query('SELECT prompt_key, template FROM medical_ai_prompts LIMIT 0');
+} catch (Throwable $e) {
+    json_response(['ok' => false, 'message' => 'Chưa sẵn sàng schema ảnh AI. Chạy php scripts/migrate_medical_directory.php.'], 503);
 }
 
 $page = max(1, (int) ($_GET['page'] ?? 1));

@@ -38,8 +38,8 @@ $parallel = min(3, max(1, (int) ($body['parallel'] ?? 3)));
 $action = (string) ($body['action'] ?? 'run');
 
 $pdo = db();
-medical_media_jobs_ensure_table($pdo);
 try {
+    medical_media_jobs_require_schema($pdo);
     if ($action === 'retry_failed') {
         $retried = medical_media_jobs_retry_failed($pdo, $type);
         $status = medical_media_jobs_status($pdo);

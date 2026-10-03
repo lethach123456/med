@@ -12,7 +12,6 @@ $adminActive = 'content';
 require __DIR__ . '/_layout_start.php';
 
 $pdo = db();
-ensure_content_language_columns($pdo);
 $categories = $pdo->query(
     'SELECT c.id, c.name, c.slug, c.language, c.updated_at,
             (SELECT COUNT(*) FROM posts p WHERE p.category_id = c.id) AS post_count

@@ -222,7 +222,7 @@ function medical_search_cache_invalidate(): void
 /** @return array<int,array<string,mixed>> */
 function medical_search_cache_facilities(PDO $pdo): array
 {
-    $hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_facilities');
+    $hasTranslationColumns = medreview_translation_schema_ready($pdo, 'medical_facilities');
     $languageSelect = $hasTranslationColumns ? 'language_code' : "'vi' AS language_code";
     $rows = $pdo->query(
         "SELECT id, slug, {$languageSelect}, name, subtitle, category, city, address_text, image_url, gallery_json,
@@ -289,7 +289,7 @@ function medical_search_cache_facilities(PDO $pdo): array
 /** @return array<int,array<string,mixed>> */
 function medical_search_cache_doctors(PDO $pdo): array
 {
-    medreview_ensure_translation_columns($pdo, 'medical_doctors');
+    medreview_translation_schema_ready($pdo, 'medical_doctors');
     try {
         // Keep this tolerant of installations whose optional doctor columns
         // differ slightly; the normalizer below treats absent values as blank.
@@ -358,7 +358,7 @@ function medical_search_cache_doctors(PDO $pdo): array
 function medical_search_cache_toplists(PDO $pdo): array
 {
     try {
-        $hasTranslationColumns = medreview_ensure_translation_columns($pdo, 'medical_toplists');
+        $hasTranslationColumns = medreview_translation_schema_ready($pdo, 'medical_toplists');
         $languageSelect = $hasTranslationColumns ? 't.language_code' : "'vi' AS language_code";
         $languageGroup = $hasTranslationColumns ? ', t.language_code' : '';
         $rows = $pdo->query(

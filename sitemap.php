@@ -150,7 +150,7 @@ try {
     $pdo = db();
     $translationReady = [];
     foreach (['medical_facilities', 'medical_doctors', 'medical_toplists'] as $table) {
-        if (medreview_sitemap_table_exists($pdo, $table)) $translationReady[$table] = medreview_ensure_translation_columns($pdo, $table);
+        if (medreview_sitemap_table_exists($pdo, $table)) $translationReady[$table] = medreview_translation_schema_ready($pdo, $table);
     }
     $sources = medreview_sitemap_sources();
     foreach (['facilities' => 'medical_facilities', 'doctors' => 'medical_doctors', 'toplists' => 'medical_toplists'] as $sourceName => $table) {
