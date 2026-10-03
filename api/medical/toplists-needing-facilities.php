@@ -36,16 +36,16 @@ $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
 $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 
-$promptStmt = $pdo->prepare('SELECT label, template FROM medical_ai_prompts WHERE prompt_key = :key LIMIT 1');
-$promptStmt->execute([':key' => 'toplist']);
-$promptRow = $promptStmt->fetch(PDO::FETCH_ASSOC) ?: ['label' => '', 'template' => ''];
-
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 foreach ($items as &$item) {
+    $promptRow = toplist_directory_resolve_prompt($pdo, $item);
     $item['prompt_type'] = 'toplist';
     $item['prompt_label'] = (string) $promptRow['label'];
+    $item['prompt_key_used'] = $promptRow['prompt_key_used'];
+    $item['prompt_source'] = $promptRow['source'];
+    $item['output_template'] = toplist_directory_output_template($item);
     $item['receive_endpoint'] = '/api/medical/toplist-members-update.php';
-    $item['prompt'] = toplist_directory_research_prompt((string) $promptRow['template'], $item);
+    $item['prompt'] = toplist_directory_research_prompt((string) $promptRow['template'], $item, $item['entity_type'] === 'doctor');
 }
 unset($item);
 

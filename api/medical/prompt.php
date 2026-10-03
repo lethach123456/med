@@ -4,6 +4,7 @@ require_once __DIR__ . '/_auth.php'; medical_api_auth();
 header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok'=>false,'message'=>'Method not allowed.'],405);
 $type = trim((string)($_GET['type'] ?? 'facility')); $name = trim((string)($_GET['name'] ?? '')); $title = trim((string)($_GET['title'] ?? '')); $category = trim((string)($_GET['category'] ?? ''));
+if ($type === 'toplist_doctor') { $type = 'toplist'; $_GET['entity_type'] = 'doctor'; }
 if ($type === 'toplist' && $name === '') $name = $title;
 $allowed=['facility','facility_image_prompt','toplist','doctor','review','translation']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
 if ($name === '' && $type !== 'translation') json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
@@ -17,9 +18,12 @@ if ($type === 'toplist') {
         $lookup = $pdo->prepare('SELECT id,title,excerpt,content,entity_type FROM medical_toplists WHERE id=:id');
         $lookup->execute([':id' => $toplist['id']]); $toplist = $lookup->fetch(PDO::FETCH_ASSOC) ?: $toplist;
     }
-    try { $prompt = toplist_directory_research_prompt($resolved['template'], $toplist); }
+    try {
+        $resolved = toplist_directory_resolve_prompt($pdo, $toplist);
+        $prompt = toplist_directory_research_prompt($resolved['template'], $toplist, $toplist['entity_type'] === 'doctor');
+    }
     catch (InvalidArgumentException $e) { json_response(['ok' => false, 'message' => $e->getMessage()], 422); }
-    json_response(['ok' => true, 'type' => 'toplist', 'entity_type' => $toplist['entity_type'], 'label' => $resolved['label'], 'name' => $toplist['title'], 'prompt' => $prompt]);
+    json_response(['ok' => true, 'type' => 'toplist', 'entity_type' => $toplist['entity_type'], 'label' => $resolved['label'], 'prompt_key_used' => $resolved['prompt_key_used'], 'prompt_source' => $resolved['source'], 'name' => $toplist['title'], 'output_template' => toplist_directory_output_template($toplist), 'prompt' => $prompt]);
 }
 if ($type === 'doctor') {
     $source = ['id' => (int) ($_GET['id'] ?? 0), 'name' => $name,

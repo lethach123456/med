@@ -30,17 +30,31 @@ $assert((bool) preg_match('/"toplist_id"\s*:\s*7/', $prompt) && str_contains($pr
 $assert(!preg_match('/\{\{\w+\}\}/', $prompt), 'all placeholders rendered');
 $facilityPrompt = toplist_directory_research_prompt('Custom facility prompt {{title}}', ['id' => 8, 'title' => 'Clinics']);
 $assert(str_contains($facilityPrompt, 'Custom facility prompt Clinics') && str_contains($facilityPrompt, '"facilities"'), 'custom facility template retained');
+$doctorDefault = medical_directory_toplist_doctor_prompt_default();
+$doctorPrompt = toplist_directory_research_prompt($doctorDefault[1], ['id' => 132, 'title' => 'Top bác sĩ mắt Hà Nội', 'entity_type' => 'doctor'], true);
+$assert($doctorDefault[0] === 'Danh sách bác sĩ cho Toplist' && str_contains($doctorPrompt, 'DANH SÁCH BÁC SĨ') && str_contains($doctorPrompt, 'không đoán ID'), 'dedicated doctor-list prompt');
+$assert(str_contains($doctorPrompt, 'Top bác sĩ mắt Hà Nội') && !preg_match('/\{\{\w+\}\}/', $doctorPrompt), 'doctor-list placeholders rendered');
+$edited = toplist_directory_research_prompt('Prompt bác sĩ do admin sửa {{title}}', ['id' => 132, 'title' => 'Mắt Hà Nội', 'entity_type' => 'doctor'], true);
+$assert(str_contains($edited, 'Prompt bác sĩ do admin sửa Mắt Hà Nội') && str_contains($edited, '"doctors"'), 'custom dedicated doctor prompt preserved with contract');
+$assert(toplist_directory_output_template(['id' => 132, 'entity_type' => 'doctor'])['doctors'][0]['doctor_id'] === 0, 'doctor output template excludes invented IDs');
 
 if (in_array('--mysql-temporary', $argv, true)) {
     $pdo = db();
     // Connection-scoped shadow tables only: no real profile/article/relation is written by these tests.
-    foreach (['medical_doctors', 'medical_facilities', 'medical_toplists', 'medical_toplist_facilities', 'medical_toplist_doctors'] as $table) {
+    foreach (['medical_doctors', 'medical_facilities', 'medical_toplists', 'medical_toplist_facilities', 'medical_toplist_doctors', 'medical_ai_prompts'] as $table) {
         $create = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(PDO::FETCH_NUM)[1];
         $create = preg_replace('/^CREATE TABLE/', 'CREATE TEMPORARY TABLE', $create, 1);
         $create = preg_replace('/^\s*CONSTRAINT[^\n]*\n/m', '', $create);
         $create = preg_replace('/,\n\)/', "\n)", $create);
         $pdo->exec($create);
     }
+    $insertPrompt = $pdo->prepare('INSERT INTO medical_ai_prompts (prompt_key,label,template) VALUES (?,?,?)');
+    $insertPrompt->execute(['toplist', 'Cơ sở', 'Prompt cơ sở {{title}}']);
+    $insertPrompt->execute(['toplist_doctor', $doctorDefault[0], 'Bác sĩ toplist tùy chỉnh {{title}}']);
+    $insertPrompt->execute(['doctor', 'Hồ sơ bác sĩ', 'Không dùng prompt hồ sơ cho danh sách']);
+    $resolvedDoctor = toplist_directory_resolve_prompt($pdo, ['entity_type' => 'doctor']);
+    $assert($resolvedDoctor['prompt_key_used'] === 'toplist_doctor' && str_contains($resolvedDoctor['template'], 'tùy chỉnh'), 'resolver uses saved dedicated doctor-list prompt');
+    $assert(toplist_directory_resolve_prompt($pdo, ['entity_type' => 'facility'])['prompt_key_used'] === 'toplist' && toplist_directory_resolve_prompt($pdo, ['entity_type' => 'mixed'])['prompt_key_used'] === 'toplist', 'facility/mixed prompts stay separate from doctor profile');
     $pdo->exec("INSERT INTO medical_facilities (id,slug,name,city,address_text,status,language_code,translation_of_id) VALUES (1,'clinic','Test Clinic','Huế','10 Test Road','published','vi',NULL),(2,'clinic-en','Test Clinic','Hue','10 Test Road','published','en',1)");
     $pdo->exec("INSERT INTO medical_doctors (id,slug,name,specialty_text,city,facility_name,status,language_code,translation_of_id,rating,reviews_count,verified) VALUES
         (1,'doctor-a','Doctor A','Mắt','Hà Nội','Clinic A','published','vi',NULL,4.5,5,1),

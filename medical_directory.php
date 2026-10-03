@@ -386,6 +386,34 @@ function medical_directory_resolve_ai_prompt(PDO $pdo, string $type, string $cat
     ];
 }
 
+/** A separate editable prompt for researching doctors in an existing Toplist. */
+function medical_directory_toplist_doctor_prompt_default(): array
+{
+    return ['Danh sách bác sĩ cho Toplist', <<<'PROMPT'
+Bạn là chuyên gia kiểm chứng dữ liệu bác sĩ kiêm biên tập viên MedReview. Nhiệm vụ là tìm DANH SÁCH BÁC SĨ thực tế phù hợp cho bài Toplist, không phải viết hồ sơ cơ sở y tế hay bài bác sĩ riêng lẻ.
+
+Bài cần xử lý: {{title}}
+ID bài Toplist cần giữ nguyên: {{toplist_id}}
+Loại bài: {{entity_type}}; khóa danh sách: {{member_key}}
+Mô tả hiện có: {{excerpt}}
+Nội dung hiện có: {{content}}
+
+QUY TRÌNH NGHIÊN CỨU
+1. Đọc tiêu đề để xác định chuyên khoa, thành phố, nhu cầu và số lượng mong muốn. Chỉ chọn bác sĩ thực sự đáp ứng tiêu chí đó. Không lấy tên bệnh viện/phòng khám thay cho tên bác sĩ.
+2. Tìm và đối chiếu danh tính từ trang bác sĩ trên website bệnh viện/phòng khám, cơ quan chuyên môn hoặc cơ sở đào tạo. Nguồn đặt khám uy tín chỉ dùng bổ sung. Phân biệt người trùng tên bằng chuyên khoa và nơi công tác; không gộp thông tin của hai người.
+3. Xác nhận tên, học hàm/học vị nếu có nguồn, chuyên khoa, thành phố và nơi khám/công tác. Chỉ ghi địa chỉ, số liên hệ công khai phục vụ đặt khám và URL khi xác minh được. Không dùng thông tin riêng tư. Không mặc định bác sĩ còn làm ở nơi công tác cũ, không dùng giờ mở cửa bệnh viện làm lịch bác sĩ.
+4. Ưu tiên độ phù hợp và tính đầy đủ của nguồn. Thứ hạng chỉ là thứ tự biên tập, không phải chứng nhận bác sĩ tốt nhất hay bảo đảm kết quả điều trị. Không tự tạo điểm đánh giá, số review, trạng thái verified, giải thưởng, giấy phép hoặc mức giá.
+5. Có ID bác sĩ do hệ thống cung cấp và chắc chắn đúng người thì dùng doctor_id đó. Không có ID thì doctor_id=0; tuyệt đối không đoán ID. Bác sĩ mới phải có name, specialty_text và ít nhất city hoặc facility_name. facility_slug chỉ điền nếu biết chính xác slug hồ sơ cơ sở trong hệ thống, không tự đoán.
+6. Giữ tên người, tên cơ sở và thông tin thực tế; trường chưa rõ dùng chuỗi rỗng. Không bịa để đủ số lượng trong tiêu đề. Nếu không xác minh được ai, trả doctors:[] để biên tập viên kiểm tra, không tạo dữ liệu giả.
+
+ĐẦU RA
+Chỉ trả một JSON object theo khung bên dưới. toplist_id là ID bài Toplist, không phải doctor_id. entity_type=doctor; doctors là mảng bác sĩ. rank_order là số nguyên dương theo thứ tự từ 1. URL là chuỗi HTTP(S) thô, không dùng [text](url). Có thể kèm sources (mảng URL nguồn) cho từng bác sĩ để đối chiếu; không thêm content hồ sơ dài hoặc các trường vận hành.
+{{output_template}}
+
+BẮT BUỘC đặt toàn bộ JSON trong đúng một block code có nhãn json (```json ... ```), không có lời dẫn ngoài block. Nhắc lại: trả JSON TRONG BLOCK CODE json, không trả JSON trần. Kiểm tra lần cuối đúng ID, đúng danh sách doctors và JSON hợp lệ trước khi trả lời.
+PROMPT];
+}
+
 function medical_directory_ensure_tables(PDO $pdo): void
 {
     $pdo->exec(
@@ -603,11 +631,12 @@ function medical_directory_ensure_tables(PDO $pdo): void
         'facility_image_prompt' => medical_directory_ai_image_prompt_default(),
         'translation' => ['Dịch nội dung y tế sang tiếng Anh', "Bạn là biên tập viên y tế song ngữ Việt–Anh. Hãy chuyển dữ liệu nguồn tiếng Việt sang tiếng Anh tự nhiên, chính xác và chuyên nghiệp cho độc giả quốc tế.\n\nLoại nội dung: {{type}}\nMã bản gốc cần giữ nguyên: {{source_id}}\nCác trường được phép dịch: {{fields}}\n\nQuy tắc bắt buộc:\n- Dịch đầy đủ các khóa trong output_template, kể cả giá trị rỗng; không tự bỏ khóa.\n- Giữ nguyên source_id, loại nội dung và cấu trúc dữ liệu; không tạo id mới, không tự thêm review, dịch vụ, chứng chỉ, mức giá, số liệu hay thông tin y tế không có trong nguồn.\n- Giữ nguyên tên riêng/thương hiệu, tên bác sĩ, URL, email, số điện thoại, tọa độ, mã giấy phép, ngày tháng và con số. Có thể dùng cách viết tiếng Anh phổ biến của địa danh nhưng không đổi địa chỉ đường phố.\n- Chỉ dịch các giá trị văn bản trong những trường được phép. Giữ mảng/object đúng kiểu và đúng thứ tự; không dịch URL hoặc khóa JSON.\n- Với content HTML và price_table_html: chỉ dịch chữ hiển thị; giữ nguyên cấu trúc thẻ, thuộc tính, liên kết, URL, số tiền và đơn vị. Không thêm script/style.\n- Với slug nếu có: tạo slug tiếng Anh ngắn, chữ thường, không dấu, nối bằng dấu gạch ngang.\n- Nếu trường nguồn rỗng, giữ nguyên giá trị rỗng/null/[] theo output_template; không tự đoán.\n- BẮT BUỘC trả toàn bộ kết quả trong đúng một Markdown code block có nhãn json, bắt đầu bằng dòng ```json và kết thúc bằng dòng ```; bên ngoài block không có lời dẫn.\n- Nhắc lại: phải trả JSON bên trong block code ```json, không trả JSON trần và không thêm nội dung bên ngoài.\n- Trước khi gửi, kiểm tra lần cuối rằng câu trả lời đã nằm trọn trong block code ```json.\n\nJSON nguồn:\n{{source_json}}\n\nKhung JSON cần điền đầy đủ:\n{\"type\":\"{{type}}\",\"source_id\":{{source_id}},\"translated\":{{output_template}}}"] ,
         'toplist' => ['Danh sách cơ sở cho Toplist', "Hãy lập danh sách cơ sở y tế phù hợp cho bài Toplist '{{title}}'. Thông tin hiện có của bài: {{excerpt}} {{content}}. Tìm và chỉ chọn các cơ sở thực sự phù hợp với tiêu chí của tiêu đề; ưu tiên website chính thức hoặc nguồn đáng tin cậy để đối chiếu. Không tự bịa tên, địa chỉ, số điện thoại hoặc website. Chỉ trả về JSON hợp lệ, không markdown, theo mẫu: {\"toplist_id\":{{id}},\"facilities\":[{\"facility_id\":0,\"name\":\"Tên cơ sở\",\"category\":\"Cơ sở y tế\",\"city\":\"Tỉnh/thành\",\"address\":\"Địa chỉ\",\"phone\":\"Số điện thoại nếu có\",\"website\":\"Website chính thức nếu có\",\"rank_order\":1}]}. Ghi chú trường: toplist_id là ID bài Toplist, phải giữ nguyên để cập nhật đúng bài; facilities là danh sách cơ sở theo thứ hạng; facility_id chỉ dùng khi biết chắc ID cơ sở đã có trong hệ thống, không biết thì để 0; name là tên cơ sở; category là nhóm cơ sở; city là tỉnh/thành; address là địa chỉ; phone là số điện thoại; website là website chính thức; rank_order là thứ hạng bắt đầu từ 1. Không đưa cơ sở không đủ thông tin nhận diện."],
+        'toplist_doctor' => medical_directory_toplist_doctor_prompt_default(),
         'doctor' => ['Bác sĩ', medical_doctor_default_prompt()],
         'review' => ['Review y tế', "Hãy viết một bài review khách quan về \"{{name}}\". Nêu ưu điểm, điểm cần lưu ý, dịch vụ, chi phí tham khảo và trải nghiệm thực tế. Không khẳng định tuyệt đối và không bịa đánh giá. Chỉ trả về JSON hợp lệ theo mẫu: {\"facility_id\":{{id}},\"facility_slug\":\"...\",\"facility_name\":\"{{name}}\",\"title\":\"...\",\"rating\":0,\"service_text\":\"...\",\"price_text\":\"...\",\"address\":\"{{address}}\",\"phone\":\"{{phone}}\",\"website\":\"{{website}}\",\"excerpt\":\"...\",\"content\":\"HTML 300-500 từ\"}"],
     ];
     $check = $pdo->prepare('SELECT id FROM medical_ai_prompts WHERE prompt_key = :k LIMIT 1');
-    $insert = $pdo->prepare('INSERT INTO medical_ai_prompts (prompt_key,label,template) VALUES (:k,:l,:t)');
+    $insert = $pdo->prepare('INSERT IGNORE INTO medical_ai_prompts (prompt_key,label,template) VALUES (:k,:l,:t)');
     foreach ($defaults as $key => [$label, $template]) {
         $check->execute([':k' => $key]);
         if (!$check->fetchColumn()) {

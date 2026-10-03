@@ -352,7 +352,17 @@ function toplist_directory_default_prompt(): string
         . "Loại bài: {{entity_type}}; khóa danh sách: {{member_key}}. Dùng ID hồ sơ được cấp; chưa biết ID thì 0, không tự tạo ID. Chỉ trả JSON trong đúng một block code json.\nKhung JSON:\n{{output_template}}";
 }
 
-function toplist_directory_research_prompt(string $template, array $toplist): string
+function toplist_directory_resolve_prompt(PDO $pdo, array $toplist): array
+{
+    $type = toplist_directory_entity_type($toplist);
+    $resolved = medical_directory_resolve_ai_prompt($pdo, $type === 'doctor' ? 'toplist_doctor' : 'toplist');
+    if ($type === 'doctor' && trim($resolved['template']) === '') {
+        [$resolved['label'], $resolved['template']] = medical_directory_toplist_doctor_prompt_default();
+    }
+    return $resolved;
+}
+
+function toplist_directory_output_template(array $toplist): array
 {
     $type = toplist_directory_entity_type($toplist);
     $doctor = $type === 'doctor';
@@ -364,9 +374,19 @@ function toplist_directory_research_prompt(string $template, array $toplist): st
         ['type' => 'facility'] + $example,
         ['type' => 'doctor', 'doctor_id' => 0, 'name' => '', 'specialty_text' => '', 'city' => '', 'facility_name' => '', 'rank_order' => 2],
     ] : [$example];
-    $output = medical_directory_json_encode(['toplist_id' => (int) $toplist['id'], 'entity_type' => $type, $key => $examples]);
+    return ['toplist_id' => (int) $toplist['id'], 'entity_type' => $type, $key => $examples];
+}
+
+function toplist_directory_research_prompt(string $template, array $toplist, bool $dedicatedDoctorTemplate = false): string
+{
+    $type = toplist_directory_entity_type($toplist);
+    $doctor = $type === 'doctor';
+    $key = $type === 'mixed' ? 'members' : ($doctor ? 'doctors' : 'facilities');
+    $output = medical_directory_json_encode(toplist_directory_output_template($toplist));
     // Old facility-only templates cannot drive doctor or mixed Toplists.
-    if (trim($template) === '' || ($type !== 'facility' && !str_contains($template, '{{entity_type}}') && !str_contains($template, '{{member_key}}'))) $template = toplist_directory_default_prompt();
+    if (trim($template) === '' || (!$dedicatedDoctorTemplate && $type !== 'facility' && !str_contains($template, '{{entity_type}}') && !str_contains($template, '{{member_key}}'))) {
+        $template = $doctor ? medical_directory_toplist_doctor_prompt_default()[1] : toplist_directory_default_prompt();
+    }
     $rendered = medical_directory_ai_prompt_render_template($template, [
         'id' => (string) $toplist['id'], 'toplist_id' => (string) $toplist['id'], 'title' => $toplist['title'], 'name' => $toplist['title'],
         'excerpt' => $toplist['excerpt'] ?? '', 'content' => $toplist['content'] ?? '', 'entity_type' => $type,

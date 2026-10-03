@@ -48,12 +48,18 @@ Giữ header `X-Medical-Api-Key` hiện tại. Không cache các endpoint này.
 
 - GET `/api/medical/toplists-needing-facilities.php`: hàng đợi chưa có liên kết. Mặc định vẫn chỉ cơ sở để tiện ích cũ không nhận nhầm bài bác sĩ; `entity_type=doctor` lấy bài bác sĩ.
 - GET `/api/medical/toplists-needing-members.php`: hàng đợi cả ba loại; filter `entity_type=doctor`, `facility`, `mixed`. Bài hỗn hợp chỉ vào hàng đợi khi chưa có liên kết ở cả hai bảng, không coi bài cố ý chỉ có một loại là thiếu liên kết.
-- Mỗi item trả `entity_type`, `prompt_type: "toplist"`, `prompt`, `receive_endpoint: "/api/medical/toplist-members-update.php"`.
+- Mỗi item trả `entity_type`, `prompt_type: "toplist"`, `prompt`, `output_template`, `prompt_key_used`, `prompt_label`, `prompt_source`, `receive_endpoint: "/api/medical/toplist-members-update.php"`.
 - POST `/api/medical/toplist-members-update.php`: nhận cả ba loại, bao gồm `members` hỗn hợp.
 - POST `/api/medical/toplist-doctors-update.php`: chỉ nhận loại bác sĩ.
 - POST `/api/medical/toplist-facilities-update.php`: URL cũ vẫn hoạt động và nhận được cả hai payload.
 
 Tiện ích cần hỗ trợ `doctors` và `members` (type-qualified ID) trước khi chuyển sang hàng đợi chung. Giữ `entity_type` và dùng đúng prompt/receive_endpoint trả về; không ép kết quả về cơ sở. Prompt bác sĩ/hỗn hợp tự thay template cơ sở cũ nếu template chưa có placeholder loại bài. Các placeholder: `{{entity_type}}`, `{{entity_label}}`, `{{member_key}}`, `{{output_template}}`.
+
+### Prompt riêng danh sách bác sĩ
+
+`medical_ai_prompts.prompt_key=toplist_doctor` có nhãn **Danh sách bác sĩ cho Toplist**, chỉnh sửa độc lập trong admin Prompt AI. Mẫu mặc định chỉ insert nếu chưa có, không đè nội dung admin đã sửa. Khi bài là `entity_type=doctor`, cả API hàng đợi và `prompt.php?type=toplist&entity_type=doctor` tự chọn mẫu này. Alias `prompt.php?type=toplist_doctor&title=...` cũng hỗ trợ; khi truyền ID bài, loại bài đã lưu luôn là nguồn xác thực. Bài cơ sở/hỗn hợp vẫn dùng key `toplist`; nguồn viết hồ sơ bác sĩ đơn lẻ dùng key `doctor`, không dùng lẫn.
+
+Prompt bác sĩ yêu cầu đối chiếu danh tính/chuyên khoa/nơi công tác, không bịa ID/đánh giá/xác minh và trả JSON `doctors` trong đúng một block code json. API luôn bổ sung contract/output_template đúng ID và loại bài, kể cả khi admin sửa prompt không còn placeholder. Tiện ích 1.5.1 giữ nguyên prompt, metadata, JSON và kiểm tra ID/loại bài/thông tin bác sĩ mới trước khi gửi về endpoint members.
 
 POST liên kết vào bài đang có:
 

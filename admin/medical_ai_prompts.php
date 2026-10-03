@@ -312,6 +312,7 @@ $promptNotes = [
     'facility' => 'Prompt fallback. Khi cơ sở không khớp prompt theo ngành nào, tiện ích sẽ dùng mẫu này.',
     'facility_image_prompt' => 'Dùng để AI tạo ảnh đại diện cho cơ sở y tế. Chỉ mô tả khung cảnh, không chèn chữ, logo, số điện thoại hoặc thông tin chưa được cung cấp.',
     'toplist' => 'Lập danh sách cơ sở, bác sĩ hoặc cả hai (entity_type=mixed). Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{entity_type}}, {{entity_label}}, {{member_key}}, {{output_template}}. Mixed dùng members có type=facility/doctor cùng ID tương ứng; rank_order xếp chung cả hai loại. Prompt cơ sở cũ tự thay bằng prompt phù hợp cho bài bác sĩ/hỗn hợp; JSON bắt buộc trong block code json.',
+    'toplist_doctor' => 'Prompt riêng cho danh sách bác sĩ trong bài Toplist (không phải nghiên cứu hồ sơ bác sĩ riêng lẻ). API tự chọn mẫu này khi entity_type=doctor. Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{excerpt}}, {{content}}, {{entity_type}}, {{member_key}}, {{output_template}}. Đầu ra doctors với doctor_id/name/specialty_text/city/facility_name/rank_order, bắt buộc trong block code json; không tự tạo điểm đánh giá hay xác minh.',
     'doctor' => 'Prompt nghiên cứu hồ sơ bác sĩ: nhận diện đúng người, đào tạo/công tác, giấy phép, chuyên môn, nơi khám, lịch/giá, nguồn chứng minh và SEO. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{address}}, {{phone}}, {{website}}, {{source_json}}, {{output_template}}. API lấy bản đang lưu tại đây và bổ sung contract JSON đầy đủ; kết quả bắt buộc nằm trong block code json, AI không tự xác minh hoặc tạo đánh giá.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
     'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON; dịch đúng các trường được cho phép. API sẽ yêu cầu AI trả kết quả trong một block code ```json.',
@@ -322,7 +323,7 @@ foreach ($basePrompts as $basePrompt) {
     $basePromptByKey[(string) $basePrompt['prompt_key']] = $basePrompt;
 }
 $basePromptTabs = [];
-foreach (['facility', 'facility_image_prompt', 'toplist', 'doctor', 'review', 'translation'] as $promptKey) {
+foreach (['facility', 'facility_image_prompt', 'toplist', 'toplist_doctor', 'doctor', 'review', 'translation'] as $promptKey) {
     if (isset($basePromptByKey[$promptKey])) {
         $basePromptTabs[] = $basePromptByKey[$promptKey];
         unset($basePromptByKey[$promptKey]);
@@ -427,7 +428,7 @@ require __DIR__ . '/_layout_start.php';
         <?php foreach ($basePromptTabs as $prompt): ?>
           <?php $promptKey = (string) $prompt['prompt_key']; $isActive = $promptKey === $basePromptDefaultKey; ?>
           <button class="ai-prompt-tab <?php echo $isActive ? 'is-active' : ''; ?>" type="button" role="tab" aria-selected="<?php echo $isActive ? 'true' : 'false'; ?>" aria-controls="basePromptPanel<?php echo $escape($promptKey); ?>" data-base-prompt-tab="<?php echo $escape($promptKey); ?>">
-            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'facility_image_prompt'): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'toplist'): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'translation'): ?><i class="fa-solid fa-language me-1" aria-hidden="true"></i><?php endif; ?>
+            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'facility_image_prompt'): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif (in_array($promptKey, ['toplist', 'toplist_doctor'], true)): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'translation'): ?><i class="fa-solid fa-language me-1" aria-hidden="true"></i><?php endif; ?>
             <?php echo $escape($prompt['label']); ?>
           </button>
         <?php endforeach; ?>

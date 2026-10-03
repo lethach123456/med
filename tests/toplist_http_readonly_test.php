@@ -27,11 +27,17 @@ $assert($status === 200 && ($genericQueue['entity_type'] ?? '') === 'all', 'gene
 [$status, $queue] = $request('toplists-needing-facilities.php?entity_type=doctor&limit=1');
 $assert($status === 200 && is_array($queue['items'] ?? null), 'typed doctor queue');
 $assert(($queue['entity_type'] ?? '') === 'doctor', 'queue reports entity filter');
-foreach ($queue['items'] as $item) $assert(($item['entity_type'] ?? '') === 'doctor' && str_contains($item['prompt'] ?? '', '"doctors"'), 'doctor queue item prompt');
+foreach ($queue['items'] as $item) {
+    $assert(($item['entity_type'] ?? '') === 'doctor' && str_contains($item['prompt'] ?? '', '"doctors"'), 'doctor queue item prompt');
+    $assert(($item['prompt_key_used'] ?? '') === 'toplist_doctor' && isset($item['output_template']['doctors']) && str_contains($item['prompt'] ?? '', 'DANH SÁCH BÁC SĨ'), 'queue integrates dedicated doctor-list prompt');
+}
 [$status] = $request('toplists-needing-facilities.php?entity_type=bad');
 $assert($status === 422, 'queue rejects unknown type');
 [$status, $prompt] = $request('prompt.php?type=toplist&entity_type=doctor&title=Doctor%20Test');
 $assert($status === 200 && ($prompt['entity_type'] ?? '') === 'doctor' && str_contains($prompt['prompt'] ?? '', '"doctors"') && str_contains($prompt['prompt'] ?? '', '```json'), 'doctor manual prompt contract');
+$assert(($prompt['prompt_key_used'] ?? '') === 'toplist_doctor' && isset($prompt['output_template']['doctors']), 'dedicated doctor-list template selected');
+[$status, $doctorAlias] = $request('prompt.php?type=toplist_doctor&title=Doctor%20Test');
+$assert($status === 200 && ($doctorAlias['prompt_key_used'] ?? '') === 'toplist_doctor' && ($doctorAlias['entity_type'] ?? '') === 'doctor', 'doctor-list prompt alias');
 [$status, $prompt] = $request('prompt.php?type=toplist&entity_type=facility&title=Facility%20Test');
 $assert($status === 200 && str_contains($prompt['prompt'] ?? '', '"facilities"'), 'facility prompt retained');
 [$status, $queue] = $request('toplists-needing-members.php?entity_type=mixed&limit=1');
