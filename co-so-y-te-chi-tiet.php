@@ -577,6 +577,69 @@ function facility_detail_compact_price_html(string $html): string
             }
             $labels = array_slice($fallbackLabels, 0, max(1, $columnCount));
           }
+
+          // Price tables often use a tall first-column rowspan for treatment
+          // groups. On narrow screens that merged cell becomes a large empty
+          // gutter. Turn it into a full-width group heading and let each item
+          // row use only the service, price, and note columns.
+          $firstHeaderLabel = trim((string) ($labels[0] ?? ''));
+          $isGroupHeader = $firstHeaderLabel !== ''
+            && preg_match('/(?:nh[oó]m|group|category|danh\s+mục)/iu', $firstHeaderLabel) === 1;
+          $hasGroupRowspan = false;
+          if ($isGroupHeader && $columnCount > 1) {
+            foreach ($bodyRows as $row) {
+              foreach ($row->childNodes as $cell) {
+                if (!$cell instanceof DOMElement || !in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                  continue;
+                }
+                $hasGroupRowspan = strtolower($cell->tagName) === 'td' && (int) $cell->getAttribute('rowspan') > 1;
+                break 2;
+              }
+            }
+          }
+
+          if ($hasGroupRowspan) {
+            $groupColumnSpan = 1;
+            foreach ($bodyRows as $row) {
+              $groupCell = null;
+              foreach ($row->childNodes as $cell) {
+                if ($cell instanceof DOMElement && in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                  $groupCell = $cell;
+                  break;
+                }
+              }
+              if (!$groupCell instanceof DOMElement || strtolower($groupCell->tagName) !== 'td' || (int) $groupCell->getAttribute('rowspan') < 2) {
+                continue;
+              }
+
+              $groupColumnSpan = max(1, (int) $groupCell->getAttribute('colspan'));
+              $groupRow = $document->createElement('tr');
+              $groupRow->setAttribute('class', 'price-category-row');
+              $groupHeading = $document->createElement('th');
+              $groupHeading->setAttribute('colspan', (string) max(1, $columnCount - $groupColumnSpan));
+              foreach ($groupCell->childNodes as $groupChild) {
+                $groupHeading->appendChild($groupChild->cloneNode(true));
+              }
+              $groupRow->appendChild($groupHeading);
+              if ($groupCell->parentNode instanceof DOMNode && $row->parentNode instanceof DOMNode) {
+                $row->parentNode->insertBefore($groupRow, $row);
+                $row->removeChild($groupCell);
+              }
+            }
+
+            if ($headerRow instanceof DOMElement) {
+              foreach ($headerRow->childNodes as $headerCell) {
+                if ($headerCell instanceof DOMElement && in_array(strtolower($headerCell->tagName), ['th', 'td'], true)) {
+                  $headerRow->removeChild($headerCell);
+                  break;
+                }
+              }
+            }
+            array_splice($labels, 0, min($groupColumnSpan, count($labels)));
+            $columnCount = max(1, $columnCount - $groupColumnSpan);
+            $table->setAttribute('data-mobile-grouped', '1');
+          }
+
           $table->setAttribute('data-mobile-columns', (string) max(1, $columnCount ?: count($labels)));
 
           foreach ($bodyRows as $row) {
