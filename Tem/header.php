@@ -30,6 +30,8 @@ $headerMatchStylesheetPath = __DIR__ . '/../assets/css/pages/brand-header-match.
 $headerMatchStylesheetVersion = is_file($headerMatchStylesheetPath) ? (string) filemtime($headerMatchStylesheetPath) : '1';
 $publicPagesStylesheetPath = __DIR__ . '/../assets/css/core/public-pages-refresh.css';
 $publicPagesStylesheetVersion = is_file($publicPagesStylesheetPath) ? (string) filemtime($publicPagesStylesheetPath) : '1';
+$publicComponentsStylesheetPath = __DIR__ . '/../assets/css/core/public-components.css';
+$publicComponentsStylesheetVersion = is_file($publicComponentsStylesheetPath) ? (string) filemtime($publicComponentsStylesheetPath) : '1';
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
@@ -71,6 +73,7 @@ $navItems = $isEnglish
       ['label' => 'Về chúng tôi', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ];
 ?>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700;750;800&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="/assets/css/core/ui-2026.css?v=<?php echo htmlspecialchars($uiStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
@@ -1338,6 +1341,7 @@ $navItems = $isEnglish
 <link rel="stylesheet" href="/assets/css/pages/brand-home-refresh.css?v=<?php echo htmlspecialchars($brandRefreshStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
 <link rel="stylesheet" href="/assets/css/pages/brand-header-match.css?v=<?php echo htmlspecialchars($headerMatchStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
 <link rel="stylesheet" href="/assets/css/core/public-pages-refresh.css?v=<?php echo htmlspecialchars($publicPagesStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
+<link rel="stylesheet" href="/assets/css/core/public-components.css?v=<?php echo htmlspecialchars($publicComponentsStylesheetVersion, ENT_QUOTES, 'UTF-8'); ?>">
 <div class="medical-header-utility">
   <div class="container">
     <span><i class="ph ph-shield-check" aria-hidden="true"></i><?php echo htmlspecialchars($isEnglish ? 'Transparent information. Better choices.' : 'Thông tin minh bạch. Lựa chọn tốt hơn.', ENT_QUOTES, 'UTF-8'); ?></span>

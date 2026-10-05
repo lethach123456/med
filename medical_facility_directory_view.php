@@ -48,7 +48,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
         </div><?php endif; ?>
         <div class="fd-card-footer">
           <div class="fd-rating"><?php if ($rating > 0): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>)</span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
-          <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+          <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
         </div>
         <?php if (!empty($item['price'])): ?><p class="fd-price"><?= $en ? 'Reference price: ' : 'Giá tham khảo: ' ?><?= $e($item['price']) ?></p><?php endif; ?>
       </div>

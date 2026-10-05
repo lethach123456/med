@@ -28,7 +28,7 @@ $labels = $english ? [
     'gallery'=>'Photos & professional media','videos'=>'Videos from published sources','video'=>'View video','social'=>'Professional channels',
     'sourceNote'=>'References are provided for checking individual profile facts; they are not a substitute for a professional consultation.',
     'accessed'=>'Accessed','feedback'=>'Suggest a correction','close'=>'Close image viewer','previous'=>'Previous image','next'=>'Next image','photos'=>'photos',
-    'nav'=>'Doctor profile sections','present'=>'Current role','onPage'=>'ON THIS PROFILE',
+    'nav'=>'Doctor profile sections','present'=>'Current role','onPage'=>'ON THIS PROFILE','overview'=>'Profile at a glance',
 ] : [
     'home'=>'Trang chủ','doctors'=>'Bác sĩ','profile'=>'HỒ SƠ BÁC SĨ','reference'=>'Thông tin từ nguồn công khai','verified'=>'Hồ sơ đã duyệt',
     'intro'=>'Giới thiệu','expertise'=>'Chuyên môn','education'=>'Đào tạo & bằng cấp','experience'=>'Quá trình công tác',
@@ -56,7 +56,7 @@ $labels = $english ? [
     'gallery'=>'Hình ảnh & tư liệu','videos'=>'Video từ nguồn công khai','video'=>'Xem video','social'=>'Kênh thông tin nghề nghiệp',
     'sourceNote'=>'Các nguồn giúp bạn đối chiếu từng thông tin trong hồ sơ, không thay thế việc tư vấn trực tiếp với người hành nghề.',
     'accessed'=>'Truy cập','feedback'=>'Góp ý thông tin','close'=>'Đóng trình xem ảnh','previous'=>'Ảnh trước','next'=>'Ảnh tiếp theo','photos'=>'ảnh',
-    'nav'=>'Các phần hồ sơ bác sĩ','present'=>'Đang công tác','onPage'=>'TRONG HỒ SƠ NÀY',
+    'nav'=>'Các phần hồ sơ bác sĩ','present'=>'Đang công tác','onPage'=>'TRONG HỒ SƠ NÀY','overview'=>'Thông tin nổi bật',
 ];
 $label = static fn(string $key): string => $labels[$key] ?? $key;
 $icon = static fn(string $name): string => '<i class="ph ph-' . $name . '" aria-hidden="true"></i>';
@@ -85,18 +85,16 @@ if ($profile['experience_json'] !== []) $sections['cong-tac'] = 'experience';
 if ($profile['locations'] !== []) $sections['noi-kham'] = 'locations';
 if ($hasFees) $sections['lich-chi-phi'] = 'fees';
 if ($hasResearch) $sections['nghien-cuu'] = 'research';
+if ($profile['gallery'] !== [] || $profile['video_urls'] !== [] || $profile['social_links'] !== []) $sections['tu-lieu'] = 'gallery';
 if ($profile['sources'] !== []) $sections['nguon-tham-khao'] = 'sources';
 $contactPath = site_localized_path('/lien-he', $doctorLanguage);
+$primary=$profile['locations'][0] ?? [];
 ?>
 <main class="doctor-profile site-typo">
   <div class="container dp-shell">
     <nav class="dp-breadcrumb" aria-label="Breadcrumb"><a href="<?= $escape(site_localized_path('/', $doctorLanguage)) ?>"><?= $escape($label('home')) ?></a><span>›</span><a href="<?= $escape(site_localized_path('/bac-si.php', $doctorLanguage)) ?>"><?= $escape($label('doctors')) ?></a><span>›</span><span aria-current="page"><?= $escape($profile['name']) ?></span></nav>
 
     <section class="dp-hero" aria-labelledby="doctor-name">
-      <div class="dp-portrait<?= $profile['image_url'] === '' ? ' is-placeholder' : '' ?>">
-        <span class="dp-avatar" aria-hidden="true"><?= $escape($profile['initials']) ?></span>
-        <?php if ($profile['image_url'] !== ''): ?><img src="<?= $escape($profile['image_url']) ?>" alt="<?= $escape($profile['name']) ?>" width="320" height="380" fetchpriority="high" decoding="async" data-dp-photo><?php endif; ?>
-      </div>
       <div class="dp-identity">
         <div class="dp-eyebrow"><?= $icon('stethoscope') ?><?= $escape($label('profile')) ?><?php if ($profile['city'] !== ''): ?><span class="dp-city"><?= $escape($profile['city']) ?></span><?php endif; ?></div>
         <h1 id="doctor-name"><?= $escape($profile['name']) ?></h1>
@@ -112,11 +110,28 @@ $contactPath = site_localized_path('/lien-he', $doctorLanguage);
           <?php if ($profile['phone_href'] !== ''): ?><a class="dp-button" href="<?= $escape($profile['phone_href']) ?>"><?= $icon('phone') ?><?= $escape($label('call')) ?></a><?php endif; ?>
         </div>
       </div>
-      <?php if ($profile['degree_text'] !== '' || !empty($profile['experience_start_year']) || $profile['languages_supported_json'] !== []): ?>
-      <dl class="dp-facts">
+      <div class="dp-hero-visual">
+        <svg class="dp-medical-art" viewBox="0 0 420 360" fill="none" aria-hidden="true" focusable="false">
+          <path d="M56 62C112 7 226 4 302 52c64 40 105 125 78 206-24 70-104 86-181 80C113 331 18 281 21 194c2-45 7-104 35-132Z" fill="#DCE8FF"/>
+          <circle cx="326" cy="260" r="72" fill="#CDEDE3"/>
+          <circle cx="73" cy="81" r="35" fill="#FFF3D7"/>
+          <path d="M351 70h24m-12-12v24M44 254h24m-12-12v24" stroke="#97B1E7" stroke-width="4" stroke-linecap="round"/>
+          <path d="m79 308 44-19M287 31l12 18" stroke="#B7CEF8" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="382" cy="156" r="6" fill="#84C6B4"/>
+          <circle cx="38" cy="158" r="5" fill="#95B4F5"/>
+        </svg>
+        <div class="dp-portrait<?= $profile['image_url'] === '' ? ' is-placeholder' : '' ?>">
+          <span class="dp-avatar" aria-hidden="true"><?= $escape($profile['initials']) ?></span>
+          <?php if ($profile['image_url'] !== ''): ?><img src="<?= $escape($profile['image_url']) ?>" alt="<?= $escape($profile['name']) ?>" width="320" height="380" fetchpriority="high" decoding="async" data-dp-photo><?php endif; ?>
+        </div>
+        <span class="dp-visual-symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M12 9v10a10 10 0 0 0 20 0V9M9 9h6m14 0h6M22 29v5a8 8 0 0 0 16 0v-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="38" cy="24" r="5" stroke="currentColor" stroke-width="2.5"/></svg></span>
+      </div>
+      <?php if ($profile['degree_text'] !== '' || !empty($profile['experience_start_year']) || $profile['languages_supported_json'] !== [] || $primary !== []): ?>
+      <dl class="dp-facts" aria-label="<?= $escape($label('overview')) ?>">
         <?php if ($profile['degree_text'] !== ''): ?><div><dt><?= $icon('graduation-cap') ?><?= $escape($label('degree')) ?></dt><dd><?= $escape($profile['degree_text']) ?></dd></div><?php endif; ?>
         <?php if (!empty($profile['experience_start_year'])): ?><div><dt><?= $icon('briefcase') ?><?= $escape($label('since')) ?></dt><dd><?= $escape($profile['experience_start_year']) ?></dd></div><?php endif; ?>
         <?php if ($profile['languages_supported_json'] !== []): ?><div><dt><?= $icon('translate') ?><?= $escape($label('languages')) ?></dt><dd><?= $escape($join(array_column($profile['languages_supported_json'], 'name'))) ?></dd></div><?php endif; ?>
+        <?php if ($primary !== []): ?><div class="dp-fact-place"><dt><?= $icon('buildings') ?><?= $escape($label(!empty($primary['is_primary']) ? 'primary' : 'locations')) ?></dt><dd><a href="#noi-kham"><?= $escape($primary['facility_name']) ?><?= $icon('arrow-up-right') ?></a></dd></div><?php endif; ?>
       </dl>
       <?php endif; ?>
     </section>
@@ -228,7 +243,7 @@ $contactPath = site_localized_path('/lien-he', $doctorLanguage);
       <aside class="dp-sidebar" aria-label="<?= $escape($label('plan')) ?>">
         <section class="dp-contact-card">
           <span class="dp-contact-icon"><?= $icon('calendar-check') ?></span><h2><?= $escape($label('plan')) ?></h2><p><?= $escape($label('planNote')) ?></p>
-          <?php $primary=$profile['locations'][0] ?? []; if ($primary !== []): ?><div class="dp-sidebar-place"><?= $icon('buildings') ?><div><strong><?= $escape($primary['facility_name']) ?></strong><?php if (!empty($primary['address_text'])): ?><span><?= $escape($primary['address_text']) ?></span><?php endif; ?></div></div><?php endif; ?>
+          <?php if ($primary !== []): ?><div class="dp-sidebar-place"><?= $icon('buildings') ?><div><strong><?= $escape($primary['facility_name']) ?></strong><?php if (!empty($primary['address_text'])): ?><span><?= $escape($primary['address_text']) ?></span><?php endif; ?></div></div><?php endif; ?>
           <?php if ($profile['phone_href'] !== ''): ?><a class="dp-contact-number" href="<?= $escape($profile['phone_href']) ?>"><?= $icon('phone') ?><span><small><?= $escape($label('phone')) ?></small><strong><?= $escape($profile['phone_text']) ?></strong></span></a><?php endif; ?>
           <?php if ($profile['booking_url'] !== ''): ?><a class="dp-button dp-primary" href="<?= $escape($profile['booking_url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape($label('book')) ?><?= $icon('arrow-up-right') ?></a><?php elseif ($profile['locations'] !== []): ?><a class="dp-button dp-primary" href="#noi-kham"><?= $escape($label('places')) ?><?= $icon('arrow-right') ?></a><?php endif; ?>
           <?php if ($profile['email_text'] !== ''): ?><a class="dp-text-link" href="mailto:<?= $escape($profile['email_text']) ?>"><?= $icon('envelope') ?><?= $escape($profile['email_text']) ?></a><?php endif; ?>

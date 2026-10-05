@@ -1,0 +1,233 @@
+/* Public UI roles shared by the homepage and directories.
+   Keep layout in page styles; these selectors only unify type and controls.
+   Explicit roots also prevent legacy .facility-* rules from shrinking home cards. */
+:root{
+  --med-ui-font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --med-ui-ink:#172e4d;
+  --med-ui-muted:#64758b;
+  --med-ui-blue:#2563ff;
+  --med-ui-blue-hover:#1652e8;
+  --med-ui-line:#dfe8f4;
+  --med-ui-soft:#edf3ff;
+  --med-ui-card-title:18px;
+  --med-ui-body:14px;
+  --med-ui-meta:13px;
+  --med-ui-label:12px;
+  --med-ui-action:14px;
+  --med-ui-field:16px;
+  --med-ui-hero-copy:16px;
+  --med-ui-rating:16px;
+  --med-ui-control-height:46px;
+  --med-ui-control-radius:11px;
+  --med-ui-send-size:46px;
+  --med-ui-send-radius:13px;
+  --med-ui-ease:cubic-bezier(.22,1,.36,1);
+  --med-ui-button-shadow:0 5px 13px #2563ff1b;
+}
+
+body.site-home main.med-home.hc-home,
+body.fd-page .fd-directory{
+  font-family:var(--med-ui-font);
+  font-size:16px;
+  font-synthesis:none;
+  letter-spacing:-.012em;
+  color:var(--med-ui-ink);
+}
+body.site-home main.med-home.hc-home{
+  --ink:var(--med-ui-ink);
+  --muted:var(--med-ui-muted);
+  --blue:var(--med-ui-blue);
+  --line:var(--med-ui-line);
+}
+body.fd-page .fd-directory{
+  --fd-ink:var(--med-ui-ink);
+  --fd-muted:var(--med-ui-muted);
+  --fd-blue:var(--med-ui-blue);
+  --fd-line:var(--med-ui-line);
+  --fd-soft:var(--med-ui-soft);
+}
+
+/* Matching content roles, rather than giving every paragraph the same size. */
+body.site-home main.med-home.hc-home .facility-title h3,
+body.fd-page .fd-directory .fd-card h2,
+body .doctor-directory .doctor-name-row h2,
+body .facility-page .facility-title h2{
+  font-family:var(--med-ui-font);
+  font-size:var(--med-ui-card-title);
+  font-weight:700;
+  color:var(--med-ui-ink);
+  line-height:1.4;
+  letter-spacing:-.03em;
+}
+body.site-home main.med-home.hc-home .facility-description,
+body.fd-page .fd-directory .fd-summary{
+  font-size:var(--med-ui-body);
+  line-height:1.65;
+  color:var(--med-ui-muted);
+}
+body.site-home main.med-home.hc-home .facility-location,
+body.fd-page .fd-directory .fd-address,
+body .doctor-directory .doctor-details span{
+  font-size:var(--med-ui-meta);
+  line-height:1.6;
+  color:var(--med-ui-muted);
+}
+body.site-home main.med-home.hc-home .facility-label,
+body.fd-page .fd-directory .fd-card-category,
+body.fd-page .fd-directory .fd-service{
+  font-size:var(--med-ui-label);
+  line-height:1.5;
+}
+body.site-home main.med-home.hc-home .rating strong,
+body.fd-page .fd-directory .fd-rating strong{
+  font-size:var(--med-ui-rating);
+  font-weight:700;
+  color:var(--med-ui-ink);
+}
+body.site-home main.med-home.hc-home .rating small,
+body.fd-page .fd-directory .fd-review-count,
+body.fd-page .fd-directory .fd-unrated{
+  font-size:var(--med-ui-meta);
+  color:var(--med-ui-muted);
+}
+body.fd-page .fd-directory .fd-hero-copy>p{
+  font-size:var(--med-ui-hero-copy);
+  line-height:1.8;
+}
+body.fd-page .fd-directory .fd-kicker{font-size:11px}
+body.fd-page .fd-directory .fd-card-footer{gap:8px}
+
+/* One button shape and type weight; outlined/white variants keep their intent. */
+body.site-home main.med-home.hc-home .button,
+body.fd-page .fd-directory .fd-apply,
+body.fd-page .fd-directory .fd-filter-toggle,
+body .doctor-directory .doctor-action,
+body .doctor-directory .doctor-filter-toggle,
+body .review-page .detail-btn,
+body .review-page .write-btn,
+body .facility-page .detail-btn,
+body .mr-about .mr-about__button,
+body .mr-contact .mr-contact__button,
+body main.doctor-profile.site-typo .dp-button{
+  font-family:var(--med-ui-font);
+  font-size:var(--med-ui-action);
+  font-weight:650;
+  line-height:1.5;
+  letter-spacing:-.012em;
+  min-height:var(--med-ui-control-height);
+  padding:10px 18px;
+  border-radius:var(--med-ui-control-radius);
+  transition:transform .22s var(--med-ui-ease),background .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+body.site-home main.med-home.hc-home .button-primary,
+body.fd-page .fd-directory .fd-apply,
+body .mr-about .mr-about__button:not(.mr-about__button--white),
+body .mr-contact .mr-contact__button,
+body main.doctor-profile.site-typo .dp-primary{
+  background:var(--med-ui-blue);
+  box-shadow:var(--med-ui-button-shadow);
+}
+body.site-home main.med-home.hc-home .button-primary:hover,
+body.fd-page .fd-directory .fd-apply:hover,
+body .mr-about .mr-about__button:not(.mr-about__button--white):hover,
+body .mr-contact .mr-contact__button:hover,
+body main.doctor-profile.site-typo .dp-primary:hover{background:var(--med-ui-blue-hover)}
+body .doctor-directory .doctor-action{height:auto;padding:8px;white-space:normal;text-align:center;color:var(--med-ui-blue)}
+body .doctor-directory .doctor-action i{flex-shrink:0}
+body .doctor-directory .doctor-action:hover{color:#fff;background:var(--med-ui-blue)}
+body .review-page .detail-btn,
+body .facility-page .detail-btn{background:var(--med-ui-blue);box-shadow:var(--med-ui-button-shadow)}
+
+body.site-home main.med-home.hc-home .text-link,
+body.site-home main.med-home.hc-home .facility-bottom>a,
+body.fd-page .fd-directory .fd-profile-link,
+body.fd-page .fd-directory .fd-guide a,
+body.fd-page .fd-directory .fd-explore-more,
+body .mr-about .mr-about__text-link,
+body .mr-contact .mr-contact__text-link{
+  font-family:var(--med-ui-font);
+  font-size:var(--med-ui-action);
+  font-weight:650;
+  line-height:1.5;
+  min-height:var(--med-ui-control-height);
+  color:var(--med-ui-blue);
+}
+body.site-home main.med-home.hc-home .facility-bottom>a .icon{width:18px;height:18px}
+
+body.site-home main.med-home.hc-home .city-filters button,
+body.fd-page .fd-directory .fd-quick-links>a{
+  min-height:var(--med-ui-control-height);
+  border-radius:999px;
+  border-color:var(--med-ui-line);
+  font-size:var(--med-ui-meta);
+  font-weight:550;
+  padding:9px 14px;
+}
+body.site-home main.med-home.hc-home .city-filters button[aria-pressed=true],
+body.fd-page .fd-directory .fd-quick-links>a[aria-current]{color:var(--med-ui-blue);background:var(--med-ui-soft);border-color:#c5d7ff}
+
+/* Search buttons use the same size, icon treatment and blue on every page. */
+body.site-home main.med-home.hc-home .search-field input,
+body.fd-page .fd-directory .fd-search input,
+body .doctor-directory .doctor-search-field input,
+body .doctor-directory .doctor-select-wrap select,
+body.fd-page .fd-directory .fd-select-wrap select,
+body.fd-page .fd-directory .fd-sort select,
+body .review-page .filter-input input,
+body .mr-contact .mr-contact__field :where(input,textarea){
+  font-family:var(--med-ui-font);
+  font-size:var(--med-ui-field);
+  font-weight:400;
+  letter-spacing:-.012em;
+}
+body.site-home main.med-home.hc-home .search-field input::placeholder,
+body.fd-page .fd-directory .fd-search input::placeholder{font-size:14px;color:#8393a9}
+body.site-home main.med-home.hc-home .send-button,
+body.fd-page .fd-directory .fd-search button,
+body .doctor-directory .doctor-search-submit{
+  width:var(--med-ui-send-size);
+  height:var(--med-ui-send-size);
+  flex:0 0 var(--med-ui-send-size);
+  border:0;
+  border-radius:var(--med-ui-send-radius);
+  background:var(--med-ui-blue);
+  color:#fff;
+  box-shadow:0 5px 13px #2563ff2a;
+  transition:background .2s ease,transform .22s var(--med-ui-ease);
+}
+body.fd-page .fd-directory .fd-search{height:62px;padding:7px 7px 7px 16px;border-color:var(--med-ui-line);border-radius:19px}
+body.fd-page .fd-directory .fd-search-label{font-size:20px}
+body.fd-page .fd-directory .fd-search button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+body.fd-page .fd-directory .fd-profile-link:hover i{transform:translateX(2px)}
+body.site-home main.med-home.hc-home .send-button:hover,
+body.fd-page .fd-directory .fd-search button:hover,
+body .doctor-directory .doctor-search-submit:hover{background:var(--med-ui-blue-hover)}
+body.fd-page .fd-directory .fd-select-wrap select,
+body .doctor-directory .doctor-select-wrap select{min-height:46px;border-radius:var(--med-ui-control-radius)}
+body .doctor-directory .doctor-filter-field label,
+body.fd-page .fd-directory .fd-filter-field label{font-size:var(--med-ui-meta);font-weight:600}
+body.fd-page .fd-directory .fd-pagination a,
+body .doctor-directory .doctor-pagination button{min-width:44px;min-height:44px;font-size:var(--med-ui-action);border-radius:var(--med-ui-control-radius)}
+body.fd-page .fd-directory .fd-pagination,
+body .doctor-directory .doctor-pagination{flex-wrap:wrap}
+
+@media(max-width:760px){
+  :root{--med-ui-card-title:17px;--med-ui-hero-copy:14px;--med-ui-rating:15px;--med-ui-control-height:46px}
+  /* Keep the full input text at 16px, but shorten placeholders at narrow widths. */
+  body.site-home main.med-home.hc-home .search-field input::placeholder,
+  body.fd-page .fd-directory .fd-search input::placeholder{font-size:13px}
+  body.fd-page .fd-directory .fd-sort label{font-size:var(--med-ui-meta)}
+  body.fd-page .fd-directory .fd-active-filters button{min-height:44px}
+  body.fd-page .fd-directory .fd-service-more{min-height:44px}
+  body .doctor-directory .doctor-filter-toggle{padding-inline:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  body.site-home main.med-home.hc-home .button,
+  body.fd-page .fd-directory :is(.fd-apply,.fd-filter-toggle,.fd-search button),
+  body .doctor-directory :is(.doctor-action,.doctor-filter-toggle,.doctor-search-submit),
+  body .review-page :is(.detail-btn,.write-btn),
+  body .facility-page .detail-btn,
+  body .mr-about .mr-about__button,
+  body .mr-contact .mr-contact__button,
+  body main.doctor-profile.site-typo .dp-button{transition:none}
+}

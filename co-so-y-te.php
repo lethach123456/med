@@ -226,7 +226,6 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
   <link rel="alternate" hreflang="x-default" href="<?= facility_directory_escape(site_absolute_url(medical_public_facility_path())) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <link rel="stylesheet" href="/assets/css/pages/facility-directory.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/pages/facility-directory.css') ?>">
 </head>

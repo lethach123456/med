@@ -260,7 +260,7 @@ body > .section .card{border-radius:20px!important;border-color:var(--ui-line)!i
   .facility-page .facility-media{height:160px!important}
   .facility-page .facility-title h3{font-size:16px!important}
   .facility-page .score-col,.facility-page .service-col,.facility-page .price-col,.facility-page .cta-col{padding-top:3px!important}
-  .facility-page .detail-btn,.review-page .detail-btn{width:100%;height:38px!important;font-size:12px!important}
+  .facility-page .detail-btn,.review-page .detail-btn{width:100%;height:38px!important}
   .review-page .review-shot{height:150px!important}
   .review-page .review-title h3{font-size:17px!important;line-height:1.25!important}
   .review-page .review-footer{padding-top:3px}
