@@ -3266,6 +3266,8 @@ function medical_directory_doctor_from_row(array $row): array
         'display_order' => (int) ($row['display_order'] ?? 0),
     ];
     foreach (medical_doctor_text_fields() as $field => $_limit) $result[$field] = (string) ($row[$field] ?? '');
+    // Preserve rich image captions/source references alongside the legacy URL-only gallery.
+    $result['gallery_items'] = medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), (array) ($row['gallery'] ?? []));
     foreach (medical_doctor_json_fields() as $field) {
         $result[$field] = medical_directory_json_decode((string) ($row[$field] ?? ''), []);
     }
