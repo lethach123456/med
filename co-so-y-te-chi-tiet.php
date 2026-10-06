@@ -2256,7 +2256,6 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         .facility-detail *,body.facility-page-exiting .facility-detail{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
       }
     </style>
-    <link rel="stylesheet" href="/assets/css/pages/facility-detail-refresh.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-refresh.css'); ?>">
   </head>
   <body>
     <?php include __DIR__ . '/Tem/header.php'; ?>
