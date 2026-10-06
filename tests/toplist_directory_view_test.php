@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require dirname(__DIR__) . '/medical_toplist_directory_view.php';
+function medical_public_entity_path(string $type, string $slug, string $locale): string { return ($locale === 'en' ? '/en' : '') . '/toplist/' . rawurlencode($slug); }
+$checks = 0;
+$assert = static function (bool $ok, string $label) use (&$checks): void { $checks++; if (!$ok) throw new RuntimeException($label); };
+$facility = ['id'=>1,'title'=>'Nha khoa <A> tại Hà Nội','slug'=>'nha-khoa','entity_type'=>'facility','excerpt'=>'Implant & niềng răng','member_count'=>8,'updated_at'=>'2026-10-05 12:00:00','featured_image_url'=>'','collage_images'=>[]];
+$doctor = array_replace($facility,['id'=>2,'title'=>'Bác sĩ Mắt & trẻ em','slug'=>'bac-si-mat','entity_type'=>'doctor','member_count'=>5,'updated_at'=>'2026-10-06 12:00:00','collage_images'=>['/uploads/a.webp','/uploads/b.webp']]);
+$mixed = array_replace($facility,['id'=>3,'title'=>'Chăm sóc mắt','entity_type'=>'mixed','member_count'=>12,'updated_at'=>'2026-10-04']);
+$rows = [$facility,$doctor,$mixed];
+$assert(toplist_view_fold('BÁC SĨ   MẮT, Hà Nội') === 'bac si mat, ha noi','Vietnamese accent-insensitive search');
+$assert(toplist_view_filters(['type'=>'bad','sort'=>'bad','q'=>['bad']]) === ['q'=>'','type'=>'','sort'=>'updated'],'Malformed filters are normalized');
+$assert(mb_strlen(toplist_view_filters(['q'=>str_repeat('á',200)])['q']) === 120,'Search length capped');
+$assert(toplist_view_matches($doctor,toplist_view_filters(['q'=>'bac si mat','type'=>'doctor'])),'Doctor list search');
+$assert(!toplist_view_matches($facility,toplist_view_filters(['type'=>'doctor'])),'Profile type is not inferred from a title');
+$assert(toplist_view_matches($facility,toplist_view_filters(['q'=>'implant'])),'Excerpt search');
+foreach (['updated'=>2,'members'=>3,'title'=>2] as $sort=>$id) $assert(toplist_view_sort($rows,$sort)[0]['id'] === $id,'Stable sort '.$sort);
+$assert(toplist_view_page_url('/en/toplist',['q'=>'mắt & trẻ em','type'=>'doctor','sort'=>'updated']) === '/en/toplist?q=m%E1%BA%AFt+%26+tr%E1%BA%BB+em&type=doctor','GET filters retain locale and escaped query');
+$html=toplist_view_card($facility,'vi');
+$assert(str_contains($html,'Nha khoa &lt;A&gt;') && str_contains($html,'Implant &amp; niềng răng'),'Database text is escaped');
+$assert(str_contains($html,'tl-media-fallback') && !str_contains($html,'src=""'),'No empty image request');
+$assert(str_contains($html,'href="/toplist/nha-khoa"'),'Readable Vietnamese detail link');
+$assert(str_contains($html,'data-type="facility"') && str_contains($html,'data-members="8"'),'Data roles retained');
+$assert(!str_contains($html,'/5') && !str_contains($html,'Đã xác thực'),'Do not invent ratings or certification');
+$assert(str_contains($html,'datetime="2026-10-05"'),'Valid date markup');
+$assert(!str_contains(toplist_view_card(array_replace($facility,['updated_at'=>'invalid']),'vi'),'<time'),'Unknown date not rendered as epoch');
+$assert(str_contains(toplist_view_card($doctor,'en'),'href="/en/toplist/bac-si-mat"') && str_contains(toplist_view_card($doctor,'en'),'Explore list'),'English detail links and CTA');
+$assert(str_contains(toplist_view_card($doctor,'vi'),'data-count="2"') && substr_count(toplist_view_card($doctor,'vi'),'loading="lazy" decoding="async"') === 2,'Collage SSR and reserved lazy images');
+$assert(!str_contains(toplist_view_card(array_replace($doctor,['collage_images'=>['javascript:alert(1)','//unsafe.example/x.jpg']]),'vi'),'<img'),'Unsafe media URL excluded');
+$assert(substr_count(toplist_view_card(array_replace($doctor,['collage_images'=>['/a','/a','/b','/c','/d','/e']]),'vi'),'<img') === 4,'Collage deduplication and image cap');
+$assert(str_contains(toplist_view_card($mixed,'vi',false),' hidden>') && str_contains(toplist_view_card($mixed,'vi'),'Cơ sở &amp; bác sĩ'),'Mixed list and SSR filtering');
+$template=(string)file_get_contents(dirname(__DIR__).'/Tem/toplist-directory.php');
+foreach (['toplistSearchForm','toplistSearch','toplistSort','toplistType','toplistEmpty','toplistStatus','toplistList'] as $id) $assert(str_contains($template,'id="'.$id.'"'),'Interactive hook '.$id);
+$assert(str_contains($template,'method="get"') && str_contains($template,'form="toplistSearchForm"'),'Search and sorting work without JavaScript');
+$js=(string)file_get_contents(dirname(__DIR__).'/assets/js/toplist-directory.js');
+$assert(str_contains($js,'event.metaKey') && str_contains($js,"addEventListener('popstate'"),'Modified navigation and browser back preserved');
+$assert(str_contains($js,"addEventListener('error'") && str_contains($js,'collage.remove()'),'Broken image fallback');
+$css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/toplist-directory.css');
+foreach (['--med-ui-control-height','--med-ui-control-padding','--med-ui-field','prefers-reduced-motion:reduce',':focus-visible','[hidden]{display:none!important}'] as $role) $assert(str_contains($css,$role),'Shared accessible UI role '.$role);
+echo "Toplist directory: {$checks} checks passed. No DB records modified.\n";

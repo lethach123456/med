@@ -6,7 +6,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   --doctor-blue:var(--med-ui-blue,#2563ff);
   --doctor-line:var(--med-ui-line,#dfe8f4);
   padding:24px 0 72px;
-  background:#fff;
+  background:#f7f9fc;
   color:var(--doctor-ink);
   font-family:var(--med-ui-font,"Inter",system-ui,sans-serif);
   font-size:16px;
@@ -22,14 +22,16 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-container{margin-inline:auto;min-width:0}
 .dd-redesign.doctor-directory .doctor-breadcrumb{display:flex;align-items:center;gap:8px;margin:0 0 20px;font-size:13px;color:var(--doctor-muted)}
 .dd-redesign.doctor-directory .doctor-breadcrumb strong{font-weight:550;color:var(--doctor-blue)}
-.dd-redesign.doctor-directory .doctor-hero{position:relative;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(230px,.8fr);align-items:center;gap:40px;overflow:hidden;padding:44px 48px;border:0;border-radius:28px;background:linear-gradient(115deg,#f0f5ff,#f5f9fd 65%,#eaf5ef);box-shadow:none}
+.dd-redesign.doctor-directory .doctor-hero{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:center;gap:64px;overflow:visible;padding:16px 0 34px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.dd-redesign.doctor-directory .doctor-hero::before{position:absolute;z-index:-2;inset:-6px -26px 16px;border-radius:30px;background:radial-gradient(ellipse at 93% 20%,#dceaff,transparent 55%),radial-gradient(ellipse at 18% 90%,#e8f5f3,transparent 45%),linear-gradient(115deg,#f5f9ff,#edf5ff);content:""}
+.dd-redesign.doctor-directory .doctor-hero::after{position:absolute;z-index:-1;right:140px;top:18px;width:245px;height:245px;border:1px solid #c6dbf770;border-radius:50%;box-shadow:0 0 0 22px #d7e6fd35;content:"";pointer-events:none}
 .dd-redesign.doctor-directory .doctor-hero-copy{position:relative;z-index:1;min-width:0}
 .dd-redesign.doctor-directory .doctor-kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--doctor-blue)}
-.dd-redesign.doctor-directory .doctor-kicker i{font-size:19px}
+.dd-redesign.doctor-directory .doctor-kicker>span{width:7px;height:7px;border-radius:50%;background:var(--doctor-blue);box-shadow:0 0 0 5px #e6efff}
 .dd-redesign.doctor-directory .doctor-hero h1{max-width:640px;margin:18px 0 16px;font-size:clamp(32px,3.45vw,46px);font-weight:750;line-height:1.18;letter-spacing:-.045em;text-wrap:balance}
 .dd-redesign.doctor-directory .doctor-hero h1 em{font-style:normal;color:var(--doctor-blue)}
 .dd-redesign.doctor-directory .doctor-hero p{max-width:55ch;margin:0;color:var(--doctor-muted);font-size:var(--med-ui-hero-copy,16px);line-height:1.75}
-.dd-redesign.doctor-directory .doctor-search{max-width:650px;margin-top:26px;padding:7px;border:1px solid #d6e3f5;border-radius:19px;background:#fff;box-shadow:0 8px 22px #172e4d05}
+.dd-redesign.doctor-directory .doctor-search{max-width:none;margin-top:0;padding:7px;border:1px solid #d6e3f5;border-radius:19px;background:#fff;box-shadow:0 8px 22px #172e4d05}
 .dd-redesign.doctor-directory .doctor-search:focus-within{border-color:#89acff;box-shadow:0 0 0 4px #2563ff0d}
 .dd-redesign.doctor-directory .doctor-search-row{display:flex;align-items:center;gap:8px}
 .dd-redesign.doctor-directory .doctor-search-field{display:flex;align-items:center;flex:1;min-width:0;gap:12px;padding-inline:10px}
@@ -39,23 +41,17 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-search-field input::placeholder{font-size:14px;color:#8495ac}
 .dd-redesign.doctor-directory .doctor-search-submit{display:grid;place-items:center;flex-shrink:0;width:var(--med-ui-send-size,40px);height:var(--med-ui-send-size,40px);border:0;border-radius:var(--med-ui-send-radius,11px);background:var(--doctor-blue);color:#fff;box-shadow:var(--med-ui-button-shadow);transition:background .2s,transform .25s var(--med-ui-ease)}
 .dd-redesign.doctor-directory .doctor-search-submit svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.dd-redesign.doctor-directory .doctor-hero-art{position:relative;display:grid;place-items:center;align-self:stretch;min-height:290px}
-.dd-redesign.doctor-directory .doctor-art-orbit{position:absolute;width:290px;height:290px;border:1px solid #dce9e8;border-radius:50%;transform:rotate(-20deg)}
-.dd-redesign.doctor-directory .doctor-art-orbit::before{position:absolute;inset:25px;border:1px dashed #d1e0e8;border-radius:50%;content:""}
-.dd-redesign.doctor-directory .doctor-art-card{position:relative;width:215px;padding:12px 16px 22px;border:7px solid #ffffffb3;border-radius:34px;background:#fff;box-shadow:0 18px 50px #2645680b;transform:rotate(5deg)}
-.dd-redesign.doctor-directory .doctor-art-card svg{display:block;width:100%;height:208px}
-.dd-redesign.doctor-directory .doctor-art-cross{position:absolute;top:16px;right:16px;font-size:25px;color:#65a68a}
-.dd-redesign.doctor-directory .doctor-art-line{display:block;height:7px;width:77%;margin:10px auto 0;border-radius:10px;background:#e8eff7}
-.dd-redesign.doctor-directory .doctor-art-line.is-short{width:52%;margin-top:6px}
-.dd-redesign.doctor-directory .doctor-art-note{position:absolute;bottom:32px;left:-5px;display:flex;align-items:center;gap:10px;padding:15px 18px;border:1px solid #fff;border-radius:15px;background:#ffffffed;box-shadow:0 12px 30px #2645680a;font-size:13px;font-weight:550;color:var(--doctor-ink)}
-.dd-redesign.doctor-directory .doctor-art-note i{font-size:24px;color:#4c9b7c}
-.dd-redesign.doctor-directory .doctor-art-heart{position:absolute;top:30px;right:12px;display:grid;place-items:center;width:57px;height:57px;border:6px solid #ffffffad;border-radius:20px;background:#e3f0e7;font-size:26px;color:#5c9d79;transform:rotate(-10deg)}
-.dd-redesign.doctor-directory .doctor-stats{display:flex;align-items:center;justify-content:center;gap:44px;padding:22px 0;border-bottom:1px solid var(--doctor-line)}
-.dd-redesign.doctor-directory .doctor-stat{display:flex;align-items:center;gap:8px;min-width:0}
-.dd-redesign.doctor-directory .doctor-stat i{margin-right:3px;font-size:22px;color:#7c93b8}
-.dd-redesign.doctor-directory .doctor-stat strong{font-size:17px;font-weight:650;color:var(--doctor-ink)}
+.dd-redesign.doctor-directory .doctor-hero-note{position:relative;padding:23px 26px;border:1px solid #ffffffeb;border-radius:24px;background:linear-gradient(145deg,#ffffffef,#ffffffb8);box-shadow:0 13px 35px #507fbd0c}
+.dd-redesign.doctor-directory .doctor-note-icon{display:grid;place-items:center;width:48px;height:48px;margin-bottom:12px;border:1px solid #d1e0ff;border-radius:16px;background:#edf3ff;color:var(--doctor-blue);font-size:28px}
+.dd-redesign.doctor-directory .doctor-note-accent{position:absolute;right:-15px;top:23px;display:grid;place-items:center;width:42px;height:42px;border:4px solid #edf5ff;border-radius:15px;background:#ffeced;color:#d27f8b;transform:rotate(10deg);font-size:22px}
+.dd-redesign.doctor-directory .doctor-hero-note>p{margin:0 0 20px;font-size:19px;line-height:1.45;letter-spacing:-.025em;color:var(--doctor-ink)}
+.dd-redesign.doctor-directory .doctor-hero-note>p strong{font-weight:650}
+.dd-redesign.doctor-directory .doctor-stats{display:flex;gap:26px;padding:0;border:0}
+.dd-redesign.doctor-directory .doctor-stat{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.dd-redesign.doctor-directory .doctor-stat strong{font-size:25px;font-weight:650;line-height:1.3;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .dd-redesign.doctor-directory .doctor-stat span{font-size:13px;color:var(--doctor-muted)}
-.dd-redesign.doctor-directory .doctor-explore{display:flex;align-items:center;gap:20px;padding:24px 0 0}
+.dd-redesign.doctor-directory .doctor-hero-decoration{position:absolute;z-index:-1;right:340px;top:44px;color:#b7d2fb;transform:rotate(-13deg);pointer-events:none;font-size:63px}
+.dd-redesign.doctor-directory .doctor-explore{display:flex;align-items:center;gap:12px;padding:0;margin-top:14px}
 .dd-redesign.doctor-directory .doctor-explore>span{flex-shrink:0;font-size:13px;color:var(--doctor-muted)}
 .dd-redesign.doctor-directory .doctor-specialty-links{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
 .dd-redesign.doctor-directory .doctor-specialty-links a{display:flex;align-items:center;gap:8px;min-height:var(--med-ui-control-height,40px);padding:8px 12px;border:1px solid var(--doctor-line);border-radius:var(--med-ui-control-radius,11px);font-size:13px;font-weight:500;line-height:1.5;background:#fff;color:#476181;transition:background .2s,border-color .2s}
@@ -63,7 +59,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-specialty-links a:nth-child(3n+2){background:#f0f8f3}
 .dd-redesign.doctor-directory .doctor-specialty-links a:nth-child(3n){background:#fcf4ea}
 .dd-redesign.doctor-directory .doctor-specialty-links a[aria-current="true"]{border-color:var(--doctor-blue);color:var(--doctor-blue)}
-.dd-redesign.doctor-directory .doctor-content{display:grid;grid-template-columns:248px minmax(0,1fr);gap:32px;align-items:start;margin-top:38px}
+.dd-redesign.doctor-directory .doctor-content{display:grid;grid-template-columns:264px minmax(0,1fr);gap:28px;align-items:start;margin-top:30px}
 .dd-redesign.doctor-directory .doctor-results{min-width:0;grid-column:2;grid-row:1}
 .dd-redesign.doctor-directory .doctor-result-topline{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
 .dd-redesign.doctor-directory .doctor-result-count{margin:0;font-size:18px;line-height:1.4;font-weight:500}
@@ -123,7 +119,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .pagination-gap{align-self:center;color:var(--doctor-muted)}
 .dd-redesign.doctor-directory .doctor-aside{grid-column:1;grid-row:1;display:grid;gap:18px;min-width:0}
 .dd-redesign.doctor-directory .doctor-aside-card,.dd-redesign.doctor-directory .doctor-city-card{padding:24px 20px;border:0;border-radius:19px;background:#f4f7fc}
-.dd-redesign.doctor-directory .doctor-aside-card{background:#edf6f0}
+.dd-redesign.doctor-directory .doctor-aside-card{border:1px solid #e8e7dd;background:linear-gradient(135deg,#fffaf0,#fff)}
 .dd-redesign.doctor-directory .doctor-aside h2{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;font-size:17px;font-weight:650;line-height:1.5;letter-spacing:-.025em;text-wrap:pretty}
 .dd-redesign.doctor-directory .doctor-aside h2 i{color:#62917b;font-size:22px;flex-shrink:0;margin-top:2px}
 .dd-redesign.doctor-directory .doctor-aside p{margin:0;color:var(--doctor-muted);font-size:13px;line-height:1.75}
@@ -131,11 +127,11 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-guide li{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.75;color:#5a736a}
 .dd-redesign.doctor-directory .doctor-guide i{flex-shrink:0;margin-top:3px;font-size:17px;color:#639b7f}
 .dd-redesign.doctor-directory .doctor-aside-eyebrow{display:block;margin-bottom:7px;color:#8798af;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:650}
-.dd-redesign.doctor-directory .doctor-city-links{display:grid;gap:4px}
-.dd-redesign.doctor-directory .doctor-city-links a{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 0;font-size:13px;color:#526985}
+.dd-redesign.doctor-directory .doctor-city-links{display:grid;gap:8px;margin-top:20px}
+.dd-redesign.doctor-directory .doctor-city-links a{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 12px;border:1px solid #ffffffd9;border-radius:14px;background:#ffffffb8;font-size:14px;font-weight:600;color:#365c65;transition:background .2s,border-color .2s}
 .dd-redesign.doctor-directory .doctor-city-links i{color:#839ab9;font-size:17px}
 .dd-redesign.doctor-directory .doctor-city-links span{flex:1;min-width:0}
-.dd-redesign.doctor-directory .doctor-city-links small{display:grid;place-items:center;min-width:25px;height:25px;border-radius:8px;background:#e7edf7;font-size:12px;color:#7188a7}
+.dd-redesign.doctor-directory .doctor-city-links small{display:block;margin-top:3px;font-size:12px;font-weight:400;color:#5b7a77}
 .dd-redesign.doctor-directory .doctor-source-card{display:grid;gap:9px;padding:5px 16px}
 .dd-redesign.doctor-directory .doctor-source-card strong{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
 .dd-redesign.doctor-directory .doctor-source-card i{color:#6695aa;font-size:18px}
@@ -154,13 +150,8 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-city-links a:hover{color:var(--doctor-blue)}
   .dd-redesign.doctor-directory .doctor-specialty-links a:hover{border-color:#a3bef1}
 }
-@media(min-width:901px) and (prefers-reduced-motion:no-preference){
-  .dd-redesign.doctor-directory .doctor-art-card{animation:doctor-art-float 6s ease-in-out infinite}
-  .dd-redesign.doctor-directory .doctor-art-heart{animation:doctor-art-float 7s ease-in-out -2s infinite}
-}
 @media(max-width:1100px){
-  .dd-redesign.doctor-directory .doctor-hero{padding:36px;gap:26px;grid-template-columns:minmax(0,1.6fr) minmax(200px,.8fr)}
-  .dd-redesign.doctor-directory .doctor-art-note{left:-15px;font-size:12px}
+  .dd-redesign.doctor-directory .doctor-hero{padding:20px 0 34px;gap:30px;grid-template-columns:minmax(0,1fr) 270px}
   .dd-redesign.doctor-directory .doctor-content{grid-template-columns:215px minmax(0,1fr);gap:22px}
   .dd-redesign.doctor-directory .doctor-card{grid-template-columns:94px minmax(0,1fr);padding:18px;gap:14px 18px}
   .dd-redesign.doctor-directory .doctor-media{width:94px;height:112px}
@@ -169,8 +160,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-action{margin-left:auto}
 }
 @media(max-width:900px){
-  .dd-redesign.doctor-directory .doctor-hero{grid-template-columns:minmax(0,1fr) 180px;gap:20px;padding:30px}
-  .dd-redesign.doctor-directory .doctor-hero-art{min-height:230px;transform:scale(.8);transform-origin:center}
+  .dd-redesign.doctor-directory .doctor-hero{grid-template-columns:minmax(0,1fr) 250px;gap:28px;padding:20px 0 30px}
   .dd-redesign.doctor-directory .doctor-content{grid-template-columns:1fr;gap:30px;margin-top:30px}
   .dd-redesign.doctor-directory .doctor-results{grid-column:1;grid-row:1}
   .dd-redesign.doctor-directory .doctor-aside{grid-column:1;grid-row:2;grid-template-columns:1fr 1fr}
@@ -183,12 +173,14 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 @media(max-width:760px){
   .doctor-directory.dd-redesign{padding:16px 0 44px}
   .dd-redesign.doctor-directory .doctor-breadcrumb{margin-bottom:14px;font-size:12px}
-  .dd-redesign.doctor-directory .doctor-hero{display:block;padding:26px 20px 24px;border-radius:22px;background:linear-gradient(120deg,#eef4ff,#f4f8fd 70%,#edf6f0)}
+  .dd-redesign.doctor-directory .doctor-hero{display:block;padding:22px 4px 28px;border-radius:0;background:transparent}
+  .dd-redesign.doctor-directory .doctor-hero::before{inset:0 -8px 12px;border-radius:0}
+  .dd-redesign.doctor-directory .doctor-hero::after{right:0;top:10px;width:165px;height:165px;box-shadow:none}
+  .dd-redesign.doctor-directory .doctor-hero-note,.dd-redesign.doctor-directory .doctor-hero-decoration{display:none}
   .dd-redesign.doctor-directory .doctor-kicker{font-size:11px;letter-spacing:.035em}
   .dd-redesign.doctor-directory .doctor-hero h1{margin:16px 0 12px;max-width:520px;font-size:clamp(28px,5.4vw,36px);line-height:1.2;letter-spacing:-.045em;text-wrap:pretty}
   .dd-redesign.doctor-directory .doctor-hero p{font-size:14px;line-height:1.75}
-  .dd-redesign.doctor-directory .doctor-hero-art{display:none}
-  .dd-redesign.doctor-directory .doctor-search{margin-top:22px}
+  .dd-redesign.doctor-directory .doctor-search{margin-top:0}
   .dd-redesign.doctor-directory .doctor-search-field{gap:8px;padding-inline:5px}
   .dd-redesign.doctor-directory .doctor-search-field input::placeholder{font-size:13px}
   .dd-redesign.doctor-directory .doctor-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:18px 0}
@@ -196,7 +188,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-stat i{grid-row:1;margin:0;font-size:19px}
   .dd-redesign.doctor-directory .doctor-stat strong{font-size:16px}
   .dd-redesign.doctor-directory .doctor-stat span{grid-column:1/-1;font-size:11px;line-height:1.6}
-  .dd-redesign.doctor-directory .doctor-explore{display:grid;gap:12px;padding-top:20px}
+  .dd-redesign.doctor-directory .doctor-explore{display:grid;gap:12px;padding-top:0}
   .dd-redesign.doctor-directory .doctor-specialty-links{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-block:2px}
   .dd-redesign.doctor-directory .doctor-specialty-links::-webkit-scrollbar{display:none}
   .dd-redesign.doctor-directory .doctor-specialty-links a{flex-shrink:0;max-width:88%;font-size:12px;overflow-wrap:anywhere}
@@ -230,10 +222,33 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-action{grid-column:2;grid-row:1/3;padding:8px 12px;gap:7px;max-width:132px;font-size:14px}
   .dd-redesign.doctor-directory .doctor-aside{grid-template-columns:1fr}
   .dd-redesign.doctor-directory .doctor-aside-card,.dd-redesign.doctor-directory .doctor-city-card{padding:22px}
-  .dd-redesign.doctor-directory .doctor-city-links{grid-template-columns:1fr 1fr;gap:5px 16px}
-  .dd-redesign.doctor-directory .doctor-city-links a{align-items:center;gap:5px}
+  .dd-redesign.doctor-directory .doctor-city-links{grid-template-columns:1fr;gap:8px}
+  .dd-redesign.doctor-directory .doctor-city-links a{align-items:center;gap:10px}
   .dd-redesign.doctor-directory .doctor-source-card{padding-inline:10px}
 }
 @media(prefers-reduced-motion:reduce){
   .dd-redesign.doctor-directory *, .dd-redesign.doctor-directory *::before, .dd-redesign.doctor-directory *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+/* Illustrated discovery cards, with a brief settling motion rather than continuous distraction. */
+.dd-redesign.doctor-directory .doctor-city-card{overflow:hidden;padding:22px 20px 18px;border:1px solid #d1e8e2;border-radius:24px;background:radial-gradient(ellipse at 100% 0,#d0eaff,transparent 55%),linear-gradient(155deg,#eaf8f2,#f1f8fc)}
+.dd-redesign.doctor-directory .doctor-city-card h2{display:block;margin:10px 0 12px;font-size:25px;line-height:1.3;letter-spacing:-.04em;text-wrap:balance}
+.dd-redesign.doctor-directory .doctor-city-card>p{font-size:14px;color:#53736f}
+.dd-redesign.doctor-directory .doctor-city-card .doctor-aside-eyebrow{font-size:10px;color:#4a8074}
+.dd-redesign.doctor-directory .doctor-city-art{position:relative;display:grid;place-items:center;height:118px;margin-bottom:20px}
+.dd-redesign.doctor-directory .doctor-city-orbit{position:absolute;width:132px;height:104px;border:1px solid #c7dfdf;border-radius:50%;transform:rotate(-24deg);box-shadow:0 0 0 14px #ffffff3b}
+.dd-redesign.doctor-directory .doctor-city-profile{position:relative;display:grid;place-items:center;width:88px;height:88px;border:1px solid #ffffffef;border-radius:28px;background:linear-gradient(145deg,#fff,#eef5ff);box-shadow:0 14px 24px #2b668518;color:#397dd7;font-size:52px;transform:rotate(-7deg)}
+.dd-redesign.doctor-directory .doctor-city-pin,.dd-redesign.doctor-directory .doctor-city-heart{position:absolute;display:grid;place-items:center;width:44px;height:44px;border:4px solid #ecf7f5;border-radius:16px;font-size:21px}
+.dd-redesign.doctor-directory .doctor-city-heart{top:9px;right:22px;background:#ffeced;color:#da7f88;transform:rotate(12deg)}
+.dd-redesign.doctor-directory .doctor-city-pin{bottom:2px;left:24px;background:#d6efe4;color:#428f78;transform:rotate(-12deg)}
+.dd-redesign.doctor-directory .doctor-city-more{display:none;align-items:center;gap:8px;min-height:var(--med-ui-control-height,40px);margin-top:12px;padding:8px 0;border:0;background:none;color:#356e64;font-size:14px;font-weight:600}
+.dd-redesign.doctor-directory.doctor-enhanced .doctor-city-more{display:flex}
+.dd-redesign.doctor-directory .doctor-city-links a:hover,.dd-redesign.doctor-directory .doctor-city-links a[aria-current]{background:#fff;border-color:#b8dacf}
+.dd-redesign.doctor-directory .doctor-city-links a>i:first-child{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#eaf3f4;color:#548e91;font-size:18px}
+.dd-redesign.doctor-directory .doctor-specialty-links a i{color:#6a88b1;font-size:17px}
+.dd-redesign.doctor-directory .doctor-result-count::before{display:inline-block;width:5px;height:18px;margin-right:9px;vertical-align:-1px;border-radius:3px;background:linear-gradient(#347bfa,#75a7fc);content:""}
+@keyframes doctor-discovery-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:no-preference){.dd-redesign.doctor-directory .doctor-hero,.dd-redesign.doctor-directory .doctor-search-area{animation:doctor-discovery-in .45s var(--med-ui-ease) both}.dd-redesign.doctor-directory .doctor-search-area{animation-delay:55ms}}
+@media(min-width:901px) and (prefers-reduced-motion:no-preference){.dd-redesign.doctor-directory .doctor-city-profile,.dd-redesign.doctor-directory .doctor-note-icon{animation:doctor-art-float 4.4s ease-in-out 1}}
+@media(max-width:1020px){.dd-redesign.doctor-directory .doctor-hero-decoration{right:275px}.dd-redesign.doctor-directory .doctor-hero-note{padding:20px}}
+@media(max-width:760px){.dd-redesign.doctor-directory .doctor-city-art{display:none}.dd-redesign.doctor-directory .doctor-city-card{padding:20px 18px}.dd-redesign.doctor-directory .doctor-city-card h2{font-size:23px}.dd-redesign.doctor-directory .doctor-city-card h2 br{display:none}.dd-redesign.doctor-directory .doctor-aside-card{display:none}.dd-redesign.doctor-directory .doctor-content{margin-top:26px}}
+@media(prefers-reduced-motion:reduce){.dd-redesign.doctor-directory .doctor-city-profile,.dd-redesign.doctor-directory .doctor-note-icon,.dd-redesign.doctor-directory .doctor-hero,.dd-redesign.doctor-directory .doctor-search-area{animation:none!important}}

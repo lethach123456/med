@@ -37,4 +37,10 @@ foreach (['doctor-card-footer','doctor-media-empty','doctor-price','ph-arrow-rig
 $assert(str_contains($js,'/api/medical/doctors.php') && str_contains($js,"params.set('locale',"),'API/locale preserved');
 $assert(str_contains($js,"event.key === 'Escape'") && str_contains($js,"toggle?.focus()"),'Filter keyboard close/focus');
 $assert(str_contains($js,'event.metaKey') && str_contains($js,'data-doctor-specialty'),'Progressive enhancement preserves modified navigation');
+$assert(strpos($template, '</header>') < strpos($template, 'id="doctorDirectoryFilter"'), 'Search spans the full directory below the hero');
+$assert(str_contains($template, 'doctor-hero-note') && str_contains($template, '$number($reviewCount)'), 'Hero statistics retain real review data');
+$assert(str_contains($template, 'doctor-city-art') && str_contains($template, 'data-doctor-open-filters'), 'Illustrated location card has a working filter shortcut');
+$assert(str_contains($js, "focus({preventScroll:true})") && str_contains($js, "doctor-enhanced"), 'Shortcut focuses its real location control and only shows with enhancement');
+$css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/doctor-directory.css');
+$assert(str_contains($css, 'doctor-art-float 4.4s ease-in-out 1') && str_contains($css, 'prefers-reduced-motion:reduce'), 'Gentle settling animation respects reduced motion');
 echo "Doctor directory: {$checks} checks passed. No DB records modified.\n";

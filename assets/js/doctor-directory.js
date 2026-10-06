@@ -13,6 +13,7 @@
   const isEnglish = directory?.dataset.locale === 'en';
   const words = isEnglish ? {verified:'Verified', reviews:'reviews', noReviews:'Not rated yet', consultation:'Consultation fee', contact:'Contact for updates', profile:'View profile', outOf:'out of 5', emptyTitle:'No matching doctors found', emptyCopy:'Try another keyword or remove some filters.', previous:'Previous page', next:'Next page', count:'matching doctors', loadError:'Unable to load doctor data.', failedTitle:'Unable to load the directory', failedCopy:'Please try again in a few minutes.', collapse:'Show less'} : {verified:'Đã xác thực', reviews:'đánh giá', noReviews:'Chưa có đánh giá', consultation:'Chi phí khám', contact:'Liên hệ cập nhật', profile:'Xem hồ sơ', outOf:'trên 5', emptyTitle:'Chưa tìm thấy bác sĩ phù hợp', emptyCopy:'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.', previous:'Trang trước', next:'Trang sau', count:'bác sĩ phù hợp', loadError:'Không thể tải dữ liệu.', failedTitle:'Không thể tải danh sách', failedCopy:'Vui lòng thử lại sau ít phút.', collapse:'Thu gọn'};
   if (!form || !list || !pager || !count) return;
+  directory.classList.add('doctor-enhanced');
   const motionReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const scrollToResults = () => {
     const top = count.getBoundingClientRect().top + window.scrollY - 100;
@@ -63,6 +64,10 @@
       if (link.dataset.doctorSpecialty === document.getElementById('doctorSpecialty')?.value) link.setAttribute('aria-current', 'true');
       else link.removeAttribute('aria-current');
     });
+    directory?.querySelectorAll('[data-doctor-city]').forEach(link => {
+      if (link.dataset.doctorCity === document.getElementById('doctorCity')?.value) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    });
   };
   let requestId = 0;
   async function load(page = 1, updateUrl = true) {
@@ -97,8 +102,14 @@
   prepareTags();
   renderPager({page: Number(directory?.dataset.page || 1), total_pages: Number(directory?.dataset.totalPages || 1)});
   toggle?.addEventListener('click', () => { const open = options.hidden; options.hidden = !open; toggle.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+  directory.querySelectorAll('[data-doctor-open-filters]').forEach(button => button.addEventListener('click', () => {
+    options.hidden = false;
+    toggle?.setAttribute('aria-expanded', 'true');
+    scrollToResults();
+    document.getElementById('doctorCity')?.focus({preventScroll:true});
+  }));
   document.addEventListener('click', event => {
-    if (options && !options.hidden && !event.target.closest('.doctor-filter-panel')) {
+    if (options && !options.hidden && !event.target.closest('.doctor-filter-panel, [data-doctor-open-filters]')) {
       options.hidden = true;
       toggle?.setAttribute('aria-expanded', 'false');
     }
