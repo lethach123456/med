@@ -285,6 +285,8 @@ $featuredFacilities = array_values($featuredFacilities);
 ?>
 <?php $homeConceptStylesheet = __DIR__ . '/../assets/css/pages/home-concept-live.css'; ?>
 <link rel="stylesheet" href="/assets/css/pages/home-concept-live.css?v=<?= file_exists($homeConceptStylesheet) ? (int) filemtime($homeConceptStylesheet) : 1 ?>">
+<?php $homePolishStylesheet = __DIR__ . '/../assets/css/pages/home-polish.css'; ?>
+<link rel="stylesheet" href="/assets/css/pages/home-polish.css?v=<?= (int) filemtime($homePolishStylesheet) ?>">
 <main class="med-home hc-home site-typo" id="main">
 <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.7"/><path d="m16 16 4.5 4.5"/></symbol>
@@ -428,48 +430,79 @@ $featuredFacilities = array_values($featuredFacilities);
     image.addEventListener('error', useFallback, {once:true});
     if (image.complete && image.naturalWidth === 0) useFallback();
   });
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   const input = home.querySelector('.search-field input[name="q"]');
   const searchPanel = home.querySelector('.search-panel');
 
-  if (!reduced && 'IntersectionObserver' in window) {
+  let revealObserver;
+  if (!motionQuery.matches && 'IntersectionObserver' in window) {
     home.classList.add('motion-ready');
-    const observer = new IntersectionObserver(entries => {
+    revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (!entry.isIntersecting) return;
         entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
+        revealObserver.unobserve(entry.target);
       });
-    }, {threshold: .06, rootMargin: '0px 0px -5% 0px'});
-    home.querySelectorAll('.reveal').forEach(item => observer.observe(item));
+    }, {threshold: .04, rootMargin: '0px 0px 24px 0px'});
+    home.querySelectorAll('.reveal').forEach(item => revealObserver.observe(item));
   }
+  // Stop decorative work outside the viewport, and reveal focused content
+  // immediately rather than making keyboard users wait for an animation.
+  let decorationObserver;
+  if ('IntersectionObserver' in window) {
+    home.classList.add('motion-managed');
+    decorationObserver = new IntersectionObserver(entries => entries.forEach(entry => {
+      entry.target.classList.toggle('motion-in-view', entry.isIntersecting);
+    }), {threshold:.05});
+    home.querySelectorAll('.hero-visual,.community-art').forEach(item => decorationObserver.observe(item));
+  }
+  const syncMotion = () => {
+    home.classList.toggle('motion-paused', document.hidden || motionQuery.matches);
+    if (motionQuery.matches) {
+      revealObserver?.disconnect();
+      home.querySelectorAll('.reveal').forEach(item => item.classList.add('visible'));
+    }
+  };
+  motionQuery.addEventListener('change', syncMotion);
+  document.addEventListener('visibilitychange', syncMotion);
+  home.addEventListener('focusin', event => event.target.closest('.reveal')?.classList.add('visible'));
+  syncMotion();
 
   home.querySelectorAll('[data-home-query]').forEach(button => button.addEventListener('click', () => {
     if (!input) return;
     const quickQuery = (button.dataset.homeQuery || '').trim();
     input.value = quickQuery ? `${quickQuery} ` : '';
-    input.focus();
+    input.focus({preventScroll:true});
     input.dispatchEvent(new Event('input', {bubbles:true}));
   }));
 
-  if (input && !reduced) {
+  if (input && !motionQuery.matches) {
     const phrases = <?= json_encode($popularTerms, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const placeholder = input.placeholder;
-    let phrase = 0, length = 0, reverse = false, timer;
+    let phrase = 0, length = 0, reverse = false, timer, finished = false, inputVisible = true;
+    const deadline = performance.now() + 4800;
+    const stop = () => {clearTimeout(timer); input.placeholder = placeholder;};
+    const schedule = delay => {timer = setTimeout(tick, Math.max(0, Math.min(delay, deadline - performance.now())));};
     const tick = () => {
-      if (document.hidden || document.activeElement === input || input.value) return;
+      if (performance.now() >= deadline || motionQuery.matches) {finished = true; stop(); return;}
+      if (document.hidden || !inputVisible || document.activeElement === input || input.value) {stop(); return;}
       const sample = phrases[phrase] || placeholder;
       length += reverse ? -1 : 1;
       input.placeholder = sample.slice(0, Math.max(0, length));
-      if (length >= sample.length) { reverse = true; timer = setTimeout(tick, 1600); return; }
+      if (length >= sample.length) { reverse = true; schedule(1600); return; }
       if (length <= 0) { reverse = false; phrase = (phrase + 1) % phrases.length; }
-      timer = setTimeout(tick, reverse ? 32 : 72);
+      schedule(reverse ? 32 : 72);
     };
-    const start = () => { clearTimeout(timer); if (!input.value && document.activeElement !== input) timer = setTimeout(tick, 1100); };
-    input.addEventListener('focus', () => {clearTimeout(timer); input.placeholder = placeholder;});
-    input.addEventListener('blur', () => {length = 0; reverse = false; input.placeholder = placeholder; start();});
-    input.addEventListener('input', () => clearTimeout(timer));
-    document.addEventListener('visibilitychange', () => {if (document.hidden) clearTimeout(timer); else start();});
+    const start = () => {stop(); if (!finished && !motionQuery.matches && inputVisible && !document.hidden && !input.value && document.activeElement !== input) timer = setTimeout(tick, 800);};
+    input.addEventListener('focus', stop);
+    input.addEventListener('blur', () => {length = 0; reverse = false; start();});
+    input.addEventListener('input', stop);
+    motionQuery.addEventListener('change', () => {if (motionQuery.matches) {finished = true; stop();}});
+    document.addEventListener('visibilitychange', () => {if (document.hidden) stop(); else start();});
+    if ('IntersectionObserver' in window) new IntersectionObserver(entries => {
+      inputVisible = entries[0].isIntersecting;
+      if (inputVisible) start(); else stop();
+    }).observe(input);
     start();
   }
 
@@ -479,7 +512,14 @@ $featuredFacilities = array_values($featuredFacilities);
     backdrop.hidden = true;
     document.body.append(backdrop);
     let overlayTimer;
-    const sync = () => {backdrop.hidden = !searchPanel.classList.contains('is-open');};
+    const closeSearch = () => {
+      input?.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+      searchPanel.dataset.homeSearchAutoScrolled = 'false';
+    };
+    const sync = () => {
+      if (searchPanel.classList.contains('is-open') && !searchPanel.contains(document.activeElement)) closeSearch();
+      backdrop.hidden = !searchPanel.classList.contains('is-open');
+    };
     new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
     searchPanel.querySelector('.send-button')?.addEventListener('click', event => {
       event.preventDefault();
@@ -490,16 +530,16 @@ $featuredFacilities = array_values($featuredFacilities);
         input.dispatchEvent(new Event('input', {bubbles:true}));
       }
     });
-    input?.addEventListener('blur', () => {
+    searchPanel.addEventListener('focusout', () => {
       clearTimeout(overlayTimer);
       overlayTimer = setTimeout(() => {
         if (!searchPanel.contains(document.activeElement)) {
-          searchPanel.classList.remove('is-open');
-          searchPanel.dataset.homeSearchAutoScrolled = 'false';
+          closeSearch();
         }
       }, 100);
     });
-    backdrop.addEventListener('click', () => {input?.blur(); sync();});
+    input?.addEventListener('keydown', event => {if (event.key === 'Escape') searchPanel.dataset.homeSearchAutoScrolled = 'false';});
+    backdrop.addEventListener('click', () => {closeSearch(); input?.blur(); sync();});
   }
 
   const facilityGrid = home.querySelector('#home-facility-grid');
@@ -541,36 +581,44 @@ $featuredFacilities = array_values($featuredFacilities);
   [facilityGrid, home.querySelector('#home-toplist-grid')].filter(Boolean).forEach(rail => {
     const nav = document.createElement('div');
     nav.className = 'rail-navigation';
-    nav.innerHTML = '<div class="rail-progress" aria-hidden="true"></div><div class="rail-actions"><button type="button" class="rail-prev" aria-label="Trước"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button><span class="rail-count" aria-hidden="true"></span><button type="button" class="rail-next" aria-label="Tiếp"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>';
+    const previousLabel = <?= json_encode($isEnglish ? 'Previous' : 'Trước') ?>;
+    const nextLabel = <?= json_encode($isEnglish ? 'Next' : 'Tiếp') ?>;
+    nav.innerHTML = '<div class="rail-progress" aria-hidden="true"></div><div class="rail-actions"><button type="button" class="rail-prev" aria-label="'+previousLabel+'"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button><span class="rail-count" aria-hidden="true"></span><button type="button" class="rail-next" aria-label="'+nextLabel+'"><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>';
     rail.after(nav);
     const prev = nav.querySelector('.rail-prev'), next = nav.querySelector('.rail-next');
     const progress = nav.querySelector('.rail-progress'), count = nav.querySelector('.rail-count');
-    const visible = () => [...rail.children].filter(card => !card.hidden);
+    const visible = () => [...rail.children].filter(card => !card.hidden && card.matches('.facility-card,.toplist-card'));
+    let frame = 0, lastActive = -1, lastLength = -1;
     const update = () => {
       const items = visible();
       const scrollable = mobile.matches && items.length > 1 && rail.scrollWidth > rail.clientWidth + 2;
-      nav.hidden = !scrollable;
-      if (!scrollable) return;
+      if (!scrollable) {nav.hidden = true; return;}
       const edge = rail.getBoundingClientRect().left + parseFloat(getComputedStyle(rail).paddingLeft || '0');
-      let active = items.reduce((best, card, index) => Math.abs(card.getBoundingClientRect().left-edge) < Math.abs(items[best].getBoundingClientRect().left-edge) ? index : best, 0);
+      const positions = items.map(card => Math.abs(card.getBoundingClientRect().left-edge));
+      let active = positions.reduce((best, distance, index) => distance < positions[best] ? index : best, 0);
       if (rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 3) active = items.length - 1;
-      progress.innerHTML = items.map((_, i) => '<span class="' + (i === active ? 'active' : '') + '"></span>').join('');
+      nav.hidden = false;
+      if (lastLength !== items.length) progress.replaceChildren(...items.map(() => document.createElement('span')));
+      if (lastActive === active && lastLength === items.length) return;
+      [...progress.children].forEach((dot, index) => dot.classList.toggle('active', index === active));
       count.textContent = (active + 1) + ' / ' + items.length;
       prev.disabled = active === 0;
       next.disabled = active === items.length - 1;
+      lastActive = active; lastLength = items.length;
     };
+    const scheduleUpdate = () => {if (frame) return; frame = requestAnimationFrame(() => {frame = 0; update();});};
     const move = direction => {
       const items = visible();
       if (!items.length) return;
       const step = items[0].getBoundingClientRect().width + parseFloat(getComputedStyle(rail).columnGap || '0');
-      rail.scrollBy({left: direction * step, behavior: reduced ? 'instant' : 'smooth'});
+      rail.scrollBy({left: direction * step, behavior: motionQuery.matches ? 'instant' : 'smooth'});
     };
     prev.addEventListener('click', () => move(-1));
     next.addEventListener('click', () => move(1));
-    rail.addEventListener('scroll', () => requestAnimationFrame(update), {passive:true});
-    rail.addEventListener('rail-change', () => requestAnimationFrame(update));
-    window.addEventListener('resize', update, {passive:true});
-    mobile.addEventListener('change', update);
+    rail.addEventListener('scroll', scheduleUpdate, {passive:true});
+    rail.addEventListener('rail-change', scheduleUpdate);
+    window.addEventListener('resize', scheduleUpdate, {passive:true});
+    mobile.addEventListener('change', scheduleUpdate);
     update();
   });
 })();
