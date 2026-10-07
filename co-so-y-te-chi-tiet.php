@@ -2258,6 +2258,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
     </style>
     <link rel="stylesheet" href="/assets/css/pages/facility-profile-disclosure.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-profile-disclosure.css'); ?>">
     <link rel="stylesheet" href="/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>">
+    <link rel="stylesheet" href="/assets/css/pages/facility-detail-nav.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-nav.css'); ?>">
   </head>
   <body>
     <?php include __DIR__ . '/Tem/header.php'; ?>
@@ -2366,7 +2367,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           </aside>
           <div class="facility-reading-main">
 
-        <nav class="detail-nav" aria-label="Điều hướng nội dung trang">
+        <nav class="detail-nav" aria-label="<?php echo htmlspecialchars($tr('Các phần hồ sơ cơ sở y tế', 'Facility profile sections'), ENT_QUOTES, 'UTF-8'); ?>">
           <a href="#gioi-thieu"><?php echo htmlspecialchars($tr('Giới thiệu', 'Overview'), ENT_QUOTES, 'UTF-8'); ?></a>
           <a href="#dich-vu"><?php echo htmlspecialchars($tr('Dịch vụ nổi bật', 'Featured services'), ENT_QUOTES, 'UTF-8'); ?></a>
           <a href="#bang-gia"><?php echo htmlspecialchars($tr('Bảng giá', 'Price list'), ENT_QUOTES, 'UTF-8'); ?></a>
@@ -2621,6 +2622,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
       </section>
     </div>
     <script src="/assets/js/facility-profile-disclosure.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-profile-disclosure.js'); ?>" defer></script>
+    <script src="/assets/js/facility-detail-nav.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-detail-nav.js'); ?>" defer></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
       if (window.lucide) {

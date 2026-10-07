@@ -1,0 +1,35 @@
+/* Match the doctor profile's mobile reading tabs; desktop remains unchanged. */
+@media(max-width:767px){
+  .facility-detail.site-typo .detail-nav,
+  .facility-detail.site-typo .facility-reading-main .detail-nav{
+    position:sticky;top:var(--facility-nav-header-height,72px);z-index:25;
+    display:flex;align-items:center;flex-wrap:nowrap;gap:8px;
+    overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;
+    margin:18px -12px 18px;padding:0 12px;
+    border:0;border-bottom:1px solid #e0e8f3;border-radius:0;
+    background:#fff;box-shadow:none;scroll-padding-inline:12px;
+    animation:none;transform:none;isolation:isolate;
+  }
+  .facility-detail.site-typo .detail-nav::-webkit-scrollbar{display:none}
+  .facility-detail.site-typo .detail-nav a{
+    position:relative;display:flex;align-items:center;flex:0 0 auto;
+    min-height:50px;padding:11px 9px;border:0;border-radius:0;
+    color:#607487;background:transparent;font-size:13px;font-weight:600;line-height:1.5;
+    white-space:nowrap;transition:color .2s ease;transform:none;
+  }
+  .facility-detail.site-typo .detail-nav a:first-child{padding-left:0}
+  .facility-detail.site-typo .detail-nav a::after{
+    content:"";position:absolute;left:9px;right:9px;bottom:0;
+    height:3px;border-radius:3px;background:transparent;transition:background .2s ease;
+  }
+  .facility-detail.site-typo .detail-nav a:first-child::after{left:0}
+  .facility-detail.site-typo .detail-nav a:is(:hover,.is-active){color:#2563ff;background:transparent;transform:none}
+  .facility-detail.site-typo .detail-nav a.is-active::after{background:#2563ff}
+  .facility-detail.site-typo .detail-nav a:focus-visible{outline:2px solid #2563ff;outline-offset:-4px}
+  .facility-detail.site-typo .detail-nav a[hidden]{display:none!important}
+  .facility-detail.site-typo :is(#gioi-thieu,#dich-vu,#bang-gia,#danh-gia,#dat-lich){
+    /* The shared page already reserves header space with scroll-padding. */
+    scroll-margin-top:max(0px,calc(var(--facility-nav-header-height,72px) + var(--facility-nav-height,50px) + 12px - var(--facility-nav-page-padding,64px)));
+  }
+}
+@media(prefers-reduced-motion:reduce){.facility-detail.site-typo .detail-nav a,.facility-detail.site-typo .detail-nav a::after{transition:none}}

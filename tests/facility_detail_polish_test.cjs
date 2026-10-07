@@ -21,7 +21,7 @@ const documentStart = page.indexOf('\n<!doctype html>\n');
 const bodyStart = page.indexOf('  <body>');
 check(documentStart > 0 && bodyStart > documentStart, 'Original document boundaries remain intact');
 check(digest(page.slice(0, documentStart)) === '5f10fd8a3e34588a0e4a6646c2f1b6c8fd20cba653116b9cee77389708390d63', 'All backend data, normalization, query, locale and schema logic matches 278e4e7');
-check(digest(page.slice(bodyStart)) === 'b31509e57fda06dea1d729d997975414979b65fda77091c834f1937353fb57b7', 'Body matches the reviewed readable-preview markup, preserving gallery/review scripts');
+check(digest(page.slice(bodyStart)) === 'db3a69585d008d50234307f95e1ede6a2f7f65e1f9f51407fd4fa4bfb504c8f7', 'Body matches the reviewed preview/mobile-nav hooks, preserving gallery/review scripts');
 check(digest(layout) === '45c14e8635da61b6c1a7ac63d6e47136bf0c68e427cb72143f78b587ab99edb2', 'The original layout stylesheet is unchanged');
 const polishHook = "    <link rel=\"stylesheet\" href=\"/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>\">";
 check(page.split(polishHook).length === 2, 'Exactly one filemtime-versioned polish hook exists');
@@ -29,7 +29,8 @@ check(page.includes('/assets/css/pages/facility-profile-disclosure.css?v=') && p
 check(!page.includes('<details class="facility-info-disclosure">'), 'Profile is readable by default, not hidden in a closed details element');
 check(page.indexOf('data-facility-profile-content') < page.indexOf('data-facility-read-more'), 'Read-more control follows the readable content');
 const stylesheetLinks = [...page.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]);
-check(stylesheetLinks.at(-1)?.includes('/assets/css/pages/facility-detail-polish.css?v='), 'Polish is the final linked stylesheet');
+check(stylesheetLinks.at(-2)?.includes('/assets/css/pages/facility-detail-polish.css?v='), 'Polish follows the original layout and profile disclosure stylesheet');
+check(stylesheetLinks.at(-1)?.includes('/assets/css/pages/facility-detail-nav.css?v='), 'Mobile reading tabs load last without changing desktop styles');
 const motionStart = page.indexOf('<style id="facility-detail-motion-polish">');
 const motionEnd = page.indexOf('</style>', motionStart);
 const polishStart = page.indexOf(polishHook);
