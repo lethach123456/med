@@ -88,14 +88,19 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
 .doctor-profile .dp-article a{color:var(--dp-blue);text-decoration:underline}
 .doctor-profile .dp-article.is-collapsed{max-height:430px;overflow:hidden}
 .doctor-profile .dp-article.is-collapsed::after{content:"";position:absolute;bottom:0;left:0;width:100%;height:78px;background:linear-gradient(transparent,#fff);pointer-events:none}
-.doctor-profile .dp-read-more{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:var(--med-ui-control-height,40px);border:1px solid var(--dp-line);border-radius:var(--med-ui-control-radius,11px);background:#f7faff;padding:var(--med-ui-control-padding,8px 14px);margin-top:20px;color:#2d5fa9;font-size:14px;font-weight:650}
-.doctor-profile .dp-read-more{transition:transform .22s ease,box-shadow .22s ease,background .22s ease;background:linear-gradient(120deg,#f7faff,#edf4ff)}
-.doctor-profile .dp-read-more .ph{transition:transform .25s ease}
-.doctor-profile .dp-read-more:hover{background:#edf3ff;transform:translateY(-1px);box-shadow:0 5px 16px #2861bd18}
+.doctor-profile .dp-read-more{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:1px solid #c7d9f5;border-radius:var(--med-ui-control-radius,11px);background:linear-gradient(120deg,#f7faff,#edf4ff);padding:var(--med-ui-control-padding,8px 14px);margin-top:20px;color:#2d5fa9;font-size:14px;font-weight:650;transition:transform .18s ease,box-shadow .22s ease,background .22s ease,border-color .22s ease}
+.doctor-profile .dp-read-more::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 15%,#2563ff12 50%,transparent 85%);opacity:0;transform:translateX(-115%)}
+.doctor-profile .dp-read-more .ph{transition:transform .24s cubic-bezier(.22,1,.36,1)}
+.doctor-profile .dp-read-more.is-hinting[aria-expanded=false]::after{animation:dp-read-more-sheen 1.5s ease-in-out .25s 3}
+.doctor-profile .dp-read-more.is-hinting[aria-expanded=false] .ph{animation:dp-read-more-nudge 1.5s ease-in-out .25s 3}
+.doctor-profile .dp-read-more:hover{background:#edf3ff;border-color:#98b7ec;transform:translateY(-1px);box-shadow:0 5px 16px #2861bd18}
 .doctor-profile .dp-read-more:active{transform:scale(.99)}
 .doctor-profile .dp-read-more:focus-visible{outline:2px solid #2861bd;outline-offset:3px}
-@media(prefers-reduced-motion:reduce){.doctor-profile .dp-read-more:hover,.doctor-profile .dp-read-more:active{transform:none}}
+.doctor-profile .dp-read-more[aria-expanded=true]{background:#f8faff;border-color:var(--dp-line);color:#506884;box-shadow:none}
 .doctor-profile .dp-read-more[aria-expanded=true] .ph{transform:rotate(180deg)}
+@keyframes dp-read-more-nudge{0%,14%,52%,100%{transform:translateY(0)}28%,40%{transform:translateY(3px)}}
+@keyframes dp-read-more-sheen{0%,12%{transform:translateX(-115%);opacity:0}18%{opacity:1}46%{transform:translateX(115%);opacity:1}52%,100%{transform:translateX(115%);opacity:0}}
+@media(prefers-reduced-motion:reduce){.doctor-profile .dp-read-more,.doctor-profile .dp-read-more .ph{transition:none}.doctor-profile .dp-read-more::after,.doctor-profile .dp-read-more.is-hinting .ph{animation:none}.doctor-profile .dp-read-more:hover,.doctor-profile .dp-read-more:active{transform:none}}
 .doctor-profile .dp-subsection{margin-top:28px;padding-top:24px;border-top:1px solid #edf1f7}
 .doctor-profile .dp-subsection>h3{font-size:18px;line-height:1.55;margin-bottom:16px;letter-spacing:-.02em}
 .doctor-profile .dp-chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -306,7 +311,7 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
  .doctor-profile .dp-article p{margin-bottom:20px}
  .doctor-profile .dp-article :is(h2,h3,h4){font-size:19px;margin:26px 0 13px}
  .doctor-profile .dp-article.is-collapsed{max-height:400px}
- .doctor-profile .dp-read-more{min-height:var(--med-ui-control-height,44px);font-size:14px}
+ .doctor-profile .dp-read-more{min-height:44px;font-size:14px}
  .doctor-profile .dp-subsection{padding-top:22px;margin-top:26px}
  .doctor-profile .dp-subsection>h3{font-size:17px}
  .doctor-profile .dp-chips>span{font-size:13px;padding:6px 10px}

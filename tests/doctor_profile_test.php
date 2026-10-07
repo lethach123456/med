@@ -77,6 +77,9 @@ $render=static function(array $doctor,string $doctorLanguage): string {
 };
 $html=$render($doctor,'vi');
 foreach(['dao-tao','cong-tac','chuyen-mon','noi-kham','lich-chi-phi','nghien-cuu','nguon-tham-khao'] as $id) $assert(str_contains($html,'id="'.$id.'"'),'render '.$id);
+$assert(str_contains($html,'id="doctor-article" data-dp-article'),'full article remains in the rendered document');
+$assert(str_contains($html,'aria-controls="doctor-article" aria-expanded="false" data-dp-read-more'),'read more exposes its controlled article and collapsed state');
+$assert((bool)preg_match('/<button\b[^>]*data-dp-read-more[^>]*\bhidden>/', $html),'read more stays hidden until JavaScript detects a long article');
 $assert(str_contains($html,'href="tel:02412345678"') && str_contains($html,'https://example.org/book'),'real contact actions');
 $assert(str_contains($html,'href="#doctor-source-1"') && str_contains($html,'TEST-123'),'source and licence visible');
 $assert(!str_contains($html,'src=""') && !str_contains($html,'href="#"'),'no broken placeholder attributes');

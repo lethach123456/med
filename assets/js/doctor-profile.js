@@ -10,22 +10,73 @@
   // The full article remains readable with JavaScript disabled.
   const article = root.querySelector('[data-dp-article]');
   const more = root.querySelector('[data-dp-read-more]');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const articleLinkTabs = new Map();
+  let hintObserver = null;
+  let revealAnimation = null;
+  const stopHint = () => {
+    more?.classList.remove('is-hinting');
+    hintObserver?.disconnect();
+    hintObserver = null;
+  };
+  const cueReadMore = () => {
+    stopHint();
+    if (!more || more.hidden || reducedMotion.matches || more.getAttribute('aria-expanded') === 'true' || more.matches(':hover, :focus')) return;
+    const playHint = () => more.classList.add('is-hinting');
+    // Run a finite cue when the control is actually in view, not at page load.
+    if ('IntersectionObserver' in window) {
+      hintObserver = new IntersectionObserver(entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        playHint();
+        hintObserver?.disconnect();
+        hintObserver = null;
+      }, {threshold: .65});
+      hintObserver.observe(more);
+    } else playHint();
+  };
+  const setArticleLinks = expand => article?.querySelectorAll('a').forEach(link => {
+    if (expand) {
+      const previousTab = articleLinkTabs.get(link);
+      if (previousTab === null) link.removeAttribute('tabindex');
+      else if (previousTab !== undefined) link.setAttribute('tabindex', previousTab);
+    } else {
+      if (!articleLinkTabs.has(link)) articleLinkTabs.set(link, link.getAttribute('tabindex'));
+      link.setAttribute('tabindex', '-1');
+    }
+  });
   const collapseArticle = () => {
     if (!article || !more || article.scrollHeight <= 570 || !more.hidden) return;
     article.classList.add('is-collapsed');
     more.hidden = false;
     // Prevent keyboard focus moving into text visually concealed by the clamp.
-    article.querySelectorAll('a').forEach(link => link.setAttribute('tabindex', '-1'));
+    setArticleLinks(false);
+    cueReadMore();
   };
   collapseArticle();
   document.fonts?.ready.then(collapseArticle);
   more?.addEventListener('click', () => {
+    if (!article) return;
+    stopHint();
+    revealAnimation?.cancel();
     const expand = more.getAttribute('aria-expanded') !== 'true';
     article.classList.toggle('is-collapsed', !expand);
-    article.querySelectorAll('a').forEach(link => expand ? link.removeAttribute('tabindex') : link.setAttribute('tabindex', '-1'));
+    setArticleLinks(expand);
     more.setAttribute('aria-expanded', String(expand));
     more.firstChild.textContent = expand ? more.dataset.less : more.dataset.more;
-    if (!expand) article.scrollIntoView({block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+    if (expand && !reducedMotion.matches && typeof article.animate === 'function') {
+      revealAnimation = article.animate([
+        {opacity: .76, transform: 'translateY(6px)'},
+        {opacity: 1, transform: 'translateY(0)'},
+      ], {duration: 240, easing: 'cubic-bezier(.22,1,.36,1)'});
+    }
+    if (!expand) {
+      article.scrollIntoView({block: 'start', behavior: reducedMotion.matches ? 'auto' : 'smooth'});
+      cueReadMore();
+    }
+  });
+  ['pointerenter', 'pointerdown', 'focus'].forEach(event => more?.addEventListener(event, stopHint));
+  reducedMotion.addEventListener?.('change', event => {
+    if (event.matches) {stopHint(); revealAnimation?.cancel();}
   });
 
   const navLinks = [...root.querySelectorAll('.dp-nav a')];

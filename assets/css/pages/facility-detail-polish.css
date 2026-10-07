@@ -1,4 +1,4 @@
-/* Typography and spacing only; retain the existing visual design and data. */
+/* Typography and spacing only; profile disclosure styles live separately. */
 .facility-detail.site-typo{padding-block:24px 40px}
 .facility-detail.site-typo .breadcrumb{font-size:13px;line-height:1.6;margin-bottom:16px}
 .facility-detail.site-typo .hero-head h1{line-height:1.3;margin-block:12px}
@@ -108,16 +108,6 @@
   .facility-detail.site-typo .feature-row{gap:12px}
   .facility-detail.site-typo .cta-copy strong{font-size:18px}
 }
-.facility-detail .facility-info-disclosure>summary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;margin-bottom:14px;border:1px solid #dbe6f7;border-radius:11px;background:linear-gradient(120deg,#f7faff,#edf4ff);color:#2d5fa9;font-size:14px;font-weight:650;cursor:pointer;list-style:none;transition:transform .22s ease,box-shadow .22s ease,background .22s ease}
-.facility-info-disclosure>summary::-webkit-details-marker{display:none}
-.facility-read-more svg{width:18px;height:18px;transition:transform .25s ease}
-.facility-read-less,.facility-info-disclosure[open] .facility-read-label{display:none}
-.facility-info-disclosure[open] .facility-read-less{display:inline}
-.facility-info-disclosure[open] .facility-read-more svg{transform:rotate(180deg)}
-.facility-read-more:hover{box-shadow:0 5px 16px #2861bd18;transform:translateY(-1px)}
-.facility-read-more:active{transform:scale(.99)}
-.facility-read-more:focus-visible{outline:2px solid #2861bd;outline-offset:3px}
-@media(prefers-reduced-motion:reduce){.facility-read-more,.facility-read-more svg{transition:none!important;transform:none!important}}
 @media(max-width:380px){
   /* Let the existing date/rating line wrap instead of squeezing the author. */
   .facility-detail.site-typo #danh-gia .review-content-top{max-width:112px;flex-wrap:wrap}

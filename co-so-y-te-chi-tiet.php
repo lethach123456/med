@@ -2256,6 +2256,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         .facility-detail *,body.facility-page-exiting .facility-detail{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
       }
     </style>
+    <link rel="stylesheet" href="/assets/css/pages/facility-profile-disclosure.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-profile-disclosure.css'); ?>">
     <link rel="stylesheet" href="/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>">
   </head>
   <body>
@@ -2404,7 +2405,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         </section>
 
         <?php if ($facilityLegalFacts !== [] || $facilityVisitFacts !== [] || $facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityDoctors !== [] || $facilityEquipment !== [] || $facilityRatingSources !== []): ?>
-          <section class="facility-info-area" aria-label="<?php echo htmlspecialchars($tr('Thông tin chi tiết về cơ sở', 'Facility details'), ENT_QUOTES, 'UTF-8'); ?>">
+          <section class="facility-info-area" data-facility-profile aria-label="<?php echo htmlspecialchars($tr('Thông tin chi tiết về cơ sở', 'Facility details'), ENT_QUOTES, 'UTF-8'); ?>">
             <div class="facility-info-heading">
               <div>
                   <span class="facility-info-kicker"><i data-lucide="circle-check-big"></i><?php echo htmlspecialchars($tr('Hồ sơ tham khảo', 'Profile overview'), ENT_QUOTES, 'UTF-8'); ?></span>
@@ -2413,8 +2414,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               <p><?php echo htmlspecialchars($tr('Thông tin được tổng hợp từ dữ liệu công khai và hồ sơ do cơ sở cung cấp.', 'Information is compiled from public sources and details provided by the facility.'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
 
-            <details class="facility-info-disclosure">
-              <summary class="facility-read-more"><span class="facility-read-label"><?php echo htmlspecialchars($tr('Xem thông tin đầy đủ', 'Read full facility profile'), ENT_QUOTES, 'UTF-8'); ?></span><span class="facility-read-less"><?php echo htmlspecialchars($tr('Thu gọn', 'Show less'), ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+            <div class="facility-info-preview" id="facility-profile-content" data-facility-profile-content>
             <div class="facility-info-grid">
               <?php if ($facilityLegalFacts !== []): ?>
                 <article class="panel facility-info-card" id="thong-tin-ho-so">
@@ -2467,7 +2467,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                 </article>
               <?php endif; ?>
             </div>
-            </details>
+            </div>
+            <button class="facility-read-more" type="button" data-facility-read-more aria-controls="facility-profile-content" aria-expanded="false" data-more="<?php echo htmlspecialchars($tr('Xem thông tin đầy đủ', 'Read full facility profile'), ENT_QUOTES, 'UTF-8'); ?>" data-less="<?php echo htmlspecialchars($tr('Thu gọn', 'Show less'), ENT_QUOTES, 'UTF-8'); ?>" hidden><span data-facility-read-label><?php echo htmlspecialchars($tr('Xem thông tin đầy đủ', 'Read full facility profile'), ENT_QUOTES, 'UTF-8'); ?></span><span class="facility-read-chevron" aria-hidden="true"><i data-lucide="chevron-down"></i></span></button>
           </section>
         <?php endif; ?>
           </div>
@@ -2619,6 +2620,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         </div>
       </section>
     </div>
+    <script src="/assets/js/facility-profile-disclosure.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-profile-disclosure.js'); ?>" defer></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
       if (window.lucide) {

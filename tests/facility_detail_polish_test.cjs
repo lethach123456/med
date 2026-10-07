@@ -14,18 +14,20 @@ let checks = 0;
 const check = (condition, message) => { checks++; assert.ok(condition, message); };
 const digest = source => crypto.createHash('sha256').update(source).digest('hex');
 
-// 278e4e7 is the restored design. Permit only the appended stylesheet hook in
-// this page; intentionally separate future data/behavior edits must review these
-// baselines rather than silently weakening the visual-only contract.
+// Retain the original backend/layout contract. The user-requested profile move
+// and readable disclosure deliberately update the body contract; data fields and
+// all gallery/review behavior checks below remain protected.
 const documentStart = page.indexOf('\n<!doctype html>\n');
 const bodyStart = page.indexOf('  <body>');
 check(documentStart > 0 && bodyStart > documentStart, 'Original document boundaries remain intact');
 check(digest(page.slice(0, documentStart)) === '5f10fd8a3e34588a0e4a6646c2f1b6c8fd20cba653116b9cee77389708390d63', 'All backend data, normalization, query, locale and schema logic matches 278e4e7');
-check(digest(page.slice(bodyStart)) === '06c764199a1d4fc6f38f488997c355f397b8bbac4849ff839c77cde9643cd09a', 'All body markup, dynamic content and scripts match 278e4e7');
+check(digest(page.slice(bodyStart)) === 'b31509e57fda06dea1d729d997975414979b65fda77091c834f1937353fb57b7', 'Body matches the reviewed readable-preview markup, preserving gallery/review scripts');
 check(digest(layout) === '45c14e8635da61b6c1a7ac63d6e47136bf0c68e427cb72143f78b587ab99edb2', 'The original layout stylesheet is unchanged');
 const polishHook = "    <link rel=\"stylesheet\" href=\"/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>\">";
 check(page.split(polishHook).length === 2, 'Exactly one filemtime-versioned polish hook exists');
-check(digest(page.replace(polishHook + '\n', '')) === '5aac9af28caa407c72be3d708daba95451aa605dd2378a61066668bd9e406a00', 'The stylesheet hook is the only PHP-page change since 278e4e7');
+check(page.includes('/assets/css/pages/facility-profile-disclosure.css?v=') && page.includes('/assets/js/facility-profile-disclosure.js?v='), 'The isolated disclosure assets are filemtime-versioned');
+check(!page.includes('<details class="facility-info-disclosure">'), 'Profile is readable by default, not hidden in a closed details element');
+check(page.indexOf('data-facility-profile-content') < page.indexOf('data-facility-read-more'), 'Read-more control follows the readable content');
 const stylesheetLinks = [...page.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]);
 check(stylesheetLinks.at(-1)?.includes('/assets/css/pages/facility-detail-polish.css?v='), 'Polish is the final linked stylesheet');
 const motionStart = page.indexOf('<style id="facility-detail-motion-polish">');
@@ -63,7 +65,7 @@ for (const binding of [
   "event.key === 'Escape'", "event.key === 'Tab'", "event.key === 'ArrowLeft'", "event.key === 'ArrowRight'",
 ]) check(page.includes(binding), `Retained data/schema/behavior binding: ${binding}`);
 
-const scripts = [...page.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)]
+const scripts = [...page.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
   .map(match => match[1]).filter(script => script.trim());
 check(scripts.length === 2, 'The original two inline behavior scripts remain');
 for (const script of scripts) {
