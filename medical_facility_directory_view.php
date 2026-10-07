@@ -43,7 +43,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
         <?php if (!empty($item['address'])): ?><p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span><?= $e($item['address']) ?></span></p><?php endif; ?>
         <?php if (!empty($item['subtitle'])): ?><p class="fd-summary"><?= $e($item['subtitle']) ?></p><?php endif; ?>
         <?php if ($services !== []): ?><div class="fd-services" data-service-tags>
-          <?php foreach ($services as $i => $service): ?><span class="fd-service<?= $i > 0 ? ' fd-service-extra' : '' ?>"<?= $i > 0 ? ' hidden' : '' ?>><?= $e($service) ?></span><?php endforeach; ?>
+          <?php foreach ($services as $i => $service): ?><span class="fd-service<?= $i > 0 ? ' fd-service-extra' : '' ?>"<?= $i > 0 ? ' hidden' : '' ?>><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?= $e($service) ?></span></span><?php endforeach; ?>
           <?php if (count($services) > 1): ?><button class="fd-service-more" type="button" data-service-tags-more data-extra-count="<?= count($services) - 1 ?>" aria-expanded="false" aria-label="<?= $en ? 'Show more services' : 'Xem thêm dịch vụ' ?>">+<?= count($services) - 1 ?><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
         </div><?php endif; ?>
         <div class="fd-card-footer">
