@@ -2403,9 +2403,6 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 
         </section>
 
-          </div>
-        </div>
-
         <?php if ($facilityLegalFacts !== [] || $facilityVisitFacts !== [] || $facilityInsurance !== '' || $facilityPaymentMethods !== [] || $facilityLanguages !== [] || $facilityWarranty !== '' || $facilityDoctors !== [] || $facilityEquipment !== [] || $facilityRatingSources !== []): ?>
           <section class="facility-info-area" aria-label="<?php echo htmlspecialchars($tr('Thông tin chi tiết về cơ sở', 'Facility details'), ENT_QUOTES, 'UTF-8'); ?>">
             <div class="facility-info-heading">
@@ -2416,6 +2413,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               <p><?php echo htmlspecialchars($tr('Thông tin được tổng hợp từ dữ liệu công khai và hồ sơ do cơ sở cung cấp.', 'Information is compiled from public sources and details provided by the facility.'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
 
+            <details class="facility-info-disclosure">
+              <summary class="facility-read-more"><span class="facility-read-label"><?php echo htmlspecialchars($tr('Xem thông tin đầy đủ', 'Read full facility profile'), ENT_QUOTES, 'UTF-8'); ?></span><span class="facility-read-less"><?php echo htmlspecialchars($tr('Thu gọn', 'Show less'), ENT_QUOTES, 'UTF-8'); ?></span><i data-lucide="chevron-down" aria-hidden="true"></i></summary>
             <div class="facility-info-grid">
               <?php if ($facilityLegalFacts !== []): ?>
                 <article class="panel facility-info-card" id="thong-tin-ho-so">
@@ -2468,8 +2467,11 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                 </article>
               <?php endif; ?>
             </div>
+            </details>
           </section>
         <?php endif; ?>
+          </div>
+        </div>
 
         <section class="panel section" id="danh-gia">
           <div class="section-head">
