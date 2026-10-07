@@ -26,7 +26,7 @@
         </div>
       </form>
     </section>
-    <?php if ($specialties !== []): ?><div class="doctor-explore"><span><?php echo $isEnglish ? 'Explore by specialty' : 'Bạn quan tâm chuyên khoa nào?'; ?></span><div class="doctor-specialty-links"><?php foreach (array_slice($specialties, 0, 5) as $specialty): ?><a href="<?php echo $escape(site_localized_path('/bac-si', $locale) . '?' . http_build_query(['specialty' => $specialty])); ?>" data-doctor-specialty="<?php echo $escape($specialty); ?>"><?php echo $escape($specialty); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a><?php endforeach; ?></div></div><?php endif; ?>
+    <?php if ($specialties !== []): ?><div class="doctor-explore"><span><?php echo $isEnglish ? 'Explore:' : 'Khám phá:'; ?></span><div class="doctor-specialty-links"><?php foreach (array_slice($specialties, 0, 5) as $specialty): $specialtyLabel = preg_replace('/^Chuyên môn về\s+/u', '', $specialty); ?><a href="<?php echo $escape(site_localized_path('/bac-si', $locale) . '?' . http_build_query(['specialty' => $specialty])); ?>" data-doctor-specialty="<?php echo $escape($specialty); ?>" aria-label="<?php echo $escape($specialty); ?>"><span><?php echo $escape($specialtyLabel); ?></span><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a><?php endforeach; ?></div></div><?php endif; ?>
 
     <div class="doctor-content">
       <section class="doctor-results" aria-label="<?php echo $isEnglish ? 'Doctor directory' : 'Danh sách bác sĩ'; ?>">

@@ -51,13 +51,11 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-stat strong{font-size:25px;font-weight:650;line-height:1.3;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .dd-redesign.doctor-directory .doctor-stat span{font-size:13px;color:var(--doctor-muted)}
 .dd-redesign.doctor-directory .doctor-hero-decoration{position:absolute;z-index:-1;right:340px;top:44px;color:#b7d2fb;transform:rotate(-13deg);pointer-events:none;font-size:63px}
-.dd-redesign.doctor-directory .doctor-explore{display:flex;align-items:center;gap:12px;padding:0;margin-top:14px}
+.dd-redesign.doctor-directory .doctor-explore{display:flex;align-items:baseline;gap:10px;padding:0;margin-top:10px}
 .dd-redesign.doctor-directory .doctor-explore>span{flex-shrink:0;font-size:13px;color:var(--doctor-muted)}
-.dd-redesign.doctor-directory .doctor-specialty-links{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
-.dd-redesign.doctor-directory .doctor-specialty-links a{display:flex;align-items:center;gap:8px;min-height:var(--med-ui-control-height,40px);padding:8px 12px;border:1px solid var(--doctor-line);border-radius:var(--med-ui-control-radius,11px);font-size:13px;font-weight:500;line-height:1.5;background:#fff;color:#476181;transition:background .2s,border-color .2s}
-.dd-redesign.doctor-directory .doctor-specialty-links a:nth-child(3n+1){background:#f1f5ff}
-.dd-redesign.doctor-directory .doctor-specialty-links a:nth-child(3n+2){background:#f0f8f3}
-.dd-redesign.doctor-directory .doctor-specialty-links a:nth-child(3n){background:#fcf4ea}
+.dd-redesign.doctor-directory .doctor-specialty-links{display:flex;flex-wrap:wrap;gap:4px 8px;min-width:0}
+.dd-redesign.doctor-directory .doctor-specialty-links a{display:flex;align-items:center;gap:5px;min-height:32px;max-width:100%;padding:5px 8px;border:1px solid transparent;border-radius:7px;font-size:12px;font-weight:500;line-height:1.5;background:transparent;color:#476181;transition:background .2s,border-color .2s}
+.dd-redesign.doctor-directory .doctor-specialty-links a>span{min-width:0;overflow-wrap:anywhere}
 .dd-redesign.doctor-directory .doctor-specialty-links a[aria-current="true"]{border-color:var(--doctor-blue);color:var(--doctor-blue)}
 .dd-redesign.doctor-directory .doctor-content{display:grid;grid-template-columns:264px minmax(0,1fr);gap:28px;align-items:start;margin-top:30px}
 .dd-redesign.doctor-directory .doctor-results{min-width:0;grid-column:2;grid-row:1}
@@ -194,10 +192,10 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-stat i{grid-row:1;margin:0;font-size:19px}
   .dd-redesign.doctor-directory .doctor-stat strong{font-size:16px}
   .dd-redesign.doctor-directory .doctor-stat span{grid-column:1/-1;font-size:11px;line-height:1.6}
-  .dd-redesign.doctor-directory .doctor-explore{display:grid;gap:12px;padding-top:0}
-  .dd-redesign.doctor-directory .doctor-specialty-links{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-block:2px}
+  .dd-redesign.doctor-directory .doctor-explore{display:grid;gap:4px;padding-top:0}
+  .dd-redesign.doctor-directory .doctor-specialty-links{flex-wrap:wrap;padding-block:0}
   .dd-redesign.doctor-directory .doctor-specialty-links::-webkit-scrollbar{display:none}
-  .dd-redesign.doctor-directory .doctor-specialty-links a{flex-shrink:0;max-width:88%;font-size:12px;overflow-wrap:anywhere}
+  .dd-redesign.doctor-directory .doctor-specialty-links a{min-height:44px;max-width:100%;font-size:12px;overflow-wrap:anywhere}
   .dd-redesign.doctor-directory .doctor-content{margin-top:26px}
   .dd-redesign.doctor-directory .doctor-result-topline{align-items:center;gap:10px;margin-bottom:16px}
   .dd-redesign.doctor-directory .doctor-result-count{font-size:16px}
@@ -250,7 +248,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory.doctor-enhanced .doctor-city-more{display:flex}
 .dd-redesign.doctor-directory .doctor-city-links a:hover,.dd-redesign.doctor-directory .doctor-city-links a[aria-current]{background:#fff;border-color:#b8dacf}
 .dd-redesign.doctor-directory .doctor-city-links a>i:first-child{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#eaf3f4;color:#548e91;font-size:18px}
-.dd-redesign.doctor-directory .doctor-specialty-links a i{color:#6a88b1;font-size:17px}
+.dd-redesign.doctor-directory .doctor-specialty-links a i{flex:0 0 auto;color:#6a88b1;font-size:13px}
 .dd-redesign.doctor-directory .doctor-result-count::before{display:inline-block;width:5px;height:18px;margin-right:9px;vertical-align:-1px;border-radius:3px;background:linear-gradient(#347bfa,#75a7fc);content:""}
 @keyframes doctor-discovery-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:no-preference){.dd-redesign.doctor-directory .doctor-hero,.dd-redesign.doctor-directory .doctor-search-area{animation:doctor-discovery-in .45s var(--med-ui-ease) both}.dd-redesign.doctor-directory .doctor-search-area{animation-delay:55ms}}
