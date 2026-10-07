@@ -32,7 +32,7 @@ function doctor_directory_card(array $item, ?string $locale = null): string
           <?php if (!empty($item['facility_name'])): ?><span><i class="ph ph-hospital"></i><?php echo $escape($item['facility_name']); ?></span><?php endif; ?>
           <?php if (!empty($item['hours'])): ?><span><i class="ph ph-clock"></i><?php echo $escape($item['hours']); ?></span><?php endif; ?>
         </div>
-        <?php if ($services !== []): ?><div class="doctor-tags" data-doctor-tags><?php foreach ($services as $index => $service): ?><span class="doctor-tag<?php echo $index > 2 ? ' is-extra' : ''; ?>"><?php echo $escape($service); ?></span><?php endforeach; ?><?php if (count($services) > 3): ?><button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="<?php echo count($services) - 3; ?>" aria-expanded="false">+<?php echo count($services) - 3; ?></button><?php endif; ?></div><?php endif; ?>
+        <?php if ($services !== []): ?><div class="doctor-tags" data-doctor-tags><?php foreach ($services as $index => $service): ?><span class="doctor-tag<?php echo $index > 2 ? ' is-extra' : ''; ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?php echo $escape($service); ?></span></span><?php endforeach; ?><?php if (count($services) > 3): ?><button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="<?php echo count($services) - 3; ?>" aria-expanded="false" aria-label="<?php echo $isEnglish ? 'Show more specialties' : 'Xem thêm chuyên môn'; ?>"><span data-tags-label>+<?php echo count($services) - 3; ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?></div><?php endif; ?>
       </div>
       <div class="doctor-card-footer">
         <div class="doctor-score">
