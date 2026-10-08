@@ -26,8 +26,15 @@ $GLOBALS['site_language_links'] = $toplistLanguageLinks;
 $toplistEntityType = toplist_directory_entity_type($toplist);
 $linkedRows = $toplistNotFound ? [] : toplist_directory_linked_rows($pdo, $toplist);
 $facilities = [];
+$toplistGalleryMetadata = [];
 foreach ($toplistEntityType === 'facility' ? $linkedRows : [] as $row) {
     $item = medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($row), true);
+    foreach ((array) ($item['gallery'] ?? []) as $entry) {
+        if (!is_array($entry)) continue;
+        foreach (medical_directory_gallery_urls([$entry]) as $url) {
+            $toplistGalleryMetadata[site_absolute_media_url($url)] = ['caption' => trim((string) ($entry['caption'] ?? '')), 'angle' => trim((string) ($entry['angle'] ?? '')), 'alt' => trim((string) ($entry['alt'] ?? ''))];
+        }
+    }
     // The Toplist gallery/lightbox consumes URLs. Keep gallery metadata in the
     // facility record itself, but avoid rendering PHP arrays as image sources.
     $item['gallery'] = array_values(array_unique(array_filter(array_map(
@@ -76,7 +83,7 @@ function toplist_services(array $facility): array {
     return array_slice(array_values($services), 0, 6);
 }
 function toplist_facility_image(array $facility): string { $image=trim((string)($facility['image']??$facility['image_url']??'')); if($image===''){ $gallery=(array)($facility['gallery']??[]); $image=trim((string)($gallery[0]??'')); } return $image; }
-ob_start(static function (string $html) use ($facilities): string {
+ob_start(static function (string $html) use ($facilities, $toplistGalleryMetadata): string {
     $css = '<style>.reviews{border:1px solid var(--border);border-radius:15px;overflow:hidden;padding-top:0}.reviews>h3{padding:15px 17px;margin:0!important;background:#f8fbff;border-bottom:1px solid var(--border)}.reviews .review-list{gap:0}.reviews .review{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px;padding:17px;border:0;border-radius:0;background:#fff;border-top:1px solid var(--border)}.reviews .review:first-child{border-top:0}.reviews .review-top{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}.reviews .review-top strong{font-size:14px}.reviews .stars{margin-top:7px}.reviews .review p{margin:0;color:#475569;font-size:13px;line-height:1.7}.reviews .review-meta{grid-column:2;display:flex;flex-wrap:wrap;gap:8px;margin-top:-7px}.reviews .review-meta span{padding:5px 8px;border-radius:7px;background:#f3f7fc;color:#64748b}@media(max-width:700px){.reviews .review{grid-template-columns:1fr}.reviews .review-meta{grid-column:1}}</style>';
     $css .= '<style>.reviews.review-shell{display:grid;grid-template-columns:210px minmax(0,1fr);padding:0;border:0;overflow:visible;background:transparent}.review-summary-box{padding:18px;border:1px solid var(--border);border-radius:15px;background:#fff}.review-summary-box h3{margin:0;font-size:15px}.review-summary-box small{color:#94a3b8}.review-summary-score{margin:18px 0 7px;color:#2563eb;font-size:44px;font-weight:800}.review-summary-score i{font-size:15px;color:#475569}.review-summary-stars{color:#f59e0b;letter-spacing:2px}.review-summary-count{margin-top:10px;color:#64748b;font-size:12px;font-weight:700}.review-feed-box{overflow:hidden;border:1px solid var(--border);border-radius:15px;background:#fff}.review-toolbar{display:flex;gap:9px;padding:12px;border-bottom:1px solid var(--border)}.review-toolbar span{padding:8px 10px;border:1px solid var(--border);border-radius:9px;color:#475569;font-size:11px;font-weight:750}.review-feed-box .review-list{border:0;border-radius:0}.review-feed-box .review{grid-template-columns:155px minmax(0,1fr);border-radius:0}.review-feed-box .review-meta{grid-column:2}@media(max-width:760px){.reviews.review-shell{grid-template-columns:1fr}.review-feed-box .review{grid-template-columns:1fr}.review-feed-box .review-meta{grid-column:1}}</style>';
     $css .= '<style>.facility-gallery-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;padding:9px 12px;background:#f8fbff;border-bottom:1px solid var(--border)}.facility-gallery-strip button{height:62px;padding:0;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:#fff;cursor:pointer}.facility-gallery-strip img{width:100%;height:100%;object-fit:cover}.review-toolbar select{height:36px;padding:0 30px 0 10px;border:1px solid var(--border);border-radius:9px;background:#fff;color:#475569;font:700 11px inherit}.load-more-wrap{display:flex;justify-content:center;padding:14px;border-top:1px solid var(--border)}.load-more-review{padding:9px 15px;border:1px solid #bfdbfe;border-radius:999px;background:#fff;color:#2563eb;font-weight:800;cursor:pointer}@media(max-width:700px){.facility-gallery-strip{grid-template-columns:repeat(3,1fr)}.facility-gallery-strip button{height:54px}}</style>';
@@ -278,11 +285,14 @@ HTML;
 @media(prefers-reduced-motion:reduce){.toplist-lightbox,.toplist-lightbox-backdrop,.toplist-lightbox-dialog,.toplist-lightbox-image,.toplist-lightbox-close,.toplist-lightbox-nav{animation:none!important;transition:none!important}}
 </style>
 HTML;
+    $script .= '<style>.toplist-lightbox-caption{white-space:normal;overflow-wrap:anywhere;border-radius:14px;line-height:1.5;max-height:100px;overflow:auto}@media(max-width:700px){.toplist-lightbox-caption{display:block;max-width:calc(100% - 24px);font-size:12px}.toplist-lightbox-stage{padding-bottom:76px}}</style>';
+    $script .= '<script id="toplist-gallery-metadata" type="application/json">' . json_encode($toplistGalleryMetadata, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script>';
     $script .= '<script id="toplist-gallery-lightbox-data" type="application/json">' . ($galleryLightboxJson ?: '{}') . '</script>';
     $script .= <<<'HTML'
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     const dataNode = document.getElementById("toplist-gallery-lightbox-data");
+    const galleryMetadata = JSON.parse(document.getElementById("toplist-gallery-metadata")?.textContent || "{}");
     let galleries = {};
     try { galleries = JSON.parse(dataNode?.textContent || "{}"); } catch (_) { galleries = {}; }
 
@@ -345,7 +355,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const token = ++imageToken;
         lightbox.dataset.galleryDirection = direction === "previous" ? "previous" : (direction === "open" ? "open" : "next");
         titleNode.textContent = activeName;
-        captionNode.textContent = `Ảnh ${activeIndex + 1} trong thư viện của ${activeName}`;
+        const metadata = galleryMetadata[source] || {};
+        captionNode.textContent = metadata.caption || metadata.angle || `Ảnh ${activeIndex + 1} trong thư viện của ${activeName}`;
         updateNavigation();
         lightbox.classList.add("is-loading", "is-image-transitioning");
         lightbox.classList.remove("is-error");
@@ -354,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const complete = () => {
             if (token !== imageToken) return;
             stageImage.src = source;
-            stageImage.alt = `${activeName} — ảnh ${activeIndex + 1}`;
+            stageImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${activeName}` : `${activeName} — ảnh ${activeIndex + 1}`);
             requestAnimationFrame(() => {
                 stageImage.classList.add("is-visible");
                 lightbox.classList.remove("is-image-transitioning");

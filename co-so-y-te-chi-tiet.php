@@ -195,7 +195,14 @@ function facility_detail_normalize(array $item): array
   $heroImage = trim((string) ($item['hero_image'] ?? $item['image_url'] ?? $item['image'] ?? ''));
 
   // The stored gallery may contain {url, angle, caption, source}. The gallery
-  // UI deliberately consumes URLs, while the metadata remains intact in DB.
+  // UI consumes URLs with a separate metadata map for image descriptions.
+  $galleryMetadata = [];
+  foreach ((array) ($item['gallery'] ?? []) as $entry) {
+    if (!is_array($entry)) continue;
+    foreach (medical_directory_gallery_urls([$entry]) as $url) {
+      $galleryMetadata[$url] = ['caption' => trim((string) ($entry['caption'] ?? '')), 'angle' => trim((string) ($entry['angle'] ?? '')), 'alt' => trim((string) ($entry['alt'] ?? ''))];
+    }
+  }
   $gallery = medical_directory_gallery_urls((array) ($item['gallery'] ?? []));
   // Ảnh đại diện cũng là một ảnh của cơ sở: luôn đưa vào gallery nếu chưa có.
   // Không tạo ảnh thay thế để người xem chỉ thấy ảnh thực tế đã lưu.
@@ -308,6 +315,7 @@ function facility_detail_normalize(array $item): array
     'verified' => !empty($item['verified']) || !empty($item['is_verified']),
     'hero_image' => $heroImage,
     'gallery' => $gallery,
+    'gallery_metadata' => $galleryMetadata,
     'services' => $services,
     'intro' => array_values(array_filter(array_map('trim', (array) ($item['intro'] ?? [])), static fn(string $value): bool => $value !== '')),
     'tags' => array_values(array_filter(array_map('trim', (array) ($item['tags'] ?? [])), static fn(string $value): bool => $value !== '')),
@@ -1063,6 +1071,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
       .gallery-lightbox__image.is-switching.is-enter-from-next{transform:translate3d(34px,0,0) scale(.972)}
       .gallery-lightbox__image.is-switching.is-enter-from-prev{transform:translate3d(-34px,0,0) scale(.972)}
       .gallery-lightbox__status{position:absolute;left:50%;bottom:8px;z-index:2;max-width:calc(100% - 150px);padding:6px 10px;border:1px solid rgba(255,255,255,.24);border-radius:999px;background:rgba(15,23,42,.38);box-shadow:none;font-size:12px;font-weight:600;line-height:1.35;text-align:center;text-shadow:none;transform:translateX(-50%);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+      .gallery-lightbox__status{border-radius:14px;overflow-wrap:anywhere;max-height:100px;overflow:auto}
       .gallery-lightbox__nav{position:absolute;z-index:2;top:50%;width:50px;height:50px;border-radius:50%;font-size:38px;line-height:.8;font-weight:300;transform:translateY(-50%)}
       .gallery-lightbox__nav:hover{transform:translateY(-50%) scale(1.05)}
       .gallery-lightbox__prev{left:16px}
@@ -2630,6 +2639,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
       }
       (function () {
         const gallerySources = <?php echo json_encode(array_values((array) $facility['gallery']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]'; ?>;
+        const galleryMetadata = <?php echo json_encode($facility['gallery_metadata'] ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}'; ?>;
         const uiText = <?php echo json_encode([
           'loadingPhoto' => $tr('Đang tải ảnh…', 'Loading photo…'),
           'photo' => $tr('Ảnh', 'Photo'),
@@ -2731,7 +2741,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             lightboxImage.classList.remove('is-switching', 'is-enter-from-next', 'is-enter-from-prev');
             lightboxStatus.textContent = failed
               ? uiText.photoLoadFailed
-              : `${uiText.photo} ${activeGalleryIndex + 1} ${uiText.photoInGallery}${gallerySources.length}`;
+              : (galleryMetadata[gallerySources[activeGalleryIndex]]?.caption || galleryMetadata[gallerySources[activeGalleryIndex]]?.angle || `${uiText.photo} ${activeGalleryIndex + 1} ${uiText.photoInGallery}${gallerySources.length}`);
           });
         }
 
@@ -2747,7 +2757,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           if (direction > 0) lightboxImage.classList.add('is-enter-from-next');
           if (direction < 0) lightboxImage.classList.add('is-enter-from-prev');
           lightboxStatus.textContent = uiText.loadingPhoto;
-          lightboxImage.alt = `${uiText.photo} ${activeGalleryIndex + 1}${uiText.photoOf}${galleryName}`;
+          const metadata = galleryMetadata[source] || {};
+          lightboxImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${galleryName}` : `${uiText.photo} ${activeGalleryIndex + 1}${uiText.photoOf}${galleryName}`);
           lightboxImage.onload = () => finishGalleryImage(requestId, false);
           lightboxImage.onerror = () => finishGalleryImage(requestId, true);
           lightboxImage.src = source;
