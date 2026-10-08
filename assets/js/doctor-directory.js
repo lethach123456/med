@@ -26,8 +26,8 @@
     const detail = esc(item.url || ((isEnglish ? '/en' : '') + '/bac-si/' + encodeURIComponent(item.slug || '')));
     const image = String(item.image || '').trim();
     const services = Array.isArray(item.services) ? item.services : [];
-    const tags = services.map((value, index) => `<span class="doctor-tag${index > 2 ? ' is-extra' : ''}"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${esc(value)}</span></span>`).join('');
-    const more = services.length > 3 ? `<button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="${services.length - 3}" aria-expanded="false" aria-label="${isEnglish ? 'Show more specialties' : 'Xem thêm chuyên môn'}"><span data-tags-label>+${services.length - 3}</span><i class="ph ph-caret-down" aria-hidden="true"></i></button>` : '';
+    const tags = services.map((value, index) => `<span class="doctor-tag${index > 2 ? ' is-extra' : ''}" title="${esc(value)}"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${esc(value)}</span></span>`).join('');
+    const more = services.length > 3 || services.some(value => Array.from(String(value)).length > 24) ? `<button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="${Math.max(0, services.length - 3)}" aria-expanded="false" aria-label="${isEnglish ? 'Show full specialties' : 'Xem đầy đủ chuyên môn'}"><span data-tags-label>${services.length > 3 ? '+' + (services.length - 3) : (isEnglish ? 'Details' : 'Xem đủ')}</span><i class="ph ph-caret-down" aria-hidden="true"></i></button>` : '';
     const verified = item.verified ? `<span class="doctor-verified" title="${words.verified}"><i class="ph-fill ph-seal-check"></i><span>${words.verified}</span></span>` : '';
     const media = image ? `<img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : '<span class="doctor-media-empty"><i class="ph ph-user-circle"></i></span>';
     const rating = Math.min(5, Math.max(0, Number(item.rating || 0)));
@@ -148,7 +148,7 @@
     const group = button.closest('[data-doctor-tags]');
     const expanded = group.classList.toggle('is-expanded');
     button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    button.querySelector('[data-tags-label]').textContent = expanded ? words.collapse : `+${button.dataset.extraCount || 0}`;
+    button.querySelector('[data-tags-label]').textContent = expanded ? words.collapse : (Number(button.dataset.extraCount) > 0 ? `+${button.dataset.extraCount}` : (isEnglish ? 'Details' : 'Xem đủ'));
     button.setAttribute('aria-label', expanded ? words.collapse : (isEnglish ? 'Show more specialties' : 'Xem thêm chuyên môn'));
   });
   pager.addEventListener('click', event => { const button = event.target.closest('button[data-page]'); if (!button || button.disabled) return; load(Number(button.dataset.page)); scrollToResults(); });

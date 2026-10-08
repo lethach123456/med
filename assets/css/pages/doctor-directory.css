@@ -98,7 +98,8 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-tags{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
 .dd-redesign.doctor-directory .doctor-tag{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;padding:5px 9px;border:1px solid #e7edf6;border-radius:8px;background:#f3f6fb;color:#526a88;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .dd-redesign.doctor-directory .doctor-tag>i{flex:0 0 auto;font-size:14px;color:var(--doctor-blue)}
-.dd-redesign.doctor-directory .doctor-tag>span{min-width:0}
+.dd-redesign.doctor-directory .doctor-tag>span{min-width:0;max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-redesign.doctor-directory .doctor-tags.is-expanded .doctor-tag>span{max-width:none;overflow:visible;white-space:normal}
 .dd-redesign.doctor-directory .doctor-tags.is-collapsible:not(.is-expanded) .is-extra{display:none}
 .dd-redesign.doctor-directory .doctor-tags-more{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;min-height:44px;padding:4px 9px;margin-block:0;border:0;border-radius:8px;background:transparent;color:var(--doctor-blue);font-size:12px;cursor:pointer}
 .dd-redesign.doctor-directory .doctor-tags-more>i{font-size:14px;transition:transform .2s ease}
@@ -219,7 +220,8 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
   .dd-redesign.doctor-directory .doctor-details{gap:5px}
   .dd-redesign.doctor-directory .doctor-details span{font-size:13px}
   .dd-redesign.doctor-directory .doctor-tags{margin-top:10px}
-  .dd-redesign.doctor-directory .doctor-tag{font-size:12px}
+  .dd-redesign.doctor-directory .doctor-tag{font-size:12px;max-width:calc(50% - 4px)}
+  .dd-redesign.doctor-directory .doctor-tags.is-expanded .doctor-tag{max-width:100%}
   .dd-redesign.doctor-directory .doctor-card-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 12px;padding-top:14px}
   .dd-redesign.doctor-directory .doctor-score{grid-column:1;gap:4px}
   .dd-redesign.doctor-directory .doctor-score strong{font-size:15px}

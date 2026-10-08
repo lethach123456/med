@@ -13,6 +13,7 @@ function doctor_directory_card(array $item, ?string $locale = null): string
     $rating = min(5.0, max(0.0, (float) ($item['rating'] ?? 0)));
     $reviewCount = max(0, (int) ($item['reviews_count'] ?? 0));
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? []))));
+    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 24)) > 0;
     ob_start(); ?>
     <article class="doctor-card">
       <a class="doctor-media" href="<?php echo $escape($url); ?>" aria-label="<?php echo $isEnglish ? 'View profile of ' : 'Xem hồ sơ '; ?><?php echo $escape($item['name'] ?? 'doctor'); ?>">
@@ -32,7 +33,7 @@ function doctor_directory_card(array $item, ?string $locale = null): string
           <?php if (!empty($item['facility_name'])): ?><span><i class="ph ph-hospital"></i><?php echo $escape($item['facility_name']); ?></span><?php endif; ?>
           <?php if (!empty($item['hours'])): ?><span><i class="ph ph-clock"></i><?php echo $escape($item['hours']); ?></span><?php endif; ?>
         </div>
-        <?php if ($services !== []): ?><div class="doctor-tags" data-doctor-tags><?php foreach ($services as $index => $service): ?><span class="doctor-tag<?php echo $index > 2 ? ' is-extra' : ''; ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?php echo $escape($service); ?></span></span><?php endforeach; ?><?php if (count($services) > 3): ?><button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="<?php echo count($services) - 3; ?>" aria-expanded="false" aria-label="<?php echo $isEnglish ? 'Show more specialties' : 'Xem thêm chuyên môn'; ?>"><span data-tags-label>+<?php echo count($services) - 3; ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?></div><?php endif; ?>
+        <?php if ($services !== []): ?><div class="doctor-tags<?= $showServiceDisclosure ? ' is-collapsible' : '' ?>" data-doctor-tags><?php foreach ($services as $index => $service): ?><span class="doctor-tag<?php echo $index > 2 ? ' is-extra' : ''; ?>" title="<?= $escape($service) ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?php echo $escape($service); ?></span></span><?php endforeach; ?><?php if ($showServiceDisclosure): ?><button type="button" class="doctor-tags-more" data-doctor-tags-more data-extra-count="<?php echo max(0, count($services) - 3); ?>" aria-expanded="false" aria-label="<?php echo $isEnglish ? 'Show full specialties' : 'Xem đầy đủ chuyên môn'; ?>"><span data-tags-label><?= count($services) > 3 ? '+' . (count($services) - 3) : ($isEnglish ? 'Details' : 'Xem đủ') ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?></div><?php endif; ?>
       </div>
       <div class="doctor-card-footer">
         <div class="doctor-score">

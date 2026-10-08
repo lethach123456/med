@@ -37,7 +37,7 @@ service worker với host permission MedReview; không đưa API key/claim token
 
 Queue mặc định: published, tiếng Việt, chưa kiểm tra hoặc lần kiểm tra cách ít nhất
 30 ngày. `language=en` chọn bản tiếng Anh. `only_pending=0` lấy cả bản mới kiểm tra;
-`recheck_days=1..365`, `target_images=1..12` (mặc định 6), `limit=1..50`, `page` hoặc
+`recheck_days=1..365`, `target_images=5..12` (mặc định 6, giá trị dưới 5 được nâng lên 5), `limit=1..50`, `page` hoặc
 `after_id` để phân trang. Khi cấp `ids`/`id`, bỏ điều kiện thời điểm kiểm tra nhưng vẫn
 lọc published/ngôn ngữ. Queue không tự gọi từng host ảnh hay suy đoán URL nào hỏng.
 

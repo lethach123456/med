@@ -17,7 +17,11 @@ $assert(str_contains($html, 'Clinic &lt;Test&gt;') && str_contains($html, 'A &am
 $assert(str_contains($html, '4.3<span>/5</span>') && !str_contains($html, '★★★★★'), 'Rating not represented as five gold stars');
 $assert(str_contains($html, '1.200 đánh giá'), 'Vietnamese count format');
 $assert(str_contains($html, 'loading="lazy"') && str_contains($html, 'width="360" height="300"'), 'Images lazy with reserved dimensions');
-$assert(substr_count($html, 'fd-service-extra" hidden') === 2 && str_contains($html, 'aria-expanded="false"'), 'Extra services are a proper disclosure');
+$assert(substr_count($html, 'fd-service-extra') === 0 && !str_contains($html, 'data-service-tags-more'), 'Three short services visible without redundant disclosure');
+$many = facility_directory_card(array_replace($item, ['services' => ['Niềng răng', 'Bọc sứ', 'Implant', 'Khám tổng quát', 'Dịch vụ thứ năm']]));
+$assert(substr_count($many, 'fd-service-extra" hidden') === 2 && str_contains($many, 'data-extra-count="2"'), 'Three visible services and accurate remaining count');
+$long = facility_directory_card(array_replace($item, ['services' => ['Niềng răng thẩm mỹ với mắc cài cá nhân hóa & khay trong suốt']]));
+$assert(str_contains($long, 'data-extra-count="0"') && str_contains($long, 'Xem đủ') && str_contains($long, '&amp;'), 'Long single label retains full escaped text with touch disclosure');
 $assert(str_contains($html, 'Giá tham khảo: 250.000 VND'), 'Actual price retained');
 $en = facility_directory_card($item, 'en');
 $assert(str_contains($en, '1,200 reviews') && str_contains($en, 'View profile'), 'English labels/counts');

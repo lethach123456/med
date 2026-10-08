@@ -146,7 +146,7 @@
       <h2><a href="${escape(url)}">${escape(item.name)}</a>${item.verified ? `<span class="fd-verified" role="img" aria-label="${words.verified}" title="${words.verified}"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></span>` : ''}</h2>
       ${item.address ? `<p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>${escape(item.address)}</span></p>` : ''}
       ${item.subtitle ? `<p class="fd-summary">${escape(item.subtitle)}</p>` : ''}
-      ${services.length ? `<div class="fd-services" data-service-tags>${services.map((s, i) => `<span class="fd-service${i ? ' fd-service-extra' : ''}"${i ? ' hidden' : ''}><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${escape(s)}</span></span>`).join('')}${services.length > 1 ? `<button class="fd-service-more" type="button" data-service-tags-more data-extra-count="${services.length - 1}" aria-expanded="false" aria-label="${words.more}">+${services.length - 1}<i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : ''}
+      ${services.length ? `<div class="fd-services" data-service-tags>${services.map((s, i) => `<span class="fd-service${i > 2 ? ' fd-service-extra' : ''}"${i > 2 ? ' hidden' : ''} title="${escape(s)}"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${escape(s)}</span></span>`).join('')}${services.length > 3 || services.some(s => Array.from(s).length > 24) ? `<button class="fd-service-more" type="button" data-service-tags-more data-extra-count="${Math.max(0, services.length - 3)}" aria-expanded="false" aria-label="${words.more}">${services.length > 3 ? '+' + (services.length - 3) : (en ? 'Details' : 'Xem đủ')}<i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : ''}
       <div class="fd-card-footer"><div class="fd-rating">${rating ? `<i class="ph-fill ph-star" aria-hidden="true"></i><strong>${rating.toFixed(1)}<span>/5</span></strong><span class="fd-review-count">(${number.format(Math.max(0, Number(item.reviews_count) || 0))} ${words.reviews})</span>` : `<span class="fd-unrated">${words.unrated}</span>`}</div><a class="fd-profile-link" href="${escape(url)}">${words.profile}<i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
       ${item.price ? `<p class="fd-price">${words.price}${escape(item.price)}</p>` : ''}</div></article>`;
   }
@@ -246,7 +246,7 @@
       tags.querySelectorAll('.fd-service-extra').forEach((tag) => {tag.hidden = !open;});
       target.setAttribute('aria-expanded', String(open));
       target.setAttribute('aria-label', open ? words.less : words.more);
-      target.innerHTML = (open ? (en ? 'Less' : 'Thu gọn') : '+' + target.dataset.extraCount) + '<i class="ph ph-caret-down" aria-hidden="true"></i>';
+      target.innerHTML = (open ? (en ? 'Less' : 'Thu gọn') : (Number(target.dataset.extraCount) > 0 ? '+' + target.dataset.extraCount : (en ? 'Details' : 'Xem đủ'))) + '<i class="ph ph-caret-down" aria-hidden="true"></i>';
     } else if (target.matches('[data-retry]')) load(currentPage);
     else if (target.matches('[data-open-filters]')) {
       setPanel(true);

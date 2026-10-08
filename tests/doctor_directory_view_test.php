@@ -22,6 +22,9 @@ $assert(!str_contains($vi,'★★★★★'),'Never imply five stars for every s
 $assert(str_contains($vi,'doctor-card-footer') && str_contains($vi,'doctor-price'),'Data footer retained');
 $assert(str_contains($vi,'doctor-media-empty') && !str_contains($vi,'src=""'),'Empty portrait fallback');
 $assert(str_contains($vi,'data-extra-count="1"') && str_contains($vi,'aria-expanded="false"'),'Expandable service list');
+$assert(substr_count($vi, 'doctor-tag is-extra') === 1, 'Three specialties visible and only remainder hidden');
+$long = doctor_directory_card(array_replace($item, ['services' => ['Chuyên môn về bệnh lý giác mạc và bề mặt nhãn cầu']]), 'vi');
+$assert(str_contains($long, 'data-extra-count="0"') && str_contains($long, 'Xem đủ') && str_contains($long, 'title="Chuyên môn'), 'Long specialty retains full value with touch disclosure');
 $assert(str_contains($vi,'doctor-verified') && str_contains($vi,'Đã xác thực'),'Conditional verification label');
 $assert(!str_contains(doctor_directory_card(array_replace($item,['verified'=>false]),'vi'),'doctor-verified'),'Unverified profile has no verification badge');
 $assert(str_contains(doctor_directory_card(array_replace($item,['image'=>'/uploads/test.webp']),'vi'),'loading="lazy" decoding="async"'),'Portrait lazy loading');

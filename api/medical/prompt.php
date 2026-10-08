@@ -24,7 +24,7 @@ if ($type === 'facility_image_fix') {
             'label' => $resolved['label'], 'prompt_source' => $resolved['source'], 'prompt_key_used' => $resolved['prompt_key_used'],
             'images_revision' => medical_facility_image_fix_revision($source),
             'output_template' => medical_facility_image_fix_output_template($source),
-            'prompt' => medical_facility_image_fix_prompt($resolved['template'], $source, min(12, max(1, (int) ($_GET['target_images'] ?? 6))))]);
+            'prompt' => medical_facility_image_fix_prompt($resolved['template'], $source, min(12, max(5, (int) ($_GET['target_images'] ?? 6))))]);
     } catch (InvalidArgumentException $e) { json_response(['ok' => false, 'message' => $e->getMessage()], 422); }
 }
 if ($type === 'toplist') {

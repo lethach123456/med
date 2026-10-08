@@ -91,6 +91,14 @@ $assert(str_contains($prompt, 'BLOCK CODE') && str_contains($prompt, 'Google Map
 $assert(!str_contains($prompt, $token), 'writer claim token excluded from AI prompt');
 $customPrompt = medical_facility_image_fix_prompt('Admin edited prompt', $row, 9);
 $assert(str_contains($customPrompt, 'ƯU TIÊN NGUỒN ẢNH THẬT') && str_contains($customPrompt, 'ảnh người dùng chụp thực tế'), 'saved custom templates also prioritize real Google Maps photos');
+$assert(str_contains($customPrompt, 'tối thiểu 5 ảnh') && str_contains($customPrompt, 'Facebook/fanpage') && str_contains($customPrompt, 'nguồn công khai khác trên mạng'), 'saved prompts get minimum five and multi-source fallback');
+$assert(str_contains($customPrompt, 'không tính ảnh AI, ảnh trùng hoặc uncertain') && str_contains($customPrompt, 'insufficient_images=true'), 'minimum does not invent or count unverified images');
+$assert(str_contains($default, 'GIỚI THIỆU KHÔNG GIAN THỰC TẾ') && str_contains($default, 'ảnh bìa website'), 'default prompt is a real facility photo gallery, not branding');
+$assert(str_contains($customPrompt, 'KHÔNG lấy logo đứng riêng') && str_contains($customPrompt, 'poster khuyến mãi') && str_contains($customPrompt, 'không tính vào số tối thiểu'), 'saved custom prompts also exclude logos covers and designed adverts');
+$assert(str_contains($customPrompt, 'Logo/biển hiệu xuất hiện tự nhiên') && str_contains($customPrompt, 'nếu không xem được thì uncertain'), 'actual signage photos and unverified originals are preserved');
+$minimumPrompt = medical_facility_image_fix_prompt('Target {{target_images}}', $row, 1);
+$assert(str_contains($minimumPrompt, 'Target 5') && str_contains($minimumPrompt, '"target_images":5'), 'minimum clamp agrees between rendered prompt and source JSON');
+$assert(str_contains(medical_facility_image_fix_prompt('Target {{target_images}}', $row, 99), 'Target 12'), 'upper image bound is retained');
 $localOnly = medical_facility_image_fix_import_now(new PDO('sqlite::memory:'), 71, ['image_url' => ['/uploads/library/existing.jpg'], 'gallery_json' => []]);
 $assert($localOnly === ['imported' => 0, 'failed' => 0, 'items' => []], 'local images do not need network or worker schema');
 $assert(str_contains($customPrompt, 'inspected_images'), 'edited admin prompt retains required current JSON contract');

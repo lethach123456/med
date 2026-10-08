@@ -62,7 +62,7 @@ function facility_page_item_from_row(array $row): array
         'image' => $image,
         'image_count' => count($gallery),
         'images_label' => trim((string) ($row['images_label'] ?? '')),
-        'services' => array_slice($services, 0, 4),
+        'services' => $services,
     ];
 }
 
