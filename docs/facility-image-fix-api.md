@@ -13,9 +13,11 @@ lưu URL Google dài, và `INSERT IGNORE` prompt `facility_image_fix` vào
 `medical_ai_prompts`. Không seed dữ liệu; prompt tùy chỉnh đã lưu được giữ lại.
 Migration y tế tổng cũng bao gồm nâng cấp này. API không tự chạy migration.
 
-Ảnh ngoài được tải bằng worker hiện có. Hàng đợi worker phải được cài đặt và cron
-`cron/medical-media-worker.php` phải chạy. Receiver báo `image_processing=queued`,
-không khẳng định ảnh đã tải/kiểm tra thành công.
+Ảnh ngoài được kiểm tra, tải và nén/lưu trực tiếp trong request nhận Fix ảnh,
+không enqueue và không cần cron worker. Receiver báo `image_processing=completed`
+hoặc `partial`, kèm `images_imported`, `images_failed`, `image_results` từng bài.
+Ảnh lỗi giữ URL nguồn, có thể retry cùng payload/token để tải phần còn thiếu.
+Request sẽ lâu hơn trước tùy số ảnh và tốc độ nguồn; tiện ích cần timeout đủ dài.
 
 ## Các cổng
 
@@ -137,7 +139,7 @@ này. Giữ nguyên mọi query string của URL Google; không tự chế image
 
 ## Kết quả và xử lý lỗi
 
-- 200: `ok=true`, `updated`, `updated_count`, `image_processing=queued`.
+- 200: `ok=true` nghĩa là JSON đã lưu; xem thêm `image_processing=completed|partial`, `warnings` và `updated[].images_failed` để biết ảnh đã tải đủ chưa. `images_queued=0`.
 - 207: batch có item thành công và thất bại; kiểm tra từng ID, chỉ retry item lỗi.
 - 409 `images_changed`: ảnh/nhận diện đã thay đổi (có thể do worker vừa tải ảnh).
   GET nguồn lại và chạy AI lại; không thay revision cũ bằng revision mới để gửi đè.

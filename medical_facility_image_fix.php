@@ -165,8 +165,43 @@ function medical_facility_image_fix_prompt(string $template, array $row, int $ta
     }
     return $rendered . "\n\nCONTRACT API FIX ẢNH (ưu tiên nếu mẫu có chỉ dẫn JSON cũ):\n"
         . "Giữ nguyên id và images_revision. inspected_images phải có đúng một decision keep/remove/uncertain cho MỌI url trong source.images; remove cần reason và evidence_url. added_images tối đa 12 object ảnh, mỗi object bắt buộc có url trực tiếp, source, source_url chứng minh đúng chi nhánh; angle/caption là văn bản không bắt buộc (tối đa 120/500 ký tự). Không coi timeout/403/429/CAPTCHA là bằng chứng ảnh hỏng; dùng uncertain và giữ ảnh. Không sửa content, tên, địa chỉ hoặc dữ liệu y tế.\n"
+        . "ƯU TIÊN NGUỒN ẢNH THẬT: tìm ảnh công khai từ mục Ảnh Google Maps của ĐÚNG địa điểm/chi nhánh trước; ưu tiên ảnh người dùng chụp thực tế, mặt tiền có biển hiệu, khu tiếp đón, phòng khám và thiết bị. Chỉ dùng website chính thức khi Google Maps không có ảnh phù hợp hoặc không thể xác minh/tải ảnh. Không dùng ảnh stock, ảnh AI, không bịa hay tự ghép URL. source_url phải giúp đối chiếu đúng địa điểm; url phải là đường dẫn trực tiếp dữ liệu ảnh.\n"
         . 'Khung kết quả: ' . medical_directory_json_encode($output)
         . "\nBẮT BUỘC trả duy nhất một block code ```json ... ```. Nhắc lại: toàn bộ JSON nằm TRONG BLOCK CODE json. Không đưa khóa API/claim token vào câu trả lời.";
+}
+
+/** Import immediately, without a queue or network I/O inside a DB transaction. */
+function medical_facility_image_fix_import_now(PDO $pdo, int $id, array $sources): array
+{
+    $urls = [];
+    foreach ($sources as $values) {
+        foreach ($values as $url) {
+            if (medical_media_jobs_is_remote_url((string) $url) && !medical_media_jobs_is_owned_url((string) $url)) $urls[(string) $url] = true;
+        }
+    }
+    $result = ['imported' => 0, 'failed' => 0, 'items' => []];
+    // Small batches bound raw image memory; existing downloader validates SSRF,
+    // redirects, byte limits and actual image data, not just file extensions.
+    foreach (array_chunk(array_keys($urls), 3) as $batch) {
+        $downloads = medical_media_jobs_download_parallel($batch, 3, 12);
+        foreach ($batch as $url) {
+            try {
+                $download = $downloads[$url] ?? [];
+                if (!($download['ok'] ?? false) || !isset($download['bytes'])) throw new RuntimeException((string) ($download['error'] ?? 'Không tải được ảnh.'));
+                $stored = medical_media_store_compressed_jpeg((string) $download['bytes'], 'facilities/' . $id);
+                if (!($stored['ok'] ?? false) || empty($stored['url'])) throw new RuntimeException((string) ($stored['error'] ?? 'Không lưu được ảnh.'));
+                $applied = medical_media_jobs_apply_local_url($pdo, ['entity_type' => 'facility', 'entity_id' => $id, 'source_url' => $url], (string) $stored['url']);
+                if (isset($applied['error'])) throw new RuntimeException((string) $applied['error']);
+                $result['imported']++;
+                $result['items'][] = ['source_url' => $url, 'local_url' => $stored['url'], 'ok' => true, 'updated' => (bool) $applied['changed']];
+            } catch (Throwable $e) {
+                $result['failed']++;
+                $result['items'][] = ['source_url' => $url, 'ok' => false, 'error' => $e->getMessage()];
+            }
+            unset($downloads[$url]);
+        }
+    }
+    return $result;
 }
 
 function medical_facility_image_fix_public_claim(mixed $raw): ?array
@@ -275,7 +310,7 @@ function medical_facility_image_fix_save(PDO $pdo, array $item): array
         if (hash_equals((string) ($audit['receipt_token_hash'] ?? ''), hash('sha256', $token))
             && hash_equals((string) ($audit['payload_hash'] ?? ''), $payloadHash)) {
             $pdo->commit();
-            // Recover import enqueue if PHP stopped after committing the images.
+            // Recover synchronous import if PHP stopped after committing images.
             // Read current URLs, not the old payload: a worker/editor may have
             // already replaced or removed some since the original response.
             return ['id' => (int) $id, 'already_processed' => true, 'images_revision' => medical_facility_image_fix_revision($row),

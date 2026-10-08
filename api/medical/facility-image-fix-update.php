@@ -11,6 +11,9 @@ $body = json_decode($raw, true);
 if (!is_array($body) || array_is_list($body)) json_response(['ok' => false, 'message' => 'Body phải là JSON object hợp lệ, không gửi nguyên block Markdown.'], 422);
 $items = array_key_exists('items', $body) ? $body['items'] : [$body];
 if (!is_array($items) || !array_is_list($items) || $items === [] || count($items) > 10) json_response(['ok' => false, 'message' => 'items phải có từ 1 đến 10 object.'], 422);
+// Downloads are synchronous now. This does not override a proxy timeout;
+// callers should submit one facility per request and retry the same receipt.
+@set_time_limit(300);
 $updated = []; $errors = []; $warnings = [];
 foreach ($items as $index => $item) {
     try {
@@ -18,14 +21,19 @@ foreach ($items as $index => $item) {
         $result = medical_facility_image_fix_save($pdo, $item);
         $sources = $result['queue_sources'] ?? []; unset($result['queue_sources']);
         $result['images_queued'] = 0;
-        if ($sources !== []) {
-            try {
-                $queued = medical_media_jobs_enqueue_entity_urls($pdo, 'facility', $result['id'], $sources, false);
-                $result['images_queued'] = (int) $queued['queued'];
-            } catch (Throwable $e) {
-                error_log('Image-fix queue import: ' . $e->getMessage());
-                $warnings[] = ['index' => $index, 'id' => $result['id'], 'message' => 'Đã lưu kết quả; hàng đợi tải ảnh chưa sẵn sàng. Chạy migration/worker ảnh để tải các URL về thư viện.'];
-            }
+        $import = medical_facility_image_fix_import_now($pdo, (int) $result['id'], $sources);
+        $result['images_imported'] = $import['imported'];
+        $result['images_failed'] = $import['failed'];
+        $result['image_results'] = $import['items'];
+        $result['image_processing'] = $import['failed'] > 0 ? 'partial' : 'completed';
+        if ($import['failed'] > 0) $warnings[] = ['index' => $index, 'id' => $result['id'], 'message' => 'Đã lưu JSON nhưng một số ảnh chưa tải được; giữ URL nguồn và gửi lại cùng payload để thử lại. Không đưa vào hàng đợi worker.'];
+        $current = $pdo->prepare('SELECT * FROM medical_facilities WHERE id=:id');
+        $current->execute([':id' => $result['id']]);
+        $row = $current->fetch(PDO::FETCH_ASSOC);
+        if (is_array($row)) {
+            $result['image_url'] = $row['image_url'];
+            $result['images_revision'] = medical_facility_image_fix_revision($row);
+            $result['gallery_count'] = count(medical_directory_gallery_urls($row['gallery_json'] ?? '[]'));
         }
         $updated[] = $result;
     } catch (MedicalFacilityImageFixConflict $e) {
@@ -40,5 +48,5 @@ foreach ($items as $index => $item) {
 if ($updated !== []) medical_search_cache_invalidate();
 $status = $errors === [] ? 200 : ($updated !== [] ? 207 : (count($items) === 1 ? $errors[0]['status'] : 422));
 json_response(['ok' => $errors === [], 'updated_count' => count($updated), 'updated' => $updated, 'errors' => $errors,
-    'warnings' => $warnings, 'image_processing' => 'queued',
-    'note' => 'Chỉ cập nhật trường ảnh và nhật ký Fix ảnh. Ảnh ngoài được worker kiểm tra/tải về thư viện; không coi queued là đã tải thành công.'], $status);
+    'warnings' => $warnings, 'image_processing' => $updated === [] ? 'not_started' : ($warnings === [] ? 'completed' : 'partial'),
+    'note' => 'Ảnh được kiểm tra, tải và lưu ngay trong request, không chờ worker. Kiểm tra images_failed và image_results; ảnh tải lỗi giữ URL nguồn để thử lại.'], $status);
