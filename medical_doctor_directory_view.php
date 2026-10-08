@@ -13,7 +13,7 @@ function doctor_directory_card(array $item, ?string $locale = null): string
     $rating = min(5.0, max(0.0, (float) ($item['rating'] ?? 0)));
     $reviewCount = max(0, (int) ($item['reviews_count'] ?? 0));
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? []))));
-    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 24)) > 0;
+    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
     ob_start(); ?>
     <article class="doctor-card">
       <a class="doctor-media" href="<?php echo $escape($url); ?>" aria-label="<?php echo $isEnglish ? 'View profile of ' : 'Xem hồ sơ '; ?><?php echo $escape($item['name'] ?? 'doctor'); ?>">

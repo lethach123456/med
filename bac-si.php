@@ -100,6 +100,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <link rel="stylesheet" href="/assets/css/pages/doctor-directory.css?v=<?php echo (int) filemtime(__DIR__ . '/assets/css/pages/doctor-directory.css'); ?>">
+  <link rel="stylesheet" href="/assets/css/core/directory-service-labels.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/core/directory-service-labels.css') ?>">
 </head>
 <body class="doctor-directory-page">
 <?php include __DIR__ . '/Tem/header.php'; ?>

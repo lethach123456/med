@@ -228,6 +228,8 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <link rel="stylesheet" href="/assets/css/pages/facility-directory.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/pages/facility-directory.css') ?>">
+  <link rel="stylesheet" href="/assets/css/core/directory-service-labels.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/core/directory-service-labels.css') ?>">
+  <link rel="stylesheet" href="/assets/css/pages/facility-directory-mobile.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/pages/facility-directory-mobile.css') ?>">
 </head>
 <body class="fd-page">
 <a class="fd-skip-link" href="#fdResultsHeading"><?= $isEnglish ? 'Skip to facilities' : 'Đến danh sách cơ sở' ?></a>

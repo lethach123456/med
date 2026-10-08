@@ -31,7 +31,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
     $rating = max(0.0, min(5.0, (float) ($item['rating'] ?? 0)));
     $reviews = facility_directory_number((int) ($item['reviews_count'] ?? 0), $locale);
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? [])), static fn(string $s): bool => trim($s) !== ''));
-    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 24)) > 0;
+    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
     ob_start(); ?>
     <article class="fd-card">
       <a class="fd-media" href="<?= $e($url) ?>" aria-label="<?= $e(($en ? 'View ' : 'Xem ') . $name) ?>">
@@ -39,8 +39,10 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
         <?php if ($image !== ''): ?><img src="<?= $e($image) ?>" alt="<?= $e($name) ?>" width="360" height="300" loading="lazy" decoding="async"><?php endif; ?>
       </a>
       <div class="fd-card-content">
+        <div class="fd-card-main">
         <div class="fd-card-category"><?= $e($item['category'] ?? ($en ? 'Healthcare facility' : 'Cơ sở y tế')) ?><?php if (!empty($item['city'])): ?><span aria-hidden="true">·</span><?= $e($item['city']) ?><?php endif; ?></div>
         <h2><a href="<?= $e($url) ?>"><?= $e($name) ?></a><?php if (!empty($item['verified'])): ?><span class="fd-verified" role="img" aria-label="<?= $en ? 'Verified profile' : 'Hồ sơ đã xác thực' ?>" title="<?= $en ? 'Verified profile' : 'Hồ sơ đã xác thực' ?>"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></span><?php endif; ?></h2>
+        </div>
         <?php if (!empty($item['address'])): ?><p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span><?= $e($item['address']) ?></span></p><?php endif; ?>
         <?php if (!empty($item['subtitle'])): ?><p class="fd-summary"><?= $e($item['subtitle']) ?></p><?php endif; ?>
         <?php if ($services !== []): ?><div class="fd-services" data-service-tags>

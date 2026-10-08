@@ -82,6 +82,20 @@ foreach (['vi', 'en'] as $locale) {
     }
     $xpath = new DOMXPath($document);
     $prefix = strtoupper($locale) . ' template: ';
+    $assert($xpath->query('//section[' . $hasClass('fd-results') . '][@aria-labelledby="fdResultsTitle"]')->length === 1
+        && $xpath->query('//*[@id="fdResultsTitle"][self::h2]')->length === 1, $prefix . 'results landmark is named by its heading, not the whole toolbar');
+    $assert($xpath->query('//*[@id="fdResultsHeading"][@tabindex="-1"]')->length === 1, $prefix . 'existing focus and scroll target is retained');
+    $cardPath = '//article[' . $hasClass('fd-card') . ']/*[' . $hasClass('fd-card-content') . ']';
+    $mainPath = $cardPath . '/*[' . $hasClass('fd-card-main') . ']';
+    $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 2
+        && $xpath->query($mainPath . '/*[' . $hasClass('fd-card-category') . ']')->length === 1
+        && $xpath->query($mainPath . '/h2/a')->length === 1, $prefix . 'mobile identity groups category and title without nesting other content');
+    $assert($xpath->query($mainPath . '/following-sibling::*[1][' . $hasClass('fd-address') . ']')->length === 1
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-summary') . ']')->length === 1
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-services') . ']')->length === 1
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-card-footer') . ']')->length === 1, $prefix . 'address and details remain independently laid out at full mobile width');
+    $assert($xpath->query('//*[' . $hasClass('fd-description-desktop') . ']')->length === 1
+        && $xpath->query('//*[' . $hasClass('fd-description-mobile') . ']')->length === 1, $prefix . 'responsive hero copy has both localized variants');
     $assert($xpath->query('//details')->length === 1 && $xpath->query('//summary')->length === 1, $prefix . 'one native filter disclosure');
     $toolsPath = '//*[@id="fdResultsHeading"]/*[' . $hasClass('fd-result-tools') . ']';
     $assert($xpath->query($toolsPath . '/*[' . $hasClass('fd-sort') . ']')->length === 1
@@ -124,5 +138,18 @@ foreach (['vi', 'en'] as $locale) {
     $assert(str_contains($xpath->query($sidebarPath)->item(0)->textContent, $enLocale ? 'Choose another area' : 'Chọn khu vực khác')
         && $xpath->query('//*[@id="facilityDirectoryFilter"]')->item(0)->getAttribute('action') === ($enLocale ? '/en/co-so-y-te' : '/co-so-y-te'),
         $prefix . 'discovery label and search action are localized');
+}
+$pageSource = file_get_contents(dirname(__DIR__) . '/co-so-y-te.php');
+$mobileAsset = '/assets/css/pages/facility-directory-mobile.css?v=';
+$assert(str_contains($pageSource, $mobileAsset)
+    && strpos($pageSource, $mobileAsset) > strpos($pageSource, '/assets/css/core/directory-service-labels.css?v='), 'Cache-busted mobile refinement follows shared service chip styling');
+$jsSource = file_get_contents(dirname(__DIR__) . '/assets/js/facility-directory.js');
+$assert(str_contains($jsSource, '<div class="fd-card-main">')
+    && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*</div>\s*\$\{item\.address~s', $jsSource) === 1, 'AJAX cards keep the SSR identity and full-width address structure');
+$mobileCss = file_get_contents(dirname(__DIR__) . '/assets/css/pages/facility-directory-mobile.css');
+$assert(str_contains($mobileCss, 'body.fd-page main.fd-directory .fd-card-main{display:contents}'), 'Desktop card identity stays layout-transparent');
+foreach (['@media(max-width:800px)', '@media(max-width:600px)', 'grid-template-columns:minmax(0,1fr) auto',
+    'min-height:44px', 'font-size:16px', '.fd-address{grid-column:1/-1;grid-row:auto', 'clip-path:inset(50%)'] as $rule) {
+    $assert(str_contains($mobileCss, $rule), 'Mobile refinement retains ' . $rule);
 }
 echo "Facility directory view: {$checks} checks passed. No DB records modified.\n";

@@ -15,7 +15,7 @@ $filterFields = [
       <div class="fd-hero-copy">
         <span class="fd-kicker"><span aria-hidden="true"></span><?= $isEnglish ? 'YOUR HEALTHCARE DIRECTORY' : 'KHÁM PHÁ CƠ SỞ Y TẾ' ?></span>
         <h1><?= $isEnglish ? 'Find the right care.<br><em>Choose with confidence.</em>' : 'Tìm cơ sở phù hợp.<br><em>An tâm lựa chọn.</em>' ?></h1>
-        <p><?= $isEnglish ? 'Compare profiles, services and reviews. Get to know your options before making a choice.' : 'Đối chiếu hồ sơ, dịch vụ và đánh giá. Hiểu rõ hơn trước khi chọn nơi chăm sóc sức khỏe.' ?></p>
+        <p><span class="fd-description-desktop"><?= $isEnglish ? 'Compare profiles, services and reviews. Get to know your options before making a choice.' : 'Đối chiếu hồ sơ, dịch vụ và đánh giá. Hiểu rõ hơn trước khi chọn nơi chăm sóc sức khỏe.' ?></span><span class="fd-description-mobile"><?= $isEnglish ? 'Compare profiles, services and patient experiences.' : 'So sánh hồ sơ, dịch vụ và trải nghiệm thực tế.' ?></span></p>
       </div>
       <div class="fd-hero-note">
         <span class="fd-note-accent" aria-hidden="true"><i class="ph ph-map-pin-line"></i></span>
@@ -44,9 +44,9 @@ $filterFields = [
         </section>
         <section class="fd-guide"><span class="fd-guide-icon" aria-hidden="true"><i class="ph ph-lightbulb"></i></span><h2><?= $isEnglish ? 'Before you choose' : 'Một chút rõ ràng,<br>thêm nhiều an tâm.' ?></h2><ul><li><i class="ph ph-identification-card" aria-hidden="true"></i><?= $isEnglish ? 'Get to know the profile' : 'Hiểu rõ hồ sơ cơ sở' ?></li><li><i class="ph ph-chat-circle-text" aria-hidden="true"></i><?= $isEnglish ? 'Read shared experiences' : 'Đọc trải nghiệm thực tế' ?></li><li><i class="ph ph-phone" aria-hidden="true"></i><?= $isEnglish ? 'Confirm services and costs' : 'Xác nhận dịch vụ và chi phí' ?></li></ul><a href="<?= $e(site_localized_path('/ve-chung-toi.php', $locale)) ?>"><?= $isEnglish ? 'How MedReview works' : 'Cách MedReview hoạt động' ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a></section>
       </aside>
-      <section class="fd-results" aria-labelledby="fdResultsHeading">
+      <section class="fd-results" aria-labelledby="fdResultsTitle">
         <div class="fd-results-top" id="fdResultsHeading" tabindex="-1">
-          <div><h2><?= $isEnglish ? 'Your options' : 'Cơ sở dành cho bạn' ?></h2><p id="facilityResultCount"><strong><?= facility_directory_number($initial['total'], $locale) ?></strong> <?= $isEnglish ? 'matching facilities' : 'cơ sở phù hợp' ?></p></div>
+          <div><h2 id="fdResultsTitle"><?= $isEnglish ? 'Your options' : 'Cơ sở dành cho bạn' ?></h2><p id="facilityResultCount"><strong><?= facility_directory_number($initial['total'], $locale) ?></strong> <?= $isEnglish ? 'matching facilities' : 'cơ sở phù hợp' ?></p></div>
           <div class="fd-result-tools">
           <div class="fd-sort"><label for="filterSort"><?= $isEnglish ? 'Sort by' : 'Sắp xếp' ?></label><select id="filterSort" name="sort" form="facilityDirectoryFilter" data-facility-filter-control><?php foreach (['recommended' => $isEnglish ? 'Recommended' : 'Phù hợp nhất', 'newest' => $isEnglish ? 'Recently updated' : 'Mới cập nhật', 'rating' => $isEnglish ? 'Highest rated' : 'Điểm cao nhất', 'reviews' => $isEnglish ? 'Most reviewed' : 'Nhiều đánh giá'] as $value => $label): ?><option value="<?= $value ?>"<?= $filters['sort'] === $value ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></div>
           <details class="fd-filter-disclosure" id="facilityFilterDisclosure">

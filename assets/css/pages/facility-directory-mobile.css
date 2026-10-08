@@ -1,0 +1,127 @@
+/* Mobile refinement only; desktop identity retains the existing layout.
+   Page scope beats the shared component rules loaded later by the header. */
+body.fd-page main.fd-directory .fd-card-main{display:contents}
+body.fd-page main.fd-directory .fd-description-mobile{display:none}
+
+@media(max-width:800px){
+  body.fd-page main.fd-directory{
+    --med-ui-control-height:44px;
+    --med-ui-send-size:44px;
+  }
+  body.fd-page main.fd-directory .fd-result-tools{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100%;
+    gap:8px;
+    padding-top:0;
+  }
+  body.fd-page main.fd-directory .fd-sort{min-width:0}
+  body.fd-page main.fd-directory .fd-sort label{
+    position:absolute;
+    display:block;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+    border:0;
+  }
+  body.fd-page main.fd-directory .fd-sort select{
+    width:100%;
+    max-width:none;
+    min-width:0;
+    min-height:44px;
+    padding:8px 10px;
+    border:1px solid var(--fd-line);
+    border-radius:12px;
+    background:#fff;
+    font-size:16px;
+    font-weight:500;
+  }
+  body.fd-page main.fd-directory .fd-filter-toggle{min-height:44px;padding:8px 12px;gap:7px}
+  body.fd-page main.fd-directory .fd-filter-panel{
+    max-height:calc(100dvh - 232px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scroll-padding-block:16px;
+  }
+}
+
+@media(max-width:600px){
+  body.fd-page main.fd-directory{padding-bottom:32px;background:#fff}
+  body.fd-page main.fd-directory .fd-container{width:calc(100% - 24px)}
+  body.fd-page main.fd-directory .fd-breadcrumb{padding:16px 0;font-size:12px}
+  body.fd-page main.fd-directory .fd-hero{padding:20px 16px 22px;margin-bottom:16px}
+  body.fd-page main.fd-directory .fd-hero::before{inset:0;border-radius:20px}
+  body.fd-page main.fd-directory .fd-hero::after{right:8px;top:12px;width:116px;height:116px;opacity:.25}
+  body.fd-page main.fd-directory .fd-hero-art{right:12px;top:15px;opacity:.28}
+  body.fd-page main.fd-directory .fd-kicker{font-size:10px;letter-spacing:.08em;gap:9px;margin-left:4px}
+  body.fd-page main.fd-directory .fd-hero h1{font-size:30px;line-height:1.24;margin:12px 0 10px;letter-spacing:-.04em}
+  body.fd-page main.fd-directory .fd-hero-copy>p{font-size:14px;line-height:1.65;max-width:34ch}
+  body.fd-page main.fd-directory .fd-description-desktop{display:none}
+  body.fd-page main.fd-directory .fd-description-mobile{display:inline}
+  body.fd-page main.fd-directory .fd-search-area{padding-bottom:22px}
+  body.fd-page main.fd-directory .fd-search{height:58px;gap:9px;padding:6px 6px 6px 13px;border-radius:17px}
+  body.fd-page main.fd-directory .fd-search-label{font-size:21px}
+  body.fd-page main.fd-directory .fd-search input{font-size:16px}
+  body.fd-page main.fd-directory .fd-search input::placeholder{font-size:14px}
+  body.fd-page main.fd-directory .fd-search button{flex-basis:44px;width:44px;height:44px;border-radius:12px}
+  body.fd-page main.fd-directory .fd-quick-links{margin-top:8px;padding:2px 0;gap:8px}
+  body.fd-page main.fd-directory .fd-quick-links>span{display:none}
+  body.fd-page main.fd-directory .fd-quick-links>a{min-height:44px;padding:8px 12px;border-radius:12px;font-size:13px}
+  body.fd-page main.fd-directory .fd-results-top{gap:12px;margin-bottom:14px}
+  body.fd-page main.fd-directory .fd-results-top h2{font-size:20px;margin-bottom:3px}
+  body.fd-page main.fd-directory .fd-results-top p{font-size:13px}
+  body.fd-page main.fd-directory .fd-filter-toggle{font-size:14px}
+  body.fd-page main.fd-directory .fd-filter-panel{gap:14px;padding:14px;border-radius:16px}
+  body.fd-page main.fd-directory .fd-filter-heading>div{gap:8px}
+  body.fd-page main.fd-directory .fd-filter-heading h2{font-size:15px}
+  body.fd-page main.fd-directory .fd-list{gap:12px}
+  body.fd-page main.fd-directory .fd-card{
+    grid-template-columns:92px minmax(0,1fr);
+    align-items:start;
+    gap:12px;
+    padding:12px;
+    border-color:#e1e8f2;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 4px 16px #142b4905;
+  }
+  body.fd-page main.fd-directory .fd-media{grid-column:1;grid-row:1;height:96px;min-height:0;border-radius:12px}
+  body.fd-page main.fd-directory .fd-card-main{display:flex;flex-direction:column;justify-content:center;align-self:stretch;min-width:0;grid-column:2;grid-row:1;gap:6px}
+  body.fd-page main.fd-directory .fd-card-category{font-size:12px;line-height:1.5;margin:0;gap:5px;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory .fd-card h2{font-size:17px;line-height:1.4;margin:0;letter-spacing:-.025em;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory .fd-verified{font-size:17px;margin-left:5px}
+  body.fd-page main.fd-directory .fd-address{grid-column:1/-1;grid-row:auto;gap:7px;margin:0;font-size:13px;line-height:1.55}
+  body.fd-page main.fd-directory .fd-address>i{flex-shrink:0;font-size:16px;margin-top:2px}
+  body.fd-page main.fd-directory .fd-address>span{min-width:0;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory .fd-summary{margin:0;font-size:14px;line-height:1.6}
+  body.fd-page main.fd-directory .fd-services{margin:0;gap:8px}
+  body.fd-page main.fd-directory .fd-service{max-width:calc(100% - 58px)}
+  body.fd-page main.fd-directory .fd-service>span{max-width:20ch}
+  body.fd-page main.fd-directory .fd-services.is-expanded .fd-service{max-width:100%}
+  body.fd-page main.fd-directory .fd-services.is-expanded .fd-service>span{max-width:none}
+  body.fd-page main.fd-directory .fd-card-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin:0;padding-top:12px}
+  body.fd-page main.fd-directory .fd-rating{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;gap:1px 5px;min-width:0}
+  body.fd-page main.fd-directory .fd-rating>i{font-size:17px}
+  body.fd-page main.fd-directory .fd-rating strong{font-size:16px;line-height:1.4}
+  body.fd-page main.fd-directory .fd-review-count{grid-column:1/-1;color:var(--fd-muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory .fd-unrated{grid-column:1/-1;font-size:12px;line-height:1.5}
+  body.fd-page main.fd-directory .fd-profile-link{min-height:44px;padding:8px 11px;border:1px solid #dce7fb;border-radius:12px;background:#f3f7ff;font-size:13px;font-weight:600;gap:6px;white-space:nowrap}
+  body.fd-page main.fd-directory .fd-profile-link i{font-size:17px}
+  body.fd-page main.fd-directory .fd-price{margin:0;font-size:12px;line-height:1.6}
+  body.fd-page main.fd-directory .fd-page-note{max-width:none;font-size:12px;line-height:1.65}
+  body.fd-page main.fd-directory .fd-pagination{gap:8px;margin:22px 0 16px}
+  body.fd-page main.fd-directory .fd-pagination a{width:44px;height:44px}
+}
+
+@media(max-width:360px){
+  body.fd-page main.fd-directory .fd-hero{padding:18px 14px 20px}
+  body.fd-page main.fd-directory .fd-hero h1{font-size:27px}
+  body.fd-page main.fd-directory .fd-card{grid-template-columns:80px minmax(0,1fr);gap:10px}
+  body.fd-page main.fd-directory .fd-media{height:88px}
+  body.fd-page main.fd-directory .fd-card h2{font-size:16px}
+  body.fd-page main.fd-directory .fd-filter-toggle{padding-inline:10px;gap:5px}
+}
