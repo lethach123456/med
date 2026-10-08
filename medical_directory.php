@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
 require_once __DIR__ . '/medical_doctor_content.php';
+require_once __DIR__ . '/medical_facility_image_fix.php';
 
 function medical_directory_table_exists(PDO $pdo, string $table): bool
 {
@@ -466,7 +467,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             video_urls_json MEDIUMTEXT NULL,
             aggregate_ratings_json MEDIUMTEXT NULL,
             price_text VARCHAR(120) NULL,
-            image_url VARCHAR(255) NULL,
+            image_url TEXT NULL,
             ai_image_url TEXT NULL,
             images_label VARCHAR(60) NULL,
             featured_services_json MEDIUMTEXT NULL,
@@ -635,6 +636,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
     $defaults = [
         'facility' => ['Cơ sở y tế', "Hãy viết bài giới thiệu chuyên nghiệp 300-500 từ về cơ sở y tế '{{name}}' - địa chỉ: {{address}} - số điện thoại: {{phone}} - website: {{website}} - giờ làm việc: {{hours}}. Nêu rõ dịch vụ, thế mạnh và trải nghiệm khách hàng. Chỉ dùng thông tin được cung cấp, không tự bịa dữ liệu. Ưu tiên lấy ảnh gallery từ website chính thức của cơ sở, không dùng ảnh không xác minh. Chỉ trả về JSON hợp lệ, không markdown, theo mẫu: {\"id\":{{id}},\"name\":\"{{name}}\",\"subtitle\":\"...\",\"content\":\"HTML 300-500 từ\",\"services\":[\"...\"],\"price_table_html\":\"&lt;table&gt;...&lt;/table&gt;\",\"address\":\"{{address}}\",\"phone\":\"{{phone}}\",\"website\":\"{{website}}\",\"hours\":\"{{hours}}\",\"gallery_json\":[{\"url\":\"https://...\",\"angle\":\"Mặt tiền / biển hiệu\",\"caption\":\"Mô tả ngắn chính xác\",\"source\":\"Google Maps hoặc website chính thức\"}]}. Ghi chú trường: id là ID cơ sở, phải giữ nguyên; name là tên phòng khám/cơ sở; subtitle là mô tả ngắn; content là bài HTML 300-500 từ; services là danh sách dịch vụ; price_table_html là bảng giá HTML có cột Dịch vụ và Khoảng giá; address là địa chỉ; phone là số điện thoại; website là website; hours là giờ làm việc, giữ nguyên thông tin được cung cấp; gallery_json là mảng object ảnh, url là URL thô bắt buộc còn angle/caption/source ghi chính xác khi có dữ liệu. Không tự bịa dữ liệu."],
         'facility_image_prompt' => medical_directory_ai_image_prompt_default(),
+        'facility_image_fix' => medical_facility_image_fix_prompt_default(),
         'translation' => ['Dịch nội dung y tế sang tiếng Anh', "Bạn là biên tập viên y tế song ngữ Việt–Anh. Hãy chuyển dữ liệu nguồn tiếng Việt sang tiếng Anh tự nhiên, chính xác và chuyên nghiệp cho độc giả quốc tế.\n\nLoại nội dung: {{type}}\nMã bản gốc cần giữ nguyên: {{source_id}}\nCác trường được phép dịch: {{fields}}\n\nQuy tắc bắt buộc:\n- Dịch đầy đủ các khóa trong output_template, kể cả giá trị rỗng; không tự bỏ khóa.\n- Giữ nguyên source_id, loại nội dung và cấu trúc dữ liệu; không tạo id mới, không tự thêm review, dịch vụ, chứng chỉ, mức giá, số liệu hay thông tin y tế không có trong nguồn.\n- Giữ nguyên tên riêng/thương hiệu, tên bác sĩ, URL, email, số điện thoại, tọa độ, mã giấy phép, ngày tháng và con số. Có thể dùng cách viết tiếng Anh phổ biến của địa danh nhưng không đổi địa chỉ đường phố.\n- Chỉ dịch các giá trị văn bản trong những trường được phép. Giữ mảng/object đúng kiểu và đúng thứ tự; không dịch URL hoặc khóa JSON.\n- Với content HTML và price_table_html: chỉ dịch chữ hiển thị; giữ nguyên cấu trúc thẻ, thuộc tính, liên kết, URL, số tiền và đơn vị. Không thêm script/style.\n- Với slug nếu có: tạo slug tiếng Anh ngắn, chữ thường, không dấu, nối bằng dấu gạch ngang.\n- Nếu trường nguồn rỗng, giữ nguyên giá trị rỗng/null/[] theo output_template; không tự đoán.\n- BẮT BUỘC trả toàn bộ kết quả trong đúng một Markdown code block có nhãn json, bắt đầu bằng dòng ```json và kết thúc bằng dòng ```; bên ngoài block không có lời dẫn.\n- Nhắc lại: phải trả JSON bên trong block code ```json, không trả JSON trần và không thêm nội dung bên ngoài.\n- Trước khi gửi, kiểm tra lần cuối rằng câu trả lời đã nằm trọn trong block code ```json.\n\nJSON nguồn:\n{{source_json}}\n\nKhung JSON cần điền đầy đủ:\n{\"type\":\"{{type}}\",\"source_id\":{{source_id}},\"translated\":{{output_template}}}"] ,
         'toplist' => ['Danh sách cơ sở cho Toplist', "Hãy lập danh sách cơ sở y tế phù hợp cho bài Toplist '{{title}}'. Thông tin hiện có của bài: {{excerpt}} {{content}}. Tìm và chỉ chọn các cơ sở thực sự phù hợp với tiêu chí của tiêu đề; ưu tiên website chính thức hoặc nguồn đáng tin cậy để đối chiếu. Không tự bịa tên, địa chỉ, số điện thoại hoặc website. Chỉ trả về JSON hợp lệ, không markdown, theo mẫu: {\"toplist_id\":{{id}},\"facilities\":[{\"facility_id\":0,\"name\":\"Tên cơ sở\",\"category\":\"Cơ sở y tế\",\"city\":\"Tỉnh/thành\",\"address\":\"Địa chỉ\",\"phone\":\"Số điện thoại nếu có\",\"website\":\"Website chính thức nếu có\",\"rank_order\":1}]}. Ghi chú trường: toplist_id là ID bài Toplist, phải giữ nguyên để cập nhật đúng bài; facilities là danh sách cơ sở theo thứ hạng; facility_id chỉ dùng khi biết chắc ID cơ sở đã có trong hệ thống, không biết thì để 0; name là tên cơ sở; category là nhóm cơ sở; city là tỉnh/thành; address là địa chỉ; phone là số điện thoại; website là website chính thức; rank_order là thứ hạng bắt đầu từ 1. Không đưa cơ sở không đủ thông tin nhận diện."],
         'toplist_doctor' => medical_directory_toplist_doctor_prompt_default(),
@@ -650,6 +652,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
         }
     }
     medical_directory_ensure_ai_image_prompt($pdo);
+    medical_facility_image_fix_migrate($pdo);
 }
 
 function medical_directory_translation_table(string $entity): ?string
@@ -746,6 +749,7 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
     unset($source['id'], $source['created_at'], $source['updated_at']);
     // Writer leases belong to a task/record, never to its translation copy.
     if (array_key_exists('ai_writer_claim_json', $source)) $source['ai_writer_claim_json'] = null;
+    if (array_key_exists('image_fix_json', $source)) $source['image_fix_json'] = null;
     $source['slug'] = $candidate;
     $source['language_code'] = 'en';
     $source['translation_of_id'] = $sourceId;

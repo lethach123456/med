@@ -310,6 +310,7 @@ natcasesort($categoryOptions);
 $promptNotes = [
     'facility' => 'Prompt fallback. Khi cơ sở không khớp prompt theo ngành nào, tiện ích sẽ dùng mẫu này.',
     'facility_image_prompt' => 'Dùng để AI tạo ảnh đại diện cho cơ sở y tế. Chỉ mô tả khung cảnh, không chèn chữ, logo, số điện thoại hoặc thông tin chưa được cung cấp.',
+    'facility_image_fix' => 'Kiểm tra ảnh bìa, ảnh AI và gallery của đúng cơ sở/chi nhánh; giữ ảnh tốt, chỉ loại ảnh có bằng chứng lỗi/sai cơ sở, bổ sung ảnh thực tế từ Google Maps hoặc website chính thức. Không xem 403/timeout/CAPTCHA là ảnh hỏng. Hỗ trợ {{id}}, {{name}}, {{address}}, {{city}}, {{website}}, {{google_maps_url}}, {{target_images}}, {{source_json}}, {{images_revision}}, {{output_template}}. API yêu cầu JSON trong block code json; tiện ích tự gắn writer_claim_token khi gửi về.',
     'toplist' => 'Lập danh sách cơ sở, bác sĩ hoặc cả hai (entity_type=mixed). Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{entity_type}}, {{entity_label}}, {{member_key}}, {{output_template}}. Mixed dùng members có type=facility/doctor cùng ID tương ứng; rank_order xếp chung cả hai loại. Prompt cơ sở cũ tự thay bằng prompt phù hợp cho bài bác sĩ/hỗn hợp; JSON bắt buộc trong block code json.',
     'toplist_doctor' => 'Prompt riêng cho danh sách bác sĩ trong bài Toplist (không phải nghiên cứu hồ sơ bác sĩ riêng lẻ). API tự chọn mẫu này khi entity_type=doctor. Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{excerpt}}, {{content}}, {{entity_type}}, {{member_key}}, {{output_template}}. Đầu ra doctors với doctor_id/name/specialty_text/city/facility_name/rank_order, bắt buộc trong block code json; không tự tạo điểm đánh giá hay xác minh.',
     'doctor' => 'Prompt nghiên cứu hồ sơ bác sĩ: nhận diện đúng người, đào tạo/công tác, giấy phép, chuyên môn, nơi khám, lịch/giá, nguồn chứng minh và SEO. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{address}}, {{phone}}, {{website}}, {{source_json}}, {{output_template}}. API lấy bản đang lưu tại đây và bổ sung contract JSON đầy đủ; kết quả bắt buộc nằm trong block code json, AI không tự xác minh hoặc tạo đánh giá.',
@@ -322,7 +323,7 @@ foreach ($basePrompts as $basePrompt) {
     $basePromptByKey[(string) $basePrompt['prompt_key']] = $basePrompt;
 }
 $basePromptTabs = [];
-foreach (['facility', 'facility_image_prompt', 'toplist', 'toplist_doctor', 'doctor', 'review', 'translation'] as $promptKey) {
+foreach (['facility', 'facility_image_prompt', 'facility_image_fix', 'toplist', 'toplist_doctor', 'doctor', 'review', 'translation'] as $promptKey) {
     if (isset($basePromptByKey[$promptKey])) {
         $basePromptTabs[] = $basePromptByKey[$promptKey];
         unset($basePromptByKey[$promptKey]);
@@ -396,7 +397,7 @@ require __DIR__ . '/_layout_start.php';
       <div class="d-flex gap-3 align-items-start">
         <span class="ai-prompt-source flex-shrink-0"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
         <div>
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Prompt nội dung &amp; Ảnh AI</h2><span class="badge text-bg-light border">Cơ sở · Ảnh AI · Toplist · Bác sĩ · Review · Dịch VI→EN</span></div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Prompt nội dung &amp; Ảnh AI</h2><span class="badge text-bg-light border">Cơ sở · Ảnh AI · Fix ảnh · Toplist · Bác sĩ · Review · Dịch VI→EN</span></div>
           <p class="text-secondary mb-0">Prompt theo ngành được ưu tiên cho cơ sở phù hợp; nếu không có, tiện ích Chrome tự dùng prompt chung của cơ sở y tế. Prompt Ảnh AI dùng riêng cho luồng tạo ảnh cơ sở.</p>
         </div>
       </div>
@@ -427,7 +428,7 @@ require __DIR__ . '/_layout_start.php';
         <?php foreach ($basePromptTabs as $prompt): ?>
           <?php $promptKey = (string) $prompt['prompt_key']; $isActive = $promptKey === $basePromptDefaultKey; ?>
           <button class="ai-prompt-tab <?php echo $isActive ? 'is-active' : ''; ?>" type="button" role="tab" aria-selected="<?php echo $isActive ? 'true' : 'false'; ?>" aria-controls="basePromptPanel<?php echo $escape($promptKey); ?>" data-base-prompt-tab="<?php echo $escape($promptKey); ?>">
-            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'facility_image_prompt'): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif (in_array($promptKey, ['toplist', 'toplist_doctor'], true)): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'translation'): ?><i class="fa-solid fa-language me-1" aria-hidden="true"></i><?php endif; ?>
+            <?php if ($promptKey === 'facility'): ?><i class="fa-solid fa-building-medical me-1" aria-hidden="true"></i><?php elseif (in_array($promptKey, ['facility_image_prompt', 'facility_image_fix'], true)): ?><i class="fa-solid fa-image me-1" aria-hidden="true"></i><?php elseif (in_array($promptKey, ['toplist', 'toplist_doctor'], true)): ?><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'doctor'): ?><i class="fa-solid fa-user-doctor me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'review'): ?><i class="fa-solid fa-star me-1" aria-hidden="true"></i><?php elseif ($promptKey === 'translation'): ?><i class="fa-solid fa-language me-1" aria-hidden="true"></i><?php endif; ?>
             <?php echo $escape($prompt['label']); ?>
           </button>
         <?php endforeach; ?>

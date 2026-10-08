@@ -101,7 +101,7 @@ function medical_api_translation_fields(string $type): array
 function medical_api_translation_source(string $type, array $row): array
 {
     unset($row['target_translation_id'], $row['target_translation_slug'], $row['target_translation_status']);
-    unset($row['ai_writer_claim_json'], $row['reviewed_by']);
+    unset($row['ai_writer_claim_json'], $row['image_fix_json'], $row['reviewed_by']);
     foreach ($row as $column => $value) {
         if (!is_string($value) || !($column === 'full_json' || str_ends_with($column, '_json')) || trim($value) === '') continue;
         $decoded = json_decode($value, true);

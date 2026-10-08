@@ -76,7 +76,7 @@ $assert = static function (bool $ok, string $label) use (&$checks): void {
 };
 $runtimeHelpers = ['medical_directory_ensure_tables', 'medical_directory_ensure_facility_ai_image_column',
     'medical_directory_ensure_facility_content_columns', 'medical_directory_ensure_ai_writer_claim_columns',
-    'medical_directory_ensure_ai_image_prompt', 'medical_directory_ensure_doctor_content_columns',
+    'medical_directory_ensure_ai_image_prompt', 'medical_directory_ensure_doctor_content_columns', 'medical_facility_image_fix_migrate',
     'toplist_directory_ensure_tables', 'medical_media_jobs_ensure_table', 'ensure_front_editor_page_profiles_table',
     'front_editor_templates_ensure_table', 'ensure_content_language_columns', 'medreview_migrate_content_columns',
     'medreview_migrate_core_tables'];
@@ -164,7 +164,7 @@ $functionLines = array_slice(file($seedFunction->getFileName()), $seedFunction->
 $assert(!str_contains(implode('', $functionLines), 'SELECT slug FROM medical_facilities'), 'seed no full-directory aggregate loop');
 
 // Whole-project audit: schema SQL stays inside guarded libraries, not entry points.
-$ddlLibraries = ['db.php', 'medical_directory.php', 'medical_doctor_content.php', 'toplist_directory.php', 'medical_media_worker.php', 'schema_migrations.php'];
+$ddlLibraries = ['db.php', 'medical_directory.php', 'medical_doctor_content.php', 'medical_facility_image_fix.php', 'toplist_directory.php', 'medical_media_worker.php', 'schema_migrations.php'];
 $root = dirname(__DIR__);
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 $audited = 0;
@@ -212,7 +212,7 @@ try {
     $result = json_decode($raw, true);
     $assert($status === 200 && ($result['ok'] ?? false), 'HTTP regression checks pass: ' . $raw);
     $checks += (int) $result['checks'];
-    foreach (['/tests/medical_maintenance_test.php', '/scripts/migrate_medical_directory.php', '/scripts/migrate_all.php',
+    foreach (['/tests/medical_maintenance_test.php', '/tests/facility_image_fix_test.php', '/scripts/migrate_medical_directory.php', '/scripts/migrate_facility_image_fix.php', '/scripts/migrate_all.php',
         '/scripts/seeds/seed_medical_directory.php', '/scripts/seeds/seed_verified_facilities.php',
         '/scripts/seeds/seed_editorial_facility_profiles.php', '/scripts/seeds/seed_legacy_content.php', '/scripts/seeds/seed_post_templates.php'] as $path) {
         [$status] = $request($path);

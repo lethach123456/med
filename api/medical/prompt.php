@@ -6,10 +6,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok'=>false,'message'=>
 $type = trim((string)($_GET['type'] ?? 'facility')); $name = trim((string)($_GET['name'] ?? '')); $title = trim((string)($_GET['title'] ?? '')); $category = trim((string)($_GET['category'] ?? ''));
 if ($type === 'toplist_doctor') { $type = 'toplist'; $_GET['entity_type'] = 'doctor'; }
 if ($type === 'toplist' && $name === '') $name = $title;
-$allowed=['facility','facility_image_prompt','toplist','doctor','review','translation']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
-if ($name === '' && $type !== 'translation') json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
+$allowed=['facility','facility_image_prompt','facility_image_fix','toplist','doctor','review','translation']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
+if ($name === '' && !in_array($type, ['translation', 'facility_image_fix'], true)) json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
 $pdo=db();
 $resolved = medical_directory_resolve_ai_prompt($pdo, $type, $type === 'facility' ? $category : '');
+if ($type === 'facility_image_fix') {
+    $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$id) json_response(['ok' => false, 'message' => 'Fix ảnh cần id cơ sở để lấy toàn bộ ảnh thực tế trong DB.'], 422);
+    try { medical_facility_image_fix_require_schema($pdo); }
+    catch (Throwable $e) { json_response(['ok' => false, 'message' => 'Chạy php scripts/migrate_facility_image_fix.php trước.'], 503); }
+    $lookup = $pdo->prepare('SELECT * FROM medical_facilities WHERE id=:id');
+    $lookup->execute([':id' => $id]); $source = $lookup->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($source)) json_response(['ok' => false, 'message' => 'Không tìm thấy cơ sở.'], 404);
+    if (trim((string) $resolved['template']) === '') json_response(['ok' => false, 'message' => 'Chưa có Prompt AI Fix ảnh. Chạy migration Fix ảnh trước.'], 503);
+    try {
+        json_response(['ok' => true, 'type' => $type, 'id' => (int) $id, 'name' => $source['name'],
+            'label' => $resolved['label'], 'prompt_source' => $resolved['source'], 'prompt_key_used' => $resolved['prompt_key_used'],
+            'images_revision' => medical_facility_image_fix_revision($source),
+            'output_template' => medical_facility_image_fix_output_template($source),
+            'prompt' => medical_facility_image_fix_prompt($resolved['template'], $source, min(12, max(1, (int) ($_GET['target_images'] ?? 6))))]);
+    } catch (InvalidArgumentException $e) { json_response(['ok' => false, 'message' => $e->getMessage()], 422); }
+}
 if ($type === 'toplist') {
     require_once __DIR__ . '/../../toplist_directory.php';
     $toplist = ['id' => (int) ($_GET['id'] ?? 0), 'title' => $name, 'excerpt' => $_GET['excerpt'] ?? '', 'content' => $_GET['content'] ?? '', 'entity_type' => $_GET['entity_type'] ?? 'facility'];

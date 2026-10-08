@@ -317,7 +317,7 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
     }
 
     /** @return array{changed:bool,error?:string} */
-    function medical_media_jobs_apply_local_url(PDO $pdo, array $job, string $localUrl, ?string $matchUrl = null): array
+    function medical_media_jobs_apply_local_url(PDO $pdo, array $job, string $localUrl, ?string $matchUrl = null, int $retry = 0): array
     {
         $entityType = (string) ($job['entity_type'] ?? '');
         $table = $entityType === 'doctor' ? 'medical_doctors' : 'medical_facilities';
@@ -347,7 +347,16 @@ if (!function_exists('medical_media_jobs_ensure_table')) {
             $set[] = 'gallery_json = :gallery_json';
             $params[':gallery_json'] = json_encode($galleryResult['value'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-        $pdo->prepare("UPDATE {$table} SET " . implode(', ', $set) . ' WHERE id = :id')->execute($params);
+        // A Fix ảnh receiver or editor may change the gallery after our read.
+        // Never put its removed images back using a stale worker snapshot.
+        $params[':original_cover'] = $row['image_url'];
+        $params[':original_gallery'] = $row['gallery_json'];
+        $update = $pdo->prepare("UPDATE {$table} SET " . implode(', ', $set) . ' WHERE id = :id AND image_url <=> :original_cover AND gallery_json <=> :original_gallery');
+        $update->execute($params);
+        if ($update->rowCount() === 0) {
+            if ($retry < 2) return medical_media_jobs_apply_local_url($pdo, $job, $localUrl, $matchUrl, $retry + 1);
+            return ['changed' => false, 'reason' => 'images_changed', 'error' => 'Ảnh đang được cập nhật bởi tiến trình khác; worker sẽ thử lại sau.'];
+        }
         // The public directory/search snapshot also carries cover and gallery
         // URLs. A worker may finish long after the article API returned, so
         // its successful local rewrite needs its own cache invalidation.

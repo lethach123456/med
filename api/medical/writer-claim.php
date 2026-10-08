@@ -110,6 +110,13 @@ if ($instanceId === '' || $workerId === '' || $requestId === '') {
 
 $provider = strtolower(medical_api_writer_short_text($client['provider'] ?? 'other', 32));
 if (!preg_match('/^[a-z0-9._-]+$/', $provider)) $provider = 'other';
+$task = medical_api_writer_short_text($client['task'] ?? $body['task'] ?? ($type . '_article'), 80);
+$imageFix = $type === 'facility' && $task === 'facility_image_fix';
+if ($task === 'facility_image_fix' && $type !== 'facility') json_response(['ok' => false, 'message' => 'Fix ảnh hiện chỉ hỗ trợ type=facility.'], 422);
+if ($imageFix) {
+    try { medical_facility_image_fix_require_schema($pdo); }
+    catch (Throwable $e) { json_response(['ok' => false, 'message' => 'Chạy php scripts/migrate_facility_image_fix.php trước khi nhận tác vụ Fix ảnh.'], 503); }
+}
 $claim = [
     'claim_token' => bin2hex(random_bytes(32)),
     'instance_id' => $instanceId,
@@ -118,7 +125,7 @@ $claim = [
     'worker_id' => $workerId,
     'provider' => $provider,
     'model' => medical_api_writer_short_text($client['model'] ?? '', 80),
-    'task' => medical_api_writer_short_text($client['task'] ?? ($type . '_article'), 80),
+    'task' => $task,
     'request_id' => $requestId,
     'claimed_at' => gmdate('c', $now),
     'heartbeat_at' => gmdate('c', $now),
@@ -139,7 +146,7 @@ try {
         $pdo->rollBack();
         json_response(['ok' => true, 'claimed' => false, 'reason' => 'not_published', 'type' => $type, 'id' => $id, 'message' => 'Bài không còn ở trạng thái xuất bản.'], 409);
     }
-    if ($type === 'facility' && trim((string) ($row['content'] ?? '')) !== '') {
+    if ($type === 'facility' && !$imageFix && trim((string) ($row['content'] ?? '')) !== '') {
         $pdo->rollBack();
         json_response(['ok' => true, 'claimed' => false, 'reason' => 'content_exists', 'type' => $type, 'id' => $id, 'message' => 'Cơ sở đã có nội dung; bỏ qua để tránh viết trùng.'], 409);
     }
@@ -152,7 +159,8 @@ try {
     if ((int) ($current['expires_at'] ?? 0) > $now) {
         $sameRequest = hash_equals((string) ($current['instance_id'] ?? ''), $instanceId)
             && hash_equals((string) ($current['worker_id'] ?? ''), $workerId)
-            && hash_equals((string) ($current['request_id'] ?? ''), $requestId);
+            && hash_equals((string) ($current['request_id'] ?? ''), $requestId)
+            && hash_equals((string) ($current['task'] ?? ''), $task);
         if (!$sameRequest) {
             $owner = medical_api_writer_claim_public($current, $now);
             $pdo->commit();
