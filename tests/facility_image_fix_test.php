@@ -107,6 +107,44 @@ $invalid = $item; $invalid['added_images'][0]['url'] = 'https://clinic.example/g
 $reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'existing source cannot be added again');
 $invalid = $item; $invalid['ai_image_url'] = '';
 $reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'cannot clear AI image without remove decision');
+foreach (['null' => null, 'empty' => ''] as $sourceCase => $sourceAiUrl) {
+    $emptyAiRow = array_replace($row, ['ai_image_url' => $sourceAiUrl]);
+    $emptyAiItem = medical_facility_image_fix_output_template($emptyAiRow);
+    $assert($emptyAiItem['ai_image_url'] === '', 'source AI ' . $sourceCase . ' renders an empty string in output template');
+    $assert(count($emptyAiItem['inspected_images']) === count($inventory) - 1
+        && !in_array('', array_column($emptyAiItem['inspected_images'], 'url'), true), 'source AI ' . $sourceCase . ' creates no empty inspection entry');
+    $emptyAiPatch = medical_facility_image_fix_patch($emptyAiRow, $emptyAiItem);
+    $emptyAiItem['ai_image_url'] = null;
+    $nullAiPatch = medical_facility_image_fix_patch($emptyAiRow, $emptyAiItem);
+    $assert($nullAiPatch === $emptyAiPatch && $nullAiPatch['ai_image_url'] === '', 'returned AI null and empty are equivalent when source is ' . $sourceCase);
+    $emptyAiItem['added_images'] = $item['added_images'];
+    $emptyAiItem['ai_image_url'] = $item['added_images'][0]['url'];
+    $reject(fn() => medical_facility_image_fix_patch($emptyAiRow, $emptyAiItem), 'new photo cannot populate AI field when source is ' . $sourceCase);
+}
+foreach (['keep', 'uncertain'] as $aiDecision) {
+    $retainedAiItem = medical_facility_image_fix_output_template($row);
+    $aiReviewIndex = array_search($row['ai_image_url'], array_column($retainedAiItem['inspected_images'], 'url'), true);
+    $retainedAiItem['inspected_images'][$aiReviewIndex]['decision'] = $aiDecision;
+    $assert(medical_facility_image_fix_patch($row, $retainedAiItem)['ai_image_url'] === $row['ai_image_url'], 'nonempty AI ' . $aiDecision . ' preserves original URL');
+    foreach (['null' => null, 'empty' => ''] as $returnCase => $returnAiUrl) {
+        $invalidRetainedAi = $retainedAiItem;
+        $invalidRetainedAi['ai_image_url'] = $returnAiUrl;
+        $reject(fn() => medical_facility_image_fix_patch($row, $invalidRetainedAi), 'AI ' . $aiDecision . ' cannot be cleared by returned ' . $returnCase);
+    }
+}
+$removedAiItem = medical_facility_image_fix_output_template($row);
+$aiReviewIndex = array_search($row['ai_image_url'], array_column($removedAiItem['inspected_images'], 'url'), true);
+$removedAiItem['inspected_images'][$aiReviewIndex] = ['url' => $row['ai_image_url'], 'decision' => 'remove',
+    'reason' => 'Ảnh đã xem và xác minh không hợp lệ', 'evidence_url' => $row['ai_image_url'], 'http_status' => 200];
+$removedAiItem['ai_image_url'] = '';
+$removedAiPatch = medical_facility_image_fix_patch($row, $removedAiItem);
+$removedAiItem['ai_image_url'] = null;
+$assert(medical_facility_image_fix_patch($row, $removedAiItem) === $removedAiPatch && $removedAiPatch['ai_image_url'] === '',
+    'null clears nonempty AI source only with an evidenced remove decision, same as empty');
+$removedAiItem['inspected_images'][$aiReviewIndex]['evidence_url'] = '';
+$reject(fn() => medical_facility_image_fix_patch($row, $removedAiItem), 'null cannot clear AI source when remove evidence is missing');
+$invalid = $item; $invalid['ai_image_url'] = $item['added_images'][0]['url'];
+$reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'new photo cannot replace a nonempty AI field');
 $invalid = $item; $invalid['image_url'] = 'https://clinic.example/unknown.jpg';
 $reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'cover must be a known surviving image');
 $invalid = $item; $invalid['insufficient_images'] = 'false';
@@ -134,7 +172,7 @@ $assert($localOnly === ['imported' => 0, 'failed' => 0, 'items' => []], 'local i
 $assert(str_contains($customPrompt, 'inspected_images'), 'edited admin prompt retains required current JSON contract');
 $assert(str_contains($customPrompt, $row['name']) && str_contains($customPrompt, $row['address_text']) && str_contains($customPrompt, $row['google_maps_url']), 'edited prompt cannot omit branch identification and Maps source');
 $assert(str_contains($customPrompt, 'inspection_url') && str_contains($customPrompt, '"target_images":9'), 'edited prompt still carries source inventory metadata and target count');
-$hostileTemplate = 'Mẫu cũ: bọc mọi URL bằng Markdown [URL](URL), đổi đường dẫn /uploads/ sang inspection_url, '
+$hostileTemplate = 'Mẫu cũ: luôn trả ai_image_url:null kể cả đang có URL; bọc mọi URL bằng Markdown [URL](URL), đổi đường dẫn /uploads/ sang inspection_url, '
     . 'chỉ lấy ảnh có không gian/thiết bị và loại mọi ảnh bác sĩ. Nếu tất cả ảnh không hợp lệ, xóa hết rồi trả added_images=[]; không tìm ảnh thay thế.';
 $hostilePrompt = medical_facility_image_fix_prompt($hostileTemplate, $row);
 $assert(str_starts_with($hostilePrompt, $hostileTemplate), 'saved custom template remains intact while current policy is appended');
@@ -171,6 +209,20 @@ $assertPromptPolicy = static function (string $policy, string $label) use ($asse
         && str_contains($policy, 'notes') && preg_match('/không bịa/iu', $policy) === 1,
         $label . ': exhausted search can truthfully report insufficient verified photos without fabricating replacements');
     $assert(str_contains($policy, 'uncertain') && str_contains($policy, 'giữ ảnh'), $label . ': unviewable source photos remain uncertain and retained');
+    $assert(str_contains($policy, 'ai_image_url trong kết quả bắt buộc là chuỗi, không trả null')
+        && str_contains($policy, 'source.ai_image_url là null, rỗng hoặc không có, trả "ai_image_url":""'),
+        $label . ': absent AI source returns an empty string, never null');
+    $assert(str_contains($policy, 'giữ nguyên URL đó khi decision là keep/uncertain')
+        && str_contains($policy, 'decision=remove trong inspected_images, kèm reason và evidence_url hợp lệ'),
+        $label . ': nonempty AI source is retained unless its exact inspection has evidenced removal');
+    $assert(str_contains($policy, 'Không đưa ảnh mới vào ai_image_url'), $label . ': new real photos never populate the AI field');
+    $assert(str_contains($policy, 'Nếu Maps đã có đủ ảnh phù hợp thì không lấy ảnh website')
+        && str_contains($policy, 'Khi Maps thiếu ảnh hoặc không truy cập/xác minh được'), $label . ': Maps photos remain first choice, website is fallback');
+    $assert(str_contains($policy, 'Giới thiệu / Về chúng tôi (About / About us)')
+        && str_contains($policy, 'trang giới thiệu chi nhánh') && str_contains($policy, 'cơ sở vật chất / thư viện ảnh'), $label . ': website fallback prioritizes introduction and branch pages');
+    $assert(str_contains($policy, 'Không lấy ảnh từ bài kiến thức, bài SEO dịch vụ, tin khuyến mãi')
+        && str_contains($policy, 'source_url phải trỏ tới chính trang chứa ảnh')
+        && str_contains($policy, 'không mặc định ảnh trang Về chúng tôi của toàn hệ thống thuộc chi nhánh'), $label . ': website images need exact-page branch attribution, not generic service illustrations');
 };
 $assertPromptPolicy($default, 'default template');
 $assertPromptPolicy($mandatoryPolicy($prompt), 'rendered default mandatory policy');
@@ -181,6 +233,13 @@ $assert(str_contains($mandatoryPolicy($hostilePrompt), 'ưu tiên hơn mẫu cũ
 $exactUrlPrompt = medical_facility_image_fix_prompt('Custom {{source_json}}', $exactUrlRow);
 $assert(str_contains($exactUrlPrompt, '"url":"' . $exactLocalUrl . '"') && str_contains($exactUrlPrompt, '"url":"' . $exactRemoteUrl . '"')
     && str_contains($exactUrlPrompt, '"inspection_url":"https://medreview.vn' . $exactLocalUrl . '"'), 'rendered source JSON distinguishes original exact URLs from viewing URLs');
+foreach (['null' => null, 'empty' => ''] as $sourceCase => $sourceAiUrl) {
+    $emptyAiRow = array_replace($row, ['ai_image_url' => $sourceAiUrl]);
+    $emptyAiPrompt = medical_facility_image_fix_prompt('Admin edited prompt', $emptyAiRow);
+    $outputMarker = strrpos($emptyAiPrompt, 'Khung kết quả: ');
+    $assert($outputMarker !== false && str_contains(substr($emptyAiPrompt, $outputMarker), '"ai_image_url":""'),
+        'saved template mandatory output normalizes AI source ' . $sourceCase . ' to empty string');
+}
 
 final class ImageFixStatement extends PDOStatement
 {

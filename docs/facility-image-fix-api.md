@@ -68,6 +68,13 @@ mục tiêu mặc định 6. Thứ tự tìm là Google Maps đúng chi nhánh �
 ảnh mới đã xác minh, `insufficient_images=true` và ghi nguồn đã rà/lý do trong
 `notes`; không bịa ảnh để đủ số lượng. Ảnh chưa xem được vẫn `uncertain` và được giữ.
 
+Ưu tiên ảnh từ album Google Maps đúng địa điểm; khi đã đủ ảnh phù hợp, không thay
+bằng ảnh website. Website là nguồn bổ sung khi Maps thiếu/không xác minh được:
+ưu tiên Giới thiệu / Về chúng tôi (About), trang chi nhánh, cơ sở vật chất hoặc
+thư viện ảnh. Không lấy ảnh minh họa từ bài kiến thức/SEO dịch vụ, khuyến mãi hay
+banner. `source_url` trỏ tới trang chứa ảnh; ảnh giới thiệu toàn hệ thống vẫn phải
+được xác minh thuộc đúng chi nhánh trước khi chọn.
+
 ## Quy trình tiện ích bắt buộc
 
 1. Thêm nguồn tác vụ riêng **Fix ảnh cơ sở y tế**, ví dụ `sourceType=facility_image_fix`.
@@ -157,8 +164,12 @@ nén/lưu thư viện. Ảnh mới không được coi là đã tải thành cô
 
 `image_url` chọn ảnh nguồn được giữ hoặc added_images. Nếu bìa đã remove, tự chọn ảnh
 gallery còn lại; nếu không còn ảnh, để trống. `ai_image_url` chỉ giữ nguyên hoặc xóa
-khi ảnh nguồn tương ứng có quyết định remove. Không sinh ảnh minh họa mới trong luồng
-này. Giữ nguyên mọi query string của URL Google; không tự chế image ID.
+khi ảnh nguồn tương ứng có quyết định remove kèm reason/evidence_url hợp lệ. Trường
+này trong kết quả AI luôn là chuỗi: nguồn null/rỗng trả `"ai_image_url":""`, không
+trả null; nguồn có URL keep/uncertain giữ nguyên URL. Receiver tương thích null như
+chuỗi rỗng khi nguồn đã rỗng, nhưng vẫn từ chối xóa URL đang có mà chưa có remove.
+Không đưa ảnh mới vào trường này hay sinh ảnh minh họa mới trong luồng này. Giữ
+nguyên mọi query string của URL Google; không tự chế image ID.
 
 ## Kết quả và xử lý lỗi
 
