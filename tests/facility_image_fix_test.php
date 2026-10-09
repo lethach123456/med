@@ -29,6 +29,36 @@ $inventory = medical_facility_image_fix_inventory($row);
 $assert(count($inventory) === 4, 'deduplicate cover/gallery, include separate AI image');
 $assert(count($inventory[0]['fields']) === 2, 'inventory preserves all source slots');
 $assert($inventory[1]['inspection_url'] === 'https://medreview.vn/uploads/library/ai.jpg', 'AI can inspect local image via public absolute URL');
+$exactLocalUrl = '/uploads/library/clinic%20branch.jpg?v=2&crop=wide';
+$exactRemoteUrl = 'https://CDN.clinic.example/Photo%20Team.JPG?width=1600&fit=cover&v=7';
+$exactUrlRow = array_replace($row, ['image_url' => $exactLocalUrl, 'ai_image_url' => '',
+    'gallery_json' => json_encode([['url' => $exactRemoteUrl, 'caption' => 'Đội ngũ đã xác minh', 'custom' => 'preserve']])]);
+$exactUrlInventory = medical_facility_image_fix_inventory($exactUrlRow);
+$assert(array_column($exactUrlInventory, 'url') === [$exactLocalUrl, $exactRemoteUrl], 'inventory preserves source local paths, encoded paths, host case and query order');
+$assert($exactUrlInventory[0]['inspection_url'] === 'https://medreview.vn' . $exactLocalUrl, 'inspection URL only expands local source for viewing');
+$exactUrlItem = medical_facility_image_fix_output_template($exactUrlRow);
+$assert(array_column($exactUrlItem['inspected_images'], 'url') === [$exactLocalUrl, $exactRemoteUrl], 'output template copies source URLs, never expanded inspection URLs');
+$exactUrlPatch = medical_facility_image_fix_patch($exactUrlRow, $exactUrlItem);
+$assert($exactUrlPatch['image_url'] === $exactLocalUrl && $exactUrlPatch['inspected_images'][1]['url'] === $exactRemoteUrl, 'source URLs roundtrip without path, host or query normalization');
+$assert(json_decode($exactUrlPatch['gallery_json'], true) === json_decode($exactUrlRow['gallery_json'], true), 'exact source gallery URL and metadata remain unchanged');
+foreach ([
+    ['index' => 0, 'url' => $exactUrlInventory[0]['inspection_url'], 'case' => 'local inspection URL substitution'],
+    ['index' => 0, 'url' => '/uploads/library/clinic%20branch.jpg?crop=wide&v=2', 'case' => 'local query reorder'],
+    ['index' => 1, 'url' => strtolower($exactRemoteUrl), 'case' => 'host/path case normalization'],
+    ['index' => 1, 'url' => str_replace('%20', ' ', $exactRemoteUrl), 'case' => 'encoded path normalization'],
+    ['index' => 1, 'url' => preg_replace('/\?.*$/', '', $exactRemoteUrl), 'case' => 'query stripping'],
+] as $changedUrl) {
+    $invalidExactUrl = $exactUrlItem;
+    $invalidExactUrl['inspected_images'][$changedUrl['index']]['url'] = $changedUrl['url'];
+    $reject(fn() => medical_facility_image_fix_patch($exactUrlRow, $invalidExactUrl), 'inspected source identity rejects ' . $changedUrl['case']);
+}
+foreach ([$exactLocalUrl, $exactRemoteUrl] as $index => $sourceUrl) {
+    foreach (['[' . $sourceUrl . '](' . $sourceUrl . ')', '`' . $sourceUrl . '`', '<a href="' . $sourceUrl . '">' . $sourceUrl . '</a>'] as $wrappedUrl) {
+        $invalidExactUrl = $exactUrlItem;
+        $invalidExactUrl['inspected_images'][$index]['url'] = $wrappedUrl;
+        $reject(fn() => medical_facility_image_fix_patch($exactUrlRow, $invalidExactUrl), 'formatted inspected source remains rejected: ' . $wrappedUrl);
+    }
+}
 $revision = medical_facility_image_fix_revision($row);
 $assert(medical_facility_image_fix_revision($row + ['updated_at' => 'changed-by-heartbeat']) === $revision, 'lease heartbeat does not invalidate images');
 $assert(medical_facility_image_fix_revision(array_replace($row, ['address_text' => 'branch B'])) !== $revision, 'identity change invalidates old image investigation');
@@ -104,6 +134,53 @@ $assert($localOnly === ['imported' => 0, 'failed' => 0, 'items' => []], 'local i
 $assert(str_contains($customPrompt, 'inspected_images'), 'edited admin prompt retains required current JSON contract');
 $assert(str_contains($customPrompt, $row['name']) && str_contains($customPrompt, $row['address_text']) && str_contains($customPrompt, $row['google_maps_url']), 'edited prompt cannot omit branch identification and Maps source');
 $assert(str_contains($customPrompt, 'inspection_url') && str_contains($customPrompt, '"target_images":9'), 'edited prompt still carries source inventory metadata and target count');
+$hostileTemplate = 'Mẫu cũ: bọc mọi URL bằng Markdown [URL](URL), đổi đường dẫn /uploads/ sang inspection_url, '
+    . 'chỉ lấy ảnh có không gian/thiết bị và loại mọi ảnh bác sĩ. Nếu tất cả ảnh không hợp lệ, xóa hết rồi trả added_images=[]; không tìm ảnh thay thế.';
+$hostilePrompt = medical_facility_image_fix_prompt($hostileTemplate, $row);
+$assert(str_starts_with($hostilePrompt, $hostileTemplate), 'saved custom template remains intact while current policy is appended');
+$mandatoryPolicy = static function (string $rendered): string {
+    $marker = strrpos($rendered, 'CONTRACT API FIX ẢNH');
+    if ($marker === false) throw new RuntimeException('Mandatory image-fix contract missing from rendered prompt.');
+    return substr($rendered, $marker);
+};
+$assertPromptPolicy = static function (string $policy, string $label) use ($assert): void {
+    $assert(str_contains($policy, 'URL THUẦN') && str_contains($policy, 'Markdown [URL](URL)')
+        && str_contains($policy, 'HTML') && str_contains($policy, 'backtick'), $label . ': URL fields exclude Markdown, HTML and backticks');
+    $assert(str_contains($policy, 'inspected_images[].url') && str_contains($policy, 'CHÍNH XÁC source.images[].url')
+        && str_contains($policy, '/uploads/') && str_contains($policy, 'tên miền kể cả www')
+        && str_contains($policy, 'mã hóa') && str_contains($policy, 'query string')
+        && str_contains($policy, 'không đổi sang inspection_url'), $label . ': inspected URL copies exact source path, host, encoding and query');
+    $assert(str_contains($policy, 'đội ngũ bác sĩ') && str_contains($policy, 'ảnh tập thể')
+        && str_contains($policy, 'ảnh chân dung gốc') && str_contains($policy, 'đã xác minh bác sĩ thuộc đúng cơ sở')
+        && str_contains($policy, 'vẫn hợp lệ dù không') && str_contains($policy, 'không loại ảnh bác sĩ chỉ vì'),
+        $label . ': verified team and original portraits are allowed without premises or equipment');
+    $assert(preg_match('/KHÔNG lấy logo đứng riêng/iu', $policy) === 1 && str_contains($policy, 'poster')
+        && str_contains($policy, 'ảnh stock/AI'), $label . ': team allowance does not permit branding, adverts, stock or AI');
+    $assert(str_contains($policy, 'Không suy đoán loại ảnh chỉ từ tên file') || str_contains($policy, 'không đoán từ tên file/URL'),
+        $label . ': image classification must not rely on filename');
+    $assert(str_contains($policy, 'TÌM ẢNH THAY THẾ') && str_contains($policy, 'thay thế toàn bộ ảnh không hợp lệ')
+        && str_contains($policy, 'Nếu toàn bộ ảnh cũ không phù hợp')
+        && str_contains($policy, 'thay thế toàn bộ bộ ảnh bằng ảnh mới đã xác minh')
+        && str_contains($policy, 'tối thiểu 5 ảnh'), $label . ': every invalid photo requires active replacement, including an all-invalid set');
+    $assert(preg_match('/Google Maps[^\n]*website chính thức[^\n]*Facebook\/fanpage[^\n]*nguồn công khai khác/u', $policy) === 1,
+        $label . ': replacement search proceeds Maps, official website, Facebook, then other public sources');
+    $assert(str_contains($policy, 'không trả toàn bộ remove kèm added_images=[] khi chưa rà hết')
+        || str_contains($policy, 'Không trả toàn bộ remove kèm added_images=[] khi chưa rà hết'),
+        $label . ': cannot stop at remove-all and empty additions before searching every source group');
+    $assert(str_contains($policy, 'sau khi rà đầy đủ') && str_contains($policy, 'insufficient_images=true')
+        && str_contains($policy, 'notes') && preg_match('/không bịa/iu', $policy) === 1,
+        $label . ': exhausted search can truthfully report insufficient verified photos without fabricating replacements');
+    $assert(str_contains($policy, 'uncertain') && str_contains($policy, 'giữ ảnh'), $label . ': unviewable source photos remain uncertain and retained');
+};
+$assertPromptPolicy($default, 'default template');
+$assertPromptPolicy($mandatoryPolicy($prompt), 'rendered default mandatory policy');
+$assertPromptPolicy($mandatoryPolicy($customPrompt), 'saved custom template mandatory policy');
+$assertPromptPolicy($mandatoryPolicy($hostilePrompt), 'hostile old template mandatory policy');
+$assert(str_contains($mandatoryPolicy($hostilePrompt), 'ưu tiên hơn mẫu cũ')
+    && str_contains($mandatoryPolicy($hostilePrompt), 'cố gắng đạt 6 ảnh'), 'mandatory policy overrides conflicting saved rules and keeps the default target of six');
+$exactUrlPrompt = medical_facility_image_fix_prompt('Custom {{source_json}}', $exactUrlRow);
+$assert(str_contains($exactUrlPrompt, '"url":"' . $exactLocalUrl . '"') && str_contains($exactUrlPrompt, '"url":"' . $exactRemoteUrl . '"')
+    && str_contains($exactUrlPrompt, '"inspection_url":"https://medreview.vn' . $exactLocalUrl . '"'), 'rendered source JSON distinguishes original exact URLs from viewing URLs');
 
 final class ImageFixStatement extends PDOStatement
 {

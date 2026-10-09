@@ -50,6 +50,23 @@ là SHA-256 của các trường ảnh và thông tin nhận diện cơ sở; he
 mọi URL cần đánh giá. Không bỏ qua item đã có nội dung bài viết.
 Nếu prompt admin bỏ `{{source_json}}`, API vẫn tự bổ sung danh tính chi nhánh,
 danh sách ảnh và số lượng mong muốn để AI không mất ngữ cảnh điều tra.
+Contract hiện hành luôn được nối vào cuối prompt, ưu tiên hơn chỉ dẫn cũ về URL,
+loại ảnh và tìm ảnh thay thế; không ghi đè mẫu tùy chỉnh đã lưu trong Admin.
+
+## Tiêu chí ảnh trong prompt
+
+Ảnh thật được xác minh đúng chi nhánh có thể giới thiệu không gian, thiết bị hoặc
+đội ngũ bác sĩ. Ảnh bác sĩ đang làm việc, ảnh tập thể và ảnh chân dung gốc vẫn hợp lệ
+dù không có mặt tiền, lễ tân hay thiết bị. Không nhận logo riêng, banner, poster,
+đồ họa quảng cáo, ảnh stock/AI; không suy đoán loại ảnh chỉ từ tên file.
+
+Mọi ảnh đã xem và xác minh không hợp lệ đều cần tìm ảnh thật mới thay thế. Nếu toàn
+bộ bộ ảnh cũ không hợp lệ, phải tìm lại toàn bộ bộ ảnh: tối thiểu 5 ảnh khác nhau,
+mục tiêu mặc định 6. Thứ tự tìm là Google Maps đúng chi nhánh → website chính thức
+→ Facebook/fanpage → nguồn công khai khác. Không kết thúc bằng xóa hết và
+`added_images=[]` khi chưa rà đầy đủ các nhóm nguồn. Nếu thực sự vẫn thiếu, trả mọi
+ảnh mới đã xác minh, `insufficient_images=true` và ghi nguồn đã rà/lý do trong
+`notes`; không bịa ảnh để đủ số lượng. Ảnh chưa xem được vẫn `uncertain` và được giữ.
 
 ## Quy trình tiện ích bắt buộc
 
@@ -120,11 +137,17 @@ example dưới đây làm dữ liệu thật:
 }
 ```
 
+Mọi trường URL phải là chuỗi URL/đường dẫn thuần, không bọc Markdown `[URL](URL)`,
+HTML hay backtick. `inspected_images[].url` phải sao chép chính xác
+`source.images[].url`, giữ nguyên `/uploads/`, tên miền, mã hóa và toàn bộ query
+string. `inspection_url` chỉ dùng để mở xem, không thay cho URL nguồn trong kết quả.
+
 `inspected_images` phải có MỌI URL trong source.images, mỗi URL đúng một lần.
 `keep`/`uncertain` giữ ảnh, `remove` loại URL khỏi các trường đang chứa nó. Omission
 không bao giờ ngầm xóa ảnh. Remove cần reason/evidence_url; receiver từ chối remove
-với HTTP 401/403/408/429/5xx. Không tìm được ảnh đáng tin thì dùng added_images=[] và
-insufficient_images=true. Không xóa file vật lý trên thư viện; nhật ký giữ URL cũ.
+với HTTP 401/403/408/429/5xx. Sau khi rà đủ nguồn mà không tìm được ảnh mới đáng tin,
+dùng added_images=[] và insufficient_images=true. Không xóa file vật lý trên thư
+viện; nhật ký giữ URL cũ.
 
 `added_images` tối đa 12 ảnh trực tiếp, khác các ảnh nguồn, có source/source_url.
 `angle` và `caption` không bắt buộc, mặc định chuỗi rỗng; nếu có, tối đa 120/500 ký tự.
@@ -164,7 +187,8 @@ php tests/facility_image_fix_test.php
 ```
 
 Bộ kiểm tra dùng PDO giả lập: đủ ảnh nguồn, bảo toàn metadata/ảnh uncertain, URL sai,
-stale revision, lease sai/hết hạn, rollback, idempotent retry và không sửa nội dung.
+URL nguồn chính xác và không bọc Markdown, quy tắc prompt mặc định/mẫu tùy chỉnh
+cũ, stale revision, lease sai/hết hạn, rollback, idempotent retry và không sửa nội dung.
 
 Kiểm tra thêm SQL thật (tùy chọn):
 
