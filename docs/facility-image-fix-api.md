@@ -93,6 +93,9 @@ Phân biệt hai mục tiêu:
 - notes ghi K, N, tổng, thiếu tổng, thiếu so với tối thiểu 5 ảnh mới, nguồn đã
   thử và giới hạn truy cập. Ví dụ 2 remove + 5 uncertain thì K=0, vẫn cần tối thiểu
   5 ảnh mới đã xác minh.
+- AI trả notes là một chuỗi ngắn, mục tiêu tối đa 1200 ký tự, không dùng
+  array/object/null. Chỉ tóm tắt số lượng/nguồn và giới hạn truy cập, không lặp
+  reason hay mô tả từng ảnh đã có trong inspected_images.
 
 Ảnh hợp lệ giới thiệu cơ sở vật chất hoặc đội ngũ bác sĩ đúng chi nhánh: mặt tiền,
 lối vào, lễ tân, phòng chờ, phòng khám/điều trị, ghế điều trị, thiết bị, tiện ích,
@@ -155,6 +158,9 @@ Nguồn/bằng chứng vẫn lưu riêng ở source/source_url/evidence_url. Cap
    không tự xóa/sửa revision và không chuyển mọi lỗi truy cập thành remove.
 8. Gắn `writer_claim_token` bằng token riêng của tiện ích, rồi POST JSON object tới
    receiver. Có thể gửi `{ "items": [...] }`, tối đa 10 items/2MB mỗi request.
+   Trước khi POST, chuẩn hóa riêng `notes` thành chuỗi và rút gọn nếu vượt 4000
+   ký tự Unicode, kèm thông báo đã rút gọn. Giữ JSON AI gốc trong kết quả của tiện
+   ích để xem lại; không sửa ID, revision, URL, quyết định hay bằng chứng ảnh.
 9. Thành công: receiver tự trả claim và lưu nhật ký, hàng đợi không nhận lại trong
    thời gian recheck. Dừng/hủy trước khi gửi thành công phải release claim bằng API.
    Release: `{"action":"release","type":"facility","id":71,"claim_token":"..."}`.
@@ -211,6 +217,17 @@ chuỗi rỗng khi nguồn đã rỗng, nhưng vẫn từ chối xóa URL đang 
 Không đưa ảnh mới vào trường này hay sinh ảnh minh họa mới trong luồng này. Giữ
 nguyên mọi query string của URL Google; không tự chế image ID.
 
+`notes` là chuỗi ghi chú, giới hạn lưu 4000 ký tự Unicode (prompt yêu cầu mục tiêu
+1200 ký tự). Tiện ích và receiver chuẩn hóa riêng trường này: trim chuỗi,
+null thành chuỗi rỗng, giá trị khác thành văn bản JSON giữ nguyên Unicode
+và dấu `/`. Nếu dài hơn 4000 ký tự, rút gọn trên ranh giới ký tự Unicode và thêm
+`[Ghi chú đã rút gọn để gửi API; JSON gốc được giữ trong tiện ích.]` trong cùng
+giới hạn. Đây là tương thích cho kết quả AI cũ, không phải đổi schema đầu ra AI:
+AI vẫn phải trả notes dạng chuỗi. JSON đầy đủ được giữ trong tiện ích; API chỉ
+lưu notes đã chuẩn hóa, không thêm trường API mới. Các giới hạn reason, URL,
+caption/angle, revision và claim token vẫn được kiểm tra như trước. Tiện ích vẫn
+yêu cầu khóa notes trong JSON AI; receiver tương thích notes thiếu như chuỗi rỗng.
+
 ## Kết quả và xử lý lỗi
 
 - 200: `ok=true` nghĩa là JSON đã lưu; xem thêm `image_processing=completed|partial`, `warnings` và `updated[].images_failed` để biết ảnh đã tải đủ chưa. `images_queued=0`.
@@ -223,6 +240,8 @@ nguyên mọi query string của URL Google; không tự chế image ID.
 - 503: schema/prompt chưa sẵn sàng. Chạy migration riêng nêu trên sau deploy.
 - Retry đúng cùng payload/token sau mất response trả `already_processed=true`, không
   thêm ảnh trùng hoặc chạy lại update. Nếu JSON bị thay đổi thì không coi là retry cũ.
+  Receiver vẫn tính payload_hash từ request nguyên gốc, trước chuẩn hóa notes;
+  gửi lại phải dùng cùng body đã POST, không thay notes để giả thành retry cũ.
 
 Receiver khóa row bằng transaction và kiểm tra claim + revision ngay trong lock.
 Chỉ cập nhật `image_url`, `ai_image_url`, `gallery_json`, `images_label`, `image_fix_json`
@@ -239,7 +258,9 @@ php tests/facility_image_fix_test.php
 
 Bộ kiểm tra dùng PDO giả lập: đủ ảnh nguồn, bảo toàn metadata/ảnh uncertain, URL sai,
 URL nguồn chính xác và không bọc Markdown, quy tắc prompt mặc định/mẫu tùy chỉnh
-cũ, stale revision, lease sai/hết hạn, rollback, idempotent retry và không sửa nội dung.
+cũ, notes dạng null/list/object và Unicode ở mốc 4000/4001 ký tự, giữ kiểm tra chặt
+reason/URL/revision/claim, stale revision, lease sai/hết hạn, rollback, idempotent
+retry từ payload gốc và không sửa nội dung.
 
 Kiểm tra thêm SQL thật (tùy chọn):
 

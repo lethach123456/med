@@ -85,6 +85,45 @@ $minimalAddition = $item;
 $minimalAddition['added_images'] = [array_intersect_key($item['added_images'][0], array_flip(['url', 'source', 'source_url']))];
 $minimalPatch = medical_facility_image_fix_patch($row, $minimalAddition);
 $assert($minimalPatch['added_images'][0]['angle'] === '' && $minimalPatch['added_images'][0]['caption'] === '', 'new photo needs URL/source/source_url, optional caption and angle default empty');
+$notesSuffix = "\n[Ghi chú đã rút gọn để gửi API; JSON gốc được giữ trong tiện ích.]";
+foreach (['ASCII' => 'x', 'Unicode' => 'ế'] as $noteEncoding => $noteCharacter) {
+    foreach ([4000, 4001] as $noteLength) {
+        $notesItem = $item;
+        $notesItem['notes'] = str_repeat($noteCharacter, $noteLength);
+        $notesPatch = medical_facility_image_fix_patch($row, $notesItem);
+        $assert(mb_strlen($notesPatch['notes'], 'UTF-8') === 4000, $noteEncoding . ' notes ' . $noteLength . ': receiver caps by Unicode characters');
+        $assert(mb_check_encoding($notesPatch['notes'], 'UTF-8'), $noteEncoding . ' notes ' . $noteLength . ': truncation preserves valid UTF-8');
+        $expectedNotes = $noteLength === 4000 ? $notesItem['notes']
+            : str_repeat($noteCharacter, 4000 - mb_strlen($notesSuffix, 'UTF-8')) . $notesSuffix;
+        $assert($notesPatch['notes'] === $expectedNotes, $noteEncoding . ' notes ' . $noteLength . ': preserve boundary or append explicit truncation notice');
+        unset($notesPatch['notes']);
+        $expectedPatch = $patch; unset($expectedPatch['notes']);
+        $assert($notesPatch === $expectedPatch, $noteEncoding . ' notes ' . $noteLength . ': no image decision or metadata changes');
+    }
+}
+foreach ([
+    ['label' => 'trimmed string', 'value' => " \nK=1, N=5; đã kiểm tra.\t ", 'expected' => 'K=1, N=5; đã kiểm tra.'],
+    ['label' => 'null', 'value' => null, 'expected' => ''],
+    ['label' => 'integer', 'value' => 6, 'expected' => '6'],
+    ['label' => 'boolean true', 'value' => true, 'expected' => 'true'],
+    ['label' => 'boolean false', 'value' => false, 'expected' => 'false'],
+    ['label' => 'list', 'value' => ['K=1', 'Nguồn: https://clinic.example/ảnh'], 'expected' => '["K=1","Nguồn: https://clinic.example/ảnh"]'],
+    ['label' => 'object', 'value' => (object) ['tổng' => 6, 'nguồn' => 'https://clinic.example/ảnh'], 'expected' => '{"tổng":6,"nguồn":"https://clinic.example/ảnh"}'],
+] as $noteCase) {
+    $notesItem = $item; $notesItem['notes'] = $noteCase['value'];
+    $assert(medical_facility_image_fix_patch($row, $notesItem)['notes'] === $noteCase['expected'], 'notes normalizes ' . $noteCase['label'] . ' without rejecting valid image results');
+}
+$oversizedStructuredNotes = $item;
+$oversizedStructuredNotes['notes'] = ['chi tiết' => str_repeat('ế', 5000)];
+$structuredNotesPatch = medical_facility_image_fix_patch($row, $oversizedStructuredNotes);
+$assert(mb_strlen($structuredNotesPatch['notes'], 'UTF-8') === 4000 && str_ends_with($structuredNotesPatch['notes'], $notesSuffix),
+    'structured notes encode first and use the same Unicode-safe cap');
+foreach ([['field' => 'reason', 'value' => str_repeat('ế', 1501)], ['field' => 'reason', 'value' => ['HTTP 404']],
+    ['field' => 'url', 'value' => str_repeat('x', 8001)], ['field' => 'url', 'value' => [$row['image_url']]]] as $strictCase) {
+    $invalid = $item; $invalid['notes'] = ['tổng' => 6];
+    $invalid['inspected_images'][0][$strictCase['field']] = $strictCase['value'];
+    $reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'notes compatibility does not relax ' . $strictCase['field'] . ' schema');
+}
 $invalid = $item; array_pop($invalid['inspected_images']);
 $reject(fn() => medical_facility_image_fix_patch($row, $invalid), 'omitted source image cannot be deleted');
 $invalid = $item; $invalid['inspected_images'][1] = $invalid['inspected_images'][0];
@@ -241,8 +280,11 @@ $assertPromptPolicy = static function (string $policy, string $label) use ($asse
         && str_contains($policy, 'false khi K+N >= target_images')
         && str_contains($policy, 'Thiếu ảnh MỚI nhưng tổng đã đủ thì false'), $label . ': verified-total and editorial-new shortages are distinct');
     $assert(str_contains($policy, 'Mở và xem từng file ảnh mới') && str_contains($policy, 'không thêm ảnh mới chưa xác minh')
-        && str_contains($policy, 'tổng đạt chuẩn') && str_contains($policy, 'thiếu so với tối thiểu 5 ảnh mới'),
+        && str_contains($policy, 'tổng đạt chuẩn') && str_contains($policy, 'thiếu tổng/thiếu ảnh mới'),
         $label . ': only verified additions count and notes report both shortages');
+    $assert(str_contains($policy, 'notes bắt buộc là MỘT CHUỖI ngắn')
+        && str_contains($policy, 'mục tiêu tối đa 1200 ký tự') && str_contains($policy, 'không trả array/object/null')
+        && str_contains($policy, 'không lặp reason hay mô tả từng ảnh'), $label . ': compact string notes avoid malformed or oversized image-fix results');
     $assert(str_contains($policy, 'kết quả trước–sau') && str_contains($policy, 'chân dung khách hàng/người nổi tiếng')
         && str_contains($policy, 'thumbnail phỏng vấn') && str_contains($policy, 'Không loại ảnh hợp lệ chỉ vì có người bệnh'),
         $label . ': excludes unrelated clinical and customer imagery without rejecting real premises photos');
@@ -339,6 +381,29 @@ $assert(!str_contains($db->row['image_fix_json'], $token), 'audit stores token h
 $retry = medical_facility_image_fix_save($db, $item);
 $assert($retry['already_processed'] === true && $db->writes === 1, 'same result retry is idempotent after lease cleared');
 $assert(isset($retry['queue_sources']['gallery_json']), 'idempotent retry can recover interrupted download enqueue');
+foreach (['oversized string' => str_repeat('ế', 4001), 'structured list' => ['K=1', 'Nguồn: https://clinic.example/ảnh']] as $notesCase => $rawNotes) {
+    $notesItem = $item; $notesItem['notes'] = $rawNotes;
+    $notesDb = new ImageFixPDO($row);
+    medical_facility_image_fix_save($notesDb, $notesItem);
+    $notesAudit = json_decode($notesDb->row['image_fix_json'], true);
+    $notesPayload = $notesItem; unset($notesPayload['writer_claim_token']);
+    $assert($notesAudit['notes'] === medical_facility_image_fix_notes($rawNotes)
+        && $notesAudit['payload_hash'] === hash('sha256', medical_directory_json_encode($notesPayload)),
+        $notesCase . ': audit saves normalized notes but hashes untouched payload');
+    $notesRetry = medical_facility_image_fix_save($notesDb, $notesItem);
+    $assert($notesRetry['already_processed'] === true && $notesDb->writes === 1, $notesCase . ': exact raw payload retry remains idempotent');
+    $normalizedRetry = $notesItem; $normalizedRetry['notes'] = $notesAudit['notes'];
+    $reject(fn() => medical_facility_image_fix_save($notesDb, $normalizedRetry), $notesCase . ': changed normalized payload is not the original retry', 'lease_lost');
+    $assert($notesDb->writes === 1 && $notesDb->row['content'] === $row['content'], $notesCase . ': altered retry performs no extra write');
+}
+foreach ([['field' => 'images_revision', 'value' => [$revision]], ['field' => 'images_revision', 'value' => str_repeat('a', 65)],
+    ['field' => 'writer_claim_token', 'value' => [$token]], ['field' => 'writer_claim_token', 'value' => str_repeat('a', 129)]] as $strictCase) {
+    $invalid = $item; $invalid['notes'] = ['tổng' => 6]; $invalid[$strictCase['field']] = $strictCase['value'];
+    $strictDb = new ImageFixPDO($row);
+    $reject(fn() => medical_facility_image_fix_save($strictDb, $invalid), 'notes compatibility does not relax ' . $strictCase['field'] . ' schema');
+    $assert($strictDb->writes === 0 && $strictDb->row['ai_writer_claim_json'] === $row['ai_writer_claim_json'],
+        'invalid ' . $strictCase['field'] . ' still preserves images and lease');
+}
 foreach (['stale' => 'images_changed', 'expired' => 'lease_lost', 'wrong_owner' => 'lease_lost', 'wrong_task' => 'lease_lost', 'draft' => 'not_published'] as $case => $reason) {
     $changed = $row;
     if ($case === 'stale') $changed['gallery_json'] = '[]';

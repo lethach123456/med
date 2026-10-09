@@ -49,7 +49,7 @@ K = số ảnh thật nguồn được keep đã xác minh, N = số ảnh thậ
 - Mục tiêu biên tập: 5–7 ảnh mới, kể cả K đã đủ. Mục tiêu tổng từ API: target_images={{target_images}}. Cần tối thiểu 5 ảnh đạt chuẩn, cố gắng đạt {{target_images}} ảnh; không nhầm N với tổng K+N. Nếu target_images lớn hơn 7 thì bổ sung để tổng đạt mục tiêu trong giới hạn 12 ảnh mới.
 - Ngưỡng thiếu ảnh tổng: max(0, target_images-K); ngưỡng tối thiểu: max(0, 5-K). Ví dụ 2 remove + 5 uncertain thì K=0, phải tìm tối thiểu 5 ảnh mới đã xác minh.
 - insufficient_images là boolean: true khi K+N < target_images, false khi K+N >= target_images. Thiếu ảnh MỚI nhưng tổng đã đủ thì false, báo thiếu mới riêng trong notes.
-- notes ngắn, nêu K, N, tổng đạt chuẩn, thiếu so với target_images, thiếu so với tối thiểu 5 ảnh mới, số ảnh mới theo từng nguồn và nguồn đã thử/lý do bị chặn. Không khẳng định đã rà nguồn chưa thực sự truy cập.
+- notes bắt buộc là MỘT CHUỖI ngắn, mục tiêu tối đa 1200 ký tự, không trả array/object/null. Chỉ tóm tắt K, N, tổng đạt chuẩn, thiếu tổng/thiếu ảnh mới, số ảnh theo nguồn và giới hạn truy cập; không lặp reason hay mô tả từng ảnh. Ví dụ: "K=2; N=5; tổng=7; thiếu tổng=0; thiếu ảnh mới=0. Maps=3, Facebook=2. Website không cần bổ sung." Không khẳng định đã rà nguồn chưa thực sự truy cập. Giới hạn nhận API là 4000 ký tự, không dùng hết giới hạn để kể quá trình tìm kiếm.
 
 CAPTION NGẮN GỌN
 caption chỉ mô tả nội dung nhìn thấy, ưu tiên 2–8 từ: "Ảnh mặt tiền", "Cơ sở vật chất", "Khu lễ tân", "Phòng chờ", "Phòng điều trị", "Máy móc thiết bị", "Đội ngũ bác sĩ", "Bác sĩ: Nguyễn Văn A". Chỉ ghi tên bác sĩ khi đã xác minh; chưa rõ tên thì "Bác sĩ" hoặc "Đội ngũ bác sĩ". Không ghi nguồn, URL, tên cơ sở, địa chỉ, lời quảng cáo hoặc giải thích kiểm định. Nguồn/bằng chứng ghi riêng trong source, source_url, evidence_url. angle là nhãn góc chụp ngắn; không suy diễn nội dung. Caption/angle ảnh mới được lưu, metadata ảnh cũ keep/uncertain được giữ nguyên, không thêm khóa để sửa caption cũ.
@@ -95,6 +95,17 @@ function medical_facility_image_fix_text(mixed $value, int $limit = 1000): strin
     $value = trim((string) $value);
     if (mb_strlen($value, 'UTF-8') > $limit) throw new InvalidArgumentException('Giá trị văn bản vượt giới hạn ' . $limit . ' ký tự.');
     return $value;
+}
+
+/** Notes are non-authoritative audit text; never relax image/claim validation. */
+function medical_facility_image_fix_notes(mixed $value): string
+{
+    $text = $value === null ? '' : (is_string($value) ? $value : json_encode($value,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    $text = trim($text);
+    if (mb_strlen($text, 'UTF-8') <= 4000) return $text;
+    $suffix = "\n[Ghi chú đã rút gọn để gửi API; JSON gốc được giữ trong tiện ích.]";
+    return mb_substr($text, 0, 4000 - mb_strlen($suffix, 'UTF-8'), 'UTF-8') . $suffix;
 }
 
 /** Validate new URLs without doing remote I/O in the save request. */
@@ -326,7 +337,7 @@ function medical_facility_image_fix_patch(array $row, array $item): array
     if (!is_bool($insufficient)) throw new InvalidArgumentException('insufficient_images phải là boolean.');
     return ['image_url' => $cover, 'ai_image_url' => $ai, 'gallery_json' => medical_directory_json_encode($gallery),
         'inspected_images' => array_values($decisions), 'removed_images' => array_keys($removed), 'added_images' => array_values($added),
-        'insufficient_images' => $insufficient, 'notes' => medical_facility_image_fix_text($item['notes'] ?? '', 4000)];
+        'insufficient_images' => $insufficient, 'notes' => medical_facility_image_fix_notes($item['notes'] ?? '')];
 }
 
 final class MedicalFacilityImageFixConflict extends RuntimeException
