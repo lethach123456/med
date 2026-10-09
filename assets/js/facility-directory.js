@@ -36,6 +36,10 @@
   const number = new Intl.NumberFormat(en ? 'en-US' : 'vi-VN');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const compact = window.matchMedia('(max-width: 800px)');
+  const sortControl = document.getElementById('filterSort');
+  const sortGroup = sortControl.closest('.fd-sort');
+  const sortSlot = panel.querySelector('.fd-sort-slot');
+  const resultTools = root.querySelector('.fd-result-tools');
   const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const safeURL = (value, fallback = '') => {
     const url = String(value ?? '').trim();
@@ -93,7 +97,7 @@
     active.hidden = !filters.length;
     active.innerHTML = filters.map((key) => {
       const value = key === 'min_rating' ? '≥ ' + params.get(key) + '/5' : params.get(key);
-      return `<button type="button" data-remove-filter="${key}" aria-label="${escape(words.remove + words[key] + ': ' + value)}"><span>${escape(words[key] + ': ' + value)}</span><i class="ph ph-x" aria-hidden="true"></i></button>`;
+      return `<button type="button" data-remove-filter="${key}" aria-label="${escape(words.remove + words[key] + ': ' + value)}"><span><span class="fd-active-filter-key">${escape(words[key])}: </span>${escape(value)}</span><i class="ph ph-x" aria-hidden="true"></i></button>`;
     }).join('') + (filters.length ? `<button type="button" class="fd-clear-all" data-clear-filters>${words.clear}</button>` : '');
     root.querySelectorAll('[data-category]').forEach((link) => {
       if (link.dataset.category === params.get('category')) link.setAttribute('aria-current', 'true');
@@ -108,6 +112,22 @@
     if (!open && restoreFocus && panel.contains(document.activeElement)) toggle.focus({preventScroll: true});
     disclosure.open = open;
   }
+  function arrangeControls() {
+    // Move the same native control, keeping its value, listeners and external
+    // form association. Never clone it or expose content inside closed details.
+    const hadFocus = sortGroup.contains(document.activeElement);
+    if (compact.matches) {
+      if (sortGroup.parentElement !== sortSlot) sortSlot.append(sortGroup);
+      root.classList.remove('fd-desktop-controls');
+      if (hadFocus && !disclosure.open) setPanel(true);
+    } else {
+      if (sortGroup.parentElement !== resultTools) resultTools.insertBefore(sortGroup, disclosure);
+      root.classList.add('fd-desktop-controls');
+    }
+    if (hadFocus) sortControl.focus({preventScroll: true});
+  }
+  compact.addEventListener('change', arrangeControls);
+  arrangeControls();
   disclosure.addEventListener('toggle', () => {
     toggle.setAttribute('aria-expanded', String(disclosure.open));
     panel.getAnimations().forEach((animation) => animation.cancel());

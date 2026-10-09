@@ -2,32 +2,35 @@
    Page scope beats the shared component rules loaded later by the header. */
 body.fd-page main.fd-directory .fd-card-main{display:contents}
 body.fd-page main.fd-directory .fd-description-mobile{display:none}
+body.fd-page main.fd-directory :is(.fd-filter-label-desktop,.fd-filter-label-short){display:none}
+body.fd-page main.fd-directory.fd-desktop-controls .fd-filter-label-desktop{display:inline}
+body.fd-page main.fd-directory.fd-desktop-controls .fd-filter-label-combined{display:none}
+body.fd-page main.fd-directory .fd-sort-slot{grid-column:1/-1}
+body.fd-page main.fd-directory .fd-sort-slot:empty{display:none}
+body.fd-page main.fd-directory .fd-sort-slot .fd-sort{display:grid;gap:8px;color:var(--fd-ink)}
+body.fd-page main.fd-directory .fd-sort-slot .fd-sort label{display:block;font-size:14px;font-weight:600}
+body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-width:none;height:48px;padding:8px 12px;border:1px solid var(--fd-line);border-radius:11px;background:#f9fbfe;font-size:16px;font-weight:500;color:#465d79}
 
 @media(max-width:800px){
   body.fd-page main.fd-directory{
     --med-ui-control-height:44px;
     --med-ui-send-size:44px;
   }
-  body.fd-page main.fd-directory .fd-result-tools{
+  body.fd-page main.fd-directory .fd-results-top{
     display:grid;
     grid-template-columns:minmax(0,1fr) auto;
-    width:100%;
+    align-items:start;
+    gap:10px;
+    min-height:0;
+  }
+  body.fd-page main.fd-directory .fd-results-copy{min-width:0}
+  body.fd-page main.fd-directory .fd-result-tools{
+    display:block;
+    width:auto;
     gap:8px;
     padding-top:0;
   }
   body.fd-page main.fd-directory .fd-sort{min-width:0}
-  body.fd-page main.fd-directory .fd-sort label{
-    position:absolute;
-    display:block;
-    width:1px;
-    height:1px;
-    padding:0;
-    margin:-1px;
-    overflow:hidden;
-    clip-path:inset(50%);
-    white-space:nowrap;
-    border:0;
-  }
   body.fd-page main.fd-directory .fd-sort select{
     width:100%;
     max-width:none;
@@ -40,9 +43,10 @@ body.fd-page main.fd-directory .fd-description-mobile{display:none}
     font-size:16px;
     font-weight:500;
   }
-  body.fd-page main.fd-directory .fd-filter-toggle{min-height:44px;padding:8px 12px;gap:7px}
+  body.fd-page main.fd-directory .fd-filter-toggle{min-height:44px;padding:8px 10px;gap:6px;white-space:nowrap}
+  body.fd-page main.fd-directory .fd-toggle-chevron{display:none}
   body.fd-page main.fd-directory .fd-filter-panel{
-    max-height:calc(100dvh - 232px);
+    max-height:calc(100dvh - 180px);
     overflow-y:auto;
     overscroll-behavior:contain;
     scroll-padding-block:16px;
@@ -52,8 +56,8 @@ body.fd-page main.fd-directory .fd-description-mobile{display:none}
 @media(max-width:600px){
   body.fd-page main.fd-directory{padding-bottom:32px;background:#fff}
   body.fd-page main.fd-directory .fd-container{width:calc(100% - 24px)}
-  body.fd-page main.fd-directory .fd-breadcrumb{padding:16px 0;font-size:12px}
-  body.fd-page main.fd-directory .fd-hero{padding:20px 16px 22px;margin-bottom:16px}
+  body.fd-page main.fd-directory .fd-breadcrumb{padding:14px 0;font-size:12px}
+  body.fd-page main.fd-directory .fd-hero{padding:18px 16px 20px;margin-bottom:12px}
   body.fd-page main.fd-directory .fd-hero::before{inset:0;border-radius:20px}
   body.fd-page main.fd-directory .fd-hero::after{right:8px;top:12px;width:116px;height:116px;opacity:.25}
   body.fd-page main.fd-directory .fd-hero-art{right:12px;top:15px;opacity:.28}
@@ -62,7 +66,7 @@ body.fd-page main.fd-directory .fd-description-mobile{display:none}
   body.fd-page main.fd-directory .fd-hero-copy>p{font-size:14px;line-height:1.65;max-width:34ch}
   body.fd-page main.fd-directory .fd-description-desktop{display:none}
   body.fd-page main.fd-directory .fd-description-mobile{display:inline}
-  body.fd-page main.fd-directory .fd-search-area{padding-bottom:22px}
+  body.fd-page main.fd-directory .fd-search-area{padding-bottom:18px}
   body.fd-page main.fd-directory .fd-search{height:58px;gap:9px;padding:6px 6px 6px 13px;border-radius:17px}
   body.fd-page main.fd-directory .fd-search-label{font-size:21px}
   body.fd-page main.fd-directory .fd-search input{font-size:16px}
@@ -71,13 +75,20 @@ body.fd-page main.fd-directory .fd-description-mobile{display:none}
   body.fd-page main.fd-directory .fd-quick-links{margin-top:8px;padding:2px 0;gap:8px}
   body.fd-page main.fd-directory .fd-quick-links>span{display:none}
   body.fd-page main.fd-directory .fd-quick-links>a{min-height:44px;padding:8px 12px;border-radius:12px;font-size:13px}
-  body.fd-page main.fd-directory .fd-results-top{gap:12px;margin-bottom:14px}
-  body.fd-page main.fd-directory .fd-results-top h2{font-size:20px;margin-bottom:3px}
-  body.fd-page main.fd-directory .fd-results-top p{font-size:13px}
-  body.fd-page main.fd-directory .fd-filter-toggle{font-size:14px}
+  body.fd-page main.fd-directory .fd-results-top{gap:8px;margin-bottom:12px}
+  body.fd-page main.fd-directory .fd-results-copy h2{font-size:18px;line-height:1.4;margin:0 0 2px;letter-spacing:-.035em}
+  body.fd-page main.fd-directory .fd-results-copy h2::before{width:4px;height:15px;margin-right:7px;vertical-align:-1px}
+  body.fd-page main.fd-directory .fd-results-copy p{font-size:12px;line-height:1.6}
+  body.fd-page main.fd-directory .fd-filter-toggle{font-size:13px;border-radius:12px;background:#f5f8ff;border-color:#dbe5f8}
+  body.fd-page main.fd-directory .fd-filter-toggle>i:first-child{font-size:18px}
+  body.fd-page main.fd-directory .fd-filter-disclosure[open] .fd-filter-toggle{background:#eaf1ff;border-color:#b5cef7}
   body.fd-page main.fd-directory .fd-filter-panel{gap:14px;padding:14px;border-radius:16px}
   body.fd-page main.fd-directory .fd-filter-heading>div{gap:8px}
   body.fd-page main.fd-directory .fd-filter-heading h2{font-size:15px}
+  body.fd-page main.fd-directory .fd-active-filters{gap:8px;margin-bottom:12px}
+  body.fd-page main.fd-directory .fd-active-filter-key{display:none}
+  body.fd-page main.fd-directory .fd-active-filters button{background:#f3f7ff;border-color:#dce6f7;border-radius:12px}
+  body.fd-page main.fd-directory .fd-active-filters .fd-clear-all{background:transparent}
   body.fd-page main.fd-directory .fd-list{gap:12px}
   body.fd-page main.fd-directory .fd-card{
     grid-template-columns:92px minmax(0,1fr);
@@ -123,5 +134,9 @@ body.fd-page main.fd-directory .fd-description-mobile{display:none}
   body.fd-page main.fd-directory .fd-card{grid-template-columns:80px minmax(0,1fr);gap:10px}
   body.fd-page main.fd-directory .fd-media{height:88px}
   body.fd-page main.fd-directory .fd-card h2{font-size:16px}
-  body.fd-page main.fd-directory .fd-filter-toggle{padding-inline:10px;gap:5px}
+  body.fd-page main.fd-directory .fd-results-top{gap:6px}
+  body.fd-page main.fd-directory .fd-results-copy h2{font-size:16px}
+  body.fd-page main.fd-directory .fd-filter-toggle{padding-inline:8px;gap:5px}
+  body.fd-page main.fd-directory .fd-filter-label-full{display:none}
+  body.fd-page main.fd-directory .fd-filter-label-short{display:inline}
 }

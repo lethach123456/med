@@ -98,8 +98,13 @@ foreach (['vi', 'en'] as $locale) {
         && $xpath->query('//*[' . $hasClass('fd-description-mobile') . ']')->length === 1, $prefix . 'responsive hero copy has both localized variants');
     $assert($xpath->query('//details')->length === 1 && $xpath->query('//summary')->length === 1, $prefix . 'one native filter disclosure');
     $toolsPath = '//*[@id="fdResultsHeading"]/*[' . $hasClass('fd-result-tools') . ']';
-    $assert($xpath->query($toolsPath . '/*[' . $hasClass('fd-sort') . ']')->length === 1
-        && $xpath->query($toolsPath . '/details[@id="facilityFilterDisclosure"]')->length === 1, $prefix . 'filters and sort share the results toolbar');
+    $assert($xpath->query($toolsPath . '/details[@id="facilityFilterDisclosure"]')->length === 1
+        && $xpath->query('//*[@id="facilityFilterOptions"]/*[' . $hasClass('fd-sort-slot') . ']/*[' . $hasClass('fd-sort') . ']/select[@id="filterSort"]')->length === 1,
+        $prefix . 'one shared disclosure contains sorting before enhancement');
+    $assert($xpath->query('//*[@id="facilityFilterOptions"]/*[' . $hasClass('fd-sort-slot') . ']/following-sibling::*[1][' . $hasClass('fd-filter-field') . ']')->length === 1,
+        $prefix . 'sort field precedes location and other filters');
+    $assert($xpath->query('//*[@id="fdResultsHeading"]/*[' . $hasClass('fd-results-copy') . ']/*[@id="fdResultsTitle"]')->length === 1,
+        $prefix . 'results title and tools have separate same-row layout hooks');
     $assert($xpath->query('//*[@id="facilityFilterDisclosure"]/*[1][self::summary][@id="facilityFilterToggle"][@aria-controls="facilityFilterOptions"]')->length === 1,
         $prefix . 'summary is the first disclosure child and controls the existing panel');
     $assert($xpath->query('//*[@id="facilityFilterDisclosure"][@open]')->length === 0
@@ -128,6 +133,9 @@ foreach (['vi', 'en'] as $locale) {
     $assert(($cityQuery['city'] ?? '') === $fixtureCity && ($cityQuery['q'] ?? '') === 'Clinic <Test> & "Care"'
         && ($cityQuery['sort'] ?? '') === 'rating' && !isset($cityQuery['page']), $prefix . 'city discovery preserves search and sorting and resets pagination');
     $enLocale = $locale === 'en';
+    $assert($xpath->query('//*[' . $hasClass('fd-filter-label-full') . ']')->item(0)->textContent === ($enLocale ? 'Filter & sort' : 'Lọc & sắp xếp')
+        && $xpath->query('//*[' . $hasClass('fd-filter-label-short') . ']')->item(0)->textContent === ($enLocale ? 'Filter & sort' : 'Lọc & xếp'),
+        $prefix . 'combined control has localized full and small-screen labels');
     $assert(str_contains($cityLinks->item(0)->textContent, $enLocale ? '1,234 facilities' : '1.234 cơ sở')
         && str_contains($cityLinks->item(2)->textContent, $enLocale ? '0 facilities' : '0 cơ sở'), $prefix . 'city counts are localized with a zero fallback');
     $assert(str_contains($xpath->query('//*[@id="facilityFilterToggle"]')->item(0)->textContent, $enLocale ? 'Filters' : 'Bộ lọc')
@@ -146,10 +154,14 @@ $assert(str_contains($pageSource, $mobileAsset)
 $jsSource = file_get_contents(dirname(__DIR__) . '/assets/js/facility-directory.js');
 $assert(str_contains($jsSource, '<div class="fd-card-main">')
     && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*</div>\s*\$\{item\.address~s', $jsSource) === 1, 'AJAX cards keep the SSR identity and full-width address structure');
+$assert(str_contains($jsSource, 'sortSlot.append(sortGroup)') && str_contains($jsSource, 'resultTools.insertBefore(sortGroup, disclosure)')
+    && str_contains($jsSource, "compact.addEventListener('change', arrangeControls)") && !str_contains($jsSource, 'cloneNode('), 'Responsive sorting moves the original form control, never a duplicate');
+$assert(str_contains($jsSource, 'if (hadFocus && !disclosure.open) setPanel(true)')
+    && str_contains($jsSource, 'sortControl.focus({preventScroll: true})'), 'Focused sorting remains accessible when resizing into the closed mobile panel');
 $mobileCss = file_get_contents(dirname(__DIR__) . '/assets/css/pages/facility-directory-mobile.css');
 $assert(str_contains($mobileCss, 'body.fd-page main.fd-directory .fd-card-main{display:contents}'), 'Desktop card identity stays layout-transparent');
 foreach (['@media(max-width:800px)', '@media(max-width:600px)', 'grid-template-columns:minmax(0,1fr) auto',
-    'min-height:44px', 'font-size:16px', '.fd-address{grid-column:1/-1;grid-row:auto', 'clip-path:inset(50%)'] as $rule) {
+    'min-height:44px', 'font-size:16px', '.fd-address{grid-column:1/-1;grid-row:auto', '.fd-sort-slot:empty{display:none}', '.fd-sort-slot .fd-sort label{display:block'] as $rule) {
     $assert(str_contains($mobileCss, $rule), 'Mobile refinement retains ' . $rule);
 }
 echo "Facility directory view: {$checks} checks passed. No DB records modified.\n";
