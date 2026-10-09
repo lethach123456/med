@@ -216,6 +216,14 @@ $assertPromptPolicy = static function (string $policy, string $label) use ($asse
         && str_contains($policy, 'decision=remove trong inspected_images, kèm reason và evidence_url hợp lệ'),
         $label . ': nonempty AI source is retained unless its exact inspection has evidenced removal');
     $assert(str_contains($policy, 'Không đưa ảnh mới vào ai_image_url'), $label . ': new real photos never populate the AI field');
+    $assert(str_contains($policy, 'cơ sở vật chất hoặc đội ngũ bác sĩ')
+        && str_contains($policy, 'kết quả trước–sau') && str_contains($policy, 'chân dung khách hàng/người nổi tiếng')
+        && str_contains($policy, 'thumbnail phỏng vấn'), $label . ': excludes unrelated clinical, customer and promotional imagery after inspection');
+    $assert(str_contains($policy, 'Không coi caption/tên file là bằng chứng nội dung')
+        && str_contains($policy, 'không thêm ảnh mới chưa xác minh')
+        && str_contains($policy, 'Không loại ảnh hợp lệ chỉ vì có người bệnh'), $label . ': visual verification preserves legitimate facility photos');
+    $assert(str_contains($policy, 'truy vấn tên cơ sở + địa chỉ chi nhánh')
+        && str_contains($policy, 'không dùng truy vấn dịch vụ chung'), $label . ': replacement search is branch-specific rather than generic service imagery');
     $assert(str_contains($policy, 'Nếu Maps đã có đủ ảnh phù hợp thì không lấy ảnh website')
         && str_contains($policy, 'Khi Maps thiếu ảnh hoặc không truy cập/xác minh được'), $label . ': Maps photos remain first choice, website is fallback');
     $assert(str_contains($policy, 'Giới thiệu / Về chúng tôi (About / About us)')

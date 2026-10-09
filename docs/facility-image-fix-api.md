@@ -59,6 +59,11 @@ loại ảnh và tìm ảnh thay thế; không ghi đè mẫu tùy chỉnh đã 
 đội ngũ bác sĩ. Ảnh bác sĩ đang làm việc, ảnh tập thể và ảnh chân dung gốc vẫn hợp lệ
 dù không có mặt tiền, lễ tân hay thiết bị. Không nhận logo riêng, banner, poster,
 đồ họa quảng cáo, ảnh stock/AI; không suy đoán loại ảnh chỉ từ tên file.
+Ảnh chỉ có sản phẩm, mẫu răng, nụ cười, trước–sau, chân dung khách hàng hoặc thumbnail
+phỏng vấn không giới thiệu cơ sở/đội ngũ phải loại sau khi xem xác minh. Cảnh điều
+trị cần thể hiện rõ phòng, thiết bị hoặc bác sĩ. Không loại ảnh cơ sở hợp lệ chỉ
+vì có người bệnh; không xem được thì giữ nguồn ở trạng thái uncertain. Tìm ảnh
+thay thế bằng tên cơ sở và địa chỉ kèm loại không gian/đội ngũ, không tìm dịch vụ chung.
 
 Mọi ảnh đã xem và xác minh không hợp lệ đều cần tìm ảnh thật mới thay thế. Nếu toàn
 bộ bộ ảnh cũ không hợp lệ, phải tìm lại toàn bộ bộ ảnh: tối thiểu 5 ảnh khác nhau,
