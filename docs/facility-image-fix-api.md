@@ -55,43 +55,65 @@ loại ảnh và tìm ảnh thay thế; không ghi đè mẫu tùy chỉnh đã 
 
 ## Tiêu chí ảnh trong prompt
 
-Trọng tâm hiện hành là chủ động tìm 5–7 ảnh mới đã xem/xác minh, ưu tiên album
-Google Maps đúng địa điểm. Khi Maps thiếu, giữ ảnh Maps đã tìm và bổ sung theo
-thứ tự Facebook/fanpage → website chính thức (trang Giới thiệu/Về chúng tôi/chi
-nhánh) → nguồn công khai khác. Không dừng tìm chỉ vì ảnh cũ đã đủ; không xóa ảnh
-cũ hợp lệ để làm mới và không thêm lại URL đã có. Nếu thiếu ảnh mới, báo số thiếu
-trong notes; không bịa URL hay coi uncertain là ảnh mới hợp lệ.
+Prompt mặc định chỉ giữ vai trò, danh tính chi nhánh và dữ liệu nguồn. Một policy
+chung được nối ở cuối bởi API; không lặp quy trình/khung JSON hai lần trong prompt
+mặc định. Các mẫu mặc định cũ chưa chỉnh sửa được nhận diện bằng SHA-256 và đổi
+sang mẫu gọn khi render, không ghi DB. Mẫu Admin tùy chỉnh được giữ nguyên, policy
+hiện hành vẫn nối cuối và ưu tiên khi có mâu thuẫn.
 
-Luồng bắt buộc: (1) mở từng file để xem nội dung; (2) phân loại keep/remove/uncertain
-với bằng chứng; (3) tìm, xem và bổ sung ảnh mới. Nếu K là số ảnh thật keep đã xác
-minh, cần tối thiểu `max(0, 5-K)` ảnh mới. Năm ảnh uncertain không tính là năm ảnh
-đạt chuẩn: ví dụ 2 remove + 5 uncertain vẫn cần ít nhất 5 ảnh mới. Khi không đạt
-mục tiêu, báo số keep hợp lệ, ảnh thêm, tổng đạt chuẩn và số thiếu; không bịa ảnh.
+Luồng bắt buộc:
 
-Ảnh thật được xác minh đúng chi nhánh có thể giới thiệu không gian, thiết bị hoặc
-đội ngũ bác sĩ. Ảnh bác sĩ đang làm việc, ảnh tập thể và ảnh chân dung gốc vẫn hợp lệ
-dù không có mặt tiền, lễ tân hay thiết bị. Không nhận logo riêng, banner, poster,
-đồ họa quảng cáo, ảnh stock/AI; không suy đoán loại ảnh chỉ từ tên file.
-Ảnh chỉ có sản phẩm, mẫu răng, nụ cười, trước–sau, chân dung khách hàng hoặc thumbnail
-phỏng vấn không giới thiệu cơ sở/đội ngũ phải loại sau khi xem xác minh. Cảnh điều
-trị cần thể hiện rõ phòng, thiết bị hoặc bác sĩ. Không loại ảnh cơ sở hợp lệ chỉ
-vì có người bệnh; không xem được thì giữ nguồn ở trạng thái uncertain. Tìm ảnh
-thay thế bằng tên cơ sở và địa chỉ kèm loại không gian/đội ngũ, không tìm dịch vụ chung.
+1. Mở từng file nguồn bằng inspection_url để xem nội dung thật, đối chiếu đúng
+   chi nhánh. inspected_images[].url luôn sao chép nguyên văn URL nguồn.
+2. Phân loại keep / remove / uncertain. Ảnh chưa xem/xác minh được vẫn giữ
+   ở trạng thái uncertain, không tính đạt chuẩn. Không remove vì HTTP
+   401/403/408/429/5xx, CAPTCHA hoặc timeout; không tự đoán HTTP 200 khi chưa kiểm
+   tra được mã. Remove cần lý do và URL bằng chứng thực sự sử dụng.
+3. Chủ động tìm 5–7 ảnh MỚI khác nhau đã xem/xác minh, kể cả ảnh cũ đã đủ. Ưu tiên
+   Google Maps đúng địa điểm → Facebook/fanpage đúng chi nhánh → website chính
+   thức (Giới thiệu/Về chúng tôi/chi nhánh/cơ sở vật chất) → nguồn công khai khác.
+   Chuyển nguồn khi thiếu hoặc không truy cập/xác minh được; không dùng ảnh
+   website thay Maps hợp lệ chỉ vì dễ lấy URL hơn.
 
-Mọi ảnh đã xem và xác minh không hợp lệ đều cần tìm ảnh thật mới thay thế. Nếu toàn
-bộ bộ ảnh cũ không hợp lệ, phải tìm lại toàn bộ bộ ảnh: tối thiểu 5 ảnh khác nhau,
-mục tiêu mặc định 6. Thứ tự tìm là Google Maps đúng chi nhánh → website chính thức
-→ Facebook/fanpage → nguồn công khai khác. Không kết thúc bằng xóa hết và
-`added_images=[]` khi chưa rà đầy đủ các nhóm nguồn. Nếu thực sự vẫn thiếu, trả mọi
-ảnh mới đã xác minh, `insufficient_images=true` và ghi nguồn đã rà/lý do trong
-`notes`; không bịa ảnh để đủ số lượng. Ảnh chưa xem được vẫn `uncertain` và được giữ.
+“Mới” là chưa có trong danh sách nguồn, không phải khẳng định ngày chụp mới.
+Ảnh resize/crop/bản sao cùng nội dung dù khác URL không được tính là ảnh mới khác
+nhau. Giữ ảnh cũ hợp lệ, không xóa để làm mới. Mọi ảnh sai đã xác minh cần tìm
+ảnh thật thay thế; nếu thực sự thiếu sau khi rà nguồn, trả mọi ảnh mới đã xác
+minh và báo thiếu trung thực, không bịa URL hoặc thêm ảnh chưa xác minh.
 
-Ưu tiên ảnh từ album Google Maps đúng địa điểm; khi đã đủ ảnh phù hợp, không thay
-bằng ảnh website. Website là nguồn bổ sung khi Maps thiếu/không xác minh được:
-ưu tiên Giới thiệu / Về chúng tôi (About), trang chi nhánh, cơ sở vật chất hoặc
-thư viện ảnh. Không lấy ảnh minh họa từ bài kiến thức/SEO dịch vụ, khuyến mãi hay
-banner. `source_url` trỏ tới trang chứa ảnh; ảnh giới thiệu toàn hệ thống vẫn phải
-được xác minh thuộc đúng chi nhánh trước khi chọn.
+Phân biệt hai mục tiêu:
+
+- K = số ảnh thật nguồn keep đã xác minh; N = số ảnh mới hợp lệ. Không tính AI,
+  ảnh trùng hoặc uncertain.
+- Biên tập luôn nhắm 5–7 ảnh mới. Tổng ảnh đạt chuẩn là K+N, mục tiêu API là
+  target_images (mặc định 6, giới hạn 5–12). Nếu mục tiêu lớn hơn 7 thì tìm thêm
+  để tổng đạt mục tiêu trong giới hạn 12 ảnh bổ sung.
+- insufficient_images = (K+N < target_images). Thiếu ảnh mới nhưng tổng đã đủ
+  thì báo thiếu mới riêng trong notes, không đổi cách tính boolean.
+- notes ghi K, N, tổng, thiếu tổng, thiếu so với tối thiểu 5 ảnh mới, nguồn đã
+  thử và giới hạn truy cập. Ví dụ 2 remove + 5 uncertain thì K=0, vẫn cần tối thiểu
+  5 ảnh mới đã xác minh.
+
+Ảnh hợp lệ giới thiệu cơ sở vật chất hoặc đội ngũ bác sĩ đúng chi nhánh: mặt tiền,
+lối vào, lễ tân, phòng chờ, phòng khám/điều trị, ghế điều trị, thiết bị, tiện ích,
+bác sĩ đang làm việc, tập thể hoặc chân dung gốc đã xác minh. Bác sĩ không bắt
+buộc đứng cạnh thiết bị. Không loại ảnh cơ sở hợp lệ chỉ vì có người bệnh.
+
+Loại ảnh logo riêng/avatar logo, banner, poster, đồ họa quảng cáo, stock/AI,
+sản phẩm, mẫu răng/nụ cười, trước–sau, chân dung khách hàng hay thumbnail phỏng
+vấn không thể hiện cơ sở/đội ngũ sau khi xem xác minh. Logo/biển hiệu xuất hiện
+tự nhiên trong ảnh mặt tiền/lễ tân vẫn hợp lệ. Không suy đoán nội dung từ tên file.
+
+Ảnh mới phải có URL trực tiếp dữ liệu ảnh và source_url trỏ đến trang chứa ảnh
+hoặc album Maps giúp đối chiếu chi nhánh. Website ưu tiên trang giới thiệu/chi
+nhánh, không lấy minh họa từ bài kiến thức/SEO dịch vụ/khuyến mãi/banner. Không
+mặc định ảnh giới thiệu toàn hệ thống thuộc chi nhánh đang xử lý.
+
+Caption là nhãn 2–8 từ như “Ảnh mặt tiền”, “Khu lễ tân”, “Cơ sở vật chất”,
+“Máy móc thiết bị”, “Đội ngũ bác sĩ”, “Bác sĩ: …” (chỉ tên đã xác minh).
+Không ghi nguồn, URL, tên cơ sở, địa chỉ hoặc giải thích kiểm định trong caption.
+Nguồn/bằng chứng vẫn lưu riêng ở source/source_url/evidence_url. Caption mới
+được lưu qua added_images; metadata ảnh keep/uncertain cũ không bị sửa bởi API.
 
 ## Quy trình tiện ích bắt buộc
 
@@ -152,12 +174,12 @@ example dưới đây làm dữ liệu thật:
     {"url":"https://clinic.example/blocked.jpg","decision":"uncertain","reason":"Host trả 403, chưa kết luận ảnh hỏng","evidence_url":"","http_status":403}
   ],
   "added_images": [
-    {"url":"https://lh3.googleusercontent.com/p/actual-photo-id=s1600","angle":"Mặt tiền","caption":"Biển hiệu chi nhánh đúng địa chỉ","source":"Google Maps","source_url":"https://maps.google.com/?cid=123"}
+    {"url":"https://lh3.googleusercontent.com/p/actual-photo-id=s1600","angle":"Mặt tiền","caption":"Ảnh mặt tiền","source":"Google Maps","source_url":"https://maps.google.com/?cid=123"}
   ],
   "image_url": "/uploads/library/clinic/cover.jpg",
   "ai_image_url": "",
-  "insufficient_images": false,
-  "notes": "Đã đối chiếu chi nhánh theo địa chỉ.",
+  "insufficient_images": true,
+  "notes": "Ví dụ rút gọn: K=1, N=1, tổng=2, thiếu 4 so với target_images=6; thiếu 4 ảnh mới so với tối thiểu 5. Khi chạy thật phải tiếp tục rà nguồn trước khi báo thiếu.",
   "writer_claim_token": "<tiện ích tự gắn, AI không nhận hoặc xuất token>"
 }
 ```
@@ -177,7 +199,7 @@ viện; nhật ký giữ URL cũ.
 `added_images` tối đa 12 ảnh trực tiếp, khác các ảnh nguồn, có source/source_url.
 `angle` và `caption` không bắt buộc, mặc định chuỗi rỗng; nếu có, tối đa 120/500 ký tự.
 Receiver từ chối URL nội bộ/credentials/API key, data/blob và trang HTML/Google Maps
-thay cho file ảnh. Worker có kiểm tra host, redirects, giới hạn tải, dữ liệu ảnh và
+thay cho file ảnh. Downloader có kiểm tra host, redirects, giới hạn tải, dữ liệu ảnh và
 nén/lưu thư viện. Ảnh mới không được coi là đã tải thành công chỉ vì POST thành công.
 
 `image_url` chọn ảnh nguồn được giữ hoặc added_images. Nếu bìa đã remove, tự chọn ảnh
