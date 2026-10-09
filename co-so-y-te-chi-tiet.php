@@ -1078,6 +1078,9 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
       .gallery-lightbox__next{right:16px}
       .gallery-lightbox__nav:disabled{visibility:hidden;pointer-events:none}
       body.gallery-lightbox-open{overflow:hidden}
+      .gallery-lightbox__image{transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1)}
+      .gallery-lightbox__control{touch-action:manipulation;min-width:44px;min-height:44px}
+      .gallery-lightbox:not(.is-open){transition:opacity .22s ease,visibility 0s linear .22s}
       @media (max-width:640px){
         .gallery-lightbox{padding:8px}
         .gallery-lightbox__dialog{width:100%;height:min(100%,820px);min-height:220px}
@@ -2751,20 +2754,32 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
           const requestId = ++galleryImageRequest;
           const source = gallerySources[activeGalleryIndex];
           updateGalleryControls();
-          lightbox.classList.add('is-loading');
-          lightboxImage.classList.remove('is-enter-from-next', 'is-enter-from-prev');
-          lightboxImage.classList.add('is-switching');
-          if (direction > 0) lightboxImage.classList.add('is-enter-from-next');
-          if (direction < 0) lightboxImage.classList.add('is-enter-from-prev');
-          lightboxStatus.textContent = uiText.loadingPhoto;
           const metadata = galleryMetadata[source] || {};
-          lightboxImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${galleryName}` : `${uiText.photo} ${activeGalleryIndex + 1}${uiText.photoOf}${galleryName}`);
-          lightboxImage.onload = () => finishGalleryImage(requestId, false);
-          lightboxImage.onerror = () => finishGalleryImage(requestId, true);
-          lightboxImage.src = source;
-          if (lightboxImage.complete) {
-            window.setTimeout(() => finishGalleryImage(requestId, !lightboxImage.naturalWidth), 0);
-          }
+          const pending = new Image();
+          const loadingTimer = window.setTimeout(() => {
+            if (requestId === galleryImageRequest) lightboxStatus.textContent = uiText.loadingPhoto;
+          }, 250);
+          pending.onload = async () => {
+            try { await pending.decode(); } catch (_) {}
+            window.clearTimeout(loadingTimer);
+            if (requestId !== galleryImageRequest) return;
+            lightboxImage.getAnimations().forEach(animation => animation.cancel());
+            lightboxImage.src = source;
+            lightboxImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${galleryName}` : `${uiText.photo} ${activeGalleryIndex + 1}${uiText.photoOf}${galleryName}`);
+            finishGalleryImage(requestId, false);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+              lightboxImage.animate([
+                { opacity: .25, transform: `translate3d(${direction * 16}px,0,0) scale(.99)` },
+                { opacity: 1, transform: 'translate3d(0,0,0) scale(1)' }
+              ], { duration: 300, easing: 'cubic-bezier(.22,1,.36,1)' });
+            }
+            [-1, 1].forEach(offset => { const nearby = new Image(); nearby.src = gallerySources[normalizeGalleryIndex(activeGalleryIndex + offset)]; });
+          };
+          pending.onerror = () => {
+            window.clearTimeout(loadingTimer);
+            finishGalleryImage(requestId, true);
+          };
+          pending.src = source;
         }
 
         function setGalleryOrigin(trigger) {
@@ -2798,6 +2813,8 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
 
         function closeGallery() {
           if (!galleryIsOpen()) return;
+          ++galleryImageRequest;
+          lightboxImage.getAnimations().forEach(animation => animation.cancel());
           lightbox.classList.remove('is-open');
           lightbox.setAttribute('aria-hidden', 'true');
           document.body.classList.remove('gallery-lightbox-open');

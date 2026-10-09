@@ -285,7 +285,7 @@ HTML;
 @media(prefers-reduced-motion:reduce){.toplist-lightbox,.toplist-lightbox-backdrop,.toplist-lightbox-dialog,.toplist-lightbox-image,.toplist-lightbox-close,.toplist-lightbox-nav{animation:none!important;transition:none!important}}
 </style>
 HTML;
-    $script .= '<style>.toplist-lightbox-caption{white-space:normal;overflow-wrap:anywhere;border-radius:14px;line-height:1.5;max-height:100px;overflow:auto}@media(max-width:700px){.toplist-lightbox-caption{display:block;max-width:calc(100% - 24px);font-size:12px}.toplist-lightbox-stage{padding-bottom:76px}}</style>';
+    $script .= '<style>.toplist-lightbox-image.is-visible{animation:none!important}.toplist-lightbox.is-loading .toplist-lightbox-image.is-visible{opacity:1;filter:none;transform:none}.toplist-lightbox-close,.toplist-lightbox-nav{min-width:44px;min-height:44px;touch-action:manipulation}.toplist-lightbox-backdrop{transition:opacity .3s ease!important}.toplist-lightbox-caption{white-space:normal;overflow-wrap:anywhere;border-radius:14px;line-height:1.5;max-height:100px;overflow:auto}@media(max-width:700px){.toplist-lightbox-caption{display:block;max-width:calc(100% - 24px);font-size:12px}.toplist-lightbox-stage{padding-bottom:76px}}</style>';
     $script .= '<script id="toplist-gallery-metadata" type="application/json">' . json_encode($toplistGalleryMetadata, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '</script>';
     $script .= '<script id="toplist-gallery-lightbox-data" type="application/json">' . ($galleryLightboxJson ?: '{}') . '</script>';
     $script .= <<<'HTML'
@@ -358,12 +358,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const metadata = galleryMetadata[source] || {};
         captionNode.textContent = metadata.caption || metadata.angle || `Ảnh ${activeIndex + 1} trong thư viện của ${activeName}`;
         updateNavigation();
-        lightbox.classList.add("is-loading", "is-image-transitioning");
         lightbox.classList.remove("is-error");
-        stageImage.classList.remove("is-visible");
         const preload = new Image();
-        const complete = () => {
+        const loadingTimer = window.setTimeout(() => {
+            if (token === imageToken) lightbox.classList.add("is-loading");
+        }, 250);
+        let settled = false;
+        const complete = async () => {
+            if (settled) return;
+            settled = true;
+            try { await preload.decode(); } catch (_) {}
+            window.clearTimeout(loadingTimer);
             if (token !== imageToken) return;
+            stageImage.getAnimations().forEach(animation => animation.cancel());
             stageImage.src = source;
             stageImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${activeName}` : `${activeName} — ảnh ${activeIndex + 1}`);
             requestAnimationFrame(() => {
@@ -371,9 +378,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 lightbox.classList.remove("is-image-transitioning");
             });
             lightbox.classList.remove("is-loading");
+            if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                stageImage.animate([
+                    { opacity: .25, transform: `translate3d(${direction === "previous" ? -16 : 16}px,0,0) scale(.99)` },
+                    { opacity: 1, transform: "translate3d(0,0,0) scale(1)" }
+                ], { duration: 300, easing: "cubic-bezier(.22,1,.36,1)" });
+            }
             preloadNearby();
         };
         const fail = () => {
+            window.clearTimeout(loadingTimer);
             if (token !== imageToken) return;
             stageImage.removeAttribute("src");
             lightbox.classList.remove("is-loading");
@@ -403,6 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeLightbox = () => {
         if (!isOpen()) return;
         ++imageToken;
+        stageImage.getAnimations().forEach(animation => animation.cancel());
         lightbox.classList.add("is-closing");
         lightbox.classList.remove("is-open", "is-loading", "is-error");
         lightbox.setAttribute("aria-hidden", "true");
