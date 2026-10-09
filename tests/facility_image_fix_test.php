@@ -248,6 +248,10 @@ $assertPromptPolicy($mandatoryPolicy($prompt), 'rendered default mandatory polic
 $assertPromptPolicy($mandatoryPolicy($customPrompt), 'saved custom template mandatory policy');
 $assertPromptPolicy($mandatoryPolicy($hostilePrompt), 'hostile old template mandatory policy');
 foreach ([$prompt, $customPrompt, $hostilePrompt] as $captionPrompt) {
+    $assert(str_contains($mandatoryPolicy($captionPrompt), 'LOẠI ẢNH LOGO')
+        && str_contains($mandatoryPolicy($captionPrompt), 'avatar logo')
+        && str_contains($mandatoryPolicy($captionPrompt), 'Không chọn ảnh logo làm image_url hoặc added_images'),
+        'logo-only photos must be removed and excluded from replacement selection');
     $assert(str_contains($mandatoryPolicy($captionPrompt), 'CAPTION NGẮN GỌN')
         && str_contains($mandatoryPolicy($captionPrompt), 'Không ghi nguồn, URL')
         && str_contains($mandatoryPolicy($captionPrompt), 'source, source_url, evidence_url')
