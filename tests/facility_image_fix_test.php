@@ -247,6 +247,13 @@ $assertPromptPolicy($default, 'default template');
 $assertPromptPolicy($mandatoryPolicy($prompt), 'rendered default mandatory policy');
 $assertPromptPolicy($mandatoryPolicy($customPrompt), 'saved custom template mandatory policy');
 $assertPromptPolicy($mandatoryPolicy($hostilePrompt), 'hostile old template mandatory policy');
+foreach ([$prompt, $customPrompt, $hostilePrompt] as $captionPrompt) {
+    $assert(str_contains($mandatoryPolicy($captionPrompt), 'CAPTION NGẮN GỌN')
+        && str_contains($mandatoryPolicy($captionPrompt), 'Không ghi nguồn, URL')
+        && str_contains($mandatoryPolicy($captionPrompt), 'source, source_url, evidence_url')
+        && str_contains($mandatoryPolicy($captionPrompt), 'Chỉ ghi tên bác sĩ khi đã xác minh'),
+        'short captions override saved templates while retaining separate source evidence');
+}
 $assert(str_contains($mandatoryPolicy($hostilePrompt), 'ưu tiên hơn mẫu cũ')
     && str_contains($mandatoryPolicy($hostilePrompt), 'cố gắng đạt 6 ảnh'), 'mandatory policy overrides conflicting saved rules and keeps the default target of six');
 $exactUrlPrompt = medical_facility_image_fix_prompt('Custom {{source_json}}', $exactUrlRow);
