@@ -55,6 +55,13 @@ loại ảnh và tìm ảnh thay thế; không ghi đè mẫu tùy chỉnh đã 
 
 ## Tiêu chí ảnh trong prompt
 
+Trọng tâm hiện hành là chủ động tìm 5–7 ảnh mới đã xem/xác minh, ưu tiên album
+Google Maps đúng địa điểm. Khi Maps thiếu, giữ ảnh Maps đã tìm và bổ sung theo
+thứ tự Facebook/fanpage → website chính thức (trang Giới thiệu/Về chúng tôi/chi
+nhánh) → nguồn công khai khác. Không dừng tìm chỉ vì ảnh cũ đã đủ; không xóa ảnh
+cũ hợp lệ để làm mới và không thêm lại URL đã có. Nếu thiếu ảnh mới, báo số thiếu
+trong notes; không bịa URL hay coi uncertain là ảnh mới hợp lệ.
+
 Luồng bắt buộc: (1) mở từng file để xem nội dung; (2) phân loại keep/remove/uncertain
 với bằng chứng; (3) tìm, xem và bổ sung ảnh mới. Nếu K là số ảnh thật keep đã xác
 minh, cần tối thiểu `max(0, 5-K)` ảnh mới. Năm ảnh uncertain không tính là năm ảnh

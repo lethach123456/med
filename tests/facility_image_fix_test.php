@@ -200,8 +200,10 @@ $assertPromptPolicy = static function (string $policy, string $label) use ($asse
         && str_contains($policy, 'Nếu toàn bộ ảnh cũ không phù hợp')
         && str_contains($policy, 'thay thế toàn bộ bộ ảnh bằng ảnh mới đã xác minh')
         && str_contains($policy, 'tối thiểu 5 ảnh'), $label . ': every invalid photo requires active replacement, including an all-invalid set');
-    $assert(preg_match('/Google Maps[^\n]*website chính thức[^\n]*Facebook\/fanpage[^\n]*nguồn công khai khác/u', $policy) === 1,
-        $label . ': replacement search proceeds Maps, official website, Facebook, then other public sources');
+    $assert(preg_match('/Google Maps[^\n]*Facebook\/fanpage[^\n]*website chính thức[^\n]*nguồn công khai khác/u', $policy) === 1,
+        $label . ': new-photo search proceeds Maps, Facebook, official website, then public sources');
+    $assert(str_contains($policy, 'chủ động tìm bộ 5–7 ảnh thật') && str_contains($policy, 'không chỉ kiểm tra ảnh cũ rồi dừng')
+        && str_contains($policy, 'ảnh chưa có trong danh sách URL nguồn'), $label . ': new verified Maps photo set is the primary objective');
     $assert(str_contains($policy, 'không trả toàn bộ remove kèm added_images=[] khi chưa rà hết')
         || str_contains($policy, 'Không trả toàn bộ remove kèm added_images=[] khi chưa rà hết'),
         $label . ': cannot stop at remove-all and empty additions before searching every source group');
