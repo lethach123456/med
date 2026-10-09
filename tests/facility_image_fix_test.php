@@ -216,6 +216,15 @@ $assertPromptPolicy = static function (string $policy, string $label) use ($asse
         && str_contains($policy, 'decision=remove trong inspected_images, kèm reason và evidence_url hợp lệ'),
         $label . ': nonempty AI source is retained unless its exact inspection has evidenced removal');
     $assert(str_contains($policy, 'Không đưa ảnh mới vào ai_image_url'), $label . ': new real photos never populate the AI field');
+    $first = strpos($policy, 'BƯỚC 1 — MỞ FILE VÀ XEM ẢNH');
+    $second = strpos($policy, 'BƯỚC 2 — PHÂN LOẠI VÀ LOẠI BỎ');
+    $third = strpos($policy, 'BƯỚC 3 — TÌM VÀ BỔ SUNG');
+    $assert($first !== false && $second !== false && $third !== false && $first < $second && $second < $third,
+        $label . ': ordered workflow opens files, classifies removals, then supplements');
+    $assert(str_contains($policy, 'max(0, 5-K)') && str_contains($policy, '2 remove + 5 uncertain thì K=0')
+        && str_contains($policy, 'phải tìm tối thiểu 5 ảnh mới'), $label . ': uncertain photos do not satisfy the verified minimum');
+    $assert(str_contains($policy, 'Mở và xem từng file ảnh mới') && str_contains($policy, 'tổng ảnh đạt chuẩn')
+        && str_contains($policy, 'số còn thiếu'), $label . ': new photos need visual verification and honest shortage accounting');
     $assert(str_contains($policy, 'cơ sở vật chất hoặc đội ngũ bác sĩ')
         && str_contains($policy, 'kết quả trước–sau') && str_contains($policy, 'chân dung khách hàng/người nổi tiếng')
         && str_contains($policy, 'thumbnail phỏng vấn'), $label . ': excludes unrelated clinical, customer and promotional imagery after inspection');

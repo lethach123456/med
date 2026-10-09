@@ -55,6 +55,12 @@ loại ảnh và tìm ảnh thay thế; không ghi đè mẫu tùy chỉnh đã 
 
 ## Tiêu chí ảnh trong prompt
 
+Luồng bắt buộc: (1) mở từng file để xem nội dung; (2) phân loại keep/remove/uncertain
+với bằng chứng; (3) tìm, xem và bổ sung ảnh mới. Nếu K là số ảnh thật keep đã xác
+minh, cần tối thiểu `max(0, 5-K)` ảnh mới. Năm ảnh uncertain không tính là năm ảnh
+đạt chuẩn: ví dụ 2 remove + 5 uncertain vẫn cần ít nhất 5 ảnh mới. Khi không đạt
+mục tiêu, báo số keep hợp lệ, ảnh thêm, tổng đạt chuẩn và số thiếu; không bịa ảnh.
+
 Ảnh thật được xác minh đúng chi nhánh có thể giới thiệu không gian, thiết bị hoặc
 đội ngũ bác sĩ. Ảnh bác sĩ đang làm việc, ảnh tập thể và ảnh chân dung gốc vẫn hợp lệ
 dù không có mặt tiền, lễ tân hay thiết bị. Không nhận logo riêng, banner, poster,
