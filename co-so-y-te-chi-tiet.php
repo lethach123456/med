@@ -2289,7 +2289,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
             <div class="hero-copy">
                 <div class="hero-top">
                   <div class="hero-head">
-          <span class="facility-eyebrow"><i data-lucide="<?php echo !empty($facility['verified']) ? 'badge-check' : 'building-2'; ?>"></i><?php echo htmlspecialchars(!empty($facility['verified']) ? $tr('Hồ sơ cơ sở đã xác thực', 'Verified facility profile') : $tr('Thông tin cơ sở y tế', 'Healthcare facility information'), ENT_QUOTES, 'UTF-8'); ?></span>
+          <?php if (!empty($facility['verified'])): ?><a class="facility-eyebrow" href="<?php echo htmlspecialchars(site_localized_path('/ho-so-da-xac-thuc', $facilityLanguage), ENT_QUOTES, 'UTF-8'); ?>"><i data-lucide="badge-check" aria-hidden="true"></i><?php echo htmlspecialchars($tr('Hồ sơ cơ sở đã xác thực', 'Verified facility profile'), ENT_QUOTES, 'UTF-8'); ?><i data-lucide="info" aria-hidden="true"></i></a><?php else: ?><span class="facility-eyebrow"><i data-lucide="building-2" aria-hidden="true"></i><?php echo htmlspecialchars($tr('Thông tin cơ sở y tế', 'Healthcare facility information'), ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                   <h1><?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($facility['verified'])): ?> <span class="verified-mark"><i data-lucide="badge-check"></i></span><?php endif; ?></h1>
                   <p class="subtitle"><?php echo htmlspecialchars($facility['subtitle'], ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>

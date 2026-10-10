@@ -56,11 +56,13 @@ $featuredLinks = $isEnglish ? [
 $quickLinks = $isEnglish ? [
     ['label' => 'Our story', 'href' => $aboutPath . '#cau-chuyen'],
     ['label' => 'Values & how it works', 'href' => $aboutPath . '#gia-tri'],
+    ['label' => 'Verified profiles explained', 'href' => site_localized_path('/ho-so-da-xac-thuc', $locale)],
     ['label' => 'Contact & feedback', 'href' => $contactPath],
     ['label' => 'For healthcare providers', 'href' => $contactPath . '?topic=provider#gui-lien-he'],
 ] : [
     ['label' => 'Câu chuyện của chúng tôi', 'href' => $aboutPath . '#cau-chuyen'],
     ['label' => 'Giá trị & cách hoạt động', 'href' => $aboutPath . '#gia-tri'],
+    ['label' => 'Hồ sơ cơ sở đã xác thực', 'href' => site_localized_path('/ho-so-da-xac-thuc', $locale)],
     ['label' => 'Liên hệ & góp ý', 'href' => $contactPath],
     ['label' => 'Dành cho cơ sở y tế', 'href' => $contactPath . '?topic=provider#gui-lien-he'],
 ];

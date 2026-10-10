@@ -1003,6 +1003,7 @@ function site_page_script_map(): array
         'blog.php' => 'blog',
         'lien-he.php' => 'contact',
         've-chung-toi.php' => 'about',
+        'ho-so-da-xac-thuc.php' => 'verification',
         'dich-vu.php' => 'dich-vu',
         'rang-su-dang-hot-girl-da-nang.php' => 'rang-su-dang-hot-girl-da-nang',
         'services-en.php' => 'services-en',
@@ -1023,6 +1024,7 @@ function site_bilingual_public_page_paths(): array
         'doctors' => '/bac-si',
         'toplist' => medical_public_toplist_path(),
         'about' => '/ve-chung-toi',
+        'verification' => '/ho-so-da-xac-thuc',
     ];
 }
 

@@ -22,6 +22,8 @@ RewriteRule ^en/bac-si/([^/]+)/?$ bac-si-chi-tiet.php?slug=$1 [QSA,L]
 RewriteRule ^en/toplist/?$ toplist.php [QSA,L]
 RewriteRule ^en/toplist/([^/]+)/?$ toplist-chi-tiet-mau.php?slug=$1 [QSA,L]
 RewriteRule ^en/ve-chung-toi/?$ ve-chung-toi.php [QSA,L]
+RewriteRule ^en/ho-so-da-xac-thuc/?$ ho-so-da-xac-thuc.php [QSA,L]
+RewriteRule ^ho-so-da-xac-thuc/?$ ho-so-da-xac-thuc.php [QSA,L]
 
 RewriteRule ^co-so-y-te/?$ co-so-y-te.php [QSA,L]
 RewriteRule ^co-so-y-te/([^/]+)/?$ co-so-y-te-chi-tiet.php?slug=$1 [QSA,L]
