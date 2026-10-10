@@ -151,8 +151,16 @@ Nguồn/bằng chứng vẫn lưu riêng ở source/source_url/evidence_url. Cap
    còn item, release và bỏ qua. Dùng item.prompt nguyên bản; không dựng lại bằng
    prompt viết bài, dịch hoặc tạo ảnh. Giữ token trong tiện ích, không đưa vào prompt.
 6. Heartbeat mỗi 45 giây trong toàn bộ thời gian AI chạy, parse và retry gửi. Lease
-   180 giây. Body: `{"action":"heartbeat","type":"facility","id":71,"claim_token":"..."}`.
-   Khi mất/hết lease, dừng gửi kết quả cũ và nhận lại trước khi tiếp tục.
+   Fix ảnh là 600 giây; viết bài cơ sở/bác sĩ vẫn 180 giây. Body:
+   `{"action":"heartbeat","type":"facility","task":"facility_image_fix","id":71,"claim_token":"..."}`.
+   Claim/heartbeat trả `server_now` (Unix giây), `lease_seconds`, `expires_at`;
+   tính thời gian còn lại từ đồng hồ server, không so sánh tuyệt đối với đồng hồ máy.
+   Trước khi POST kết quả hoặc retry, heartbeat để xác nhận token hiện tại. Khi tab
+   ngủ/mạng gián đoạn làm lease hết hạn, heartbeat chỉ có thể phục hồi cùng token
+   nếu row bị khóa vẫn giữ nguyên token, task Fix ảnh và trạng thái published;
+   phản hồi có `lease_recovered=true`. Không đổi token/claim mới để gửi lại kết quả cũ.
+   Nếu token đã bị thay hoặc bị xóa, API trả 409; giữ kết quả để xem lại, dừng gửi
+   kết quả cũ. Claim mới luôn cần lấy lại nguồn và chạy AI lại.
 7. AI phải điều tra ảnh với công cụ web/xem ảnh. Kết quả nằm trong một code block json.
    Parse block như luồng bài viết; yêu cầu ID/revision khớp nguồn, đủ inspected_images,
    không tự xóa/sửa revision và không chuyển mọi lỗi truy cập thành remove.
@@ -234,7 +242,11 @@ yêu cầu khóa notes trong JSON AI; receiver tương thích notes thiếu như
 - 207: batch có item thành công và thất bại; kiểm tra từng ID, chỉ retry item lỗi.
 - 409 `images_changed`: ảnh/nhận diện đã thay đổi (có thể do worker vừa tải ảnh).
   GET nguồn lại và chạy AI lại; không thay revision cũ bằng revision mới để gửi đè.
-- 409 `lease_lost`: token sai, hết hạn hoặc task không phải Fix ảnh. Dừng gửi và claim lại.
+- 409 `lease_lost`: receiver thấy token sai, hết hạn hoặc task không phải Fix ảnh.
+  Nếu chỉ hết hạn, thử heartbeat với cùng token/task để xác nhận hoặc phục hồi an
+  toàn như trên rồi retry cùng payload. Heartbeat từ chối 409 `lease_lost` nếu token
+  đã bị thay/xóa hoặc task sai; không force claim và không thay token trong kết quả cũ.
+  409 `lease_expired` ở heartbeat nghĩa là không đủ điều kiện phục hồi; dừng gửi cũ.
 - 409 `not_published`: bỏ qua.
 - 422: JSON/URL/decision sai contract. Giữ kết quả để sửa/gửi lại, heartbeat lease.
 - 503: schema/prompt chưa sẵn sàng. Chạy migration riêng nêu trên sau deploy.
@@ -254,6 +266,7 @@ so sánh dữ liệu gốc để không khôi phục ảnh vừa bị người d
 
 ```sh
 php tests/facility_image_fix_test.php
+php tests/writer_claim_lease_test.php
 ```
 
 Bộ kiểm tra dùng PDO giả lập: đủ ảnh nguồn, bảo toàn metadata/ảnh uncertain, URL sai,
@@ -261,6 +274,9 @@ URL nguồn chính xác và không bọc Markdown, quy tắc prompt mặc địn
 cũ, notes dạng null/list/object và Unicode ở mốc 4000/4001 ký tự, giữ kiểm tra chặt
 reason/URL/revision/claim, stale revision, lease sai/hết hạn, rollback, idempotent
 retry từ payload gốc và không sửa nội dung.
+Kiểm tra lease dùng PDO giả lập riêng (không auth hoặc kết nối DB): lease Fix ảnh
+600 giây, đọc giờ sau row lock, phục hồi cùng token, takeover trước lock, token/task
+sai hoặc bị xóa, lease viết bài hết hạn vẫn bị từ chối và rollback lỗi lưu.
 
 Kiểm tra thêm SQL thật (tùy chọn):
 

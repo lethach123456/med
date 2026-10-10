@@ -12,7 +12,7 @@ $langLinks = is_array($GLOBALS['site_language_links'] ?? null)
 // The legacy Vietnamese custom-about slug is no longer routed by the public
 // web server. Keep every language control on the real MedReview page.
 if ($pageKey === 'about' && !$isEnglish) {
-  $langLinks['vi'] = '/ve-chung-toi.php';
+  $langLinks['vi'] = '/ve-chung-toi';
 }
 $homePath = site_localized_path('/', $locale);
 $blogPath = front_editor_page_public_path($isEnglish ? 'blog-en' : 'blog');

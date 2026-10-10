@@ -48,7 +48,7 @@ function medreview_sitemap_lastmod($value): string
     }
 }
 
-function medreview_sitemap_static_paths(): array
+function medreview_sitemap_static_paths(string $language = 'vi'): array
 {
     $paths = [
         '/',
@@ -65,6 +65,8 @@ function medreview_sitemap_static_paths(): array
         site_localized_path(medical_public_toplist_path(), 'en'),
         site_localized_path('/ve-chung-toi.php', 'en'),
     ];
+    $paths = array_values(array_filter($paths, static fn (string $path): bool =>
+        (preg_match('~^/en(?:/|$)~', $path) === 1) === ($language === 'en')));
     $pageKeys = [
         'about', 'contact', 'blog', 'blog-en', 'about-en', 'contact-en',
         'products', 'dich-vu', 'services-en',
@@ -86,6 +88,7 @@ function medreview_sitemap_static_paths(): array
         // Keep the built-in routes available if the optional CMS profile table is absent.
     }
     foreach ($pageKeys as $pageKey) {
+        if (str_ends_with($pageKey, '-en') !== ($language === 'en')) continue;
         $meta = $catalog[$pageKey] ?? [];
         $customSlug = $customSlugs[$pageKey] ?? '';
         $path = !empty($meta['supports_slug']) && $customSlug !== ''
@@ -143,6 +146,12 @@ function medreview_sitemap_source_count(PDO $pdo, array $source): int
 }
 
 $map = strtolower(trim((string) ($_GET['map'] ?? 'index')));
+$language = 'vi';
+if (preg_match('/^(vi|en)(?:-(.+))?$/', $map, $localized)) {
+    $language = $localized[1];
+    $map = $localized[2] ?? 'index';
+}
+$rootIndex = $map === 'index' && !in_array(strtolower(trim((string) ($_GET['map'] ?? 'index'))), ['vi', 'en'], true);
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $origin = site_canonical_origin();
 
@@ -157,6 +166,51 @@ try {
         if (isset($sources[$sourceName]) && !($translationReady[$table] ?? false)) {
             $sources[$sourceName]['rows'] = str_replace('language_code, ', '', $sources[$sourceName]['rows']);
         }
+        $filter = ($translationReady[$table] ?? false)
+            ? " AND COALESCE(NULLIF(TRIM(language_code),''),'vi') = '" . $language . "'"
+            : ($language === 'en' ? ' AND 1=0' : '');
+        $sources[$sourceName]['count'] .= $filter;
+        $sources[$sourceName]['rows'] = str_replace(' ORDER BY', $filter . ' ORDER BY', $sources[$sourceName]['rows']);
+    }
+    // Review/product tables have no localized content column.
+    if ($language === 'en') {
+        foreach (['reviews', 'products'] as $name) {
+            $sources[$name]['count'] .= ' AND 1=0';
+            $sources[$name]['rows'] = str_replace(' ORDER BY', ' AND 1=0 ORDER BY', $sources[$name]['rows']);
+        }
+    }
+    $articleCategories = $language === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
+
+    if ($rootIndex) {
+        $xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
+        foreach (['vi', 'en'] as $lang) {
+            // Keep the master index flat: its children must be URL sitemaps,
+            // not nested sitemap indexes.
+            $parts = ['pages' => 1];
+            foreach (medreview_sitemap_sources() as $name => $source) {
+                if ($name === 'products' || $lang === 'en' && $name === 'reviews') continue;
+                if (in_array($name, ['facilities', 'doctors', 'toplists'], true)) {
+                    $source['count'] .= ($translationReady[$source['table']] ?? false)
+                        ? " AND COALESCE(NULLIF(TRIM(language_code),''),'vi') = '{$lang}'"
+                        : ($lang === 'en' ? ' AND 1=0' : '');
+                }
+                $count = medreview_sitemap_source_count($pdo, $source);
+                if ($count > 0) $parts[$name] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
+            }
+            if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
+                $categories = $lang === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
+                $count = (int) $pdo->query("SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
+                    WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>'' AND c.slug IN ({$categories})")->fetchColumn();
+                if ($count > 0) $parts['articles'] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
+            }
+            foreach ($parts as $name => $partCount) {
+                for ($part = 1; $part <= $partCount; $part++) {
+                    $xml[] = '  <sitemap><loc>' . medreview_sitemap_escape($origin . '/sitemap-' . $lang . '-' . $name . '-' . $part . '.xml') . '</loc></sitemap>';
+                }
+            }
+        }
+        $xml[] = '</sitemapindex>';
+        medreview_sitemap_xml(implode("\n", $xml));
     }
 
     if ($map === 'index') {
@@ -178,7 +232,7 @@ try {
             $articleCount = (int) $pdo->query(
                 "SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
                  WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
-                   AND c.slug IN ('blog','blog-en','dich-vu','dich-vu-en')"
+                   AND c.slug IN ({$articleCategories})"
             )->fetchColumn();
             if ($articleCount > 0) {
                 $entries['articles'] = (int) ceil($articleCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
@@ -188,7 +242,7 @@ try {
         $xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
         foreach ($entries as $name => $partCount) {
             for ($part = 1; $part <= $partCount; $part++) {
-                $loc = $origin . '/sitemap-' . $name . '-' . $part . '.xml';
+                $loc = $origin . '/sitemap-' . $language . '-' . $name . '-' . $part . '.xml';
                 $xml[] = '  <sitemap><loc>' . medreview_sitemap_escape($loc) . '</loc></sitemap>';
             }
         }
@@ -198,7 +252,7 @@ try {
 
     $items = [];
     if ($map === 'pages') {
-        foreach (medreview_sitemap_static_paths() as $path) {
+        foreach (medreview_sitemap_static_paths($language) as $path) {
             $items[] = ['path' => $path, 'updated_at' => ''];
         }
     } elseif ($map === 'articles') {
@@ -208,7 +262,7 @@ try {
                 "SELECT p.slug, p.updated_at, c.slug AS category_slug
                  FROM posts p JOIN categories c ON c.id=p.category_id
                  WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
-                   AND c.slug IN ('blog','blog-en','dich-vu','dich-vu-en')
+                   AND c.slug IN ({$articleCategories})
                  ORDER BY p.id ASC LIMIT :limit OFFSET :offset"
             );
             $stmt->bindValue(':limit', MEDREVIEW_SITEMAP_PAGE_SIZE, PDO::PARAM_INT);

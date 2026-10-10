@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/_writer-claim-lease.php';
 medical_api_auth();
 header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 
@@ -16,26 +17,6 @@ try {
     }
 } catch (Throwable $e) {
     json_response(['ok' => false, 'message' => 'Chưa sẵn sàng khóa viết bài. Chạy php scripts/migrate_medical_directory.php.'], 503);
-}
-
-/** Decode a stored writer lease without ever returning its secret token. */
-function medical_api_writer_claim_decode(mixed $raw): array
-{
-    if (!is_string($raw) || trim($raw) === '') return [];
-    $claim = json_decode($raw, true);
-    return is_array($claim) ? $claim : [];
-}
-
-/** Public lease metadata for queue/status responses; claim_token is private. */
-function medical_api_writer_claim_public(array $claim, int $now): ?array
-{
-    if ($claim === [] || (int) ($claim['expires_at'] ?? 0) <= $now) return null;
-    $keys = ['provider', 'model', 'task', 'instance_id', 'instance_label', 'account_label', 'worker_id', 'claimed_at', 'heartbeat_at', 'expires_at'];
-    $public = [];
-    foreach ($keys as $key) {
-        if (array_key_exists($key, $claim)) $public[$key] = $claim[$key];
-    }
-    return $public;
 }
 
 function medical_api_writer_short_text(mixed $value, int $limit): string
@@ -56,19 +37,41 @@ if (!in_array($action, ['claim', 'heartbeat', 'release', 'status'], true)) {
 }
 
 $table = $tables[$type];
-$now = time();
 $select = $pdo->prepare("SELECT id, slug, name, status, ai_writer_claim_json FROM `{$table}` WHERE id = :id LIMIT 1");
 $select->execute([':id' => $id]);
 $row = $select->fetch(PDO::FETCH_ASSOC);
 if (!$row) json_response(['ok' => false, 'message' => 'Không tìm thấy bài viết.'], 404);
 
 if ($action === 'status') {
+    $now = time();
     $claim = medical_api_writer_claim_public(medical_api_writer_claim_decode($row['ai_writer_claim_json'] ?? null), $now);
-    json_response(['ok' => true, 'type' => $type, 'id' => $id, 'claimed' => $claim !== null, 'writer' => $claim]);
+    json_response(['ok' => true, 'type' => $type, 'id' => $id, 'claimed' => $claim !== null, 'writer' => $claim,
+        'server_now' => $now, 'lease_seconds' => medical_api_writer_claim_lease_seconds($type, (string) ($claim['task'] ?? ''))]);
 }
 
 $token = trim((string) ($body['claim_token'] ?? ''));
-if ($action === 'heartbeat' || $action === 'release') {
+if ($action === 'heartbeat') {
+    if ($token === '') json_response(['ok' => false, 'message' => 'Thiếu claim_token.'], 422);
+    $heartbeatClient = is_array($body['client'] ?? null) ? $body['client'] : [];
+    $heartbeatTask = $heartbeatClient['task'] ?? $body['task'] ?? null;
+    $heartbeatTask = $heartbeatTask === null ? null : medical_api_writer_short_text($heartbeatTask, 80);
+    try {
+        $renewal = medical_api_writer_claim_refresh($pdo, $type, $id, $token, $heartbeatTask);
+        if (!$renewal['ok']) {
+            $message = $renewal['reason'] === 'lease_expired'
+                ? 'Lease đã hết hạn; hãy nhận bài lại trước khi tiếp tục.'
+                : 'Claim đã mất hoặc đã được máy khác nhận.';
+            json_response(['ok' => false, 'message' => $message, 'reason' => $renewal['reason'], 'server_now' => $renewal['server_now']], 409);
+        }
+        json_response(['ok' => true, 'type' => $type, 'id' => $id, 'claim_token' => $token,
+            'lease_seconds' => $renewal['lease_seconds'], 'heartbeat_interval_seconds' => 45,
+            'server_now' => $renewal['server_now'], 'lease_recovered' => $renewal['lease_recovered'],
+            'expires_at' => $renewal['claim']['expires_at']]);
+    } catch (Throwable $e) {
+        json_response(['ok' => false, 'message' => 'Không thể cập nhật claim lúc này.'], 500);
+    }
+}
+if ($action === 'release') {
     if ($token === '') json_response(['ok' => false, 'message' => 'Thiếu claim_token.'], 422);
     try {
         $pdo->beginTransaction();
@@ -79,21 +82,9 @@ if ($action === 'heartbeat' || $action === 'release') {
             $pdo->rollBack();
             json_response(['ok' => false, 'message' => 'Claim đã mất hoặc đã được máy khác nhận.', 'reason' => 'lease_lost'], 409);
         }
-        if ($action === 'release') {
-            $pdo->prepare("UPDATE `{$table}` SET ai_writer_claim_json = NULL WHERE id = :id")->execute([':id' => $id]);
-            $pdo->commit();
-            json_response(['ok' => true, 'released' => true, 'type' => $type, 'id' => $id]);
-        }
-        if ((int) ($claim['expires_at'] ?? 0) <= $now) {
-            $pdo->rollBack();
-            json_response(['ok' => false, 'message' => 'Lease đã hết hạn; hãy nhận bài lại trước khi tiếp tục.', 'reason' => 'lease_expired'], 409);
-        }
-        $claim['heartbeat_at'] = gmdate('c', $now);
-        $claim['expires_at'] = $now + 180;
-        $pdo->prepare("UPDATE `{$table}` SET ai_writer_claim_json = :claim WHERE id = :id")
-            ->execute([':claim' => medical_api_json($claim), ':id' => $id]);
+        $pdo->prepare("UPDATE `{$table}` SET ai_writer_claim_json = NULL WHERE id = :id")->execute([':id' => $id]);
         $pdo->commit();
-        json_response(['ok' => true, 'type' => $type, 'id' => $id, 'claim_token' => $token, 'lease_seconds' => 180, 'expires_at' => $claim['expires_at']]);
+        json_response(['ok' => true, 'released' => true, 'type' => $type, 'id' => $id, 'server_now' => time()]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         json_response(['ok' => false, 'message' => 'Không thể cập nhật claim lúc này.'], 500);
@@ -127,9 +118,6 @@ $claim = [
     'model' => medical_api_writer_short_text($client['model'] ?? '', 80),
     'task' => $task,
     'request_id' => $requestId,
-    'claimed_at' => gmdate('c', $now),
-    'heartbeat_at' => gmdate('c', $now),
-    'expires_at' => $now + 180,
 ];
 
 try {
@@ -138,6 +126,11 @@ try {
     $lock = $pdo->prepare("SELECT id, slug, name, status, ai_writer_claim_json{$contentColumn} FROM `{$table}` WHERE id = :id FOR UPDATE");
     $lock->execute([':id' => $id]);
     $row = $lock->fetch(PDO::FETCH_ASSOC);
+    $now = time();
+    $leaseSeconds = medical_api_writer_claim_lease_seconds($type, $task);
+    $claim['claimed_at'] = gmdate('c', $now);
+    $claim['heartbeat_at'] = gmdate('c', $now);
+    $claim['expires_at'] = $now + $leaseSeconds;
     if (!$row) {
         $pdo->rollBack();
         json_response(['ok' => false, 'message' => 'Không tìm thấy bài viết.'], 404);
@@ -168,7 +161,7 @@ try {
         }
         // Retry after a lost response: return the same token and renew its lease.
         $current['heartbeat_at'] = gmdate('c', $now);
-        $current['expires_at'] = $now + 180;
+        $current['expires_at'] = $now + $leaseSeconds;
         $claim = $current;
     }
     $pdo->prepare("UPDATE `{$table}` SET ai_writer_claim_json = :claim WHERE id = :id")
@@ -182,8 +175,9 @@ try {
         'slug' => (string) ($row['slug'] ?? ''),
         'name' => (string) ($row['name'] ?? ''),
         'claim_token' => $claim['claim_token'],
-        'lease_seconds' => 180,
+        'lease_seconds' => $leaseSeconds,
         'heartbeat_interval_seconds' => 45,
+        'server_now' => $now,
         'expires_at' => $claim['expires_at'],
     ]);
 } catch (Throwable $e) {

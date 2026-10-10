@@ -797,20 +797,20 @@ function front_editor_page_catalog(): array
         ],
         'bac-si' => [
             'title' => 'Danh sách bác sĩ',
-            'default_route' => '/bac-si.php',
-            'aliases' => ['/bac-si.php'],
+            'default_route' => '/bac-si',
+            'aliases' => ['/bac-si', '/bac-si.php'],
             'supports_slug' => false,
         ],
         'review' => [
             'title' => 'Danh sách review',
-            'default_route' => '/review.php',
-            'aliases' => ['/review.php'],
+            'default_route' => '/review',
+            'aliases' => ['/review', '/review.php'],
             'supports_slug' => false,
         ],
         'danh-muc-y-te' => [
             'title' => 'Danh mục y tế',
-            'default_route' => '/danh-muc-y-te.php',
-            'aliases' => ['/danh-muc-y-te.php'],
+            'default_route' => '/danh-muc-y-te',
+            'aliases' => ['/danh-muc-y-te', '/danh-muc-y-te.php'],
             'supports_slug' => false,
         ],
         'toplist' => [
@@ -1019,10 +1019,10 @@ function site_bilingual_public_page_paths(): array
     return [
         'home' => '/',
         'facilities' => medical_public_facility_path(),
-        'reviews' => '/review.php',
-        'doctors' => '/bac-si.php',
+        'reviews' => '/review',
+        'doctors' => '/bac-si',
         'toplist' => medical_public_toplist_path(),
-        'about' => '/ve-chung-toi.php',
+        'about' => '/ve-chung-toi',
     ];
 }
 
@@ -1032,6 +1032,14 @@ function site_localized_path(string $path, ?string $locale = null, ?array $query
     $parts = parse_url($path);
     $route = is_array($parts) ? (string) ($parts['path'] ?? '/') : $path;
     if ($route === '') $route = '/';
+    // Normalize only known public pages; do not rewrite API/admin PHP URLs.
+    $cleanRoutes = [
+        '/bac-si.php' => '/bac-si', '/review.php' => '/review',
+        '/ve-chung-toi.php' => '/ve-chung-toi', '/danh-muc-y-te.php' => '/danh-muc-y-te',
+        '/co-so-y-te.php' => '/co-so-y-te', '/toplist.php' => '/toplist',
+        '/lien-he.php' => '/lien-he',
+    ];
+    $route = $cleanRoutes[$route] ?? $route;
     $parameters = $query ?? [];
     if ($query === null && isset($parts['query'])) parse_str((string) $parts['query'], $parameters);
     unset($parameters['lang']);
@@ -1039,15 +1047,16 @@ function site_localized_path(string $path, ?string $locale = null, ?array $query
         $englishRoutes = [
             '/' => '/en',
             '/co-so-y-te' => '/en/co-so-y-te',
-            '/review.php' => '/en/review',
-            '/bac-si.php' => '/en/bac-si',
+            '/review' => '/en/review',
+            '/bac-si' => '/en/bac-si',
             '/toplist' => '/en/toplist',
-            '/ve-chung-toi.php' => '/en/ve-chung-toi',
+            '/ve-chung-toi' => '/en/ve-chung-toi',
         ];
         $route = $englishRoutes[$route] ?? ('/en' . ($route === '/' ? '' : $route));
     }
     $queryString = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
-    return $route . ($queryString !== '' ? '?' . $queryString : '');
+    return $route . ($queryString !== '' ? '?' . $queryString : '')
+        . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
 }
 
 function site_current_page_key(): string
