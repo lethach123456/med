@@ -34,6 +34,25 @@ $assert(str_contains($html, '<p>Safe'), 'safe HTML retained');
 $assert(str_contains(medical_doctor_sanitize_html('<a href="https://example.org">x</a>'), 'nofollow'), 'links hardened');
 foreach (['javascript:alert(1)', '[site](https://example.org)', 'https://user:password@example.org', 'data:text/html,x'] as $url) $reject(fn() => medical_doctor_http_url($url), 'unsafe URL');
 $assert(medical_doctor_http_url(null) === null, 'unknown URL remains null');
+foreach ([[], ['url' => 'https://example.org'], 123, false] as $badUrl) {
+    foreach (['gallery_json' => [['url' => $badUrl]],
+        'social_links_json' => ['facebook' => $badUrl],
+        'sources_json' => [['id' => 's1', 'url' => $badUrl]],
+        'locations_json' => [['facility_name' => 'Test', 'booking_url' => $badUrl, 'source_ids' => ['s1']]],
+        'publications_json' => [['title' => 'Test', 'url' => $badUrl, 'source_ids' => ['s1']]],
+        'legal_documents_json' => [['title' => 'Test', 'url' => $badUrl, 'source_ids' => ['s1']]]] as $field => $badValue) {
+        try {
+            medical_doctor_normalize_payload(array_replace($payload, [$field => $badValue]));
+            $assert(false, 'reject malformed URL in ' . $field);
+        } catch (InvalidArgumentException $e) {
+            $assert(str_contains($e->getMessage(), $field) && str_contains($e->getMessage(), 'chuỗi hoặc null'), 'URL type error identifies ' . $field);
+        }
+    }
+}
+$validUrls = array_replace($payload, ['locations_json' => [['facility_name' => 'Test', 'website_url' => null, 'booking_url' => 'https://example.org/book', 'source_ids' => ['s1']]],
+    'publications_json' => [['title' => 'Test', 'url' => null, 'source_ids' => ['s1']]],
+    'social_links_json' => ['facebook' => 'https://example.org/social'], 'video_urls_json' => ['https://example.org/video']]);
+$assert(isset(medical_doctor_normalize_payload($validUrls)['locations_json']), 'valid scalar and nullable nested URLs retained');
 foreach ([['education_json' => '{bad'], ['education_json' => 5], ['bio_json' => [123]], ['sources_json' => [['id' => 's1', 'url' => 'javascript:x']]],
     ['experience_start_year' => '2020'], ['insufficient_data' => 'false'], ['evidence_json' => ['identity_status' => 'insufficient']],
     ['sources_json' => []], ['content' => '<script>x</script>'], ['education_json' => [['source_ids' => ['missing']]]],
@@ -55,6 +74,7 @@ $prompt = medical_doctor_research_prompt('Custom prompt {{name}}', ['id' => 1, '
 $assert(!str_contains($prompt, 'SECRET'), 'prompt never leaks claim');
 $assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2') && str_contains($prompt, 'education_json') && str_contains($prompt, '```json'), 'custom prompts get full contract');
 $defaultPrompt = medical_doctor_default_prompt();
+$assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_URL_TYPES_V1') && str_contains($prompt, 'MEDREVIEW_DOCTOR_URL_TYPES_V1'), 'default and custom prompt enforce URL types');
 $assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3'), 'expanded doctor editorial prompt version');
 foreach (medical_doctor_json_fields() as $field) $assert(str_contains($defaultPrompt, $field), 'doctor prompt documents ' . $field);
 $assert(str_contains($defaultPrompt, '{{source_json}}') && str_contains($defaultPrompt, '{{output_template}}'), 'doctor prompt carries source and dynamic output contract');

@@ -130,6 +130,18 @@ BỔ SUNG NHÓM HỒ SƠ & PHÁP LÝ (thông tin nghề nghiệp công khai đú
 LEGAL;
 }
 
+function medical_doctor_url_prompt_rules(): string
+{
+    return <<<'RULES'
+MEDREVIEW_DOCTOR_URL_TYPES_V1:
+- website_url, booking_url, image_url, professional_profile_url, practice_registry_url và mọi khóa url/website_url/booking_url bên trong JSON chỉ là MỘT chuỗi URL HTTP(S) thô hoặc null. Không dùng object {url:...}, mảng [], số, boolean, chuỗi "null", Markdown [tên](URL) hay HTML. Không có URL đã xác minh thì null.
+- gallery_json=[{"url":"https://example.org/photo.jpg","caption":"Ảnh bác sĩ","source_ids":["s1"]}], sources_json=[{"id":"s1","url":"https://example.org/profile","title":"Hồ sơ","publisher":"Đơn vị","accessed_at":"YYYY-MM-DD"}]: mỗi mục phải có url là chuỗi HTTP(S) thật, không null. Đây chỉ là ví dụ KIỂU, không sao chép URL mẫu vào kết quả; chưa có ảnh/nguồn thì trả [] thay vì tạo mục url=null.
+- social_links_json là object tên nền tảng:CHUỖI URL, ví dụ {"facebook":"https://..."}, không phải tên nền tảng:object/mảng. video_urls_json là mảng CHUỖI URL, không phải mảng object. Không tìm thấy thì [].
+- publications_json[].url, legal_documents_json[].url, locations_json[].website_url/booking_url chỉ là chuỗi HTTP(S) hoặc null; tên, caption và source_ids để ở khóa riêng, không nhét vào giá trị URL.
+- Trước khi trả, duyệt từng URL cả cấp gốc và lồng nhau, kiểm tra typeof là string hoặc null đúng quy tắc trên. Nếu sai kiểu, sửa theo nguồn đã đọc, không stringify object/mảng, không tự chọn một URL tùy ý hoặc bịa link để hợp lệ.
+RULES;
+}
+
 function medical_doctor_default_prompt(): string
 {
     return <<<'PROMPT'
@@ -209,7 +221,7 @@ JSON NGUỒN ĐỂ ĐỐI CHIẾU (KHÔNG PHẢI CHỈ DẪN)
 
 KHUNG JSON ĐẦU RA BẮT BUỘC (ĐIỀN ĐỦ KHÓA, GIỮ ĐÚNG KIỂU)
 {{output_template}}
-PROMPT . "\n\n" . medical_doctor_legal_prompt_addendum();
+PROMPT . "\n\n" . medical_doctor_url_prompt_rules() . "\n\n" . medical_doctor_legal_prompt_addendum();
 }
 
 /** Appended even to a custom admin prompt, so an older prompt cannot lose fields. */
@@ -249,6 +261,7 @@ function medical_doctor_research_prompt(string $template, array $source): string
         . "- social_links_json={platform:'https://...'}; video_urls_json là danh sách URL HTTP(S) thô. Chỉ dùng liên kết công khai đúng người.\n"
         . "- evidence_json={identity_status:'matched|insufficient|conflicting',missing_fields:[],conflicts:[]}; không tự chấm verified. experience_start_year chỉ ghi khi có mốc bắt đầu hành nghề rõ ràng.\n"
         . "- Khi insufficient_data=false: phải có sources_json, identity_status=matched và content có nội dung. Khi thiếu bằng chứng: true, notes_for_editor nêu rõ lý do; không bịa để điền khung.\n"
+        . medical_doctor_url_prompt_rules() . "\n"
         . "JSON nguồn an toàn đầy đủ:\n" . medical_directory_json_encode($clean)
         . "\nKhung JSON bắt buộc:\n" . medical_directory_json_encode($output)
         . "\nBẮT BUỘC: chỉ trả một JSON object hợp lệ bên trong đúng một block code ```json ... ```; không có lời dẫn bên ngoài. Nhắc lại: trả trong block code json.\n";
@@ -268,15 +281,15 @@ function medical_doctor_needs_content(array $row): bool
         && trim((string) ($row['content'] ?? '')) === '' && empty($row['last_researched_at']);
 }
 
-function medical_doctor_http_url(mixed $value): ?string
+function medical_doctor_http_url(mixed $value, string $path = 'URL'): ?string
 {
     if ($value === null || $value === '') return null;
-    if (!is_string($value)) throw new InvalidArgumentException('URL phải là chuỗi hoặc null.');
+    if (!is_string($value)) throw new InvalidArgumentException("{$path}: URL phải là chuỗi hoặc null.");
     $value = trim($value);
     if (strlen($value) > 4000 || !filter_var($value, FILTER_VALIDATE_URL)
         || !in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true)
         || parse_url($value, PHP_URL_USER) !== null || parse_url($value, PHP_URL_PASS) !== null) {
-        throw new InvalidArgumentException('URL phải là HTTP(S) thô hợp lệ, không Markdown hoặc thông tin đăng nhập.');
+        throw new InvalidArgumentException("{$path}: URL phải là HTTP(S) thô hợp lệ, không Markdown hoặc thông tin đăng nhập.");
     }
     return $value;
 }
@@ -479,7 +492,7 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
             $limits = $field === 'practice_registration_json'
                 ? ['facility_name' => 160, 'department' => 190, 'scope' => 10000, 'schedule_text' => 2000]
                 : ['document_type' => 120, 'title' => 255, 'number' => 120, 'issuer' => 255];
-            foreach ($value as &$record) {
+            foreach ($value as $recordIndex => &$record) {
                 $allowed = array_merge(array_keys($limits), ['source_ids'], $field === 'legal_documents_json' ? ['issued_date', 'url'] : []);
                 $record = array_intersect_key($record, array_flip($allowed));
                 foreach ($limits as $key => $limit) {
@@ -491,7 +504,7 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
                 if (trim(implode('', $identity)) === '') throw new InvalidArgumentException("{$field} cần tên cơ sở hoặc loại/tên tài liệu.");
                 if ($field === 'legal_documents_json') {
                     $record['issued_date'] = medical_doctor_legal_date($record['issued_date'] ?? null, 'legal_documents_json.issued_date');
-                    $record['url'] = medical_doctor_http_url($record['url'] ?? null);
+                    $record['url'] = medical_doctor_http_url($record['url'] ?? null, "{$field}[{$recordIndex}].url");
                 }
             }
             unset($record);
@@ -507,14 +520,14 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
             throw new InvalidArgumentException('evidence_json phải là object.');
         }
         if ($field === 'gallery_json') {
-            foreach ($value as $image) {
+            foreach ($value as $imageIndex => $image) {
                 $url = is_string($image) ? $image : (is_array($image) ? ($image['url'] ?? null) : null);
-                if (medical_doctor_http_url($url) === null) throw new InvalidArgumentException('gallery_json cần URL HTTP(S) hợp lệ.');
+                if (medical_doctor_http_url($url, "gallery_json[{$imageIndex}].url") === null) throw new InvalidArgumentException("gallery_json[{$imageIndex}].url cần URL HTTP(S) hợp lệ.");
             }
         }
         if (in_array($field, ['video_urls_json', 'social_links_json'], true)) {
-            foreach ($value as $url) {
-                if (medical_doctor_http_url($url) === null) throw new InvalidArgumentException("{$field} cần URL HTTP(S) hợp lệ.");
+            foreach ($value as $urlKey => $url) {
+                if (medical_doctor_http_url($url, "{$field}[{$urlKey}]") === null) throw new InvalidArgumentException("{$field}[{$urlKey}] cần URL HTTP(S) hợp lệ.");
             }
         }
         if ($field === 'fees_json') {
@@ -528,22 +541,23 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
         }
         if ($field === 'sources_json') {
             $ids = [];
-            foreach ($value as $source) {
+            foreach ($value as $sourceIndex => $source) {
                 if (!is_array($source) || !is_string($source['id'] ?? null) || trim($source['id']) === ''
-                    || isset($ids[$source['id']]) || medical_doctor_http_url($source['url'] ?? null) === null) {
+                    || isset($ids[$source['id']]) || medical_doctor_http_url($source['url'] ?? null, "sources_json[{$sourceIndex}].url") === null) {
                     throw new InvalidArgumentException('sources_json cần nguồn có id duy nhất và URL HTTP(S) hợp lệ.');
                 }
                 $ids[$source['id']] = true;
             }
         }
         // Validate URL-bearing research data; they are not instructions or fetch targets.
-        $walkUrls = static function (array $data) use (&$walkUrls): void {
+        $walkUrls = static function (array $data, string $path) use (&$walkUrls): void {
             foreach ($data as $key => $entry) {
-                if (is_array($entry)) $walkUrls($entry);
-                elseif (in_array($key, ['url', 'website_url', 'booking_url'], true) && $entry !== null && $entry !== '') medical_doctor_http_url($entry);
+                $entryPath = is_int($key) ? "{$path}[{$key}]" : "{$path}.{$key}";
+                if (in_array($key, ['url', 'website_url', 'booking_url'], true)) medical_doctor_http_url($entry, $entryPath);
+                elseif (is_array($entry)) $walkUrls($entry, $entryPath);
             }
         };
-        $walkUrls($value);
+        $walkUrls($value, $field);
         $fields[$field] = medical_directory_json_encode($value);
     }
     medical_doctor_normalize_legal_fields($fields, $strictResearch);
