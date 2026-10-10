@@ -82,7 +82,7 @@ foreach ($linkedRows as $tdRow) {
               <?php if ($tdImage !== ''): ?><img class="td-portrait" src="<?= $tdEscape($tdImage) ?>" alt="<?= $tdEscape($tdDoctor['name']) ?>" width="120" height="120" loading="lazy" decoding="async"><?php endif; ?>
               <div><span class="td-kind"><?= $tdEscape($tdKind) ?></span><h2><a href="<?= $tdEscape($tdProfile) ?>"><?= $tdEscape($tdDoctor['name']) ?></a></h2>
                 <?php if (trim((string) ($tdDoctor['title_text'] ?? '')) !== ''): ?><p><?= $tdEscape($tdDoctor['title_text']) ?></p><?php endif; ?>
-                <?php if ((int) ($tdDoctor['verified'] ?? 0) === 1): ?><span class="td-verified"><?= $tdEscape($tdLabels['verified']) ?></span><?php endif; ?>
+                <?php if ((int) ($tdDoctor['verified'] ?? 0) === 1): ?><?php if ($tdIsDoctor): ?><span class="td-verified"><?= $tdEscape($tdLabels['verified']) ?></span><?php else: ?><a class="td-verified facility-verification-link" href="<?= $tdEscape(site_localized_path('/ho-so-da-xac-thuc', $toplistLanguage)) ?>" aria-label="<?= $tdEnglish ? 'Understand the verified facility profile label' : 'Tìm hiểu hồ sơ cơ sở đã xác thực' ?>"><?= $tdEscape($tdLabels['verified']) ?></a><?php endif; ?><?php endif; ?>
               </div>
             </div>
             <dl class="td-facts">

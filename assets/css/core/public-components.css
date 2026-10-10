@@ -242,3 +242,35 @@ body .doctor-directory .doctor-pagination{flex-wrap:wrap}
   body .mr-contact .mr-contact__button,
   body main.doctor-profile.site-typo :is(.dp-button,.dp-read-more){transition:none}
 }
+
+/* Policy links retain the existing badge appearance, with a usable hit area. */
+body a.facility-verification-link{
+  display:inline-flex;
+  align-items:center;
+  color:#219780;
+  border-radius:8px;
+  text-decoration:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  transition:background-color .18s ease,box-shadow .18s ease;
+}
+body a.facility-verification-link.facility-verification-icon{
+  justify-content:center;
+  min-width:32px;
+  min-height:32px;
+  flex-shrink:0;
+  vertical-align:middle;
+}
+body a.facility-verification-link:focus-visible{
+  outline:2px solid #2563ff;
+  outline-offset:3px;
+}
+body a.facility-verification-link:hover{background-color:#eaf7f2}
+body a.verified-mark.facility-verification-link{color:#2563eb}
+body a.hn-verified.facility-verification-link{color:#448f79}
+body a.fd-verified.facility-verification-link:hover{color:#219780}
+@media(pointer:coarse),(max-width:700px){
+  body a.facility-verification-link{min-height:44px}
+  body a.facility-verification-link.facility-verification-icon{min-width:44px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){body a.facility-verification-link{transition:none}}

@@ -6,6 +6,8 @@
   root.classList.add('fd-enhanced');
   const en = root.dataset.locale === 'en';
   const locale = en ? 'en' : 'vi';
+  const verificationPath = (en ? '/en' : '') + '/ho-so-da-xac-thuc';
+  const verificationLabel = en ? 'Understand the verified facility profile label' : 'Tìm hiểu hồ sơ cơ sở đã xác thực';
   const words = en ? {
     matches: 'matching facilities', reviews: 'reviews', profile: 'View profile', verified: 'Verified profile',
     more: 'Show more services', less: 'Show fewer services', unrated: 'Not rated yet', price: 'Reference price: ',
@@ -164,7 +166,7 @@
     return `<article class="fd-card"><a class="fd-media" href="${escape(url)}" aria-label="${escape((en ? 'View ' : 'Xem ') + item.name)}">${media}</a><div class="fd-card-content">
       <div class="fd-card-main">
       <div class="fd-card-category">${escape(item.category || (en ? 'Healthcare facility' : 'Cơ sở y tế'))}${item.city ? `<span aria-hidden="true">·</span>${escape(item.city)}` : ''}</div>
-      <h2><a href="${escape(url)}">${escape(item.name)}</a>${item.verified ? `<span class="fd-verified" role="img" aria-label="${words.verified}" title="${words.verified}"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></span>` : ''}</h2>
+      <h2><a href="${escape(url)}">${escape(item.name)}</a>${item.verified ? `<a class="fd-verified facility-verification-link facility-verification-icon" href="${verificationPath}" aria-label="${verificationLabel}" title="${words.verified}"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></a>` : ''}</h2>
       </div>
       ${item.address ? `<p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>${escape(item.address)}</span></p>` : ''}
       ${item.subtitle ? `<p class="fd-summary">${escape(item.subtitle)}</p>` : ''}

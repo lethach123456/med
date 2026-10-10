@@ -52,7 +52,7 @@ $rendered = render_home_next($data);
 $assert(!str_contains($rendered, '<script>alert') && str_contains($rendered, '&lt;script&gt;'), 'Facility database text is escaped');
 $assert(str_contains($rendered, '&lt;b&gt;name&lt;/b&gt;') && str_contains($rendered, '&lt;img src=x onerror=alert(1)&gt;'), 'Doctor and Toplist titles are escaped');
 $assert(substr_count($rendered, 'loading="lazy"') === 4 && str_contains($rendered, 'fetchpriority="high"'), 'Below-fold photos lazy load; hero is prioritized');
-$assert(str_contains($rendered, 'role="img" aria-label="Hồ sơ đã xác thực"') && str_contains($rendered, '(9 đánh giá)'), 'Real verification and review information');
+$assert(str_contains($rendered, 'href="/ho-so-da-xac-thuc" aria-label="Tìm hiểu hồ sơ cơ sở đã xác thực"') && str_contains($rendered, '(9 đánh giá)'), 'Real verification links and review information');
 $assert(str_contains($rendered, 'data-facility-id="7" hidden') && str_contains($rendered, 'data-region="hanoi"'), 'Initial facilities limited to three with region hooks');
 $data['facilities'][0]['reviews_count'] = 0;
 $data['facilities'] = [$data['facilities'][0]];

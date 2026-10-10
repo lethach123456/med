@@ -89,7 +89,8 @@ foreach (['vi', 'en'] as $locale) {
     $mainPath = $cardPath . '/*[' . $hasClass('fd-card-main') . ']';
     $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 2
         && $xpath->query($mainPath . '/*[' . $hasClass('fd-card-category') . ']')->length === 1
-        && $xpath->query($mainPath . '/h2/a')->length === 1, $prefix . 'mobile identity groups category and title without nesting other content');
+        && $xpath->query($mainPath . '/h2/a[not(' . $hasClass('fd-verified') . ')]')->length === 1
+        && $xpath->query($mainPath . '/h2/a[' . $hasClass('fd-verified') . ']')->length === 1, $prefix . 'mobile identity groups category and title with a separate verification link');
     $assert($xpath->query($mainPath . '/following-sibling::*[1][' . $hasClass('fd-address') . ']')->length === 1
         && $xpath->query($cardPath . '/*[' . $hasClass('fd-summary') . ']')->length === 1
         && $xpath->query($cardPath . '/*[' . $hasClass('fd-services') . ']')->length === 1
