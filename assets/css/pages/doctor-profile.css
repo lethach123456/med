@@ -148,6 +148,52 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
 .doctor-profile .dp-license dt{color:var(--dp-muted)}
 .doctor-profile .dp-license dd{margin:0}
 .doctor-profile .dp-note{color:#64758b;font-size:13px;line-height:1.8;margin:16px 0 0}
+.doctor-profile .dp-legal-section{font-size:16px;line-height:1.75}
+.doctor-profile .dp-legal-section .dp-legal-notice{display:flex;align-items:flex-start;gap:8px;font-size:14px;line-height:1.8;margin:0 0 20px}
+.doctor-profile .dp-legal-notice>.ph{font-size:19px;margin-top:3px}
+.doctor-profile .dp-legal-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;margin-bottom:24px}
+.doctor-profile .dp-legal-link{display:flex;align-items:center;gap:11px;min-width:0;min-height:60px;padding:10px 0;border-bottom:1px solid var(--dp-line);transition:color .18s ease}
+.doctor-profile .dp-legal-link>span{flex:1;min-width:0}
+.doctor-profile .dp-legal-link strong{display:block;font-size:16px;font-weight:650;line-height:1.6;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-link small{display:block;color:var(--dp-muted);font-size:14px;line-height:1.65;margin-top:3px;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-link>.ph:first-child{font-size:22px;color:#557cb4}
+.doctor-profile .dp-legal-link>.ph:last-child{font-size:18px;color:var(--dp-muted)}
+.doctor-profile .dp-legal-link:hover strong{color:#2a60ac;text-decoration:underline;text-underline-offset:3px}
+.doctor-profile .dp-legal-block,.doctor-profile .dp-legal-notes{min-width:0;margin-top:24px;padding-top:22px;border-top:1px solid var(--dp-line)}
+.doctor-profile .dp-legal-block>h3,.doctor-profile .dp-legal-notes>h3{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-size:18px;font-weight:650;line-height:1.55;letter-spacing:-.02em}
+.doctor-profile .dp-legal-block>h3 .ph,.doctor-profile .dp-legal-notes>h3 .ph{font-size:21px;color:#557cb4}
+.doctor-profile .dp-legal-facts{margin:0;min-width:0}
+.doctor-profile .dp-legal-facts>div{display:grid;grid-template-columns:170px minmax(0,1fr);gap:4px 18px;padding:8px 0;min-width:0}
+.doctor-profile .dp-legal-facts :is(dt,dd){margin:0;min-width:0;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-facts dt{color:var(--dp-muted);font-size:14px;line-height:1.8}
+.doctor-profile .dp-legal-facts dd{color:var(--dp-ink);font-size:16px;line-height:1.75;white-space:pre-line}
+.doctor-profile .dp-legal-section .dp-refs{margin-left:0;margin-top:6px}
+.doctor-profile .dp-legal-section .dp-ref{min-height:44px;min-width:44px}
+.doctor-profile .dp-legal-facts dd .dp-refs{margin-top:0;margin-left:6px}
+.doctor-profile .dp-legal-registrations{display:grid;gap:18px;min-width:0}
+.doctor-profile .dp-legal-registration{min-width:0;padding-bottom:18px;border-bottom:1px solid var(--dp-line)}
+.doctor-profile .dp-legal-registration:last-child{padding-bottom:0;border-bottom:0}
+.doctor-profile .dp-legal-registration h4{display:flex;align-items:flex-start;gap:9px;margin:0 0 10px;font-size:16px;font-weight:650;line-height:1.65;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-registration h4>.ph{font-size:20px;color:#557cb4;margin-top:3px}
+.doctor-profile .dp-legal-documents{min-width:0}
+.doctor-profile .dp-legal-document{min-width:0;border-bottom:1px solid var(--dp-line)}
+.doctor-profile .dp-legal-document:last-child{border-bottom:0}
+.doctor-profile .dp-legal-document>summary{display:flex;align-items:flex-start;gap:11px;min-height:60px;padding:14px 0;list-style:none;cursor:pointer}
+.doctor-profile .dp-legal-document>summary::-webkit-details-marker{display:none}
+.doctor-profile .dp-legal-document>summary::marker{content:""}
+.doctor-profile .dp-legal-document>summary>span{flex:1;min-width:0}
+.doctor-profile .dp-legal-document>summary strong{display:block;font-size:16px;font-weight:650;line-height:1.65;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-document>summary small{display:block;font-size:14px;color:var(--dp-muted);line-height:1.65;margin-top:3px;overflow-wrap:anywhere}
+.doctor-profile .dp-legal-document>summary>.ph:first-child{font-size:21px;color:#557cb4;margin-top:3px}
+.doctor-profile .dp-legal-document>summary>.ph:last-child{align-self:center;font-size:18px;color:var(--dp-muted);transition:transform .18s ease}
+.doctor-profile .dp-legal-document>summary:hover strong{color:#2a60ac}
+.doctor-profile .dp-legal-document[open]>summary>.ph:last-child{transform:rotate(180deg)}
+.doctor-profile .dp-legal-document-body{min-width:0;padding:0 0 18px 32px}
+.doctor-profile .dp-legal-document-body>.dp-text-link{margin-top:8px;font-size:14px}
+.doctor-profile .dp-legal-document[open] .dp-legal-document-body{animation:dp-legal-document-in .18s ease-out}
+.doctor-profile .dp-legal-notes p{font-size:16px;line-height:1.85;color:var(--dp-muted);margin:0 0 12px;white-space:pre-line}
+.doctor-profile .dp-legal-notes p:last-child{margin-bottom:0}
+@keyframes dp-legal-document-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 .doctor-profile .dp-locations{display:grid;gap:18px}
 .doctor-profile .dp-location{padding:26px;border:0;border-radius:18px;background:#f2f7fb}
 .doctor-profile .dp-location:nth-child(even){background:#f0f7f3}
@@ -345,6 +391,14 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
  .doctor-profile .dp-fee-row>span{display:block;max-width:none;font-size:15px;margin-top:9px}
  .doctor-profile .dp-location-actions{gap:8px 18px;padding-top:12px;margin-top:16px}
  .doctor-profile .dp-note{font-size:13px;line-height:1.85}
+ .doctor-profile .dp-legal-links{grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:20px}
+ .doctor-profile .dp-legal-link{gap:10px;padding:12px 0}
+ .doctor-profile .dp-legal-block,.doctor-profile .dp-legal-notes{margin-top:22px;padding-top:20px}
+ .doctor-profile .dp-legal-facts>div{grid-template-columns:minmax(0,1fr);gap:3px;padding:9px 0}
+ .doctor-profile .dp-legal-facts dt{font-size:14px}
+ .doctor-profile .dp-legal-registrations{gap:18px}
+ .doctor-profile .dp-legal-document-body{padding:0 0 18px}
+ .doctor-profile .dp-legal-section .dp-ref{font-size:14px}
  .doctor-profile .dp-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
  .doctor-profile .dp-sidebar{grid-template-columns:1fr;gap:28px}
  .doctor-profile .dp-contact-card{padding:24px;border-radius:18px;box-shadow:none}
@@ -377,4 +431,6 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
 @media(prefers-reduced-motion:reduce){
  .doctor-profile :is(a,button,img){transition:none!important;animation:none!important}
  .doctor-profile .dp-lightbox[open]{animation:none}
+ .doctor-profile .dp-legal-document>summary>.ph:last-child{transition:none}
+ .doctor-profile .dp-legal-document[open] .dp-legal-document-body{animation:none}
 }

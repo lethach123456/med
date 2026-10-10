@@ -72,6 +72,70 @@ function medical_doctor_profile_fee(array $entry, bool $english): string
     return $amount . ($currency !== '' ? ' ' . $currency : '') . ($unit !== '' ? ' / ' . $unit : '');
 }
 
+/** Public-only legal display model, including older licence JSON. No approval inference. */
+function medical_doctor_profile_legal(array $doctor, array $sourceIndex): array
+{
+    $text = static fn(mixed $value): string => is_string($value) || is_int($value) || is_float($value)
+        ? trim((string) $value) : '';
+    $array = static function (mixed $value): array {
+        if (is_string($value)) $value = json_decode($value, true);
+        return is_array($value) ? $value : [];
+    };
+    $refs = static function (mixed $value) use ($array, $sourceIndex): array {
+        $ids = $array($value);
+        if (!array_is_list($ids)) return [];
+        return array_values(array_unique(array_filter($ids, static fn($id): bool =>
+            is_string($id) && $id !== '' && isset($sourceIndex[$id]))));
+    };
+    $date = static function (mixed $value, bool $legacy = false) use ($text): string {
+        $value = $text($value);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+            return (int) substr($value, 0, 4) >= 1900 && medical_doctor_profile_date($value) !== '' ? $value : '';
+        }
+        // A previously published partial date remains partial, never day 01.
+        if ($legacy && preg_match('/^(\d{4})(?:-(0[1-9]|1[0-2]))?$/D', $value, $match)
+            && (int) $match[1] >= 1900) return $value;
+        return '';
+    };
+    $legal = ['license' => [], 'professional_profile_url' => medical_doctor_profile_url($doctor['professional_profile_url'] ?? ''),
+        'practice_registry_url' => medical_doctor_profile_url($doctor['practice_registry_url'] ?? ''),
+        'registrations' => [], 'documents' => [], 'notes' => $text($doctor['legal_notes'] ?? ''),
+        'source_ids' => $refs($doctor['legal_source_ids_json'] ?? []), 'has_content' => false];
+    $legacy = $array($doctor['practice_license_json'] ?? []);
+    if (array_is_list($legacy)) $legacy = [];
+    $license = [];
+    foreach (['document_type' => 'practice_license_type', 'number' => 'practice_license_number',
+        'issuer' => 'practice_license_issuer', 'issued_date' => 'practice_license_issued_date',
+        'scope' => 'practice_license_scope'] as $key => $field) {
+        $value = $key === 'issued_date' ? $date($doctor[$field] ?? '') : $text($doctor[$field] ?? '');
+        if ($value === '') $value = $key === 'issued_date' ? $date($legacy[$key] ?? '', true) : $text($legacy[$key] ?? '');
+        if ($value !== '') $license[$key] = $value;
+    }
+    if ($license !== []) {
+        $license['source_ids'] = array_values(array_unique(array_merge($refs($legacy['source_ids'] ?? []), $legal['source_ids'])));
+        $legal['license'] = $license;
+    }
+    foreach (array_slice(medical_doctor_profile_entries($doctor['practice_registration_json'] ?? [], ['facility_name']), 0, 30) as $entry) {
+        $record = [];
+        foreach (['facility_name', 'department', 'scope', 'schedule_text'] as $key) $record[$key] = $text($entry[$key] ?? '');
+        if ($record['facility_name'] === '') continue;
+        $record['source_ids'] = $refs($entry['source_ids'] ?? []);
+        $legal['registrations'][] = $record;
+    }
+    foreach (array_slice(medical_doctor_profile_entries($doctor['legal_documents_json'] ?? [], ['document_type', 'title']), 0, 30) as $entry) {
+        $record = [];
+        foreach (['document_type', 'title', 'number', 'issuer'] as $key) $record[$key] = $text($entry[$key] ?? '');
+        if ($record['title'] === '' && $record['document_type'] === '') continue;
+        $record['issued_date'] = $date($entry['issued_date'] ?? '');
+        $record['url'] = medical_doctor_profile_url($entry['url'] ?? '');
+        $record['source_ids'] = $refs($entry['source_ids'] ?? []);
+        $legal['documents'][] = $record;
+    }
+    $legal['has_content'] = $legal['license'] !== [] || $legal['registrations'] !== [] || $legal['documents'] !== []
+        || $legal['professional_profile_url'] !== '' || $legal['practice_registry_url'] !== '' || $legal['notes'] !== '';
+    return $legal;
+}
+
 /** Build a display model from the mapped DB row, preserving source/location associations. */
 function medical_doctor_profile_model(array $doctor, ?array $legacyFacility = null): array
 {
@@ -104,6 +168,7 @@ function medical_doctor_profile_model(array $doctor, ?array $legacyFacility = nu
         if ($id !== '' && !isset($model['source_index'][$id])) $model['source_index'][$id] = $source;
         $model['sources'][] = $source;
     }
+    $model['legal'] = medical_doctor_profile_legal($doctor, $model['source_index']);
     $model['locations'] = medical_doctor_profile_entries($doctor['locations_json'] ?? [], ['facility_name']);
     // Legacy profiles retain their known workplace, without inventing a clinic or timetable.
     if ($model['locations'] === [] && (medical_doctor_profile_text($doctor['facility_name'] ?? '') !== '' || medical_doctor_profile_text($legacyFacility['name'] ?? '') !== '')) {

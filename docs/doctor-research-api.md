@@ -51,6 +51,15 @@ Admin > Doctor edit has an expandable research editor. CSRF protection covers sa
 and translation creation. Only administrators can approve a profile; editing by a
 non-admin clears approval. Custom saved doctor prompt wording is preserved.
 
+Doctor detail pages now display these public fields in a separate **Hồ sơ & pháp lý**
+section (**Profile & licensing** in English), with source references, safe external
+profile/registry links, practice registrations and expandable public documents.
+Licence values prefer the new nonempty columns and fall back to older
+`practice_license_json` values; partial legacy dates are not completed by guessing.
+The section and navigation item are omitted when there is no public legal content.
+This read-only presentation does not change approval, licensing validity or database
+records, and never exposes internal editor notes or writer tokens.
+
 The built-in editorial prompt is `MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3`: identity
 matching, official-source research, all research JSON shapes, fact-checking, neutral
 Vietnamese writing/SEO and mandatory fenced JSON output. Queue/manual prompt APIs

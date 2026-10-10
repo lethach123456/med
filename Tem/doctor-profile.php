@@ -15,6 +15,10 @@ $labels = $english ? [
     'services'=>'Services & clinical interests','conditions'=>'Conditions covered','license'=>'Published practice licence information',
     'document'=>'Document','number'=>'Licence number','issuer'=>'Issuing organisation','issued'=>'Issue date','scope'=>'Scope of practice',
     'licenseNote'=>'The published details below do not constitute a confirmation of current licence validity.',
+    'legal'=>'Profile & licensing','officialProfile'=>'Official professional profile','registry'=>'Practice registry',
+    'registrations'=>'Published practice registrations','department'=>'Department','registeredSchedule'=>'Published practice schedule',
+    'legalDocuments'=>'Public professional documents','documentNumber'=>'Document number','viewDocument'=>'View published document',
+    'legalNotes'=>'Notes on published information',
     'certificates'=>'Certificates & training','memberships'=>'Professional memberships','publications'=>'Research & publications','awards'=>'Awards',
     'primary'=>'Primary practice','address'=>'Address','phone'=>'Public contact number','website'=>'Website','email'=>'Email',
     'directions'=>'Directions','facility'=>'View facility profile','schedule'=>'Published schedule','price'=>'Reference fees',
@@ -43,6 +47,10 @@ $labels = $english ? [
     'services'=>'Dịch vụ & thế mạnh chuyên môn','conditions'=>'Bệnh lý được đề cập','license'=>'Thông tin hành nghề công khai',
     'document'=>'Loại giấy tờ','number'=>'Số giấy phép','issuer'=>'Đơn vị cấp','issued'=>'Ngày cấp','scope'=>'Phạm vi hành nghề',
     'licenseNote'=>'Thông tin công khai bên dưới không phải xác nhận giấy phép còn hiệu lực tại thời điểm bạn thăm khám.',
+    'legal'=>'Hồ sơ & pháp lý','officialProfile'=>'Hồ sơ chuyên môn chính thức','registry'=>'Tra cứu hành nghề',
+    'registrations'=>'Đăng ký hành nghề được công bố','department'=>'Khoa / bộ phận','registeredSchedule'=>'Lịch hành nghề được công bố',
+    'legalDocuments'=>'Tài liệu nghề nghiệp công khai','documentNumber'=>'Số tài liệu','viewDocument'=>'Xem tài liệu công khai',
+    'legalNotes'=>'Ghi chú thông tin công khai',
     'certificates'=>'Chứng chỉ & đào tạo bổ sung','memberships'=>'Hiệp hội & tổ chức','publications'=>'Nghiên cứu & công bố','awards'=>'Giải thưởng',
     'primary'=>'Nơi khám chính','address'=>'Địa chỉ','phone'=>'Số liên hệ công khai','website'=>'Website','email'=>'Email',
     'directions'=>'Chỉ đường','facility'=>'Xem hồ sơ cơ sở','schedule'=>'Lịch được công bố','price'=>'Chi phí tham khảo',
@@ -71,16 +79,17 @@ $refs = static function (array $entry) use ($profile, $escape, $english): string
     return $html !== '' ? '<span class="dp-refs">' . $html . '</span>' : '';
 };
 $join = static fn(array $parts): string => implode(' · ', array_filter(array_map('medical_doctor_profile_text', $parts), static fn($item) => $item !== ''));
-$license=(array) ($profile['practice_license_json'] ?? []);
+$legal=$profile['legal'];
+$license=$legal['license'];
 $licenseFields=['document_type'=>'document','number'=>'number','issuer'=>'issuer','issued_date'=>'issued','scope'=>'scope'];
-$licenseValues=array_filter(array_intersect_key($license,$licenseFields),static fn($value)=>medical_doctor_profile_text($value)!=='');
-$hasTraining = $profile['education_json'] !== [] || $profile['certifications_json'] !== [] || $licenseValues !== [];
+$hasTraining = $profile['education_json'] !== [] || $profile['certifications_json'] !== [];
 $hasExpertise = $profile['services_json'] !== [] || $profile['conditions_treated_json'] !== [] || $profile['specialties'] !== [];
 $hasResearch = $profile['publications_json'] !== [] || $profile['memberships_json'] !== [] || $profile['awards_json'] !== [];
 $hasFees = $profile['schedule_json'] !== [] || $profile['fees_json'] !== [] || trim((string) ($profile['hours_text'] ?? '')) !== '' || trim((string) ($profile['price_text'] ?? '')) !== '';
 $sections = ['gioi-thieu'=>'intro'];
 if ($hasExpertise) $sections['chuyen-mon'] = 'expertise';
 if ($hasTraining) $sections['dao-tao'] = 'education';
+if ($legal['has_content']) $sections['ho-so-phap-ly'] = 'legal';
 if ($profile['experience_json'] !== []) $sections['cong-tac'] = 'experience';
 if ($profile['locations'] !== []) $sections['noi-kham'] = 'locations';
 if ($hasFees) $sections['lich-chi-phi'] = 'fees';
@@ -165,9 +174,76 @@ $primary=$profile['locations'][0] ?? [];
           <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('graduation-cap') ?></span><h2><?= $escape($label('education')) ?></h2></div>
           <?php if ($profile['education_json'] !== []): ?><ol class="dp-timeline"><?php foreach ($profile['education_json'] as $entry): ?><li><span class="dp-timeline-dot"></span><div><?php $period=medical_doctor_profile_period($entry,$english); if ($period !== ''): ?><span class="dp-period"><?= $escape($period) ?></span><?php endif; ?><h3><?= $escape(medical_doctor_profile_text($entry['degree'] ?? '') ?: $entry['institution'] ?? '') ?></h3><p><?= $escape($join([$entry['institution'] ?? '',$entry['specialty'] ?? ''])) ?></p><?= $refs($entry) ?></div></li><?php endforeach; ?></ol><?php endif; ?>
           <?php if ($profile['certifications_json'] !== []): ?><div class="dp-subsection"><h3><?= $escape($label('certificates')) ?></h3><div class="dp-records"><?php foreach ($profile['certifications_json'] as $entry): ?><article><?= $icon('certificate') ?><div><h4><?= $escape($entry['name']) ?></h4><p><?= $escape($join([$entry['issuer'] ?? '',$entry['year'] ?? ''])) ?></p><?= $refs($entry) ?></div></article><?php endforeach; ?></div></div><?php endif; ?>
-          <?php if ($licenseValues !== []): ?>
-          <details class="dp-license"><summary><?= $icon('identification-card') ?><?= $escape($label('license')) ?><?= $icon('caret-down') ?></summary><dl><?php foreach ($licenseFields as $field=>$key): if (medical_doctor_profile_text($license[$field] ?? '')==='') continue; ?><div><dt><?= $escape($label($key)) ?></dt><dd><?= $escape($license[$field]) ?></dd></div><?php endforeach; ?></dl><?= $refs($license) ?><p class="dp-note"><?= $escape($label('licenseNote')) ?></p></details>
+        </section>
+        <?php endif; ?>
+
+        <?php if ($legal['has_content']): ?>
+        <section class="dp-section dp-legal-section" id="ho-so-phap-ly" aria-labelledby="doctor-legal-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('identification-card') ?></span><h2 id="doctor-legal-heading"><?= $escape($label('legal')) ?></h2></div>
+          <p class="dp-note dp-legal-notice"><?= $icon('info') ?><span><?= $escape($label('licenseNote')) ?></span></p>
+          <?php if ($legal['professional_profile_url'] !== '' || $legal['practice_registry_url'] !== ''): ?>
+          <div class="dp-legal-links">
+            <?php foreach (['professional_profile_url'=>['officialProfile','user-square'],'practice_registry_url'=>['registry','magnifying-glass']] as $field=>[$key,$symbol]): $url=$legal[$field]; if ($url==='') continue; ?>
+            <a class="dp-legal-link" href="<?= $escape($url) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $icon($symbol) ?><span><strong><?= $escape($label($key)) ?></strong><small><?= $escape((string) parse_url($url,PHP_URL_HOST)) ?></small></span><?= $icon('arrow-up-right') ?></a>
+            <?php endforeach; ?>
+          </div>
           <?php endif; ?>
+          <?php if ($license !== []): ?>
+          <div class="dp-legal-block">
+            <h3><?= $icon('identification-card') ?><?= $escape($label('license')) ?></h3>
+            <dl class="dp-legal-facts">
+              <?php foreach ($licenseFields as $field=>$key): if (($license[$field] ?? '')==='') continue; $value=$field==='issued_date' ? (medical_doctor_profile_date($license[$field]) ?: $license[$field]) : $license[$field]; ?>
+              <div><dt><?= $escape($label($key)) ?></dt><dd><?= $escape($value) ?></dd></div>
+              <?php endforeach; ?>
+            </dl>
+            <?= $refs($license) ?>
+          </div>
+          <?php endif; ?>
+          <?php if ($legal['registrations'] !== []): ?>
+          <div class="dp-legal-block">
+            <h3><?= $icon('buildings') ?><?= $escape($label('registrations')) ?></h3>
+            <div class="dp-legal-registrations">
+              <?php foreach ($legal['registrations'] as $entry): ?>
+              <article class="dp-legal-registration">
+                <h4><?= $icon('building-office') ?><?= $escape($entry['facility_name']) ?></h4>
+                <?php if ($entry['department'] !== '' || $entry['scope'] !== '' || $entry['schedule_text'] !== ''): ?>
+                <dl class="dp-legal-facts">
+                  <?php foreach (['department'=>'department','scope'=>'scope','schedule_text'=>'registeredSchedule'] as $field=>$key): if ($entry[$field]==='') continue; ?>
+                  <div><dt><?= $escape($label($key)) ?></dt><dd><?= $escape($entry[$field]) ?></dd></div>
+                  <?php endforeach; ?>
+                </dl>
+                <?php endif; ?>
+                <?= $refs($entry) ?>
+              </article>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          <?php if ($legal['documents'] !== []): ?>
+          <div class="dp-legal-block">
+            <h3><?= $icon('files') ?><?= $escape($label('legalDocuments')) ?></h3>
+            <div class="dp-legal-documents">
+              <?php foreach ($legal['documents'] as $entry): ?>
+              <details class="dp-legal-document">
+                <summary><?= $icon('file-text') ?><span><strong><?= $escape($entry['title'] ?: $entry['document_type']) ?></strong><?php if ($entry['document_type'] !== '' && $entry['document_type'] !== $entry['title']): ?><small><?= $escape($entry['document_type']) ?></small><?php endif; ?></span><?= $icon('caret-down') ?></summary>
+                <div class="dp-legal-document-body">
+                  <?php if ($entry['number'] !== '' || $entry['issuer'] !== '' || $entry['issued_date'] !== ''): ?>
+                  <dl class="dp-legal-facts">
+                    <?php foreach (['number'=>'documentNumber','issuer'=>'issuer','issued_date'=>'issued'] as $field=>$key): if ($entry[$field]==='') continue; $value=$field==='issued_date' ? medical_doctor_profile_date($entry[$field]) : $entry[$field]; ?>
+                    <div><dt><?= $escape($label($key)) ?></dt><dd><?= $escape($value) ?></dd></div>
+                    <?php endforeach; ?>
+                  </dl>
+                  <?php endif; ?>
+                  <?php if ($entry['url'] !== ''): ?><a class="dp-text-link" href="<?= $escape($entry['url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape($label('viewDocument')) ?><?= $icon('arrow-up-right') ?></a><?php endif; ?>
+                  <?= $refs($entry) ?>
+                </div>
+              </details>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          <?php if ($legal['notes'] !== ''): ?><div class="dp-legal-notes"><h3><?= $icon('note') ?><?= $escape($label('legalNotes')) ?></h3><p><?= $escape($legal['notes']) ?></p></div><?php endif; ?>
+          <?php if ($legal['source_ids'] !== [] && ($legal['professional_profile_url'] !== '' || $legal['practice_registry_url'] !== '' || $legal['notes'] !== '')): ?><?= $refs($legal) ?><?php endif; ?>
         </section>
         <?php endif; ?>
 
