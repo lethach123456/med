@@ -104,6 +104,73 @@ $researchValues = [];
 foreach ($researchKeys as $key) {
     $researchValues[$key] = (string) ($doctorTranslationRow[$key] ?? (str_ends_with($key, '_json') ? '[]' : ''));
 }
+$legalFieldDefinitions = [
+    'professional_profile_url' => [
+        'label' => 'Trang hồ sơ chuyên môn chính thức',
+        'type' => 'url',
+        'help' => 'URL hồ sơ bác sĩ trên website bệnh viện, cơ sở hoặc tổ chức chuyên môn. Để trống nếu chưa xác minh được.',
+    ],
+    'practice_registry_url' => [
+        'label' => 'Trang tra cứu hành nghề',
+        'type' => 'url',
+        'help' => 'URL trang tra cứu hoặc công bố của cơ quan có thẩm quyền; không dùng URL phỏng đoán.',
+    ],
+    'practice_license_type' => [
+        'label' => 'Loại giấy tờ hành nghề',
+        'type' => 'text',
+        'maxlength' => 120,
+        'help' => 'Ví dụ: Giấy phép hành nghề hoặc Chứng chỉ hành nghề. Ghi đúng loại giấy tờ trong nguồn.',
+    ],
+    'practice_license_number' => [
+        'label' => 'Số giấy tờ hành nghề',
+        'type' => 'text',
+        'maxlength' => 120,
+        'help' => 'Giữ nguyên số, chữ và dấu phân cách được công bố; không suy đoán từ chức danh hoặc nơi công tác.',
+    ],
+    'practice_license_issuer' => [
+        'label' => 'Cơ quan cấp',
+        'type' => 'text',
+        'maxlength' => 255,
+        'help' => 'Tên cơ quan cấp giấy tờ theo nguồn công khai.',
+    ],
+    'practice_license_issued_date' => [
+        'label' => 'Ngày cấp',
+        'type' => 'date',
+        'help' => 'Chỉ nhập khi có đủ ngày, tháng, năm. Để trống nếu nguồn chỉ công bố năm hoặc chưa rõ.',
+    ],
+    'practice_license_scope' => [
+        'label' => 'Phạm vi hành nghề',
+        'type' => 'textarea',
+        'help' => 'Phạm vi chuyên môn ghi trên giấy tờ hoặc nguồn chính thức; không tự mở rộng theo dịch vụ quảng cáo.',
+    ],
+    'legal_source_ids_json' => [
+        'label' => 'Nguồn đối chiếu hồ sơ & pháp lý',
+        'type' => 'json',
+        'help' => 'JSON array mã nguồn có trong sources_json, ví dụ ["s1", "s2"]. Không nhập URL trực tiếp vào danh sách mã nguồn.',
+    ],
+    'practice_registration_json' => [
+        'label' => 'Đăng ký hành nghề tại cơ sở',
+        'type' => 'json',
+        'help' => 'JSON array. Mỗi mục gồm facility_name, department, scope, schedule_text, source_ids. Chỉ ghi đăng ký được nguồn công khai xác nhận.',
+    ],
+    'legal_documents_json' => [
+        'label' => 'Giấy tờ pháp lý công khai',
+        'type' => 'json',
+        'help' => 'JSON array. Mỗi mục gồm document_type, title, number, issuer, issued_date, url, source_ids. issued_date dùng YYYY-MM-DD hoặc để trống khi chưa rõ.',
+    ],
+    'practice_license_json' => [
+        'label' => 'Giấy tờ hành nghề · dữ liệu JSON hiện có',
+        'type' => 'json',
+        'help' => 'Giữ tương thích dữ liệu cũ. JSON object gồm document_type, number, issuer, issued_date, scope, source_ids; các giá trị phải khớp các ô giấy phép bên trên. Nếu thay giấy tờ, cập nhật cả hai dạng hoặc để JSON trống để hệ thống tạo lại.',
+    ],
+    'legal_notes' => [
+        'label' => 'Ghi chú hồ sơ & pháp lý',
+        'type' => 'textarea',
+        'maxlength' => 10000,
+        'help' => 'Ghi rõ thông tin chưa đủ bằng chứng, nguồn mâu thuẫn hoặc cần đối chiếu. Tối đa 10.000 ký tự; không lưu giấy tờ cá nhân không công khai.',
+    ],
+];
+$genericResearchKeys = array_values(array_diff($researchKeys, array_keys($legalFieldDefinitions)));
 $researchFields = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf = (string) ($_POST['_csrf'] ?? '');
@@ -444,12 +511,34 @@ $mediaGalleryValue = $values['gallery_lines'];
           </div>
 
           <div class="col-12">
+            <fieldset class="border rounded-3 p-3" aria-describedby="doctor_legal_help">
+              <legend class="float-none w-auto px-2 fs-6 fw-semibold mb-0"><i class="fa-solid fa-file-shield text-primary me-2" aria-hidden="true"></i>Hồ sơ & pháp lý</legend>
+              <p class="text-secondary small mt-2 mb-3" id="doctor_legal_help">Chỉ lưu thông tin có nguồn công khai, đúng bác sĩ. Mã nguồn đối chiếu liên kết với sources_json bên dưới. Có dữ liệu pháp lý không đồng nghĩa hồ sơ đã được quản trị viên xác thực.</p>
+              <div class="row g-3">
+                <?php foreach ($legalFieldDefinitions as $key => $field): ?>
+                  <?php if (!in_array($key, $researchKeys, true)) continue; ?>
+                  <?php $legalFieldId = 'research_' . $key; $legalFieldType = $field['type']; ?>
+                  <div class="col-12 col-lg-6">
+                    <label class="form-label" for="<?php echo htmlspecialchars($legalFieldId, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($field['label'], ENT_QUOTES, 'UTF-8'); ?></label>
+                    <?php if (in_array($legalFieldType, ['textarea', 'json'], true)): ?>
+                      <textarea class="form-control<?php echo $legalFieldType === 'json' ? ' mono' : ''; ?>" id="<?php echo htmlspecialchars($legalFieldId, ENT_QUOTES, 'UTF-8'); ?>" name="research[<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>]" rows="<?php echo $legalFieldType === 'json' ? '4' : '3'; ?>" aria-describedby="<?php echo htmlspecialchars($legalFieldId . '_help', ENT_QUOTES, 'UTF-8'); ?>"<?php if (isset($field['maxlength'])): ?> maxlength="<?php echo (int) $field['maxlength']; ?>"<?php endif; ?>><?php echo htmlspecialchars($researchValues[$key], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                    <?php else: ?>
+                      <input class="form-control" type="<?php echo htmlspecialchars($legalFieldType, ENT_QUOTES, 'UTF-8'); ?>" id="<?php echo htmlspecialchars($legalFieldId, ENT_QUOTES, 'UTF-8'); ?>" name="research[<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>]" value="<?php echo htmlspecialchars($researchValues[$key], ENT_QUOTES, 'UTF-8'); ?>" aria-describedby="<?php echo htmlspecialchars($legalFieldId . '_help', ENT_QUOTES, 'UTF-8'); ?>"<?php if (isset($field['maxlength'])): ?> maxlength="<?php echo (int) $field['maxlength']; ?>"<?php endif; ?>>
+                    <?php endif; ?>
+                    <div class="form-text" id="<?php echo htmlspecialchars($legalFieldId . '_help', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($field['help'], ENT_QUOTES, 'UTF-8'); ?></div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="col-12">
             <details class="border rounded-3 p-3">
               <summary class="fw-semibold">Dữ liệu chuyên sâu & nguồn tham khảo</summary>
               <p class="text-secondary small mt-3">Các danh sách dùng JSON array; mỗi thông tin có source_ids liên kết với sources_json. Không nhập thông tin chưa có bằng chứng. Chỉ quản trị viên được bật xác thực.</p>
               <?php if ($isEdit): ?><p class="small">Lần nghiên cứu: <?php echo htmlspecialchars((string) ($doctorTranslationRow['last_researched_at'] ?? 'Chưa có'), ENT_QUOTES, 'UTF-8'); ?> · Xác minh: <?php echo htmlspecialchars((string) ($doctorTranslationRow['verification_status'] ?? 'unreviewed'), ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
               <div class="row g-3">
-              <?php foreach ($researchKeys as $key): ?>
+              <?php foreach ($genericResearchKeys as $key): ?>
                 <div class="col-12 <?php echo $key === 'content' ? '' : 'col-lg-6'; ?>">
                   <label class="form-label" for="research_<?php echo $key; ?>"><?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?></label>
                   <textarea class="form-control mono" id="research_<?php echo $key; ?>" name="research[<?php echo $key; ?>]" rows="<?php echo $key === 'content' ? '8' : '3'; ?>"><?php echo htmlspecialchars($researchValues[$key], ENT_QUOTES, 'UTF-8'); ?></textarea>

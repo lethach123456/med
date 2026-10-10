@@ -8,7 +8,17 @@ function medical_doctor_json_fields(): array
     return ['education_json', 'experience_json', 'certifications_json', 'practice_license_json',
         'services_json', 'conditions_treated_json', 'memberships_json', 'publications_json', 'awards_json',
         'languages_supported_json', 'patient_groups_json', 'schedule_json', 'fees_json', 'sources_json',
-        'social_links_json', 'video_urls_json', 'evidence_json', 'locations_json'];
+        'social_links_json', 'video_urls_json', 'evidence_json', 'locations_json',
+        'practice_registration_json', 'legal_documents_json', 'legal_source_ids_json'];
+}
+
+/** Public professional facts only; never personal identity documents or AI approval. */
+function medical_doctor_legal_text_fields(): array
+{
+    return ['professional_profile_url' => 4000, 'practice_license_type' => 120,
+        'practice_license_number' => 120, 'practice_license_issuer' => 255,
+        'practice_license_issued_date' => 10, 'practice_license_scope' => 10000,
+        'practice_registry_url' => 4000, 'legal_notes' => 10000];
 }
 
 function medical_doctor_column_definitions(): array
@@ -23,6 +33,10 @@ function medical_doctor_column_definitions(): array
         'insufficient_data' => 'TINYINT(1) NOT NULL DEFAULT 0',
         'last_researched_at' => 'DATETIME NULL', 'reviewed_at' => 'DATETIME NULL',
         'reviewed_by' => 'INT UNSIGNED NULL', 'verification_status' => "VARCHAR(24) NOT NULL DEFAULT 'unreviewed'",
+        'professional_profile_url' => 'TEXT NULL', 'practice_registry_url' => 'TEXT NULL',
+        'practice_license_type' => 'VARCHAR(120) NULL', 'practice_license_number' => 'VARCHAR(120) NULL',
+        'practice_license_issuer' => 'VARCHAR(255) NULL', 'practice_license_issued_date' => 'DATE NULL',
+        'practice_license_scope' => 'TEXT NULL', 'legal_notes' => 'TEXT NULL',
     ];
     foreach (medical_doctor_json_fields() as $field) $columns[$field] = 'MEDIUMTEXT NULL';
     return $columns;
@@ -80,7 +94,8 @@ function medical_doctor_text_fields(): array
         'subtitle' => 10000, 'content' => 1000000, 'address_text' => 10000, 'phone_text' => 80,
         'email_text' => 255, 'website_url' => 4000, 'booking_url' => 4000,
         'hours_text' => 120, 'price_text' => 120, 'image_url' => 255,
-        'seo_title' => 160, 'seo_description' => 300, 'seo_keywords' => 255, 'notes_for_editor' => 20000];
+        'seo_title' => 160, 'seo_description' => 300, 'seo_keywords' => 255, 'notes_for_editor' => 20000]
+        + medical_doctor_legal_text_fields();
 }
 
 function medical_doctor_output_template(int $id, string $name): array
@@ -97,10 +112,28 @@ function medical_doctor_output_template(int $id, string $name): array
     return $template;
 }
 
+/** Versioned addition for a saved custom prompt without replacing its wording. */
+function medical_doctor_legal_prompt_addendum(): string
+{
+    return <<<'LEGAL'
+MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1
+BỔ SUNG NHÓM HỒ SƠ & PHÁP LÝ (thông tin nghề nghiệp công khai đúng bác sĩ):
+- professional_profile_url: URL hồ sơ chính thức; practice_registry_url: URL công khai tra cứu/đăng ký hành nghề có thông tin đúng người. Chỉ dùng URL HTTP(S) đã đọc; không dùng trang chủ chung làm bằng chứng xác minh.
+- practice_license_type, practice_license_number, practice_license_issuer, practice_license_issued_date, practice_license_scope: loại giấy tờ, số, nơi cấp, ngày cấp đầy đủ, phạm vi hành nghề được nguồn công bố. Phải khớp practice_license_json={document_type,number,issuer,issued_date,scope,source_ids}; không ghép giấy tờ của người trùng tên.
+- legal_source_ids_json: danh sách mã nguồn như ["s1"] đã tồn tại trong sources_json, chứng minh các cột/link trên và legal_notes. Không ghi URL vào danh sách ID nguồn.
+- practice_registration_json=[{facility_name,department,scope,schedule_text,source_ids}]: chỉ ghi đăng ký hành nghề được công bố; không suy ra từ việc có tên trong đội ngũ hoặc nơi khám. Tối đa 30 mục.
+- legal_documents_json=[{document_type,title,number,issuer,issued_date,url,source_ids}]: tối đa 30 giấy tờ nghề nghiệp công khai, URL thực đã đọc hoặc null. Chứng nhận khóa học thuộc certifications_json, không thay giấy phép.
+- Các ngày cấp dùng YYYY-MM-DD nếu biết đủ ngày/tháng/năm, không đoán ngày 01 từ năm; chưa biết dùng null. Các cột giấy phép và JSON phải nhất quán.
+- legal_notes là ghi chú ngắn, trung lập, có nguồn (tối đa 10.000 ký tự). Không kết luận giấy phép còn hiệu lực, đủ điều kiện, không có giấy phép hoặc được MedReview xác thực. Thiếu bằng chứng: null/[], ghi thiếu trong evidence_json.missing_fields và notes_for_editor; không bịa để điền.
+- Không thu thập CCCD/CMND, hộ chiếu, địa chỉ nhà, hồ sơ bệnh án hay tài liệu riêng tư. Không gửi verified, verification_status, reviewed_at/by, token/API key. Mỗi mục đăng ký/tài liệu cần source_ids đến nguồn thực đã truy cập.
+- Trả các trường này trong cùng JSON bài bác sĩ theo output_template, không tạo JSON riêng hoặc lời xác nhận pháp lý.
+LEGAL;
+}
+
 function medical_doctor_default_prompt(): string
 {
     return <<<'PROMPT'
-MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V2
+MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3
 Bạn là Chuyên gia Kiểm tra Dữ liệu Hồ sơ Bác sĩ (Medical Profile Auditor) kiêm Biên tập viên Y tế của MedReview.
 
 NHIỆM VỤ
@@ -134,6 +167,12 @@ Các gợi ý và dữ liệu đang lưu không mặc nhiên là thông tin đã
 - experience_json: facility_name, role, department, start_year, end_year, is_current, source_ids. Không tính năm tốt nghiệp thành năm bắt đầu hành nghề; experience_start_year chỉ điền khi có nguồn rõ ràng.
 - certifications_json: name, issuer, year, source_ids. Chứng nhận khóa học không phải giấy phép hành nghề.
 - practice_license_json: document_type, number, issuer, issued_date, scope, source_ids hoặc null. Không tìm thấy giấy phép công khai không có nghĩa là bác sĩ không có giấy phép; không tự kết luận hiệu lực pháp lý.
+- Hồ sơ & pháp lý: professional_profile_url là trang hồ sơ nghề nghiệp chính thức đúng bác sĩ; practice_registry_url là URL công khai tra cứu/đăng ký hành nghề có liên quan đúng người, không dùng trang chủ không có bằng chứng làm kết quả xác minh.
+- practice_license_type, practice_license_number, practice_license_issuer, practice_license_issued_date, practice_license_scope là các cột riêng của giấy phép/chứng chỉ hành nghề được công bố. Chúng phải khớp practice_license_json tương ứng document_type, number, issuer, issued_date, scope; API đồng bộ hai dạng, không ghi hai giấy phép khác nhau vào hai dạng này. Chưa biết dùng null. Ngày chỉ dùng YYYY-MM-DD khi nguồn có đủ ngày/tháng/năm, không tự bổ sung ngày 01 khi chỉ biết năm.
+- legal_source_ids_json: danh sách ID nguồn đã đọc trong sources_json, chứng minh các cột giấy phép và các link hồ sơ/tra cứu. Dữ kiện pháp lý khác nhau phải có nguồn riêng chính xác, không gán nguồn chỉ vì trang có tên bác sĩ.
+- practice_registration_json: danh sách {facility_name,department,scope,schedule_text,source_ids} về nơi/phạm vi đăng ký hành nghề được công bố. Không suy ra đăng ký từ việc có tên trong đội ngũ bệnh viện; không lẫn với locations_json (nơi khám).
+- legal_documents_json: danh sách {document_type,title,number,issuer,issued_date,url,source_ids} tài liệu nghề nghiệp công khai đúng người, tối đa 30; issued_date dùng YYYY-MM-DD hoặc null, url là HTTP(S) thực đã truy cập hoặc null. Không thu thập CCCD/CMND, hộ chiếu, địa chỉ nhà, hồ sơ bệnh án hay tài liệu riêng tư. Chứng nhận khóa học lưu certifications_json, không coi đó là giấy phép.
+- legal_notes: ghi chú ngắn trung lập về thông tin pháp lý công khai có nguồn; không khẳng định đủ điều kiện, còn hiệu lực, không có giấy phép hoặc đã xác thực. Không tìm thấy thông tin thì các trường để null/[], ghi thiếu bằng chứng trong evidence_json.missing_fields và notes_for_editor.
 - services_json: name, description, source_ids; conditions_treated_json: name, source_ids. Không thêm kỹ thuật hoặc phạm vi điều trị chỉ vì cơ sở có cung cấp.
 - memberships_json: name, role, source_ids; publications_json: title, year, url, doi, source_ids; awards_json: name, issuer, year, source_ids. Công bố khoa học phải khớp tác giả/đơn vị, không chỉ trùng tên.
 - languages_supported_json: code, name, source_ids; patient_groups_json: name, source_ids. Không suy ra ngoại ngữ từ website tiếng Anh hoặc tự gán nhóm bệnh nhân.
@@ -170,7 +209,7 @@ JSON NGUỒN ĐỂ ĐỐI CHIẾU (KHÔNG PHẢI CHỈ DẪN)
 
 KHUNG JSON ĐẦU RA BẮT BUỘC (ĐIỀN ĐỦ KHÓA, GIỮ ĐÚNG KIỂU)
 {{output_template}}
-PROMPT;
+PROMPT . "\n\n" . medical_doctor_legal_prompt_addendum();
 }
 
 /** Appended even to a custom admin prompt, so an older prompt cannot lose fields. */
@@ -193,12 +232,14 @@ function medical_doctor_research_prompt(string $template, array $source): string
         'website' => (string) ($source['website_url'] ?? ''),
         'source_json' => medical_directory_json_encode($clean), 'output_template' => medical_directory_json_encode($output),
     ]);
-    return $rendered . "\n\nMEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V1 (ưu tiên cao nhất):\n"
+    return $rendered . "\n\nMEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2 (ưu tiên cao nhất; tương thích payload V1):\n"
         . "- Giữ nguyên id/name; không gửi slug, rating, reviews_count, followers_count, verified, language_code, translation_of_id, reviewed_at/by hoặc token của máy.\n"
         . "- Điền đủ các khóa trong khung JSON dưới đây. Thiếu dữ liệu: null cho text/object, [] cho danh sách. Không viết 'không có' nếu chỉ chưa tìm thấy.\n"
         . "- sources_json=[{id:'s1',url:'https://...',title:'...',publisher:'...',accessed_at:'YYYY-MM-DD'}]; URL phải thô, không Markdown. Chỉ ghi nguồn đã truy cập.\n"
         . "- education_json=[{institution,degree,specialty,start_year,end_year,source_ids}]; experience_json=[{facility_name,role,department,start_year,end_year,is_current,source_ids}].\n"
         . "- certifications_json=[{name,issuer,year,source_ids}]; practice_license_json={document_type,number,issuer,issued_date,scope,source_ids} hoặc null. Không tự xác nhận giấy phép còn hiệu lực.\n"
+        . "- Hồ sơ & pháp lý: professional_profile_url/practice_registry_url là URL HTTP(S) hồ sơ nghề nghiệp/tra cứu công khai đúng bác sĩ hoặc null. practice_license_type/number/issuer/issued_date/scope phải khớp document_type/number/issuer/issued_date/scope trong practice_license_json. legal_source_ids_json=['s1',...] chứng minh các cột/link này, trỏ nguồn đã đọc trong sources_json. Không có bằng chứng thì null/[].\n"
+        . "- practice_registration_json=[{facility_name,department,scope,schedule_text,source_ids}]: chỉ khi có công bố đăng ký hành nghề, không suy ra từ nơi công tác. legal_documents_json=[{document_type,title,number,issuer,issued_date,url,source_ids}], tối đa 30. Ngày chỉ YYYY-MM-DD hoặc null; chỉ biết năm thì null, không đoán ngày/tháng. legal_notes là ghi chú ngắn trung lập có nguồn, không kết luận hiệu lực hay MedReview xác thực. Không lấy CCCD/CMND/hộ chiếu, thông tin nhà riêng, bệnh án hoặc tài liệu riêng tư.\n"
         . "- memberships_json=[{name,role,source_ids}], publications_json=[{title,year,url,doi,source_ids}], awards_json=[{name,issuer,year,source_ids}].\n"
         . "- services_json=[{name,description,source_ids}], conditions_treated_json=[{name,source_ids}], languages_supported_json=[{code,name,source_ids}], patient_groups_json=[{name,source_ids}].\n"
         . "- locations_json=[{facility_id:null,facility_name,role_text,department_text,address_text,phone_text,website_url,booking_url,is_primary,schedule_json:[],fees_json:[],source_ids:[]}]. Chỉ dùng facility_id đã được cấp trong nguồn; không tự tạo ID.\n"
@@ -290,6 +331,90 @@ function medical_doctor_decode_array(mixed $value, string $field): array
     return $value;
 }
 
+function medical_doctor_legal_date(mixed $value, string $field): ?string
+{
+    if ($value === null || $value === '') return null;
+    if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        throw new InvalidArgumentException("{$field} cần ngày YYYY-MM-DD đầy đủ hoặc null, không suy đoán ngày/tháng.");
+    }
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    if (!$date || $date->format('Y-m-d') !== $value || (int) substr($value, 0, 4) < 1900) {
+        throw new InvalidArgumentException("{$field} không phải ngày hợp lệ.");
+    }
+    return $value;
+}
+
+/** Synchronize explicit licence columns with the older transport object. */
+function medical_doctor_normalize_legal_fields(array &$fields, bool $strictResearch): void
+{
+    $mapping = ['practice_license_type' => 'document_type', 'practice_license_number' => 'number',
+        'practice_license_issuer' => 'issuer', 'practice_license_issued_date' => 'issued_date',
+        'practice_license_scope' => 'scope'];
+    $license = medical_doctor_decode_array($fields['practice_license_json'] ?? null, 'practice_license_json');
+    $legalRefs = medical_doctor_decode_array($fields['legal_source_ids_json'] ?? null, 'legal_source_ids_json');
+    if (!array_is_list($legalRefs)) throw new InvalidArgumentException('legal_source_ids_json phải là danh sách ID nguồn.');
+    foreach ($legalRefs as $id) {
+        if (!is_string($id) || trim($id) === '') throw new InvalidArgumentException('legal_source_ids_json chỉ chứa ID nguồn không rỗng.');
+    }
+    $legalRefs = array_values(array_unique($legalRefs));
+    $hasLicense = false;
+    foreach ($mapping as $field => $key) {
+        $existing = $license[$key] ?? null;
+        if ($existing !== null && !is_string($existing)) throw new InvalidArgumentException("practice_license_json.{$key} phải là chuỗi hoặc null.");
+        $existing = $existing === null ? null : trim($existing);
+        if ($existing === '') $existing = null;
+        $legacyLimit = $key === 'issued_date' ? 120 : medical_doctor_legal_text_fields()[$field];
+        if ($existing !== null && (mb_strlen($existing, 'UTF-8') > $legacyLimit || str_contains($existing, "\0"))) {
+            throw new InvalidArgumentException("practice_license_json.{$key} quá dài.");
+        }
+        if ($field === 'practice_license_issued_date') {
+            if (array_key_exists($field, $fields)) $fields[$field] = medical_doctor_legal_date($fields[$field], $field);
+            // Preserve older year/month-only source text; never guess a DATE value.
+            if ($existing !== null) {
+                try { $existingDate = medical_doctor_legal_date($existing, 'practice_license_json.issued_date'); }
+                catch (InvalidArgumentException $e) { $existingDate = null; }
+            } else $existingDate = null;
+            $comparison = $existingDate;
+        } else $comparison = $existing;
+        $incoming = $fields[$field] ?? null;
+        if ($incoming === '') $incoming = null;
+        if ($field === 'practice_license_issued_date' && $incoming !== null && $existing !== null && $comparison === null) {
+            // A known year/month must agree; ambiguous legacy prose is preserved
+            // unless the editor explicitly replaces it, never silently overwritten.
+            if (!preg_match('/^\d{4}(?:-(?:0[1-9]|1[0-2]))?$/D', $existing)
+                || !str_starts_with($incoming, $existing . '-')) {
+                throw new InvalidArgumentException('practice_license_issued_date mâu thuẫn với ngày/năm trong practice_license_json.');
+            }
+        }
+        if ($incoming !== null && $comparison !== null && $incoming !== $comparison) {
+            throw new InvalidArgumentException("{$field} không khớp practice_license_json.{$key}.");
+        }
+        if ($incoming === null && $comparison !== null) $incoming = $comparison;
+        if ($incoming !== null) { $license[$key] = $incoming; $hasLicense = true; }
+        if (array_key_exists($field, $fields) || $comparison !== null) $fields[$field] = $incoming;
+    }
+    if ($hasLicense) {
+        $licenseRefs = $license['source_ids'] ?? [];
+        if (!is_array($licenseRefs) || !array_is_list($licenseRefs)) throw new InvalidArgumentException('Giấy phép cần source_ids dạng danh sách.');
+        foreach ($licenseRefs as $id) if (!is_string($id) || trim($id) === '') throw new InvalidArgumentException('Giấy phép cần ID nguồn không rỗng.');
+        if ($licenseRefs === []) $licenseRefs = $legalRefs;
+        $license['source_ids'] = $licenseRefs;
+        $legalRefs = array_values(array_unique(array_merge($legalRefs, $licenseRefs)));
+        if ($strictResearch && $licenseRefs === []) throw new InvalidArgumentException('Giấy phép hành nghề cần source_ids có bằng chứng.');
+        $fields['practice_license_json'] = medical_directory_json_encode($license);
+    }
+    $hasFlatFact = false;
+    foreach (array_keys(medical_doctor_legal_text_fields()) as $key) {
+        if (trim((string) ($fields[$key] ?? '')) !== '') $hasFlatFact = true;
+    }
+    if ($strictResearch && $hasFlatFact && $legalRefs === []) {
+        throw new InvalidArgumentException('Hồ sơ & pháp lý cần legal_source_ids_json có bằng chứng.');
+    }
+    if (array_key_exists('legal_source_ids_json', $fields) || $legalRefs !== []) {
+        $fields['legal_source_ids_json'] = medical_directory_json_encode($legalRefs);
+    }
+}
+
 /** Normalize only allowlisted editorial fields. Operational/identity fields cannot be changed by AI. */
 function medical_doctor_normalize_payload(array $item, bool $strictResearch = true): array
 {
@@ -304,12 +429,18 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
     foreach (medical_doctor_text_fields() as $field => $max) {
         if (!array_key_exists($field, $item)) continue;
         $value = $item[$field];
-        if ($value === null) { $fields[$field] = null; continue; }
+        if ($value === null) {
+            // Older base columns are NOT NULL; an unknown editorial value is
+            // stored as empty text there, while research/DATE columns stay null.
+            $fields[$field] = in_array($field, ['title_text', 'specialty_text', 'city'], true) ? '' : null;
+            continue;
+        }
         if (!is_string($value) || mb_strlen($value, 'UTF-8') > $max || str_contains($value, "\0")) {
             throw new InvalidArgumentException("Trường {$field} phải là chuỗi tối đa {$max} ký tự hoặc null.");
         }
         $value = trim($value);
-        if (in_array($field, ['website_url', 'booking_url', 'image_url'], true)) $value = medical_doctor_http_url($value);
+        if (in_array($field, ['website_url', 'booking_url', 'image_url', 'professional_profile_url', 'practice_registry_url'], true)) $value = medical_doctor_http_url($value);
+        elseif ($field === 'practice_license_issued_date') $value = medical_doctor_legal_date($value, $field);
         elseif ($field === 'content') $value = medical_doctor_sanitize_html($value);
         elseif ($field === 'email_text' && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException('email_text không hợp lệ.');
@@ -333,7 +464,8 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
         }
         $factLists = ['education_json', 'experience_json', 'certifications_json', 'services_json',
             'conditions_treated_json', 'memberships_json', 'publications_json', 'awards_json',
-            'languages_supported_json', 'patient_groups_json', 'schedule_json', 'fees_json', 'locations_json'];
+            'languages_supported_json', 'patient_groups_json', 'schedule_json', 'fees_json', 'locations_json',
+            'practice_registration_json', 'legal_documents_json'];
         if (in_array($field, $factLists, true)) {
             foreach ($value as $entry) {
                 if (!is_array($entry) || ($entry !== [] && array_is_list($entry))) throw new InvalidArgumentException("{$field} cần danh sách object.");
@@ -341,6 +473,28 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
                     throw new InvalidArgumentException("Mỗi thông tin trong {$field} cần source_ids có bằng chứng.");
                 }
             }
+        }
+        if (in_array($field, ['practice_registration_json', 'legal_documents_json'], true)) {
+            if (count($value) > 30) throw new InvalidArgumentException("{$field} tối đa 30 mục.");
+            $limits = $field === 'practice_registration_json'
+                ? ['facility_name' => 160, 'department' => 190, 'scope' => 10000, 'schedule_text' => 2000]
+                : ['document_type' => 120, 'title' => 255, 'number' => 120, 'issuer' => 255];
+            foreach ($value as &$record) {
+                $allowed = array_merge(array_keys($limits), ['source_ids'], $field === 'legal_documents_json' ? ['issued_date', 'url'] : []);
+                $record = array_intersect_key($record, array_flip($allowed));
+                foreach ($limits as $key => $limit) {
+                    if (isset($record[$key]) && (!is_string($record[$key]) || mb_strlen($record[$key], 'UTF-8') > $limit || str_contains($record[$key], "\0"))) {
+                        throw new InvalidArgumentException("{$field}.{$key} phải là chuỗi tối đa {$limit} ký tự hoặc null.");
+                    }
+                }
+                $identity = $field === 'practice_registration_json' ? [$record['facility_name'] ?? ''] : [$record['title'] ?? '', $record['document_type'] ?? ''];
+                if (trim(implode('', $identity)) === '') throw new InvalidArgumentException("{$field} cần tên cơ sở hoặc loại/tên tài liệu.");
+                if ($field === 'legal_documents_json') {
+                    $record['issued_date'] = medical_doctor_legal_date($record['issued_date'] ?? null, 'legal_documents_json.issued_date');
+                    $record['url'] = medical_doctor_http_url($record['url'] ?? null);
+                }
+            }
+            unset($record);
         }
         if ($field === 'practice_license_json' && $value !== [] && array_is_list($value)) {
             throw new InvalidArgumentException('practice_license_json phải là object hoặc null.');
@@ -392,6 +546,7 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
         $walkUrls($value);
         $fields[$field] = medical_directory_json_encode($value);
     }
+    medical_doctor_normalize_legal_fields($fields, $strictResearch);
     if (array_key_exists('experience_start_year', $item)) {
         $year = $item['experience_start_year'];
         if ($year !== null && (!is_int($year) || $year < 1900 || $year > (int) gmdate('Y'))) {
@@ -413,6 +568,9 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
         throw new InvalidArgumentException('Hồ sơ thiếu dữ liệu cần ghi rõ notes_for_editor.');
     }
     $sourceIds = array_column($sources, 'id');
+    foreach (medical_doctor_decode_array($fields['legal_source_ids_json'] ?? null, 'legal_source_ids_json') as $id) {
+        if (!in_array($id, $sourceIds, true)) throw new InvalidArgumentException('legal_source_ids_json tham chiếu nguồn không tồn tại.');
+    }
     $checkRefs = static function (array $value) use (&$checkRefs, $sourceIds): void {
         foreach ($value as $key => $entry) {
             if ($key === 'source_ids') {

@@ -23,7 +23,7 @@ $payload['locations_json'] = [['facility_id' => null, 'facility_name' => 'Test h
 $normalized = medical_doctor_normalize_payload($payload);
 $assert(str_contains($normalized['content'], '<h2>'), 'HTML article retained');
 $assert(json_decode($normalized['education_json'], true)[0]['source_ids'] === ['s1'], 'source references retained');
-$assert(count(medical_doctor_column_definitions()) === 37, '37 additive columns');
+$assert(count(medical_doctor_column_definitions()) === 48, '48 additive columns including public profile/legal data');
 $assert(!isset($normalized['name'], $normalized['id'], $normalized['writer_claim_token']), 'identity and lease cannot be editorial fields');
 $tainted = $payload + ['verified' => 1, 'rating' => 5, 'reviews_count' => 123, 'language_code' => 'en', 'translation_of_id' => 22];
 $clean = medical_doctor_normalize_payload($tainted);
@@ -53,9 +53,9 @@ foreach ([['status' => 'draft'], ['language_code' => 'en'], ['content' => 'Exist
 }
 $prompt = medical_doctor_research_prompt('Custom prompt {{name}}', ['id' => 1, 'name' => 'BS. Test', 'ai_writer_claim_json' => json_encode(['claim_token' => 'SECRET']), 'reviewed_by' => 99]);
 $assert(!str_contains($prompt, 'SECRET'), 'prompt never leaks claim');
-$assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V1') && str_contains($prompt, 'education_json') && str_contains($prompt, '```json'), 'custom prompts get full contract');
+$assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2') && str_contains($prompt, 'education_json') && str_contains($prompt, '```json'), 'custom prompts get full contract');
 $defaultPrompt = medical_doctor_default_prompt();
-$assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V2'), 'expanded doctor editorial prompt version');
+$assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3'), 'expanded doctor editorial prompt version');
 foreach (medical_doctor_json_fields() as $field) $assert(str_contains($defaultPrompt, $field), 'doctor prompt documents ' . $field);
 $assert(str_contains($defaultPrompt, '{{source_json}}') && str_contains($defaultPrompt, '{{output_template}}'), 'doctor prompt carries source and dynamic output contract');
 $renderedDefault = medical_doctor_research_prompt($defaultPrompt, ['id' => 1, 'name' => 'BS. Test', 'city' => 'Test city', 'ai_writer_claim_json' => '{"claim_token":"SECRET"}']);

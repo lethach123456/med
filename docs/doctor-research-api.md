@@ -6,7 +6,7 @@ Base URL in production: `https://medreview.vn`. Every request requires the exist
 
 ## Database
 
-`medical_doctors` has 37 additive research columns (63 columns in total):
+`medical_doctors` has 48 additive research columns (74 columns in total):
 
 * Text/content: `subtitle`, `content`, `full_json`, `degree_text`, `experience_start_year`,
   `address_text`, `phone_text`, `email_text`, `website_url`, `booking_url`,
@@ -18,6 +18,17 @@ Base URL in production: `https://medreview.vn`. Every request requires the exist
   `evidence_json`, `locations_json`.
 * Research/review tracking: `insufficient_data`, `last_researched_at`, `reviewed_at`,
   `reviewed_by`, `verification_status`.
+* Professional profile/legal research: `professional_profile_url`, `practice_license_type`,
+  `practice_license_number`, `practice_license_issuer`, `practice_license_issued_date`,
+  `practice_license_scope`, `practice_registry_url`, `practice_registration_json`,
+  `legal_documents_json`, `legal_notes`, `legal_source_ids_json`.
+
+The 11 professional/legal columns are an additive extension of contract v1, not a new
+endpoint or queue type. Existing extension clients and submissions without these keys
+remain supported. `practice_license_json` is retained for older clients; the server
+synchronizes its evidenced license details with the new individual license columns.
+Conflicting nonempty values are rejected rather than silently choosing one version.
+Migration does not invent legal data, approve doctors, or backfill existing rows.
 
 Existing `id`, `slug`, `language_code`, `translation_of_id`, `ai_writer_claim_json`,
 ratings and counters remain. New doctors default to `verified=0`; existing records
@@ -38,16 +49,25 @@ php scripts/migrate_doctor_content.php
 
 Admin > Doctor edit has an expandable research editor. CSRF protection covers saves
 and translation creation. Only administrators can approve a profile; editing by a
-non-admin clears approval. Custom saved doctor prompts are preserved.
+non-admin clears approval. Custom saved doctor prompt wording is preserved.
 
-The built-in editorial prompt is `MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V2`: identity
+The built-in editorial prompt is `MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3`: identity
 matching, official-source research, all research JSON shapes, fact-checking, neutral
 Vietnamese writing/SEO and mandatory fenced JSON output. Queue/manual prompt APIs
 read the saved **Doctor** prompt from `medical_ai_prompts`; the transport contract is
-appended regardless of customization. Editing its admin textarea affects future requests.
+appended regardless of customization (`MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2`). The
+appended version includes the new legal keys even when a customized older prompt is
+saved. Editing its admin textarea affects future requests.
+The migration upgrades only the exact older built-in V2/legacy prompt to V3. For a
+custom saved Doctor prompt, it preserves the wording and appends the professional/legal
+addendum marked `MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1` once. Rerunning the migration does
+not append it again. Saved-prompt updates use a compare-and-swap condition against the
+previous text; a concurrent edit is never silently overwritten. Prompt/schema changes
+run only through this CLI migration, not from visitor/API requests.
 To explicitly replace a saved Doctor prompt with this built-in version, first back up its
 current text, then run `php scripts/migrate_doctor_content.php --replace-doctor-prompt`.
-Without that flag, custom prompts are never overwritten.
+Without that flag, a custom prompt is not replaced wholesale; only the missing legal
+addendum is appended.
 
 ## Endpoints
 
@@ -152,6 +172,37 @@ The API returns `output_template` dynamically. Field names/types below are fixed
 * `certifications_json`: `{name,issuer,year,source_ids}`.
 * `practice_license_json`: `{document_type,number,issuer,issued_date,scope,source_ids}` or null.
   Failure to find a license online does not mean a doctor has no license.
+* `professional_profile_url`: raw HTTP(S) URL of the matching official public doctor
+  profile; `practice_registry_url`: raw HTTP(S) URL of a regulator's public register or
+  doctor-specific registration record. Unknown URLs are null; do not substitute a
+  fabricated detail-page URL or a site's homepage as proof of a specific license.
+* Individual license columns: `practice_license_type`, `practice_license_number`,
+  `practice_license_issuer`, `practice_license_issued_date`, `practice_license_scope`.
+  Type/number/issuer/scope are strings or null. The issue date is exactly `YYYY-MM-DD`
+  or null and must be a real calendar date. If a source only gives a month/year, keep
+  the date null and describe that incomplete date in `legal_notes`; never guess day 01.
+  For backward compatibility, incomplete legacy `practice_license_json.issued_date`
+  text can remain in the old object while the new database DATE column stays null.
+* `legal_source_ids_json`: list of source-ID strings referencing `sources_json`.
+  Nonempty legal scalar fields/URLs require these references in research submissions.
+  A legacy `practice_license_json.source_ids` can supply the corresponding evidence
+  during compatibility normalization.
+* `practice_registration_json`: list of `{facility_name,department,scope,schedule_text,source_ids}`.
+  This represents publicly evidenced practice registration, not an assumed copy of
+  `locations_json` or the opening hours of a hospital.
+* `legal_documents_json`: list of `{document_type,title,number,issuer,issued_date,url,source_ids}`.
+  Each entry must contain public professional-document details and references to real
+  sources. `issued_date` obeys the same full-date/null rule and `url` is raw HTTP(S) or
+  null. Do not collect private identity documents or patient information.
+* `legal_notes`: short professional/legal data caveats, string or null, at most 10,000
+  characters. Missing online evidence is not proof that a doctor is unlicensed. Neither
+  these columns nor AI research can declare a license valid, expired, revoked, or grant
+  MedReview verification. Approval remains an administrator-controlled workflow.
+
+Legal fields are evidence, not localization targets: VI→EN translation copies the
+source legal columns/JSON unchanged and does not ask the translation AI to rewrite
+document numbers, issuer names, dates, URLs or evidence source IDs.
+
 * `services_json`: `{name,description,source_ids}`; `conditions_treated_json`: `{name,source_ids}`.
 * `memberships_json`: `{name,role,source_ids}`; `publications_json`: `{title,year,url,doi,source_ids}`;
   `awards_json`: `{name,issuer,year,source_ids}`.
@@ -180,12 +231,18 @@ payload without private claim tokens. The server stores research timestamps, not
 ```sh
 php tests/doctor_content_test.php
 php tests/doctor_content_test.php --mysql-temporary
+php tests/doctor_legal_content_test.php
+php tests/doctor_legal_content_test.php --mysql-temporary
 ```
 
-The second command uses connection-local TEMPORARY tables shadowing the production
+Commands with `--mysql-temporary` use connection-local TEMPORARY tables shadowing the production
 names; no real doctors/clinics are inserted, edited or deleted. Covers foreign/expired
 tokens, second submissions, rollback, protected fields, source references, HTML XSS,
 gallery compatibility and insufficient-research queue exclusion.
+The legal regression also checks the 11-column additive schema, old/new license
+compatibility, real dates, legal evidence references, list/object types and limits,
+protected approval fields, current prompt/output templates, mapping and transactional
+persistence of the new legal fields.
 
 With a local PHP server on port 8768, `php tests/doctor_http_readonly_test.php` checks
 authentication, CORS, queue/read/prompt routes and invalid POST handling. It does not

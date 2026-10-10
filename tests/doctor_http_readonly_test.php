@@ -31,12 +31,23 @@ $assert(isset($queue['items']) && is_array($queue['items']), 'queue shape');
 if ($queue['items'] !== []) {
     $item = $queue['items'][0];
     $assert(!isset($item['ai_writer_claim_json']) && !isset($item['writer_claim']['claim_token']), 'queue has no private lease');
-    $assert(str_contains($item['prompt'], 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V1') && isset($item['output_template']['education_json']), 'full doctor prompt from API');
+    $assert(str_contains($item['prompt'], 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2') && isset($item['output_template']['education_json']), 'full doctor prompt from API');
     [$status, $record] = $request('doctor-content.php?id=' . (int) $item['id']);
     $assert($status === 200 && (int) ($record['item']['id'] ?? 0) === (int) $item['id'], 'record read endpoint');
     [$status, $prompt] = $request('prompt.php?type=doctor&id=' . (int) $item['id'] . '&name=' . rawurlencode($item['name']));
     $assert($status === 200 && ($prompt['output_template']['id'] ?? 0) === (int) $item['id']
-        && str_contains($prompt['prompt'] ?? '', 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V1'), 'manual doctor prompt uses database source');
+        && str_contains($prompt['prompt'] ?? '', 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2'), 'manual doctor prompt uses database source');
+}
+// Check the legal contract even when the real queue is empty; this prompt GET
+// does not create a doctor, acquire a claim or save any editorial data.
+[$status, $legalPrompt] = $request('prompt.php?type=doctor&name=Doctor%20HTTP%20Test');
+$assert($status === 200 && str_contains($legalPrompt['prompt'] ?? '', 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2'), 'manual doctor prompt includes current transport contract');
+foreach (['professional_profile_url', 'practice_license_type', 'practice_license_number',
+    'practice_license_issuer', 'practice_license_issued_date', 'practice_license_scope',
+    'practice_registry_url', 'practice_registration_json', 'legal_documents_json',
+    'legal_notes', 'legal_source_ids_json'] as $field) {
+    $assert(array_key_exists($field, $legalPrompt['output_template'] ?? [])
+        && str_contains($legalPrompt['prompt'] ?? '', $field), 'HTTP doctor prompt contains legal field: ' . $field);
 }
 [$status, $legacy] = $request('facilities-needing-content.php?type=doctor&limit=1');
 $assert($status === 200 && ($legacy['type'] ?? '') === 'doctor', 'legacy type=doctor routes to doctors');

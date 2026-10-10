@@ -80,7 +80,8 @@ function medical_api_translation_field_map(string $type): array
         }
         foreach (medical_doctor_json_fields() as $field) {
             // Source URLs/IDs and regulator documents are evidence, not translated facts.
-            if (in_array($field, ['sources_json', 'practice_license_json', 'social_links_json', 'video_urls_json'], true)) continue;
+            if (in_array($field, ['sources_json', 'practice_license_json', 'social_links_json', 'video_urls_json',
+                'practice_registration_json', 'legal_documents_json', 'legal_source_ids_json'], true)) continue;
             $fields[$field] = $json([$field]);
         }
         return $fields;
