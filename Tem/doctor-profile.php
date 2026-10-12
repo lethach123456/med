@@ -68,6 +68,13 @@ $labels = $english ? [
 ];
 $label = static fn(string $key): string => $labels[$key] ?? $key;
 $icon = static fn(string $name): string => '<i class="ph ph-' . $name . '" aria-hidden="true"></i>';
+$facilityName = static function (array $location) use ($escape, $icon, $label): string {
+    $name = $escape($location['facility_name'] ?? '');
+    if (empty($location['profile_url'])) return $name;
+    return '<a class="dp-facility-link" href="' . $escape($location['profile_url']) . '" aria-label="'
+        . $escape($label('facility') . ': ' . ($location['facility_name'] ?? '')) . '"><span class="dp-facility-name">'
+        . $name . '</span>' . $icon('arrow-right') . '</a>';
+};
 $refs = static function (array $entry) use ($profile, $escape, $english): string {
     $html = ''; $seen = [];
     foreach ((array) ($entry['source_ids'] ?? []) as $id) {
@@ -140,7 +147,7 @@ $primary=$profile['locations'][0] ?? [];
         <?php if ($profile['degree_text'] !== ''): ?><div><dt><?= $icon('graduation-cap') ?><?= $escape($label('degree')) ?></dt><dd><?= $escape($profile['degree_text']) ?></dd></div><?php endif; ?>
         <?php if (!empty($profile['experience_start_year'])): ?><div><dt><?= $icon('briefcase') ?><?= $escape($label('since')) ?></dt><dd><?= $escape($profile['experience_start_year']) ?></dd></div><?php endif; ?>
         <?php if ($profile['languages_supported_json'] !== []): ?><div><dt><?= $icon('translate') ?><?= $escape($label('languages')) ?></dt><dd><?= $escape($join(array_column($profile['languages_supported_json'], 'name'))) ?></dd></div><?php endif; ?>
-        <?php if ($primary !== []): ?><div class="dp-fact-place"><dt><?= $icon('buildings') ?><?= $escape($label(!empty($primary['is_primary']) ? 'primary' : 'locations')) ?></dt><dd><a href="#noi-kham"><?= $escape($primary['facility_name']) ?><?= $icon('arrow-up-right') ?></a></dd></div><?php endif; ?>
+        <?php if ($primary !== []): ?><div class="dp-fact-place"><dt><?= $icon('buildings') ?><?= $escape($label(!empty($primary['is_primary']) ? 'primary' : 'locations')) ?></dt><dd><?= $facilityName($primary) ?></dd></div><?php endif; ?>
       </dl>
       <?php endif; ?>
     </section>
@@ -260,7 +267,7 @@ $primary=$profile['locations'][0] ?? [];
           <div class="dp-locations">
             <?php foreach ($profile['locations'] as $index=>$location): ?>
             <article class="dp-location">
-              <div class="dp-location-head"><span class="dp-location-number"><?= $index+1 ?></span><div><?php if (!empty($location['is_primary'])): ?><span class="dp-primary-place"><?= $escape($label('primary')) ?></span><?php endif; ?><h3><?= $escape($location['facility_name']) ?></h3><?php if ($join([$location['role_text'] ?? '',$location['department_text'] ?? ''])!==''): ?><p><?= $escape($join([$location['role_text'] ?? '',$location['department_text'] ?? ''])) ?></p><?php endif; ?></div></div>
+              <div class="dp-location-head"><span class="dp-location-number"><?= $index+1 ?></span><div><?php if (!empty($location['is_primary'])): ?><span class="dp-primary-place"><?= $escape($label('primary')) ?></span><?php endif; ?><h3><?= $facilityName($location) ?></h3><?php if ($join([$location['role_text'] ?? '',$location['department_text'] ?? ''])!==''): ?><p><?= $escape($join([$location['role_text'] ?? '',$location['department_text'] ?? ''])) ?></p><?php endif; ?></div></div>
               <?php if (!empty($location['address_text'])): ?><p class="dp-location-address"><?= $icon('map-pin') ?><span><?= $escape($location['address_text']) ?></span></p><?php endif; ?>
               <?php if ($location['phone_href'] !== ''): ?><a class="dp-location-phone" href="<?= $escape($location['phone_href']) ?>"><?= $icon('phone') ?><?= $escape($location['phone_text']) ?></a><?php endif; ?>
               <?= $refs($location) ?>
@@ -319,7 +326,7 @@ $primary=$profile['locations'][0] ?? [];
       <aside class="dp-sidebar" aria-label="<?= $escape($label('plan')) ?>">
         <section class="dp-contact-card">
           <span class="dp-contact-icon"><?= $icon('calendar-check') ?></span><h2><?= $escape($label('plan')) ?></h2><p><?= $escape($label('planNote')) ?></p>
-          <?php if ($primary !== []): ?><div class="dp-sidebar-place"><?= $icon('buildings') ?><div><strong><?= $escape($primary['facility_name']) ?></strong><?php if (!empty($primary['address_text'])): ?><span><?= $escape($primary['address_text']) ?></span><?php endif; ?></div></div><?php endif; ?>
+          <?php if ($primary !== []): ?><div class="dp-sidebar-place"><?= $icon('buildings') ?><div><strong><?= $facilityName($primary) ?></strong><?php if (!empty($primary['address_text'])): ?><span><?= $escape($primary['address_text']) ?></span><?php endif; ?></div></div><?php endif; ?>
           <?php if ($profile['phone_href'] !== ''): ?><a class="dp-contact-number" href="<?= $escape($profile['phone_href']) ?>"><?= $icon('phone') ?><span><small><?= $escape($label('phone')) ?></small><strong><?= $escape($profile['phone_text']) ?></strong></span></a><?php endif; ?>
           <?php if ($profile['booking_url'] !== ''): ?><a class="dp-button dp-primary" href="<?= $escape($profile['booking_url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape($label('book')) ?><?= $icon('arrow-up-right') ?></a><?php elseif ($profile['locations'] !== []): ?><a class="dp-button dp-primary" href="#noi-kham"><?= $escape($label('places')) ?><?= $icon('arrow-right') ?></a><?php endif; ?>
           <?php if ($profile['email_text'] !== ''): ?><a class="dp-text-link" href="mailto:<?= $escape($profile['email_text']) ?>"><?= $icon('envelope') ?><?= $escape($profile['email_text']) ?></a><?php endif; ?>

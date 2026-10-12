@@ -170,6 +170,9 @@ function medical_doctor_profile_model(array $doctor, ?array $legacyFacility = nu
     }
     $model['legal'] = medical_doctor_profile_legal($doctor, $model['source_index']);
     $model['locations'] = medical_doctor_profile_entries($doctor['locations_json'] ?? [], ['facility_name']);
+    // Profile links are resolved from published DB records by the page, never from AI JSON.
+    foreach ($model['locations'] as &$location) $location['profile_url'] = '';
+    unset($location);
     // Legacy profiles retain their known workplace, without inventing a clinic or timetable.
     if ($model['locations'] === [] && (medical_doctor_profile_text($doctor['facility_name'] ?? '') !== '' || medical_doctor_profile_text($legacyFacility['name'] ?? '') !== '')) {
         $model['locations'][] = [

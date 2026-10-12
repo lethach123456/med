@@ -57,6 +57,10 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
 .doctor-profile .dp-facts dd a{display:inline-flex;align-items:center;gap:9px;min-height:24px}
 .doctor-profile .dp-facts dd a:hover{color:var(--dp-blue)}
 .doctor-profile .dp-facts dd .ph{font-size:17px;color:#4d75b8}
+.doctor-profile .dp-facility-link{display:inline-flex;align-items:center;gap:8px;max-width:100%;min-height:24px;color:var(--dp-blue);text-decoration:underline;text-decoration-color:#2563ff50;text-underline-offset:4px;transition:color .18s ease,text-decoration-color .18s ease}
+.doctor-profile .dp-facility-link:hover{color:#174bb9;text-decoration-color:currentColor}
+.doctor-profile .dp-facility-link .dp-facility-name{min-width:0;margin:0;color:inherit;font:inherit;line-height:inherit;text-wrap:pretty}
+.doctor-profile .dp-facility-link .ph{font-size:16px;color:inherit}
 .doctor-profile .dp-disclosure{display:flex;gap:10px;align-items:flex-start;color:var(--dp-muted);font-size:13px;line-height:1.75;margin:22px 0 26px;max-width:1000px}
 .doctor-profile .dp-disclosure .ph{font-size:20px;margin-top:2px;color:#6b87b2}
 .doctor-profile .dp-nav{position:sticky;top:var(--dp-header-height);z-index:25;display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;padding:0;border:0;border-bottom:1px solid var(--dp-line);border-radius:0;background:#fff;box-shadow:none;margin-bottom:40px;scroll-padding:12px}
@@ -342,6 +346,7 @@ body.doctor-profile-page *,body.doctor-profile-page *::before,body.doctor-profil
  .doctor-profile .dp-facts dt .ph{font-size:19px}
  .doctor-profile .dp-facts dd{font-size:14px;line-height:1.7}
  .doctor-profile .dp-facts dd a{min-height:44px}
+ .doctor-profile .dp-facility-link{min-height:44px}
  .doctor-profile .dp-disclosure{font-size:13px;line-height:1.8;margin:26px 0;padding:0}
  .doctor-profile .dp-nav{margin:0 -12px 30px;padding:0 12px;gap:8px;border-color:var(--dp-line)}
  .doctor-profile .dp-nav a{font-size:13px;min-height:50px;padding:11px 9px}

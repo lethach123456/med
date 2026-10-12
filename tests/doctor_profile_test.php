@@ -69,8 +69,13 @@ $assert(medical_doctor_profile_period(['start_year'=>2010],true)==='2010','unkno
 $assert(medical_doctor_profile_fee(['amount_min'=>250000,'amount_max'=>400000,'currency'=>'VND'],false)==='250.000 – 400.000 VND','fee range formatting');
 $assert(medical_doctor_profile_fee(['amount_min'=>0,'amount_max'=>0,'currency'=>'VND'],true)==='0 VND','real zero fee kept');
 $assert(medical_doctor_profile_fee([],false)==='Liên hệ xác nhận giá','unknown fee not invented');
-$render=static function(array $doctor,string $doctorLanguage): string {
+$render=static function(array $doctor,string $doctorLanguage,array $facilityPaths=[]): string {
     $profile=medical_doctor_profile_model($doctor);
+    // Simulate the page resolving published facility records, without accessing a DB.
+    foreach ($profile['locations'] as &$location) {
+        if (isset($facilityPaths[$location['facility_name']])) $location['profile_url']=$facilityPaths[$location['facility_name']];
+    }
+    unset($location);
     $escape=static fn(mixed $value)=>htmlspecialchars(medical_doctor_profile_text($value),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
     $relatedDoctors=[];
     ob_start(); require dirname(__DIR__).'/Tem/doctor-profile.php'; return ob_get_clean();
@@ -97,4 +102,38 @@ $assert(!str_contains($render(array_replace($empty,['practice_license_json'=>['s
 $assert(!str_contains($html,'<script>Test') && str_contains($html,'&lt;script&gt;Test'),'identity escaped');
 $legacy=medical_doctor_profile_model($empty,['name'=>'Legacy hospital','slug'=>'legacy','address_text'=>'Known address']);
 $assert($legacy['locations'][0]['facility_name']==='Legacy hospital','legacy workplace without fictional fallback');
+$assert($legacy['locations'][0]['profile_url']==='/co-so-y-te/legacy','server-resolved legacy facility path preserved');
+$xpath=static function(string $html): DOMXPath {
+    $document=new DOMDocument();
+    $document->loadHTML('<?xml encoding="UTF-8">'.$html,LIBXML_NOERROR|LIBXML_NOWARNING);
+    return new DOMXPath($document);
+};
+foreach (['vi','en'] as $locale) {
+    $primaryPath=($locale==='en'?'/en':'').'/co-so-y-te/hospital-a';
+    $secondaryPath=($locale==='en'?'/en':'').'/co-so-y-te/clinic-b';
+    $linked=$xpath($render(doctor_profile_test_fixture($locale),$locale,['Hospital A'=>$primaryPath,'Clinic B'=>$secondaryPath]));
+    foreach (['//div[@class="dp-fact-place"]/dd/a','//div[@class="dp-location-head"]/div/h3/a','//div[@class="dp-sidebar-place"]/div/strong/a'] as $context) {
+        $links=$linked->query($context.'[@href="'.$primaryPath.'"]');
+        $assert($links->length===1,$locale.' direct facility name link in '.$context);
+        $assert(!$links->item(0)->hasAttribute('target') && str_contains($links->item(0)->getAttribute('aria-label'),'Hospital A'),$locale.' name link accessible and opens in same tab');
+    }
+    $assert($linked->query('//div[@class="dp-location-head"]/div/h3/a[@href="'.$secondaryPath.'"]')->length===1,$locale.' secondary practice has its own facility link');
+    $assert($linked->query('//div[@class="dp-location-actions"]/a[@href="'.$primaryPath.'"]')->length===1,$locale.' explicit view facility action retained');
+    $assert($linked->query('//nav[@class="dp-nav"]/a[@href="#noi-kham"]')->length===1,$locale.' in-page locations navigation retained');
+}
+$unlinked=$xpath($render($doctor,'vi'));
+$assert($unlinked->query('//a[contains(@class,"dp-facility-link")]')->length===0,'unlinked facility names remain text instead of fake or scroll links');
+foreach (['/co-so-y-te/invented','https://example.org/fake-facility','javascript:alert(1)'] as $untrustedPath) {
+    $untrusted=$doctor;
+    foreach ($untrusted['locations_json'] as &$location) $location['profile_url']=$untrustedPath;
+    unset($location);
+    $untrustedModel=medical_doctor_profile_model($untrusted);
+    $assert(array_column($untrustedModel['locations'],'profile_url')===['',''],'AI-supplied facility path discarded: '.$untrustedPath);
+    $assert(!str_contains($render($untrusted,'vi'),'href="'.$untrustedPath.'"'),'untrusted path never becomes a facility action');
+}
+$escapedDoctor=$doctor;
+$escapedName='Hospital <script>alert(1)</script> & Clinic';
+$escapedDoctor['locations_json'][1]['facility_name']=$escapedName;
+$escapedHtml=$render($escapedDoctor,'vi',[$escapedName=>'/co-so-y-te/safe']);
+$assert(!str_contains($escapedHtml,'<script>alert(1)</script>') && str_contains($escapedHtml,'Hospital &lt;script&gt;alert(1)&lt;/script&gt; &amp; Clinic'),'linked facility name safely escaped');
 echo "Doctor profile: {$checks} checks passed. No DB records modified.\n";
