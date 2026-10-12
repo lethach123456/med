@@ -194,8 +194,12 @@ The API returns `output_template` dynamically. Field names/types below are fixed
   text can remain in the old object while the new database DATE column stays null.
 * `legal_source_ids_json`: list of source-ID strings referencing `sources_json`.
   Nonempty legal scalar fields/URLs require these references in research submissions.
-  A legacy `practice_license_json.source_ids` can supply the corresponding evidence
-  during compatibility normalization.
+  Compatibility normalization aggregates declared `source_ids` from the license,
+  registration and document objects. A profile/register URL matching a source URL
+  exactly also supplies that source ID (no host-only or guessed URL matching).
+  This permits an omitted/null/empty aggregate without losing existing citations.
+  Inferred link citations never become license `source_ids`; unknown/malformed IDs
+  remain errors. No fallback attaches every article source to legal facts or notes.
 * `practice_registration_json`: list of `{facility_name,department,scope,schedule_text,source_ids}`.
   This represents publicly evidenced practice registration, not an assumed copy of
   `locations_json` or the opening hours of a hospital.

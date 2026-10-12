@@ -127,11 +127,43 @@ foreach (['professional_profile_url', 'practice_registry_url'] as $key) {
 }
 $badDocument = $legal['legal_documents_json']; $badDocument[0]['url'] = 'data:text/html,x';
 $reject(fn() => medical_doctor_normalize_payload(array_replace($legal, ['legal_documents_json' => $badDocument])), 'unsafe document URL');
-foreach (['professional_profile_url', 'practice_license_type', 'practice_license_number',
-    'practice_license_issuer', 'practice_license_issued_date', 'practice_license_scope', 'practice_registry_url', 'legal_notes'] as $key) {
+foreach (['practice_license_type', 'practice_license_number',
+    'practice_license_issuer', 'practice_license_issued_date', 'practice_license_scope', 'legal_notes'] as $key) {
     $missingEvidence = array_replace($base, [$key => $legal[$key], 'legal_source_ids_json' => []]);
     $reject(fn() => medical_doctor_normalize_payload($missingEvidence), 'legal scalar requires evidence: ' . $key);
 }
+foreach (['professional_profile_url' => 's1', 'practice_registry_url' => 's2'] as $key => $id) {
+    foreach (['omitted', null, []] as $refs) {
+        $matching = array_replace($base, [$key => $legal[$key]]);
+        if ($refs === 'omitted') unset($matching['legal_source_ids_json']);
+        else $matching['legal_source_ids_json'] = $refs;
+        $assert($decode(medical_doctor_normalize_payload($matching), 'legal_source_ids_json') === [$id], 'exact legal URL derives refs: ' . $key);
+    }
+    foreach ([$legal[$key] . '/', $legal[$key] . '?other=1', str_replace('https:', 'http:', $legal[$key]),
+        dirname($legal[$key]) . '/different'] as $url) {
+        $reject(fn() => medical_doctor_normalize_payload(array_replace($base, [$key => $url])), 'similar URL is not the cited profile');
+    }
+    $reject(fn() => medical_doctor_normalize_payload(array_replace($base, [$key => $legal[$key], 'practice_license_number' => 'UNSOURCED'])), 'profile reference must not become license proof');
+    $reject(fn() => medical_doctor_normalize_payload(array_replace($base, [$key => $legal[$key], 'legal_source_ids_json' => ['missing']])), 'invalid explicit ref is not silently repaired');
+}
+foreach (['practice_registration_json', 'legal_documents_json'] as $key) {
+    foreach (['omitted', null, []] as $refs) {
+        $nested = array_replace($base, [$key => $legal[$key], 'legal_notes' => 'Ghi chú theo tài liệu đã dẫn nguồn.']);
+        if ($refs === 'omitted') unset($nested['legal_source_ids_json']);
+        else $nested['legal_source_ids_json'] = $refs;
+        $assert($decode(medical_doctor_normalize_payload($nested), 'legal_source_ids_json') === ['s2'], 'nested legal refs derive aggregate: ' . $key);
+    }
+}
+$nestedAggregate = array_replace($base, ['practice_license_json' => $license,
+    'practice_registration_json' => $legal['practice_registration_json'], 'legal_documents_json' => $legal['legal_documents_json'],
+    'professional_profile_url' => $legal['professional_profile_url'], 'practice_registry_url' => $legal['practice_registry_url']]);
+$aggregate = medical_doctor_normalize_payload($nestedAggregate);
+$assert($decode($aggregate, 'legal_source_ids_json') === ['s2', 's1'], 'derived aggregate stable order and deduplication');
+$assert($decode($aggregate, 'practice_license_json')['source_ids'] === ['s2'], 'profile proof never added to license source_ids');
+$unrelated = array_replace($base, ['legal_notes' => 'Chưa có nguồn pháp lý.',
+    'education_json' => [['institution' => 'Test', 'source_ids' => ['s1']]],
+    'gallery_json' => [['url' => 'https://hospital.example.org/photo.jpg', 'source_ids' => ['s1']]]]);
+$reject(fn() => medical_doctor_normalize_payload($unrelated), 'nonlegal refs cannot fill legal evidence');
 foreach ([['missing'], [123], 's1', ['s1' => 's2'], [['id' => 's1']]] as $refs) {
     $reject(fn() => medical_doctor_normalize_payload(array_replace($legal, ['legal_source_ids_json' => $refs])), 'invalid legal source IDs');
 }
@@ -185,6 +217,7 @@ foreach (['title_text', 'specialty_text', 'city'] as $key) $assert(medical_docto
 $prompt = medical_doctor_research_prompt('Custom {{name}}', ['id' => 1, 'name' => 'BS. Legal Test',
     'ai_writer_claim_json' => '{"claim_token":"PRIVATE_TOKEN"}', 'full_json' => '{"writer_claim_token":"PRIVATE_TOKEN"}']);
 $defaultPrompt = medical_doctor_default_prompt();
+$assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_LEGAL_REFERENCES_V1') && str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_LEGAL_REFERENCES_V1'), 'all prompts explain legal references compatibility');
 $assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2'), 'custom old prompt gains mandatory legal contract v2');
 $assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3'), 'default prompt updated to v3');
 $assert(!str_contains($prompt, 'PRIVATE_TOKEN'), 'legal prompt never exposes private lease');

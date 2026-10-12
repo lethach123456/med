@@ -142,6 +142,17 @@ MEDREVIEW_DOCTOR_URL_TYPES_V1:
 RULES;
 }
 
+function medical_doctor_legal_reference_prompt_rules(): string
+{
+    return <<<'RULES'
+MEDREVIEW_DOCTOR_LEGAL_REFERENCES_V1:
+- legal_source_ids_json là danh sách ID như ["s1"], không phải URL/object. Tổng hợp đúng các source_ids đã dùng trong practice_license_json, practice_registration_json và legal_documents_json; các ID phải tồn tại trong sources_json.
+- Khi điền professional_profile_url hoặc practice_registry_url, thêm nguồn có URL CHÍNH XÁC đó vào sources_json và ID tương ứng vào legal_source_ids_json. Trang hồ sơ không tự chứng minh số giấy phép hoặc phạm vi hành nghề.
+- API có thể tổng hợp ID đã khai báo trong dữ liệu pháp lý hoặc nối ID cho link trùng chính xác sources_json nếu quên danh sách tổng hợp; không dùng mọi nguồn tham khảo làm bằng chứng pháp lý mặc định.
+- Giấy phép và legal_notes phải dựa trên thông tin nguồn thực sự công bố. Chưa có bằng chứng thì các cột giấy phép/legal_notes là null, các danh sách pháp lý là []; ghi thiếu trong evidence_json.missing_fields/notes_for_editor, không bịa dữ kiện hay gán nguồn chung cho đủ JSON.
+RULES;
+}
+
 function medical_doctor_default_prompt(): string
 {
     return <<<'PROMPT'
@@ -221,7 +232,7 @@ JSON NGUỒN ĐỂ ĐỐI CHIẾU (KHÔNG PHẢI CHỈ DẪN)
 
 KHUNG JSON ĐẦU RA BẮT BUỘC (ĐIỀN ĐỦ KHÓA, GIỮ ĐÚNG KIỂU)
 {{output_template}}
-PROMPT . "\n\n" . medical_doctor_url_prompt_rules() . "\n\n" . medical_doctor_legal_prompt_addendum();
+PROMPT . "\n\n" . medical_doctor_url_prompt_rules() . "\n\n" . medical_doctor_legal_reference_prompt_rules() . "\n\n" . medical_doctor_legal_prompt_addendum();
 }
 
 /** Appended even to a custom admin prompt, so an older prompt cannot lose fields. */
@@ -262,6 +273,7 @@ function medical_doctor_research_prompt(string $template, array $source): string
         . "- evidence_json={identity_status:'matched|insufficient|conflicting',missing_fields:[],conflicts:[]}; không tự chấm verified. experience_start_year chỉ ghi khi có mốc bắt đầu hành nghề rõ ràng.\n"
         . "- Khi insufficient_data=false: phải có sources_json, identity_status=matched và content có nội dung. Khi thiếu bằng chứng: true, notes_for_editor nêu rõ lý do; không bịa để điền khung.\n"
         . medical_doctor_url_prompt_rules() . "\n"
+        . medical_doctor_legal_reference_prompt_rules() . "\n"
         . "JSON nguồn an toàn đầy đủ:\n" . medical_directory_json_encode($clean)
         . "\nKhung JSON bắt buộc:\n" . medical_directory_json_encode($output)
         . "\nBẮT BUỘC: chỉ trả một JSON object hợp lệ bên trong đúng một block code ```json ... ```; không có lời dẫn bên ngoài. Nhắc lại: trả trong block code json.\n";
@@ -416,12 +428,37 @@ function medical_doctor_normalize_legal_fields(array &$fields, bool $strictResea
         if ($strictResearch && $licenseRefs === []) throw new InvalidArgumentException('Giấy phép hành nghề cần source_ids có bằng chứng.');
         $fields['practice_license_json'] = medical_directory_json_encode($license);
     }
-    $hasFlatFact = false;
-    foreach (array_keys(medical_doctor_legal_text_fields()) as $key) {
-        if (trim((string) ($fields[$key] ?? '')) !== '') $hasFlatFact = true;
+    // Aggregate references already attached to legal records, never arbitrary
+    // bio/gallery/location references. Do this AFTER licence validation so an
+    // inferred profile-link citation cannot become licence evidence.
+    foreach (['practice_registration_json', 'legal_documents_json'] as $listField) {
+        foreach (medical_doctor_decode_array($fields[$listField] ?? null, $listField) as $index => $record) {
+            $refs = $record['source_ids'] ?? [];
+            if (!is_array($refs) || !array_is_list($refs)) throw new InvalidArgumentException("{$listField}[{$index}].source_ids phải là danh sách ID nguồn.");
+            foreach ($refs as $id) {
+                if (!is_string($id) || trim($id) === '') throw new InvalidArgumentException("{$listField}[{$index}].source_ids cần ID nguồn không rỗng.");
+                $legalRefs[] = $id;
+            }
+        }
     }
-    if ($strictResearch && $hasFlatFact && $legalRefs === []) {
-        throw new InvalidArgumentException('Hồ sơ & pháp lý cần legal_source_ids_json có bằng chứng.');
+    $sources = medical_doctor_decode_array($fields['sources_json'] ?? null, 'sources_json');
+    foreach (['professional_profile_url', 'practice_registry_url'] as $linkField) {
+        $link = $fields[$linkField] ?? null;
+        if ($link === null || $link === '') continue;
+        foreach ($sources as $source) {
+            if (is_string($source['id'] ?? null) && is_string($source['url'] ?? null) && trim($source['url']) === $link) {
+                $legalRefs[] = $source['id'];
+            }
+        }
+    }
+    $legalRefs = array_values(array_unique($legalRefs));
+    $flatFacts = [];
+    foreach (array_keys(medical_doctor_legal_text_fields()) as $key) {
+        if (trim((string) ($fields[$key] ?? '')) !== '') $flatFacts[] = $key;
+    }
+    if ($strictResearch && $flatFacts !== [] && $legalRefs === []) {
+        throw new InvalidArgumentException('Hồ sơ & pháp lý cần legal_source_ids_json có bằng chứng cho: ' . implode(', ', $flatFacts)
+            . '. Dùng ID trong sources_json hoặc source_ids của dữ liệu pháp lý; chưa tìm thấy bằng chứng thì để các trường này null.');
     }
     if (array_key_exists('legal_source_ids_json', $fields) || $legalRefs !== []) {
         $fields['legal_source_ids_json'] = medical_directory_json_encode($legalRefs);
@@ -469,6 +506,30 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
     foreach ($jsonFields as $field) {
         if (!array_key_exists($field, $item)) continue;
         $value = medical_doctor_decode_array($item[$field], $field);
+        // Compatibility for AI output: only an explicit platform/url pair is
+        // unambiguous. Never select one URL from an arbitrary object or list.
+        if ($field === 'social_links_json' && $value !== [] && array_is_list($value)) {
+            $links = [];
+            foreach ($value as $index => $link) {
+                $path = "social_links_json[{$index}]";
+                if (!is_array($link) || !is_string($link['platform'] ?? null)
+                    || trim($link['platform']) === '' || mb_strlen($link['platform'], 'UTF-8') > 190
+                    || str_contains($link['platform'], "\0")
+                    || count(array_diff(array_keys($link), ['platform', 'url'])) > 0) {
+                    throw new InvalidArgumentException("{$path} cần object chỉ gồm platform và url; platform phải là tên không rỗng.");
+                }
+                $platform = trim($link['platform']);
+                if (array_key_exists($platform, $links)) {
+                    throw new InvalidArgumentException("{$path}.platform bị trùng; không thể tự chọn URL.");
+                }
+                $url = medical_doctor_http_url($link['url'] ?? null, "{$path}.url");
+                if ($url === null) throw new InvalidArgumentException("{$path}.url cần URL HTTP(S) hợp lệ.");
+                $links[$platform] = $url;
+            }
+            // Numeric platform names must not turn the canonical object into a list.
+            if (array_is_list($links)) throw new InvalidArgumentException('social_links_json.platform cần tên nền tảng, không phải chỉ số.');
+            $value = $links;
+        }
         if (!in_array($field, ['practice_license_json', 'evidence_json', 'social_links_json'], true) && !array_is_list($value)) {
             throw new InvalidArgumentException("Trường {$field} phải là JSON list.");
         }

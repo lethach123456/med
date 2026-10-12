@@ -53,6 +53,15 @@ $validUrls = array_replace($payload, ['locations_json' => [['facility_name' => '
     'publications_json' => [['title' => 'Test', 'url' => null, 'source_ids' => ['s1']]],
     'social_links_json' => ['facebook' => 'https://example.org/social'], 'video_urls_json' => ['https://example.org/video']]);
 $assert(isset(medical_doctor_normalize_payload($validUrls)['locations_json']), 'valid scalar and nullable nested URLs retained');
+$pairs = [['platform' => 'Website Hệ thống Y tế Thu Cúc TCI', 'url' => 'https://benhvienthucuc.vn']];
+$pairResult = medical_doctor_normalize_payload(array_replace($payload, ['social_links_json' => $pairs]));
+$assert(json_decode($pairResult['social_links_json'], true) === ['Website Hệ thống Y tế Thu Cúc TCI' => 'https://benhvienthucuc.vn'], 'AI platform/url pairs normalized without guessing name');
+foreach ([array_merge($pairs, $pairs), [['platform' => ' ', 'url' => 'https://example.org']],
+    [['platform' => 'facebook', 'url' => null]], [['platform' => 'facebook', 'url' => ['https://example.org']]],
+    [['platform' => 'facebook', 'url' => 'javascript:x']], [['platform' => 'facebook', 'url' => 'https://example.org', 'extra' => 'keep me']],
+    [['url' => 'https://example.org']], ['https://example.org']] as $badPairs) {
+    $reject(fn() => medical_doctor_normalize_payload(array_replace($payload, ['social_links_json' => $badPairs])), 'ambiguous/invalid social pair rejected');
+}
 foreach ([['education_json' => '{bad'], ['education_json' => 5], ['bio_json' => [123]], ['sources_json' => [['id' => 's1', 'url' => 'javascript:x']]],
     ['experience_start_year' => '2020'], ['insufficient_data' => 'false'], ['evidence_json' => ['identity_status' => 'insufficient']],
     ['sources_json' => []], ['content' => '<script>x</script>'], ['education_json' => [['source_ids' => ['missing']]]],
