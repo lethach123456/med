@@ -660,13 +660,8 @@ function site_icon_href(string $default = ''): string
 
 function site_favicon_tags(): string
 {
-    $href = site_icon_href('');
-    if ($href === '') {
-        return '';
-    }
-    $escaped = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
-    return '<link rel="icon" href="' . $escaped . '">' . "\n"
-        . '<link rel="apple-touch-icon" href="' . $escaped . '">';
+    require_once __DIR__ . '/site_favicon.php';
+    return site_favicon_markup(site_icon_href(''));
 }
 
 function site_email(string $default = 'info@example.com'): string
