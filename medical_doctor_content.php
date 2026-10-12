@@ -200,6 +200,7 @@ Các gợi ý và dữ liệu đang lưu không mặc nhiên là thông tin đã
 - memberships_json: name, role, source_ids; publications_json: title, year, url, doi, source_ids; awards_json: name, issuer, year, source_ids. Công bố khoa học phải khớp tác giả/đơn vị, không chỉ trùng tên.
 - languages_supported_json: code, name, source_ids; patient_groups_json: name, source_ids. Không suy ra ngoại ngữ từ website tiếng Anh hoặc tự gán nhóm bệnh nhân.
 - locations_json: facility_id, facility_name, role_text, department_text, address_text, phone_text, website_url, booking_url, is_primary, schedule_json, fees_json, source_ids. Chỉ dùng facility_id do hệ thống cung cấp và khớp cơ sở; chưa có ID thì null. Tối đa 30 nơi khám, tối đa một nơi chính. Không đánh dấu một nơi là hiện tại nếu nguồn không xác nhận.
+- Ghi tên đầy đủ và địa chỉ gồm số nhà, đường, tỉnh/thành của từng nơi khám đúng nguồn (phân biệt chi nhánh). Nếu chưa có ID do hệ thống cấp thì facility_id=null. Máy chủ tự đối chiếu gần đúng tên + địa chỉ với cơ sở đã có; chỉ nối kết quả đủ rõ. Không có kết quả hay nghi vấn trùng và địa chỉ đủ thông tin thì máy chủ có thể tạo hồ sơ cơ sở chưa xác thực. AI không tự đoán ID hoặc tự khai một cơ sở đã được tạo.
 - schedule_json: day, time_text, location_name, source_ids; lịch tại nơi khám dùng cùng cấu trúc. Giờ mở cửa phòng khám không phải lịch khám riêng của bác sĩ. Chưa rõ lịch thì [].
 - fees_json: service, amount_min, amount_max, currency, unit, notes, source_ids; giá tại nơi khám dùng cùng cấu trúc. Giá là số không âm hoặc null, không có dấu phân cách hàng nghìn; amount_max không nhỏ hơn amount_min. Không tạo giá 0 hoặc khoảng giá nếu nguồn không có.
 - address_text, phone_text, email_text, website_url, booking_url chỉ chứa liên hệ nghề nghiệp công khai phù hợp. Không thu thập địa chỉ nhà, số liên hệ riêng, dữ liệu bệnh nhân hoặc thông tin nhạy cảm.
@@ -266,6 +267,7 @@ function medical_doctor_research_prompt(string $template, array $source): string
         . "- memberships_json=[{name,role,source_ids}], publications_json=[{title,year,url,doi,source_ids}], awards_json=[{name,issuer,year,source_ids}].\n"
         . "- services_json=[{name,description,source_ids}], conditions_treated_json=[{name,source_ids}], languages_supported_json=[{code,name,source_ids}], patient_groups_json=[{name,source_ids}].\n"
         . "- locations_json=[{facility_id:null,facility_name,role_text,department_text,address_text,phone_text,website_url,booking_url,is_primary,schedule_json:[],fees_json:[],source_ids:[]}]. Chỉ dùng facility_id đã được cấp trong nguồn; không tự tạo ID.\n"
+        . "- Điền facility_name và address_text đầy đủ (số nhà, đường, tỉnh/thành) theo nguồn, phân biệt chi nhánh; máy chủ tự nối cơ sở gần đúng rõ ràng, hoặc tạo hồ sơ cơ sở mới khi chưa có và không mơ hồ. Không tự đoán ID; thiếu địa chỉ thì null, không bịa để nối/tạo. Chỉ ghi liên hệ công khai của chính nơi khám, không lấy liên hệ riêng bác sĩ thay cho cơ sở.\n"
         . "- schedule_json=[{day,time_text,location_name,source_ids}]; fees_json=[{service,amount_min:null,amount_max:null,currency:'VND',unit,notes,source_ids}]. Không xem giờ mở cửa cơ sở là lịch khám riêng bác sĩ.\n"
         . "- bio_json là mảng đoạn văn thuần; content là HTML bài đầy đủ dùng p/h2/h3/ul/ol/li/strong/em/a, không script/style/iframe. specialties_json/tags_json là danh sách chuỗi.\n"
         . "- gallery_json=[{url,caption,source_ids}]; không dùng ảnh stock hoặc chân dung AI làm ảnh thật bác sĩ.\n"
@@ -658,11 +660,140 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
     return $fields;
 }
 
-/** Transaction owner must hold the doctor row lock. Mirror localized JSON into relational links. */
-function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations, string $locale = 'vi'): void
+function medical_doctor_facility_match_text(string $value, bool $address = false): string
 {
+    $value = str_replace('-', ' ', slugify(trim($value)));
+    if ($address) {
+        $value = preg_replace('/\b(?:thanh pho|tp)\b/', 'tp', $value) ?? $value;
+        $value = preg_replace('/\b(?:phuong|p)\b/', 'p', $value) ?? $value;
+        $value = preg_replace('/\b(?:quan|q)\b/', 'q', $value) ?? $value;
+        $value = preg_replace('/\b(?:duong|d)\b/', 'd', $value) ?? $value;
+        $value = preg_replace('/^so\s+(?=\d)/', '', $value) ?? $value;
+    }
+    return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+}
+
+/** Brand words must agree independently of long generic clinic prefixes. */
+function medical_doctor_facility_brand_key(string $name): string
+{
+    $name = medical_doctor_facility_match_text($name);
+    $name = preg_replace('/^(?:(?:phong kham da khoa|phong kham chuyen khoa|phong kham|benh vien|nha khoa|trung tam y te|trung tam)\s+)+/', '', $name) ?? $name;
+    return $name;
+}
+
+function medical_doctor_facility_token_similarity(string $left, string $right): float
+{
+    $a = explode(' ', $left); $b = explode(' ', $right);
+    sort($a, SORT_STRING); sort($b, SORT_STRING);
+    return max(medical_doctor_facility_text_similarity($left, $right),
+        medical_doctor_facility_text_similarity(implode(' ', $a), implode(' ', $b)));
+}
+
+function medical_doctor_facility_city_key(string $city): string
+{
+    $key = medical_doctor_facility_match_text($city, true);
+    $key = preg_replace('/^(?:tp|tinh|city)\s+/', '', $key) ?? $key;
+    return in_array($key, ['hcm', 'ho chi minh', 'sai gon', 'tphcm'], true) ? 'ho chi minh' : $key;
+}
+
+/** Preserve house separators before general punctuation normalization. */
+function medical_doctor_facility_address_identity(string $address, string $city = ''): array
+{
+    $raw = trim(html_entity_decode(strip_tags($address), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $house = '';
+    if (preg_match('/^(?:số\s+|so\s+)?(\d+[a-z]?(?:\s*[\/\-]\s*\d+[a-z]?)*)(?=\s|,|$)/iu', $raw, $m)) {
+        $house = strtolower(preg_replace('/\s+/', '', $m[1]) ?? $m[1]);
+    }
+    $parts = array_values(array_filter(array_map('trim', preg_split('/[,;]|\s+[–—-]\s+/u', $raw) ?: []), static fn(string $s): bool => $s !== ''));
+    if (count($parts) > 1 && in_array(medical_doctor_facility_city_key(end($parts)), ['viet nam', 'vietnam'], true)) array_pop($parts);
+    $locality = count($parts) > 1 ? medical_doctor_facility_city_key(end($parts)) : '';
+    // Ward/district-only or placeholder addresses are not sufficient to seed a clinic.
+    if (preg_match('/^(?:p|q|huyen|thi tran|xa|duong|d)\b/', $locality)
+        || preg_match('/\b(?:chua ro|dang cap nhat|unknown|khong ro|address)\b/', $locality)) $locality = '';
+    $cityKey = medical_doctor_facility_city_key($city);
+    $whole = medical_doctor_facility_match_text($raw, true);
+    if ($locality === '' && $cityKey !== '' && str_ends_with($whole, $cityKey)) $locality = $cityKey;
+    $conflict = $cityKey !== '' && $locality !== '' && $cityKey !== $locality;
+    return ['key' => $whole, 'house' => $house, 'locality' => $locality,
+        'complete' => $house !== '' && $locality !== '' && count($parts) >= 2
+            && strlen(medical_doctor_facility_match_text($parts[0])) > strlen($house) + 5 && !$conflict,
+        'city_conflict' => $conflict, 'city_label' => $locality !== '' ? end($parts) : ''];
+}
+
+function medical_doctor_facility_text_similarity(string $left, string $right): float
+{
+    if ($left === '' || $right === '' || max(strlen($left), strlen($right)) > 1024) return 0.0;
+    return 1.0 - levenshtein($left, $right) / max(strlen($left), strlen($right));
+}
+
+/** Require BOTH name/address >=90%, protect branch numbers and reject close runners-up. */
+function medical_doctor_match_facility(array $location, array $facilities, ?bool &$ambiguous = null): ?array
+{
+    $ambiguous = false;
+    $name = medical_doctor_facility_match_text((string) ($location['facility_name'] ?? ''));
+    $addressIdentity = medical_doctor_facility_address_identity((string) ($location['address_text'] ?? ''), (string) ($location['city'] ?? ''));
+    $address = $addressIdentity['key'];
+    if ($name === '' || $address === '') return null;
+    if ($addressIdentity['city_conflict']) { $ambiguous = true; return null; }
+    preg_match_all('/\b(?:[a-z]|\d+[a-z]?)\b/', $name, $nameMarkers);
+    preg_match_all('/\b\d+[a-z]?\b/', $address, $numbers);
+    $matches = [];
+    foreach ($facilities as $facility) {
+        $candidateIdentity = medical_doctor_facility_address_identity((string) ($facility['address_text'] ?? ''), (string) ($facility['city'] ?? ''));
+        $candidateAddress = $candidateIdentity['key'];
+        if ($candidateIdentity['city_conflict']) { if ($name === medical_doctor_facility_match_text((string) ($facility['name'] ?? ''))) $ambiguous = true; continue; }
+        // Missing administrative geography only permits an exact full address.
+        if ($addressIdentity['locality'] === '' || $candidateIdentity['locality'] === '') {
+            if ($address !== $candidateAddress || $addressIdentity['house'] !== $candidateIdentity['house']) continue;
+        } elseif ($addressIdentity['locality'] !== $candidateIdentity['locality']) continue;
+        if ($addressIdentity['house'] !== $candidateIdentity['house']) continue;
+        preg_match_all('/\b\d+[a-z]?\b/', $candidateAddress, $candidateNumbers);
+        if ($numbers[0] !== $candidateNumbers[0]) continue;
+        $candidateName = medical_doctor_facility_match_text((string) ($facility['name'] ?? ''));
+        preg_match_all('/\b(?:[a-z]|\d+[a-z]?)\b/', $candidateName, $candidateMarkers);
+        if ($nameMarkers[0] !== $candidateMarkers[0]) continue;
+        $nameScore = medical_doctor_facility_token_similarity($name, $candidateName);
+        $brandScore = medical_doctor_facility_token_similarity(medical_doctor_facility_brand_key($name), medical_doctor_facility_brand_key($candidateName));
+        $addressScore = medical_doctor_facility_text_similarity($address, $candidateAddress);
+        // Near matches need review, not another duplicate seed. Do not collapse
+        // truly different house numbers/regions, filtered above, into this bucket.
+        if ($nameScore >= 0.8 && $brandScore >= 0.6 && $addressScore >= 0.8
+            && ($nameScore < 0.9 || $brandScore < 0.9 || $addressScore < 0.9)) $ambiguous = true;
+        if ($nameScore < 0.9 || $brandScore < 0.9 || $addressScore < 0.9) continue;
+        $matches[(int) $facility['id']] = ['facility' => $facility, 'score' => ($nameScore + $addressScore) / 2];
+    }
+    uasort($matches, static fn(array $a, array $b): int => $b['score'] <=> $a['score']);
+    $ranked = array_values($matches);
+    if ($ranked === []) return null;
+    if ($ambiguous) return null;
+    if (isset($ranked[1]) && $ranked[0]['score'] - $ranked[1]['score'] < 0.03) { $ambiguous = true; return null; }
+    return $ranked[0]['facility'];
+}
+
+/** Serialize seed creation BEFORE taking doctor row locks; release only our mutex. */
+function medical_doctor_with_facility_lock(PDO $pdo, callable $save): mixed
+{
+    if ($pdo->inTransaction()) throw new LogicException('Khóa tạo cơ sở phải nhận trước transaction bác sĩ.');
+    $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+    $key = 'medreview-doctor-facility-' . substr(hash('sha256', $database), 0, 24);
+    $stmt = $pdo->prepare('SELECT GET_LOCK(:lock_key, 10)');
+    $stmt->execute([':lock_key' => $key]);
+    if ((int) $stmt->fetchColumn() !== 1) throw new RuntimeException('Đang có phiên lưu liên kết cơ sở; vui lòng gửi lại sau.');
+    try { return $save(); }
+    finally {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        try { $pdo->prepare('SELECT RELEASE_LOCK(:lock_key)')->execute([':lock_key' => $key]); }
+        catch (Throwable $e) { error_log('Doctor facility mutex release failed.'); }
+    }
+}
+
+/** Transaction owner must hold the doctor row lock. Return the resolved JSON too. */
+function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations, string $locale = 'vi', bool $createMissing = false, array $sources = []): array
+{
+    if ($createMissing && !$pdo->inTransaction()) throw new LogicException('Tạo cơ sở và liên kết bác sĩ cần cùng transaction.');
     if (!array_is_list($locations) || count($locations) > 30) throw new InvalidArgumentException('locations_json tối đa 30 nơi khám.');
     $normalized = []; $seenIds = []; $primaryCount = 0;
+    $candidates = null;
     foreach ($locations as $position => $location) {
         if (!is_array($location)) throw new InvalidArgumentException('Mỗi nơi khám phải là object.');
         $facilityId = $location['facility_id'] ?? null;
@@ -670,13 +801,63 @@ function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations
         if (!is_string($location['facility_name'] ?? null)) throw new InvalidArgumentException('facility_name phải là chuỗi.');
         $name = trim($location['facility_name']);
         if ($name === '' || mb_strlen($name) > 160) throw new InvalidArgumentException('Nơi khám cần facility_name tối đa 160 ký tự.');
+        if ($facilityId === null && is_string($location['address_text'] ?? null) && trim($location['address_text']) !== '') {
+            if ($candidates === null) {
+                // The outer mutex serializes writers; avoid locking the entire
+                // facility table and unrelated admin/AI facility updates.
+                $lookup = $pdo->prepare('SELECT id, name, address_text, city FROM medical_facilities WHERE language_code=:locale');
+                $lookup->execute([':locale' => site_normalize_locale($locale)]);
+                $candidates = $lookup->fetchAll(PDO::FETCH_ASSOC);
+            }
+            $matched = medical_doctor_match_facility($location, $candidates, $ambiguous);
+            if ($matched !== null) { $facilityId = (int) $matched['id']; $name = (string) $matched['name']; }
+            elseif ($createMissing && !$ambiguous && site_normalize_locale($locale) === 'vi'
+                && medical_doctor_facility_address_identity($location['address_text'], (string) ($location['city'] ?? ''))['complete']
+                && mb_strlen(trim($location['address_text']), 'UTF-8') <= 255) {
+                $address = trim($location['address_text']);
+                $addressIdentity = medical_doctor_facility_address_identity($address, (string) ($location['city'] ?? ''));
+                $city = preg_replace('/^(?:Thành phố|TP\.?|Tỉnh)\s+/iu', '', $addressIdentity['city_label']) ?? $addressIdentity['city_label'];
+                if (mb_strlen($city, 'UTF-8') > 120) $city = '';
+                $identity = medical_doctor_facility_match_text($name) . '|' . $addressIdentity['house'] . '|' . $addressIdentity['key'];
+                $slug = substr(slugify($name), 0, 100) . '-' . substr(hash('sha256', $identity), 0, 16);
+                $phone = $location['phone_text'] ?? null;
+                if ($phone !== null && (!is_string($phone) || mb_strlen($phone, 'UTF-8') > 80 || str_contains($phone, "\0"))) throw new InvalidArgumentException('Nơi khám: phone_text không hợp lệ.');
+                $website = medical_doctor_http_url($location['website_url'] ?? null, 'locations_json.website_url');
+                $booking = medical_doctor_http_url($location['booking_url'] ?? null, 'locations_json.booking_url');
+                // Never truncate URLs or copy doctor-specific/top-level contact
+                // values to a clinic. Long website URLs remain in provenance.
+                $refs = is_array($location['source_ids'] ?? null) ? $location['source_ids'] : [];
+                $evidence = array_values(array_filter($sources, static fn(array $source): bool => in_array($source['id'] ?? null, $refs, true)));
+                $category = str_starts_with(medical_doctor_facility_match_text($name), 'nha khoa ') ? 'Nha khoa' : 'Cơ sở y tế';
+                $provenance = ['origin' => 'doctor_workplace', 'doctor_id' => $doctorId, 'name' => $name, 'address_text' => $address,
+                    'city' => $city, 'phone_text' => $phone, 'website_url' => $website, 'booking_url' => $booking,
+                    'source_ids' => $refs, 'sources' => $evidence];
+                $insert = $pdo->prepare("INSERT INTO medical_facilities (slug, language_code, name, address_text, category, city, phone_text, website_url, booking_url, full_json, status, verified, rating, reviews_count, followers_count, content)
+                    VALUES (:slug, 'vi', :name, :address, :category, :city, :phone, :website, :booking, :provenance, 'published', 0, 0, 0, 0, NULL)");
+                $insert->execute([':slug' => $slug, ':name' => $name, ':address' => $address, ':category' => $category, ':city' => $city,
+                    ':phone' => $phone, ':website' => $website !== null && mb_strlen($website, 'UTF-8') > 255 ? null : $website,
+                    ':booking' => $booking, ':provenance' => medical_directory_json_encode($provenance)]);
+                $facilityId = (int) $pdo->lastInsertId();
+                $candidates[] = ['id' => $facilityId, 'name' => $name, 'address_text' => $address, 'city' => $city];
+            }
+        }
         if ($facilityId !== null) {
-            $lookup = $pdo->prepare('SELECT id, language_code, name FROM medical_facilities WHERE id=:id');
+            $lookup = $pdo->prepare('SELECT id, language_code, name, address_text, city FROM medical_facilities WHERE id=:id');
             $lookup->execute([':id' => $facilityId]);
             $facility = $lookup->fetch(PDO::FETCH_ASSOC);
             if (!$facility) throw new InvalidArgumentException('facility_id không tồn tại; dùng null cho cơ sở chưa có trong hệ thống.');
-            if ($locale === 'vi' && mb_strtolower($name, 'UTF-8') !== mb_strtolower(trim($facility['name']), 'UTF-8')) {
-                throw new InvalidArgumentException('facility_id và facility_name không khớp cơ sở trong hệ thống.');
+            if ($locale === 'vi') {
+                if (($facility['language_code'] ?? 'vi') !== 'vi') throw new InvalidArgumentException('facility_id không thuộc ngôn ngữ hồ sơ.');
+                if (medical_doctor_facility_token_similarity(medical_doctor_facility_match_text($name), medical_doctor_facility_match_text($facility['name'])) < 0.9
+                    || medical_doctor_facility_token_similarity(medical_doctor_facility_brand_key($name), medical_doctor_facility_brand_key($facility['name'])) < 0.9) {
+                    throw new InvalidArgumentException('facility_id và facility_name không khớp cơ sở trong hệ thống.');
+                }
+                if (is_string($location['address_text'] ?? null) && trim($location['address_text']) !== ''
+                    && trim((string) ($facility['address_text'] ?? '')) !== ''
+                    && medical_doctor_match_facility(array_replace($location, ['facility_name' => $facility['name']]), [$facility]) === null) {
+                    throw new InvalidArgumentException('facility_id và address_text không khớp chi nhánh; dùng null để đối chiếu tên và địa chỉ.');
+                }
+                $name = $facility['name'];
             }
             if ($locale === 'en' && ($facility['language_code'] ?? 'vi') === 'vi') {
                 $translated = $pdo->prepare("SELECT id FROM medical_facilities WHERE translation_of_id=:id AND language_code='en' AND status='published' LIMIT 1");
@@ -716,6 +897,8 @@ function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations
             $data[$key] = medical_directory_json_encode($entries);
         }
         $normalized[] = $data;
+        $locations[$position]['facility_id'] = $facilityId;
+        $locations[$position]['facility_name'] = $name;
     }
     $pdo->prepare('DELETE FROM medical_doctor_facilities WHERE doctor_id=:id')->execute([':id' => $doctorId]);
     foreach ($normalized as $data) {
@@ -723,12 +906,93 @@ function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations
         $sql = 'INSERT INTO medical_doctor_facilities (`' . implode('`,`', $keys) . '`) VALUES (:' . implode(',:', $keys) . ')';
         $pdo->prepare($sql)->execute($data);
     }
+    return $locations;
+}
+
+/** Keep legacy primary workplace fields consistent with the relational link. */
+function medical_doctor_link_workplaces(PDO $pdo, int $doctorId, array &$fields, array $doctor, string $locale = 'vi', array $options = []): void
+{
+    $locations = medical_doctor_decode_array($fields['locations_json'] ?? $doctor['locations_json'] ?? null, 'locations_json');
+    $admin = !empty($options['admin']);
+    $selectionChanged = $admin && !empty($options['selection_changed']);
+    if ($selectionChanged) {
+        $selectedSlug = trim((string) ($doctor['facility_slug'] ?? ''));
+        $primaryIndex = null;
+        foreach ($locations as $index => $location) if (!empty($location['is_primary'])) { $primaryIndex = $index; break; }
+        if ($primaryIndex === null && count($locations) === 1) $primaryIndex = 0;
+        if ($selectedSlug === '') {
+            // A deliberate unlink must not be recreated from stale base text.
+            if ($primaryIndex !== null) { unset($locations[$primaryIndex]); $locations = array_values($locations); }
+        } else {
+            $lookup = $pdo->prepare('SELECT id, name, address_text, phone_text, website_url, booking_url FROM medical_facilities WHERE slug=:slug AND language_code=:locale');
+            $lookup->execute([':slug' => $selectedSlug, ':locale' => site_normalize_locale($locale)]);
+            $selected = $lookup->fetch(PDO::FETCH_ASSOC);
+            if (!$selected) throw new InvalidArgumentException('Cơ sở đã chọn không tồn tại trong ngôn ngữ hồ sơ.');
+            $existing = null;
+            foreach ($locations as $index => $location) if (($location['facility_id'] ?? null) === (int) $selected['id']) { $existing = $index; break; }
+            if ($existing !== null) {
+                foreach ($locations as &$location) $location['is_primary'] = false;
+                unset($location);
+                $locations[$existing]['is_primary'] = true;
+            } else {
+                $replacement = ['facility_id' => (int) $selected['id'], 'facility_name' => $selected['name'],
+                    'address_text' => $selected['address_text'], 'phone_text' => $selected['phone_text'] ?? null,
+                    'website_url' => $selected['website_url'] ?? null, 'booking_url' => $selected['booking_url'] ?? null,
+                    'is_primary' => true, 'source_ids' => []];
+                foreach ($locations as &$location) $location['is_primary'] = false;
+                unset($location);
+                if ($primaryIndex !== null) $locations[$primaryIndex] = $replacement;
+                else $locations[] = $replacement;
+            }
+        }
+    }
+    if (!$selectionChanged && $locations === [] && ($admin || !array_key_exists('locations_json', $fields))
+        && trim((string) ($doctor['facility_name'] ?? '')) !== '') {
+        $locations = [['facility_id' => null, 'facility_name' => $doctor['facility_name'],
+            'address_text' => $fields['address_text'] ?? $doctor['address_text'] ?? null,
+            'is_primary' => true, 'source_ids' => []]];
+        // Explicit admin selection is authoritative, unlike fuzzy text matching.
+        if (trim((string) ($doctor['facility_slug'] ?? '')) !== '') {
+            $lookup = $pdo->prepare('SELECT id, name FROM medical_facilities WHERE slug=:slug AND language_code=:locale');
+            $lookup->execute([':slug' => $doctor['facility_slug'], ':locale' => site_normalize_locale($locale)]);
+            $selected = $lookup->fetch(PDO::FETCH_ASSOC);
+            if ($selected) { $locations[0]['facility_id'] = (int) $selected['id']; $locations[0]['facility_name'] = $selected['name']; }
+        }
+    }
+    $sources = medical_doctor_decode_array($fields['sources_json'] ?? null, 'sources_json');
+    $create = $admin || !array_key_exists('insufficient_data', $fields) || !(bool) $fields['insufficient_data'];
+    $locations = medical_doctor_sync_locations($pdo, $doctorId, $locations, $locale, $create, $sources);
+    $fields['locations_json'] = medical_directory_json_encode($locations);
+    $primary = array_values(array_filter($locations, static fn(array $entry): bool => !empty($entry['is_primary'])));
+    $main = $primary[0] ?? (count($locations) === 1 ? $locations[0] : null);
+    $fields['facility_slug'] = '';
+    $fields['facility_name'] = $main['facility_name'] ?? '';
+    if ($selectionChanged && trim((string) ($doctor['facility_slug'] ?? '')) === '') {
+        $fields['facility_name'] = '';
+        return;
+    }
+    if ($main !== null && !empty($main['facility_id'])) {
+        $lookup = $pdo->prepare('SELECT slug, name FROM medical_facilities WHERE id=:id');
+        $lookup->execute([':id' => $main['facility_id']]);
+        $facility = $lookup->fetch(PDO::FETCH_ASSOC);
+        if ($facility) {
+            $fields['facility_slug'] = $facility['slug'];
+            // The EN location can intentionally refer to a VI facility until a
+            // translation exists. Keep the translated workplace name intact.
+            if ($locale !== 'en') $fields['facility_name'] = $facility['name'];
+        }
+    }
 }
 
 class MedicalDoctorConflict extends RuntimeException {}
 
 /** Strict writer lease, eligibility and save under ONE row-lock transaction. */
 function medical_doctor_save_research(PDO $pdo, array $item): array
+{
+    return medical_doctor_with_facility_lock($pdo, static fn(): array => medical_doctor_save_research_locked($pdo, $item));
+}
+
+function medical_doctor_save_research_locked(PDO $pdo, array $item): array
 {
     $id = $item['id'] ?? null;
     $token = $item['writer_claim_token'] ?? null;
@@ -746,7 +1010,7 @@ function medical_doctor_save_research(PDO $pdo, array $item): array
         if (!is_array($claim) || (int) ($claim['expires_at'] ?? 0) <= time()
             || !hash_equals((string) ($claim['claim_token'] ?? ''), $token)) throw new MedicalDoctorConflict('lease_lost_or_expired');
         if (isset($item['name']) && $item['name'] !== $row['name']) throw new InvalidArgumentException('Tên bác sĩ phải giữ nguyên từ nguồn.');
-        if (isset($fields['locations_json'])) medical_doctor_sync_locations($pdo, $id, medical_doctor_decode_array($fields['locations_json'], 'locations_json'));
+        medical_doctor_link_workplaces($pdo, $id, $fields, $row, (string) ($row['language_code'] ?? 'vi'));
         $raw = $item;
         foreach (['writer_claim_token', 'claim_token', 'ai_writer_claim_json', 'reviewed_by'] as $private) unset($raw[$private]);
         // Lets a client confirm a timed-out POST without starting another AI job.

@@ -467,7 +467,9 @@ foreach ($items as $index => $item) {
         $update->execute($params);
         if ($type === 'doctor') {
             if (isset($normalized['locations_json'])) {
-                medical_doctor_sync_locations($pdo, $targetId, medical_directory_json_decode($normalized['locations_json']), 'en');
+                $locations = medical_doctor_sync_locations($pdo, $targetId, medical_directory_json_decode($normalized['locations_json']), 'en');
+                $pdo->prepare("UPDATE medical_doctors SET locations_json = :locations_json WHERE id = :target_id AND translation_of_id = :source_id AND language_code = 'en'")
+                    ->execute([':locations_json' => medical_directory_json_encode($locations), ':target_id' => $targetId, ':source_id' => $sourceId]);
             }
             $pdo->commit();
         }

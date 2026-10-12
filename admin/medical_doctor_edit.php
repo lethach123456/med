@@ -37,7 +37,7 @@ function doctor_text_to_lines(string $value): array
     return $result;
 }
 
-$facilities = $pdo->query("SELECT slug, name FROM medical_facilities ORDER BY display_order ASC, id DESC")->fetchAll();
+$facilities = [];
 
 $values = [
     'name' => '',
@@ -97,6 +97,9 @@ if ($isEdit) {
     ];
 }
 
+$facilityPicker = $pdo->prepare('SELECT slug, name FROM medical_facilities WHERE language_code=:locale ORDER BY display_order ASC, id DESC');
+$facilityPicker->execute([':locale' => site_normalize_locale((string) ($doctorTranslationRow['language_code'] ?? 'vi'))]);
+$facilities = $facilityPicker->fetchAll();
 $errors = [];
 $researchKeys = array_keys(medical_doctor_column_definitions());
 $researchKeys = array_values(array_diff($researchKeys, ['full_json', 'last_researched_at', 'reviewed_at', 'reviewed_by', 'verification_status']));
@@ -242,14 +245,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fields['verification_status'] = $values['verified'] === '1' ? 'reviewed' : 'unreviewed';
             $fields['reviewed_at'] = $values['verified'] === '1' ? gmdate('Y-m-d H:i:s') : null;
             $fields['reviewed_by'] = $values['verified'] === '1' ? (int) ($_SESSION['admin_user_id'] ?? 0) : null;
+            medical_doctor_link_workplaces($pdo, $doctorId, $fields, $values, ($doctorTranslationRow['language_code'] ?? 'vi'),
+                ['admin' => true, 'selection_changed' => (string) ($values['facility_slug'] ?? '') !== (string) ($doctorTranslationRow['facility_slug'] ?? '')]);
             $sets = []; $params = [':doctor_id' => $doctorId];
             foreach ($fields as $key => $value) { $sets[] = "`{$key}`=:research_{$key}"; $params[':research_' . $key] = $value; }
-            if (isset($fields['locations_json'])) {
-                medical_doctor_sync_locations($pdo, $doctorId, medical_directory_json_decode($fields['locations_json']), ($doctorTranslationRow['language_code'] ?? 'vi'));
-            }
             $pdo->prepare('UPDATE medical_doctors SET ' . implode(',', $sets) . ' WHERE id=:doctor_id')->execute($params);
         };
         try {
+        $savedId = medical_doctor_with_facility_lock($pdo, static function () use ($pdo, $values, $ratingFloat, $tags, $specialties, $gallery, $bio, $isEdit, $id, $saveResearchFields): int {
         $pdo->beginTransaction();
         $params = [
             ':slug' => $values['slug'],
@@ -303,10 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute($params);
             $saveResearchFields($id);
             $pdo->commit();
-            medical_search_cache_invalidate();
-            flash_toast_set('success', 'Đã lưu bác sĩ.', 'fa-solid fa-circle-check');
-            header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $id);
-            exit;
+            return $id;
         }
 
         $stmt = $pdo->prepare(
@@ -324,9 +324,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newId = (int) $pdo->lastInsertId();
         $saveResearchFields($newId);
         $pdo->commit();
+        return $newId;
+        });
         medical_search_cache_invalidate();
-        flash_toast_set('success', 'Đã tạo bác sĩ.', 'fa-solid fa-circle-check');
-        header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $newId);
+        flash_toast_set('success', $isEdit ? 'Đã lưu bác sĩ.' : 'Đã tạo bác sĩ.', 'fa-solid fa-circle-check');
+        header('Location: ' . admin_url('medical_doctor_edit.php') . '?id=' . $savedId);
         exit;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();

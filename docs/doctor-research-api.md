@@ -37,7 +37,35 @@ are not retroactively changed by migration. AI submissions always become unrevie
 `medical_doctor_facilities` mirrors `locations_json` relationally: `doctor_id`, optional
 existing `facility_id`, `facility_name`, role/department, public address/contact,
 booking, schedule, fees, source references, primary flag and order. Unknown facilities
-may have `facility_id=null`; this workflow never creates clinics or guesses their IDs.
+may have `facility_id=null`; clients never guess facility IDs. During Vietnamese
+doctor saves, the server creates a basic facility if no match or potentially
+duplicate candidate exists, and a full name plus house number/street/locality
+address (at most 255 characters) are supplied. The seed is published with empty
+content, unverified and all rating/review/follower counters zero, so it can enter the
+research queue but does not appear in the written-facility directory.
+On doctor research save and admin create/edit, a null ID is resolved only when
+both normalized full facility name and full address each score at least 90%
+Levenshtein similarity against an existing facility in the doctor's locale.
+Token-order similarity additionally recognizes reordered brand words; distinctive
+brand text must also meet the 90% threshold independently of generic clinic prefixes.
+Case/accents/punctuation and common Vietnamese address abbreviations are normalized;
+House identifiers retain slash/dash structure, and address numeric identifiers,
+locality names and short name identifiers must agree exactly. A competing
+match within 3 percentage points is ambiguous and is not auto-linked. Substring,
+name-only and incomplete-address matches are not used. Ambiguous workplaces stay
+unlinked and never trigger creation; below-threshold near candidates are also
+reserved for review, not interpreted as evidence that a new facility is needed.
+Missing/placeholder addresses, insufficient research and English translations do
+not create facilities. A DB-scoped advisory mutex is acquired before the doctor
+transaction and released after commit/rollback (10-second acquisition timeout),
+serializing concurrent doctor seed writers without row-locking every facility.
+Creation and relational links commit or roll back together. Resolved IDs are saved in `locations_json` and
+`medical_doctor_facilities`; a sole/primary linked workplace also updates legacy
+`facility_slug`/`facility_name`. Explicit admin changes/unlinking take precedence,
+and unlinked replacements clear stale slugs. English names remain translated even
+when a linked facility has no published English counterpart. Workplace-specific
+phone, website/booking URL, city and referenced sources are retained on a new seed;
+provenance is stored in `full_json` with the originating doctor ID, without tokens.
 The JSON field is the translation/transport source; the relation is regenerated atomically
 when an API/admin saves it. EN records get their own links and prefer published EN clinics.
 

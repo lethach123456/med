@@ -782,7 +782,11 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
         $insert->execute($params);
         $newId = (int) $pdo->lastInsertId();
         if ($entity === 'doctor' && !empty($source['locations_json'])) {
-            medical_doctor_sync_locations($pdo, $newId, medical_directory_json_decode($source['locations_json']), 'en');
+            $locations = medical_doctor_sync_locations($pdo, $newId, medical_directory_json_decode($source['locations_json']), 'en');
+            // Resolved English facility IDs must match both the relation and
+            // the JSON used by the editor and public doctor profile.
+            $pdo->prepare("UPDATE medical_doctors SET locations_json = :locations_json WHERE id = :id AND language_code = 'en'")
+                ->execute([':locations_json' => medical_directory_json_encode($locations), ':id' => $newId]);
         }
 
         if ($entity === 'toplist' && medical_directory_table_exists($pdo, 'medical_toplist_facilities')) {
