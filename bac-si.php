@@ -47,7 +47,7 @@ try {
     // The doctor directory uses the same shared JSON TTL snapshot as search,
     // keeping normal page views and filter requests off MySQL.
     $cache = medical_search_cache_index();
-    $index = medical_search_cache_filter_locale($cache['index'], $locale);
+    $index = medical_search_cache_doctor_directory_index(medical_search_cache_filter_locale($cache['index'], $locale));
     $result = medical_search_cache_doctor_directory_search(
         $index,
         $filters + ['page' => max(1, (int) ($_GET['page'] ?? 1)), 'limit' => 12]

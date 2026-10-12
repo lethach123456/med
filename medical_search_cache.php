@@ -10,6 +10,13 @@ declare(strict_types=1);
  */
 require_once __DIR__ . '/db.php';
 
+/** Ignore markup and invisible whitespace when deciding whether a profile is written. */
+function medical_search_cache_has_written_content(string $content): bool
+{
+    $text = html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return trim(preg_replace('/[\s\x{00A0}\x{200B}]+/u', '', $text) ?? '') !== '';
+}
+
 function medical_search_cache_dir(): string
 {
     $configured = trim((string) (getenv('MEDICAL_SEARCH_CACHE_DIR') ?: ''));
@@ -145,7 +152,7 @@ function medical_search_cache_read(): ?array
         return null;
     }
     $decoded = json_decode($raw, true);
-    if (!is_array($decoded) || (int) ($decoded['schema'] ?? 0) !== 2) {
+    if (!is_array($decoded) || (int) ($decoded['schema'] ?? 0) !== 3) {
         return null;
     }
     foreach (['facilities', 'doctors', 'toplists', 'cities'] as $key) {
@@ -258,7 +265,7 @@ function medical_search_cache_facilities(PDO $pdo): array
             'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
             'url' => medical_public_entity_path('facility', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'name' => (string) ($row['name'] ?? ''),
-            'has_content' => trim(preg_replace('/[\s\x{00A0}\x{200B}]+/u', '', html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '') !== '',
+            'has_content' => medical_search_cache_has_written_content((string) ($row['content'] ?? '')),
             'subtitle' => trim((string) ($row['subtitle'] ?? '')),
             'category' => trim((string) ($row['category'] ?? 'Cơ sở y tế')),
             'city' => trim((string) ($row['city'] ?? '')),
@@ -332,6 +339,7 @@ function medical_search_cache_doctors(PDO $pdo): array
             'language_code' => strtolower((string) ($row['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi',
             'url' => medical_public_entity_path('doctor', (string) ($row['slug'] ?? ''), (string) ($row['language_code'] ?? 'vi')),
             'name' => (string) ($row['name'] ?? ''),
+            'has_content' => medical_search_cache_has_written_content((string) ($row['content'] ?? '')),
             'title_text' => trim((string) ($row['title_text'] ?? '')),
             'specialty_text' => trim((string) ($row['specialty_text'] ?? '')),
             'city' => trim((string) ($row['city'] ?? '')),
@@ -459,7 +467,7 @@ function medical_search_cache_rebuild(PDO $pdo): array
     $toplists = medical_search_cache_toplists($pdo);
 
     return [
-        'schema' => 2,
+        'schema' => 3,
         'generated_at' => $generatedAt,
         'expires_at' => $generatedAt + medical_search_cache_ttl(),
         'facilities' => $facilities,
@@ -886,14 +894,27 @@ function medical_search_cache_doctor_directory_item(array $item): array
     ];
 }
 
+/** Scope this rule to the public doctor directory, not the AI research queue. */
+function medical_search_cache_doctor_directory_index(array $index): array
+{
+    $index['doctors'] = array_values(array_filter(
+        (array) ($index['doctors'] ?? []),
+        static fn(mixed $item): bool => is_array($item) && !empty($item['has_content'])
+    ));
+    $index['cities'] = medical_search_cache_cities($index['doctors']);
+    $index['counts'] = array_replace((array) ($index['counts'] ?? []), ['doctors' => count($index['doctors'])]);
+    return $index;
+}
+
 /**
- * Search and paginate doctors from the shared JSON TTL index.
+ * Search and paginate written doctors from the shared JSON TTL index.
  *
  * @param array<string,mixed> $filters
  * @return array{items:array<int,array<string,mixed>>,paging:array<string,int|bool>,meta:array<string,string>}
  */
 function medical_search_cache_doctor_directory_search(array $index, array $filters): array
 {
+    $index = medical_search_cache_doctor_directory_index($index);
     $page = max(1, (int) ($filters['page'] ?? 1));
     $limit = min(24, max(6, (int) ($filters['limit'] ?? 12)));
     $query = trim((string) ($filters['q'] ?? ''));
