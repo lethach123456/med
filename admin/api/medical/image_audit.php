@@ -2,22 +2,30 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../_bootstrap.php';
+require_once __DIR__ . '/../../../schema_migrations.php';
 require_once __DIR__ . '/../../../medical_directory.php';
 require_once __DIR__ . '/../../../medical_media_library.php';
 require_once __DIR__ . '/../../../medical_media_worker.php';
 require_once __DIR__ . '/../../../medical_facility_image_fix.php';
 
 admin_require_login();
-$csrfToken = admin_csrf_token();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_require_csrf_json();
 }
-// Unlock session early so gentle batch probes never block other admin tabs.
+// Unlock session early so continuous full-system batch scans never block other tabs.
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
 
 $pdo = db();
+
+/** Check whether the DB scan-tracking columns exist on the target table. */
+function medical_image_audit_schema_ready(PDO $pdo, string $table): bool
+{
+    return db_has_column($pdo, $table, 'image_scan_status')
+        && db_has_column($pdo, $table, 'image_scanned_at')
+        && db_has_column($pdo, $table, 'image_scan_json');
+}
 
 /**
  * Decode gallery_json safely into an array of normalized entries.
@@ -56,7 +64,6 @@ function medical_image_audit_decode_gallery(mixed $raw): array
 
 /**
  * Inspect a single URL using static pattern rules + local file existence + worker failure map.
- * No remote network I/O happens here so listing 1,000+ records stays instantaneous.
  *
  * @param array<string,string> $failedJobsMap
  * @return array<int,array{code:string,severity:string,label:string}>
@@ -113,7 +120,7 @@ function medical_image_audit_classify_url(string $url, array $failedJobsMap = []
 }
 
 /**
- * Evaluate a single facility or doctor row for static/local/worker issues.
+ * Evaluate a single facility or doctor row, combining static/local rules and persisted DB scan data.
  *
  * @param array<string,mixed> $row
  * @param array<string,string> $failedJobsMap
@@ -126,14 +133,32 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
     $aiCover = $entityType === 'facility' ? trim((string) ($row['ai_image_url'] ?? '')) : '';
     $galleryEntries = medical_image_audit_decode_gallery($row['gallery_json'] ?? '[]');
 
+    $scanStatus = strtolower(trim((string) ($row['image_scan_status'] ?? 'unscanned')));
+    if (!in_array($scanStatus, ['unscanned', 'ok', 'warning', 'broken'], true)) {
+        $scanStatus = 'unscanned';
+    }
+    $scannedAt = trim((string) ($row['image_scanned_at'] ?? ''));
+    $scanJson = medical_directory_json_decode($row['image_scan_json'] ?? null);
+    $probedByUrl = is_array($scanJson['url_results'] ?? null) ? $scanJson['url_results'] : [];
+
     $imagesByUrl = [];
-    $register = static function (string $url, string $field, string $caption = '', string $source = '') use (&$imagesByUrl, $failedJobsMap): void {
+    $register = static function (string $url, string $field, string $caption = '', string $source = '') use (&$imagesByUrl, $failedJobsMap, $probedByUrl): void {
         $url = trim($url);
         if ($url === '') {
             return;
         }
         if (!isset($imagesByUrl[$url])) {
             $issues = medical_image_audit_classify_url($url, $failedJobsMap);
+            $probe = is_array($probedByUrl[$url] ?? null) ? $probedByUrl[$url] : null;
+            if (is_array($probe)) {
+                $pState = (string) ($probe['state'] ?? '');
+                $pReason = trim((string) ($probe['reason'] ?? ''));
+                if ($pState === 'broken') {
+                    $issues[] = ['code' => 'http_broken', 'severity' => 'danger', 'label' => 'Quét HTTP: ' . ($pReason ?: 'Ảnh lỗi')];
+                } elseif ($pState === 'warning' && $pReason !== '') {
+                    $issues[] = ['code' => 'http_warning', 'severity' => 'warning', 'label' => 'Quét HTTP: ' . $pReason];
+                }
+            }
             $imagesByUrl[$url] = [
                 'url' => $url,
                 'is_local' => str_starts_with($url, '/'),
@@ -141,6 +166,7 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
                 'caption' => $caption,
                 'source' => $source,
                 'issues' => $issues,
+                'probe' => $probe,
             ];
         }
         $imagesByUrl[$url]['fields'][] = $field;
@@ -186,14 +212,22 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
         $issueCodes['remote_unimported'] = true;
     }
 
-    $fixAudit = $entityType === 'facility' ? medical_directory_json_decode($row['image_fix_json'] ?? null) : null;
-    $lastCheckedAt = is_array($fixAudit) ? (string) ($fixAudit['checked_at'] ?? '') : '';
-    $fixInsufficient = is_array($fixAudit) && !empty($fixAudit['insufficient_images']);
-    if ($fixInsufficient) {
-        $rowIssues[] = ['code' => 'insufficient_images', 'severity' => 'warning', 'label' => 'Lịch sử Fix ảnh báo thiếu ảnh chuẩn'];
+    if ($scanStatus === 'unscanned' || $scannedAt === '') {
+        $issueCodes['unscanned'] = true;
+    } elseif ($scanStatus === 'broken') {
+        $issueCodes['scanned_broken'] = true;
+    } elseif ($scanStatus === 'warning') {
+        $issueCodes['scanned_warning'] = true;
+    } elseif ($scanStatus === 'ok') {
+        $issueCodes['scanned_ok'] = true;
     }
 
-    $hasStrictIssue = isset($issueCodes['empty'])
+    $fixAudit = $entityType === 'facility' ? medical_directory_json_decode($row['image_fix_json'] ?? null) : null;
+    $lastCheckedAt = is_array($fixAudit) ? (string) ($fixAudit['checked_at'] ?? '') : '';
+
+    $hasStrictIssue = $scanStatus === 'broken'
+        || $scanStatus === 'warning'
+        || isset($issueCodes['empty'])
         || isset($issueCodes['fbsbx'])
         || isset($issueCodes['google_temp'])
         || isset($issueCodes['logo_banner'])
@@ -201,7 +235,8 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
         || isset($issueCodes['missing_local'])
         || isset($issueCodes['worker_failed'])
         || isset($issueCodes['not_direct_image'])
-        || isset($issueCodes['invalid_url']);
+        || isset($issueCodes['invalid_url'])
+        || isset($issueCodes['http_broken']);
 
     $locale = strtolower(trim((string) ($row['language_code'] ?? 'vi'))) === 'en' ? 'en' : 'vi';
     $slug = (string) ($row['slug'] ?? '');
@@ -230,6 +265,8 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
         'row_issues' => $rowIssues,
         'issue_codes' => array_keys($issueCodes),
         'has_issue' => $hasStrictIssue,
+        'image_scan_status' => $scannedAt !== '' ? $scanStatus : 'unscanned',
+        'image_scanned_at' => $scannedAt !== '' ? $scannedAt : null,
         'last_image_fix_at' => $lastCheckedAt !== '' ? $lastCheckedAt : null,
         'public_url' => site_url($publicPath),
         'edit_url' => $editPath,
@@ -238,101 +275,290 @@ function medical_image_audit_evaluate_row(string $entityType, array $row, array 
 }
 
 /**
- * Lightweight, throttled remote probe for at most 3 URLs at a time.
- * Reads max 512 KB per URL and validates that response is a real image (not an HTML page).
+ * Lightweight 64 KB header-range probe for a single remote URL.
+ * Reads at most 64 KB to inspect HTTP status, MIME type, and image dimensions
+ * without downloading full multi-megabyte files or invoking GD bitmap decoding.
  *
- * @param array<int,string> $urls
- * @return array<string,array<string,mixed>>
+ * @return array{url:string,state:string,http_status:?int,mime?:string,width?:int,height?:int,reason:string}
  */
-function medical_image_audit_probe_urls(array $urls): array
+function medical_image_audit_lightweight_probe_single(string $url, int $timeoutSeconds = 4): array
 {
-    $urls = array_slice(array_values(array_unique(array_filter(array_map('trim', $urls)))), 0, 3);
-    $results = [];
+    $url = trim($url);
+    $lower = strtolower($url);
+    $path = (string) (parse_url($url, PHP_URL_PATH) ?? '');
 
-    foreach ($urls as $url) {
-        if (str_starts_with($url, '/')) {
-            $path = rawurldecode((string) (parse_url($url, PHP_URL_PATH) ?? ''));
-            $fullPath = medical_media_project_root() . '/' . ltrim($path, '/');
-            if (!is_file($fullPath) || (int) (@filesize($fullPath) ?: 0) <= 0) {
-                $results[$url] = [
-                    'url' => $url,
-                    'state' => 'broken',
-                    'http_status' => 404,
-                    'reason' => 'Không tìm thấy file nội bộ trên ổ cứng máy chủ.',
-                ];
-            } else {
-                $info = @getimagesize($fullPath);
-                if (!is_array($info)) {
-                    $results[$url] = [
-                        'url' => $url,
-                        'state' => 'broken',
-                        'http_status' => 200,
-                        'reason' => 'File nội bộ bị hỏng định dạng ảnh.',
-                    ];
-                } else {
-                    $w = (int) ($info[0] ?? 0);
-                    $h = (int) ($info[1] ?? 0);
-                    $results[$url] = [
-                        'url' => $url,
-                        'state' => ($w < 120 || $h < 90) ? 'warning' : 'ok',
-                        'http_status' => 200,
-                        'mime' => (string) ($info['mime'] ?? 'image/jpeg'),
-                        'width' => $w,
-                        'height' => $h,
-                        'size_bytes' => (int) (@filesize($fullPath) ?: 0),
-                        'reason' => ($w < 120 || $h < 90) ? "Ảnh kích thước quá nhỏ ({$w}×{$h}px)" : "OK ({$w}×{$h}px)",
-                    ];
-                }
-            }
-            continue;
+    if (str_starts_with($url, '/')) {
+        $relativePath = rawurldecode($path);
+        if (str_contains($relativePath, '..') || str_contains($relativePath, "\0")) {
+            return ['url' => $url, 'state' => 'broken', 'http_status' => 400, 'reason' => 'Đường dẫn nội bộ không hợp lệ'];
         }
-
-        // Remote URL probe with tight 6-second timeout so it never hangs PHP workers.
-        $dl = medical_media_download_remote_image($url, 6);
-        $httpStatus = (int) ($dl['http_status'] ?? 0);
-        if (!($dl['ok'] ?? false) || !isset($dl['bytes']) || $dl['bytes'] === '') {
-            $err = (string) ($dl['error'] ?? 'Không tải được ảnh.');
-            $isTempBlock = in_array($httpStatus, [401, 403, 408, 429], true) || $httpStatus >= 500;
-            $results[$url] = [
-                'url' => $url,
-                'state' => $isTempBlock ? 'warning' : 'broken',
-                'http_status' => $httpStatus > 0 ? $httpStatus : null,
-                'reason' => $err,
-            ];
-            continue;
+        $fullPath = medical_media_project_root() . '/' . ltrim($relativePath, '/');
+        if (!is_file($fullPath) || (int) (@filesize($fullPath) ?: 0) <= 0) {
+            return ['url' => $url, 'state' => 'broken', 'http_status' => 404, 'reason' => 'Không tìm thấy file nội bộ trên ổ cứng'];
         }
-
-        $bytes = (string) $dl['bytes'];
-        $mime = strtolower((string) ($dl['mime'] ?? ''));
-        $info = @getimagesizefromstring($bytes);
+        $info = @getimagesize($fullPath);
         if (!is_array($info)) {
-            $results[$url] = [
-                'url' => $url,
-                'state' => 'broken',
-                'http_status' => $httpStatus ?: 200,
-                'mime' => $mime,
-                'reason' => 'URL trả về dữ liệu không phải ảnh hợp lệ' . ($mime !== '' ? " (MIME: {$mime})" : '') . '.',
-            ];
-            continue;
+            return ['url' => $url, 'state' => 'broken', 'http_status' => 200, 'reason' => 'File nội bộ hỏng định dạng ảnh'];
         }
-
         $w = (int) ($info[0] ?? 0);
         $h = (int) ($info[1] ?? 0);
-        $detectedMime = (string) ($info['mime'] ?? $mime);
-        $isTiny = ($w < 120 || $h < 90);
-        $results[$url] = [
+        return [
             'url' => $url,
-            'state' => $isTiny ? 'warning' : 'ok',
-            'http_status' => $httpStatus ?: 200,
-            'mime' => $detectedMime,
+            'state' => ($w < 120 || $h < 90) ? 'warning' : 'ok',
+            'http_status' => 200,
+            'mime' => (string) ($info['mime'] ?? 'image/jpeg'),
             'width' => $w,
             'height' => $h,
-            'size_bytes' => strlen($bytes),
-            'reason' => $isTiny ? "Ảnh quá nhỏ ({$w}×{$h}px)" : "Ảnh hợp lệ ({$w}×{$h}px)",
+            'reason' => ($w < 120 || $h < 90) ? "Ảnh nhỏ ({$w}×{$h}px)" : "OK ({$w}×{$h}px)",
         ];
     }
 
-    return $results;
+    if (str_contains($lower, 'lookaside.fbsbx.com')) {
+        return ['url' => $url, 'state' => 'broken', 'http_status' => 403, 'reason' => 'Link Facebook crawler (vỡ trên trình duyệt)'];
+    }
+    if (preg_match('~(maps\.app\.goo\.gl|goo\.gl|google\.[a-z.]+/maps)~i', $lower) || preg_match('~\.(html?|php)(?:$|/)~i', $path)) {
+        return ['url' => $url, 'state' => 'broken', 'http_status' => 422, 'reason' => 'Link trang web, không phải file ảnh'];
+    }
+
+    if (!function_exists('curl_init')) {
+        return ['url' => $url, 'state' => 'warning', 'http_status' => null, 'reason' => 'Máy chủ chưa bật cURL'];
+    }
+
+    $current = $url;
+    $maxHeaderBytes = 65536; // 64 KB is enough for JPEG/PNG/WebP/GIF headers & dimensions.
+
+    for ($redir = 0; $redir <= 3; $redir++) {
+        $parts = parse_url($current);
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = (string) ($parts['host'] ?? '');
+        if (!in_array($scheme, ['http', 'https'], true) || !medical_media_is_public_host($host)) {
+            return ['url' => $url, 'state' => 'broken', 'http_status' => null, 'reason' => 'Host không hợp lệ hoặc không phân giải được DNS'];
+        }
+
+        $bytes = '';
+        $location = '';
+        $abortedEarly = false;
+        $ch = curl_init($current);
+        if ($ch === false) {
+            return ['url' => $url, 'state' => 'warning', 'http_status' => null, 'reason' => 'Không khởi tạo được cURL'];
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => max(2, $timeoutSeconds),
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; MedReviewImageAudit/1.0)',
+            CURLOPT_HTTPHEADER => [
+                'Accept: image/avif,image/webp,image/apng,image/jpeg,image/png,image/gif;q=0.9,*/*;q=0.1',
+                'Range: bytes=0-65535',
+            ],
+            CURLOPT_HEADERFUNCTION => static function ($handle, string $header) use (&$location): int {
+                if (stripos($header, 'Location:') === 0) {
+                    $location = trim(substr($header, 9));
+                }
+                return strlen($header);
+            },
+            CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$bytes, &$abortedEarly, $maxHeaderBytes): int {
+                $bytes .= $chunk;
+                if (strlen($bytes) >= $maxHeaderBytes) {
+                    $abortedEarly = true;
+                    return 0; // Stop transfer immediately after 64 KB!
+                }
+                return strlen($chunk);
+            },
+        ]);
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $mime = strtolower(trim((string) strtok((string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE), ';')));
+        $err = (string) curl_error($ch);
+        curl_close($ch);
+
+        if ($status >= 300 && $status < 400 && $location !== '') {
+            $next = medical_media_redirect_url($current, $location);
+            if ($next === null) {
+                return ['url' => $url, 'state' => 'broken', 'http_status' => $status, 'reason' => 'Redirect không hợp lệ'];
+            }
+            $current = $next;
+            continue;
+        }
+
+        if (in_array($status, [404, 410], true)) {
+            return ['url' => $url, 'state' => 'broken', 'http_status' => $status, 'reason' => "HTTP {$status} (Ảnh không tồn tại)"];
+        }
+        if (in_array($status, [401, 403, 408, 429], true) || $status >= 500) {
+            return ['url' => $url, 'state' => 'warning', 'http_status' => $status, 'reason' => "HTTP {$status} (Máy chủ đích chặn/tạm lỗi)"];
+        }
+        if ($status < 200 || $status >= 300 || $bytes === '') {
+            return [
+                'url' => $url,
+                'state' => $status === 0 ? 'broken' : 'warning',
+                'http_status' => $status > 0 ? $status : null,
+                'reason' => $status > 0 ? "HTTP {$status}" : ('Lỗi kết nối: ' . ($err ?: 'Không phản hồi')),
+            ];
+        }
+
+        if (str_contains($mime, 'text/html') || str_contains($mime, 'application/xhtml')) {
+            return ['url' => $url, 'state' => 'broken', 'http_status' => $status, 'mime' => $mime, 'reason' => 'Trả về trang HTML thay vì ảnh'];
+        }
+
+        $info = @getimagesizefromstring($bytes);
+        if (is_array($info)) {
+            $w = (int) ($info[0] ?? 0);
+            $h = (int) ($info[1] ?? 0);
+            $isTiny = ($w > 0 && $h > 0 && ($w < 120 || $h < 90));
+            return [
+                'url' => $url,
+                'state' => $isTiny ? 'warning' : 'ok',
+                'http_status' => $status,
+                'mime' => (string) ($info['mime'] ?? $mime),
+                'width' => $w,
+                'height' => $h,
+                'reason' => $isTiny ? "Ảnh quá nhỏ ({$w}×{$h}px)" : "OK ({$w}×{$h}px)",
+            ];
+        }
+
+        // If aborted at 64 KB and magic bytes match JPEG/PNG/WebP/GIF, accept as valid image.
+        $magicOk = str_starts_with($bytes, "\xFF\xD8\xFF")
+            || str_starts_with($bytes, "\x89PNG\r\n\x1a\n")
+            || (str_starts_with($bytes, 'RIFF') && substr($bytes, 8, 4) === 'WEBP')
+            || str_starts_with($bytes, 'GIF87a')
+            || str_starts_with($bytes, 'GIF89a')
+            || ($abortedEarly && str_starts_with($mime, 'image/'));
+
+        if ($magicOk) {
+            return [
+                'url' => $url,
+                'state' => 'ok',
+                'http_status' => $status,
+                'mime' => $mime !== '' ? $mime : 'image/jpeg',
+                'reason' => 'OK (Header ảnh hợp lệ)',
+            ];
+        }
+
+        return [
+            'url' => $url,
+            'state' => 'broken',
+            'http_status' => $status,
+            'mime' => $mime,
+            'reason' => 'Dữ liệu trả về không phải định dạng ảnh hợp lệ' . ($mime ? " ({$mime})" : ''),
+        ];
+    }
+
+    return ['url' => $url, 'state' => 'broken', 'http_status' => null, 'reason' => 'Chuyển hướng quá nhiều lần'];
+}
+
+/**
+ * Scan all URLs of a single facility/doctor row and persist `image_scan_status`,
+ * `image_scanned_at`, and `image_scan_json` directly into the database.
+ *
+ * @param array<string,mixed> $row
+ * @param array<string,string> $failedJobsMap
+ * @return array<string,mixed>
+ */
+function medical_image_audit_scan_and_save_row(PDO $pdo, string $entityType, array $row, array $failedJobsMap = []): array
+{
+    $table = $entityType === 'doctor' ? 'medical_doctors' : 'medical_facilities';
+    $id = (int) ($row['id'] ?? 0);
+    $cover = trim((string) ($row['image_url'] ?? ''));
+    $aiCover = $entityType === 'facility' ? trim((string) ($row['ai_image_url'] ?? '')) : '';
+    $galleryEntries = medical_image_audit_decode_gallery($row['gallery_json'] ?? '[]');
+
+    $urls = [];
+    if ($cover !== '') $urls[$cover] = true;
+    if ($aiCover !== '') $urls[$aiCover] = true;
+    foreach ($galleryEntries as $entry) {
+        if ($entry['url'] !== '') $urls[$entry['url']] = true;
+    }
+    $urlList = array_keys($urls);
+
+    $urlResults = [];
+    $brokenCount = 0;
+    $warningCount = 0;
+    $okCount = 0;
+
+    // Limit remote HTTP probes per record to max 8 URLs so a giant gallery never stalls a batch.
+    $remoteProbed = 0;
+    foreach ($urlList as $u) {
+        $staticIssues = medical_image_audit_classify_url($u, $failedJobsMap);
+        $hasStaticDanger = false;
+        $hasStaticWarn = false;
+        foreach ($staticIssues as $iss) {
+            if ($iss['severity'] === 'danger') $hasStaticDanger = true;
+            if ($iss['severity'] === 'warning') $hasStaticWarn = true;
+        }
+
+        if (str_starts_with($u, '/') || $remoteProbed < 8) {
+            if (!str_starts_with($u, '/')) $remoteProbed++;
+            $probe = medical_image_audit_lightweight_probe_single($u, 4);
+        } else {
+            $probe = ['url' => $u, 'state' => 'ok', 'http_status' => null, 'reason' => 'Bỏ qua probe sâu (quá 8 ảnh/hồ sơ)'];
+        }
+
+        if ($hasStaticDanger || $probe['state'] === 'broken') {
+            $probe['state'] = 'broken';
+            if ($hasStaticDanger && $probe['reason'] === 'OK (Header ảnh hợp lệ)') {
+                $probe['reason'] = $staticIssues[0]['label'];
+            }
+            $brokenCount++;
+        } elseif ($hasStaticWarn || $probe['state'] === 'warning') {
+            $probe['state'] = 'warning';
+            if ($hasStaticWarn && str_starts_with((string) $probe['reason'], 'OK')) {
+                $probe['reason'] = $staticIssues[0]['label'];
+            }
+            $warningCount++;
+        } else {
+            $okCount++;
+        }
+
+        $urlResults[$u] = $probe;
+    }
+
+    if ($cover === '' || count($urlList) === 0 || $brokenCount > 0) {
+        $finalStatus = 'broken';
+    } elseif ($warningCount > 0) {
+        $finalStatus = 'warning';
+    } else {
+        $finalStatus = 'ok';
+    }
+
+    $now = gmdate('Y-m-d H:i:s');
+    $scanPayload = [
+        'status' => $finalStatus,
+        'scanned_at' => $now,
+        'total_urls' => count($urlList),
+        'broken_count' => $brokenCount,
+        'warning_count' => $warningCount,
+        'ok_count' => $okCount,
+        'empty_cover' => $cover === '',
+        'url_results' => $urlResults,
+    ];
+
+    if (medical_image_audit_schema_ready($pdo, $table)) {
+        $upd = $pdo->prepare(
+            "UPDATE `{$table}`
+             SET image_scan_status = :status,
+                 image_scanned_at = :scanned_at,
+                 image_scan_json = :scan_json
+             WHERE id = :id"
+        );
+        $upd->execute([
+            ':status' => $finalStatus,
+            ':scanned_at' => $now,
+            ':scan_json' => medical_directory_json_encode($scanPayload),
+            ':id' => $id,
+        ]);
+    }
+
+    return [
+        'id' => $id,
+        'name' => (string) ($row['name'] ?? ''),
+        'status' => $finalStatus,
+        'scanned_at' => $now,
+        'broken_count' => $brokenCount,
+        'warning_count' => $warningCount,
+        'ok_count' => $okCount,
+        'total_urls' => count($urlList),
+    ];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -350,7 +576,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     $issueFilter = strtolower(trim((string) ($_GET['issue'] ?? 'any_issue')));
     $allowedFilters = [
-        'any_issue', 'empty', 'fbsbx', 'google_temp', 'logo_banner',
+        'any_issue', 'unscanned', 'scanned_broken', 'scanned_warning', 'scanned_ok',
+        'empty', 'fbsbx', 'google_temp', 'logo_banner',
         'suspicious_2026', 'missing_local', 'worker_failed', 'remote_unimported', 'all',
     ];
     if (!in_array($issueFilter, $allowedFilters, true)) {
@@ -364,8 +591,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $hasLangCol = db_has_column($pdo, $table, 'language_code');
     $hasAiImageCol = $entityType === 'facility' && db_has_column($pdo, $table, 'ai_image_url');
     $hasImageFixCol = $entityType === 'facility' && db_has_column($pdo, $table, 'image_fix_json');
+    $schemaReady = medical_image_audit_schema_ready($pdo, $table);
 
-    // Load failed media jobs map for this entity_type if table exists.
     $failedByEntity = [];
     if (medical_directory_table_exists($pdo, 'medical_media_jobs')) {
         try {
@@ -383,7 +610,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 }
             }
         } catch (Throwable) {
-            // Ignore if schema not migrated yet.
         }
     }
 
@@ -416,12 +642,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     $whereSql = $where !== [] ? ('WHERE ' . implode(' AND ', $where)) : '';
+    $scanCols = $schemaReady ? ', image_scan_status, image_scanned_at, image_scan_json' : '';
     $selectCols = $entityType === 'doctor'
-        ? 'id, slug, name, title_text, specialty_text, facility_name, city, status, image_url, gallery_json, updated_at' . ($hasLangCol ? ', language_code' : '')
+        ? 'id, slug, name, title_text, specialty_text, facility_name, city, status, image_url, gallery_json, updated_at'
+            . ($hasLangCol ? ', language_code' : '') . $scanCols
         : 'id, slug, name, category, city, address_text, status, image_url, gallery_json, updated_at'
             . ($hasLangCol ? ', language_code' : '')
             . ($hasAiImageCol ? ', ai_image_url' : '')
-            . ($hasImageFixCol ? ', image_fix_json' : '');
+            . ($hasImageFixCol ? ', image_fix_json' : '') . $scanCols;
 
     $stmt = $pdo->prepare("SELECT {$selectCols} FROM {$table} {$whereSql} ORDER BY id ASC");
     $stmt->execute($params);
@@ -430,6 +658,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $summary = [
         'all' => 0,
         'any_issue' => 0,
+        'unscanned' => 0,
+        'scanned_broken' => 0,
+        'scanned_warning' => 0,
+        'scanned_ok' => 0,
         'empty' => 0,
         'fbsbx' => 0,
         'google_temp' => 0,
@@ -478,13 +710,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     json_response([
         'ok' => true,
+        'schema_ready' => $schemaReady,
         'entity_type' => $entityType,
         'language' => $language,
         'status' => $statusFilter,
         'issue' => $issueFilter,
         'query' => $query,
         'summary' => $summary,
-        'matched_ids' => array_slice($matchedIds, 0, 200),
+        'matched_ids' => array_slice($matchedIds, 0, 300),
         'paging' => [
             'page' => $page,
             'limit' => $limit,
@@ -499,24 +732,166 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $body = read_json_body();
     $action = trim((string) ($body['action'] ?? ''));
 
-    if ($action === 'probe_batch') {
-        $urls = is_array($body['urls'] ?? null) ? $body['urls'] : [];
-        $probed = medical_image_audit_probe_urls($urls);
-        json_response([
-            'ok' => true,
-            'results' => $probed,
-        ]);
+    // 1-Click DB schema migration for image_scan_* columns.
+    if ($action === 'migrate_schema') {
+        try {
+            medreview_with_schema_migration(static function () use ($pdo): void {
+                medreview_migrate_image_audit_columns($pdo);
+            });
+            json_response([
+                'ok' => true,
+                'schema_ready' => true,
+                'message' => 'Đã thêm các cột image_scan_status, image_scanned_at, image_scan_json vào bảng cơ sở y tế và bác sĩ.',
+            ]);
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'message' => 'Không thể tạo cột DB: ' . $e->getMessage()], 500);
+        }
     }
 
     $entityType = strtolower(trim((string) ($body['entity_type'] ?? 'facility')));
     if (!in_array($entityType, ['facility', 'doctor'], true)) {
-        json_response(['ok' => false, 'message' => 'Loại hồ sơ không hợp lệ.'], 422);
+        $entityType = 'facility';
     }
+    $table = $entityType === 'doctor' ? 'medical_doctors' : 'medical_facilities';
+
+    // Full-system continuous batch scanner: picks the next unscanned records, probes them lightly, and marks them in DB.
+    if ($action === 'scan_next_batch') {
+        if (!medical_image_audit_schema_ready($pdo, $table)) {
+            try {
+                medreview_with_schema_migration(static function () use ($pdo): void {
+                    medreview_migrate_image_audit_columns($pdo);
+                });
+            } catch (Throwable $e) {
+                json_response(['ok' => false, 'message' => 'Chưa có cột đánh dấu quét trong DB: ' . $e->getMessage()], 503);
+            }
+        }
+
+        $language = strtolower(trim((string) ($body['language'] ?? 'vi')));
+        $statusFilter = strtolower(trim((string) ($body['status'] ?? 'published')));
+        $batchSize = min(4, max(1, (int) ($body['batch_size'] ?? 2)));
+        $afterId = max(0, (int) ($body['after_id'] ?? 0));
+        $onlyUnscanned = !array_key_exists('only_unscanned', $body) || !empty($body['only_unscanned']);
+
+        $hasLangCol = db_has_column($pdo, $table, 'language_code');
+        $hasAiImageCol = $entityType === 'facility' && db_has_column($pdo, $table, 'ai_image_url');
+
+        $baseWhere = [];
+        $baseParams = [];
+        if ($statusFilter !== 'all' && in_array($statusFilter, ['published', 'draft'], true)) {
+            $baseWhere[] = 'status = :status';
+            $baseParams[':status'] = $statusFilter;
+        }
+        if ($hasLangCol && $language !== 'all' && in_array($language, ['vi', 'en'], true)) {
+            if ($language === 'vi') {
+                $baseWhere[] = "(language_code = 'vi' OR language_code IS NULL OR language_code = '')";
+            } else {
+                $baseWhere[] = 'language_code = :language';
+                $baseParams[':language'] = $language;
+            }
+        }
+
+        $batchWhere = $baseWhere;
+        $batchParams = $baseParams;
+        if ($onlyUnscanned) {
+            $batchWhere[] = "(image_scan_status = 'unscanned' OR image_scanned_at IS NULL)";
+        }
+        if ($afterId > 0) {
+            $batchWhere[] = 'id > :after_id';
+            $batchParams[':after_id'] = $afterId;
+        }
+
+        $batchWhereSql = $batchWhere !== [] ? ('WHERE ' . implode(' AND ', $batchWhere)) : '';
+        $cols = 'id, name, image_url, gallery_json' . ($hasAiImageCol ? ', ai_image_url' : '');
+        $stmt = $pdo->prepare("SELECT {$cols} FROM `{$table}` {$batchWhereSql} ORDER BY id ASC LIMIT {$batchSize}");
+        $stmt->execute($batchParams);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $failedByEntity = [];
+        if ($rows !== [] && medical_directory_table_exists($pdo, 'medical_media_jobs')) {
+            try {
+                $ids = array_map(static fn(array $r): int => (int) $r['id'], $rows);
+                $inPlaceholders = implode(',', array_fill(0, count($ids), '?'));
+                $jStmt = $pdo->prepare(
+                    "SELECT entity_id, source_url, last_error
+                     FROM medical_media_jobs
+                     WHERE entity_type = ? AND status = 'failed' AND entity_id IN ({$inPlaceholders})"
+                );
+                $jStmt->execute(array_merge([$entityType], $ids));
+                while (($j = $jStmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+                    $failedByEntity[(int) $j['entity_id']][trim((string) $j['source_url'])] = trim((string) ($j['last_error'] ?? 'Lỗi tải ảnh'));
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        $processed = [];
+        $lastId = $afterId;
+        foreach ($rows as $row) {
+            $eid = (int) ($row['id'] ?? 0);
+            $lastId = max($lastId, $eid);
+            $processed[] = medical_image_audit_scan_and_save_row($pdo, $entityType, $row, $failedByEntity[$eid] ?? []);
+        }
+
+        // Count global progress across the selected filter scope.
+        $baseWhereSql = $baseWhere !== [] ? ('WHERE ' . implode(' AND ', $baseWhere)) : '';
+        $statStmt = $pdo->prepare(
+            "SELECT
+                COUNT(*) AS total_records,
+                SUM(CASE WHEN image_scanned_at IS NOT NULL AND image_scan_status <> 'unscanned' THEN 1 ELSE 0 END) AS scanned_count,
+                SUM(CASE WHEN image_scanned_at IS NULL OR image_scan_status = 'unscanned' THEN 1 ELSE 0 END) AS unscanned_count,
+                SUM(CASE WHEN image_scanned_at IS NOT NULL AND image_scan_status = 'broken' THEN 1 ELSE 0 END) AS broken_count,
+                SUM(CASE WHEN image_scanned_at IS NOT NULL AND image_scan_status = 'warning' THEN 1 ELSE 0 END) AS warning_count,
+                SUM(CASE WHEN image_scanned_at IS NOT NULL AND image_scan_status = 'ok' THEN 1 ELSE 0 END) AS ok_count
+             FROM `{$table}` {$baseWhereSql}"
+        );
+        $statStmt->execute($baseParams);
+        $stats = $statStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $unscannedRemaining = (int) ($stats['unscanned_count'] ?? 0);
+        json_response([
+            'ok' => true,
+            'done' => count($rows) === 0 || ($onlyUnscanned && $unscannedRemaining === 0),
+            'processed_count' => count($processed),
+            'processed' => $processed,
+            'next_after_id' => $onlyUnscanned ? 0 : $lastId,
+            'progress' => [
+                'total' => (int) ($stats['total_records'] ?? 0),
+                'scanned' => (int) ($stats['scanned_count'] ?? 0),
+                'unscanned' => $unscannedRemaining,
+                'broken' => (int) ($stats['broken_count'] ?? 0),
+                'warning' => (int) ($stats['warning_count'] ?? 0),
+                'ok' => (int) ($stats['ok_count'] ?? 0),
+            ],
+        ]);
+    }
+
+    if ($action === 'reset_all_scans') {
+        if (!medical_image_audit_schema_ready($pdo, $table)) {
+            json_response(['ok' => false, 'message' => 'Chưa có cột đánh dấu quét trong DB.'], 422);
+        }
+        $pdo->exec("UPDATE `{$table}` SET image_scan_status = 'unscanned', image_scanned_at = NULL, image_scan_json = NULL");
+        json_response([
+            'ok' => true,
+            'message' => 'Đã đặt lại trạng thái "Chưa quét" cho toàn bộ ' . ($entityType === 'doctor' ? 'bác sĩ' : 'cơ sở y tế') . '.',
+        ]);
+    }
+
+    if ($action === 'probe_batch') {
+        $urls = is_array($body['urls'] ?? null) ? array_slice($body['urls'], 0, 3) : [];
+        $results = [];
+        foreach ($urls as $u) {
+            $u = trim((string) $u);
+            if ($u !== '') {
+                $results[$u] = medical_image_audit_lightweight_probe_single($u, 4);
+            }
+        }
+        json_response(['ok' => true, 'results' => $results]);
+    }
+
     $id = (int) ($body['id'] ?? 0);
     if ($id <= 0) {
         json_response(['ok' => false, 'message' => 'ID hồ sơ không hợp lệ.'], 422);
     }
-    $table = $entityType === 'doctor' ? 'medical_doctors' : 'medical_facilities';
 
     if ($action === 'remove_image') {
         $targetUrl = trim((string) ($body['url'] ?? ''));
@@ -526,7 +901,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->beginTransaction();
         try {
-            $stmt = $pdo->prepare("SELECT * FROM {$table} WHERE id = :id FOR UPDATE");
+            $stmt = $pdo->prepare("SELECT * FROM `{$table}` WHERE id = :id FOR UPDATE");
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!is_array($row)) {
@@ -576,8 +951,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sets[] = 'images_label = :images_label';
                 $params[':images_label'] = $count > 0 ? ($count . ' ảnh') : '';
             }
+            if (medical_image_audit_schema_ready($pdo, $table)) {
+                $sets[] = "image_scan_status = 'unscanned'";
+                $sets[] = 'image_scanned_at = NULL';
+            }
 
-            $update = $pdo->prepare("UPDATE {$table} SET " . implode(', ', $sets) . " WHERE id = :id");
+            $update = $pdo->prepare("UPDATE `{$table}` SET " . implode(', ', $sets) . " WHERE id = :id");
             $update->execute($params);
             $pdo->commit();
             medical_search_cache_invalidate();
@@ -601,7 +980,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($targetUrl === '') {
             json_response(['ok' => false, 'message' => 'Thiếu URL ảnh đại diện.'], 422);
         }
-        $stmt = $pdo->prepare("UPDATE {$table} SET image_url = :image_url WHERE id = :id");
+        $stmt = $pdo->prepare("UPDATE `{$table}` SET image_url = :image_url WHERE id = :id");
         $stmt->execute([':image_url' => $targetUrl, ':id' => $id]);
         medical_search_cache_invalidate();
         json_response([

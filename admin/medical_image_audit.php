@@ -7,7 +7,7 @@ admin_require_login();
 
 $adminPageTitle = 'Admin • Rà soát ảnh hỏng';
 $adminHeaderTitle = 'Rà soát ảnh hỏng';
-$adminHeaderSubtitle = 'Quét kiểm tra và lọc ảnh lỗi cho Cơ sở y tế & Bác sĩ với tốc độ điều tiết an toàn';
+$adminHeaderSubtitle = 'Quét tự động toàn bộ Cơ sở y tế & Bác sĩ với lưu vết trạng thái trong Database';
 $adminActive = 'medical-image-audit';
 $csrfToken = admin_csrf_token();
 
@@ -19,17 +19,22 @@ require __DIR__ . '/_layout_start.php';
   .audit-hero { position:relative; overflow:hidden; padding:1.35rem 1.5rem; border:1px solid #d7e5ff; border-radius:1.25rem; background:linear-gradient(118deg,#f7fbff 0%,#fff 55%,#eef5ff 100%); box-shadow:0 12px 32px rgba(36,76,140,.08); }
   .audit-eyebrow { display:inline-flex; align-items:center; gap:.45rem; padding:.34rem .62rem; border-radius:999px; color:#156847; background:#eaf8f0; font-size:.73rem; font-weight:800; letter-spacing:.02em; text-transform:uppercase; }
   .audit-hero h1 { margin:.55rem 0 .35rem; color:var(--audit-ink); font-size:clamp(1.2rem,2.2vw,1.6rem); font-weight:800; letter-spacing:-.03em; }
-  .audit-hero p { max-width:760px; margin:0; color:#5e708a; font-size:.88rem; line-height:1.55; }
+  .audit-hero p { max-width:780px; margin:0; color:#5e708a; font-size:.88rem; line-height:1.55; }
   .audit-throttle-badge { display:inline-flex; align-items:center; gap:.45rem; padding:.45rem .72rem; border:1px solid #d7e5fb; border-radius:999px; color:#355079; background:#fff; font-size:.78rem; font-weight:700; white-space:nowrap; }
   .audit-throttle-badge.is-scanning { color:#1650c2; border-color:#b7d1ff; background:#eff5ff; }
-  .audit-pills { display:flex; flex-wrap:wrap; gap:.45rem; }
-  .audit-pill { display:inline-flex; align-items:center; gap:.42rem; padding:.42rem .72rem; border:1px solid #d9e4f4; border-radius:999px; color:#425573; background:#fff; font-size:.78rem; font-weight:700; cursor:pointer; transition:all .14s ease; }
+  .audit-scanner-panel { border:1px solid #d5e4ff; border-radius:1.1rem; background:linear-gradient(180deg,#ffffff,#f7faff); padding:1rem 1.15rem; }
+  .audit-stat-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.65rem; }
+  .audit-stat-box { padding:.68rem .85rem; border:1px solid #e1eaf6; border-radius:.85rem; background:#fff; }
+  .audit-stat-box .num { font-size:1.22rem; font-weight:800; color:#16233a; line-height:1.1; }
+  .audit-stat-box .lbl { font-size:.73rem; font-weight:700; color:#697b96; margin-top:.2rem; }
+  .audit-pills { display:flex; flex-wrap:wrap; gap:.42rem; }
+  .audit-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .68rem; border:1px solid #d9e4f4; border-radius:999px; color:#425573; background:#fff; font-size:.77rem; font-weight:700; cursor:pointer; transition:all .14s ease; }
   .audit-pill:hover { border-color:#9ec0fb; color:#1c4ed8; background:#f4f8ff; }
   .audit-pill.active { border-color:#2563eb; color:#fff; background:linear-gradient(135deg,#3478f6,#2461dc); box-shadow:0 6px 14px rgba(37,99,235,.18); }
-  .audit-pill .count { display:inline-block; padding:.1rem .42rem; border-radius:999px; background:rgba(15,23,42,.08); font-size:.71rem; font-weight:800; }
+  .audit-pill .count { display:inline-block; padding:.08rem .4rem; border-radius:999px; background:rgba(15,23,42,.08); font-size:.7rem; font-weight:800; }
   .audit-pill.active .count { color:#fff; background:rgba(255,255,255,.22); }
   .audit-row.is-browser-broken { background:#fff8f9 !important; }
-  .audit-thumb-grid { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .audit-thumb-grid { display:flex; flex-wrap:wrap; gap:.58rem; }
   .audit-thumb-card { position:relative; width:136px; border:1px solid #dce6f4; border-radius:.75rem; background:#fff; overflow:hidden; transition:border-color .15s ease, box-shadow .15s ease; }
   .audit-thumb-card.is-cover { border-color:#93bbfb; box-shadow:0 0 0 2px rgba(37,99,235,.12); }
   .audit-thumb-card.state-broken { border-color:#f18b96; background:#fff5f6; }
@@ -52,20 +57,26 @@ require __DIR__ . '/_layout_start.php';
   .audit-issue-tag.danger { color:#b42318; background:#fee4e2; border:1px solid #fecdca; }
   .audit-issue-tag.warning { color:#9a5b00; background:#fef3c7; border:1px solid #fde68a; }
   .audit-issue-tag.info { color:#1d4ed8; background:#dbeafe; border:1px solid #bfdbfe; }
+  .db-scan-badge { display:inline-flex; align-items:center; gap:.32rem; padding:.22rem .55rem; border-radius:999px; font-size:.71rem; font-weight:800; }
+  .db-scan-badge.unscanned { color:#52627a; background:#eef2f8; }
+  .db-scan-badge.broken { color:#b42318; background:#fee4e2; }
+  .db-scan-badge.warning { color:#9a5b00; background:#fef3c7; }
+  .db-scan-badge.ok { color:#15803d; background:#dcfce7; }
+  @media (max-width:991.98px) { .audit-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 </style>
 
 <section class="audit-shell" id="medicalImageAuditApp">
   <div class="audit-hero mb-3">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
       <div>
-        <div class="audit-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Kiểm định thư viện ảnh</div>
-        <h1>Rà soát &amp; lọc ảnh hỏng (Chế độ điều tiết an toàn)</h1>
-        <p>Hệ thống phân loại tức thì bằng SQL/file nội bộ, sau đó nạp ảnh xem trước và quét kiểm tra HTTP theo hàng đợi nhỏ (tối đa <strong>2 ảnh đồng thời</strong>, có thời gian nghỉ giữa các lượt) để không bao giờ làm nghẽn PHP-FPM hay đơ trình duyệt.</p>
+        <div class="audit-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Quét toàn hệ thống &amp; Lưu vết DB</div>
+        <h1>Rà soát ảnh hỏng tự động (Đánh dấu Đã quét / Chưa quét trong DB)</h1>
+        <p>Bấm <strong>“Quét toàn bộ chưa quét”</strong> một lần để hệ thống tự động duyệt hết toàn bộ Cơ sở y tế / Bác sĩ. Mỗi nhịp chỉ tải thử tối đa <strong>64 KB đầu của ảnh</strong> (nhẹ hơn 30 lần tải nguyên tấm, không giải nén GD) và lưu trực tiếp trạng thái <code>image_scan_status</code>, <code>image_scanned_at</code> vào Database.</p>
       </div>
       <div class="d-flex flex-column align-items-end gap-2">
         <span class="audit-throttle-badge" id="auditQueueBadge" role="status">
           <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-          <span id="auditQueueText">Hàng đợi ảnh: Sẵn sàng (Tối đa 2 ảnh/lượt)</span>
+          <span id="auditQueueText">Trạng thái: Sẵn sàng</span>
         </span>
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>">
@@ -78,6 +89,67 @@ require __DIR__ . '/_layout_start.php';
             <i class="fa-solid fa-user-doctor me-1"></i>DS Bác sĩ
           </a>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warning d-none align-items-center justify-content-between gap-3 mb-3" id="schemaWarningBox">
+    <div>
+      <i class="fa-solid fa-database me-2"></i>
+      <strong>Chưa khởi tạo cột đánh dấu quét trong DB:</strong> Bảng dữ liệu cần thêm 3 cột <code>image_scan_status</code>, <code>image_scanned_at</code>, <code>image_scan_json</code> để lưu trạng thái trang nào đã quét / chưa quét.
+    </div>
+    <button type="button" class="btn btn-sm btn-warning fw-bold" id="btnMigrateSchema">
+      <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Tạo cột DB ngay
+    </button>
+  </div>
+
+  <!-- Bảng điều khiển Quét Toàn Bộ Hệ Thống 1-Click -->
+  <div class="audit-scanner-panel shadow-soft mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="icon-pill" style="width:34px;height:34px;"><i class="fa-solid fa-satellite-dish"></i></span>
+        <div>
+          <div class="fw-bold" style="font-size:.94rem;">Quét tự động toàn bộ danh sách (Không cần chuyển từng trang)</div>
+          <div class="small text-secondary" id="fullScanStatusLine">Hệ thống sẽ tự động lấy lần lượt các hồ sơ <strong>Chưa quét</strong> trong DB, kiểm tra nhẹ 64 KB/ảnh rồi đánh dấu hoàn tất.</div>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-primary btn-sm" id="btnStartFullScan">
+          <i class="fa-solid fa-play me-1"></i>Quét toàn bộ chưa quét (<span id="btnUnscannedCount">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-warning btn-sm d-none" id="btnPauseFullScan">
+          <i class="fa-solid fa-pause me-1"></i>Tạm dừng quét
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetAllScans" title="Đặt lại tất cả hồ sơ về trạng thái Chưa quét để quét lại từ đầu">
+          <i class="fa-solid fa-rotate-left me-1"></i>Đặt lại về Chưa quét
+        </button>
+      </div>
+    </div>
+
+    <div class="progress mb-3" style="height:10px;border-radius:999px;background:#e5edf9;">
+      <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" id="fullScanProgressBar" role="progressbar" style="width:0%"></div>
+    </div>
+
+    <div class="audit-stat-grid">
+      <div class="audit-stat-box">
+        <div class="num" id="statScannedTotal">0 / 0</div>
+        <div class="lbl">Tiến độ đã quét trong DB</div>
+      </div>
+      <div class="audit-stat-box">
+        <div class="num text-secondary" id="statUnscanned">0</div>
+        <div class="lbl">Hồ sơ chưa quét</div>
+      </div>
+      <div class="audit-stat-box">
+        <div class="num text-danger" id="statScannedBroken">0</div>
+        <div class="lbl">Đã quét · Lỗi ảnh</div>
+      </div>
+      <div class="audit-stat-box">
+        <div class="num text-warning" id="statScannedWarning">0</div>
+        <div class="lbl">Đã quét · Cảnh báo</div>
+      </div>
+      <div class="audit-stat-box">
+        <div class="num text-success" id="statScannedOk">0</div>
+        <div class="lbl">Đã quét · Ảnh tốt</div>
       </div>
     </div>
   </div>
@@ -109,7 +181,7 @@ require __DIR__ . '/_layout_start.php';
           </select>
         </div>
         <div class="col-6 col-md-2">
-          <label class="form-label" for="auditLimit">Mức tải / trang</label>
+          <label class="form-label" for="auditLimit">Hiển thị / trang</label>
           <select class="form-select" id="auditLimit">
             <option value="8">8 hồ sơ / trang</option>
             <option value="12" selected>12 hồ sơ / trang</option>
@@ -127,31 +199,37 @@ require __DIR__ . '/_layout_start.php';
 
       <div class="audit-pills mb-3" id="auditIssuePills" role="tablist" aria-label="Bộ lọc nhóm lỗi ảnh">
         <button type="button" class="audit-pill active" data-issue="any_issue">
-          <i class="fa-solid fa-triangle-exclamation"></i><span>Tất cả nghi lỗi</span><span class="count" data-count="any_issue">0</span>
+          <i class="fa-solid fa-triangle-exclamation"></i><span>Tất cả có lỗi</span><span class="count" data-count="any_issue">0</span>
+        </button>
+        <button type="button" class="audit-pill" data-issue="unscanned">
+          <i class="fa-regular fa-clock"></i><span>Chưa quét DB</span><span class="count" data-count="unscanned">0</span>
+        </button>
+        <button type="button" class="audit-pill" data-issue="scanned_broken">
+          <i class="fa-solid fa-circle-xmark"></i><span>Đã quét · Lỗi</span><span class="count" data-count="scanned_broken">0</span>
+        </button>
+        <button type="button" class="audit-pill" data-issue="scanned_warning">
+          <i class="fa-solid fa-circle-exclamation"></i><span>Đã quét · Cảnh báo</span><span class="count" data-count="scanned_warning">0</span>
+        </button>
+        <button type="button" class="audit-pill" data-issue="scanned_ok">
+          <i class="fa-solid fa-circle-check"></i><span>Đã quét · Tốt</span><span class="count" data-count="scanned_ok">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="empty">
           <i class="fa-regular fa-image"></i><span>Trống ảnh</span><span class="count" data-count="empty">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="fbsbx">
-          <i class="fa-brands fa-facebook"></i><span>Link Facebook fbsbx</span><span class="count" data-count="fbsbx">0</span>
+          <i class="fa-brands fa-facebook"></i><span>Facebook fbsbx</span><span class="count" data-count="fbsbx">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="google_temp">
           <i class="fa-solid fa-map-location-dot"></i><span>Link Maps tạm</span><span class="count" data-count="google_temp">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="logo_banner">
-          <i class="fa-solid fa-bullhorn"></i><span>Nghi Logo / Banner</span><span class="count" data-count="logo_banner">0</span>
+          <i class="fa-solid fa-bullhorn"></i><span>Logo / Banner</span><span class="count" data-count="logo_banner">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="suspicious_2026">
-          <i class="fa-solid fa-link-slash"></i><span>Link /2026/ nghi 404</span><span class="count" data-count="suspicious_2026">0</span>
+          <i class="fa-solid fa-link-slash"></i><span>Link /2026/</span><span class="count" data-count="suspicious_2026">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="missing_local">
           <i class="fa-solid fa-file-circle-xmark"></i><span>Mất file nội bộ</span><span class="count" data-count="missing_local">0</span>
-        </button>
-        <button type="button" class="audit-pill" data-issue="worker_failed">
-          <i class="fa-solid fa-circle-exclamation"></i><span>Worker báo lỗi</span><span class="count" data-count="worker_failed">0</span>
-        </button>
-        <button type="button" class="audit-pill" data-issue="remote_unimported">
-          <i class="fa-solid fa-globe"></i><span>Chưa tải về nội bộ</span><span class="count" data-count="remote_unimported">0</span>
         </button>
         <button type="button" class="audit-pill" data-issue="all">
           <i class="fa-solid fa-layer-group"></i><span>Tất cả hồ sơ</span><span class="count" data-count="all">0</span>
@@ -160,12 +238,6 @@ require __DIR__ . '/_layout_start.php';
 
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <button type="button" class="btn btn-primary btn-sm" id="btnProbeCurrentPage">
-            <i class="fa-solid fa-stethoscope me-1"></i>Quét HTTP trang này (2 ảnh/lượt)
-          </button>
-          <button type="button" class="btn btn-outline-warning btn-sm d-none" id="btnStopProbe">
-            <i class="fa-solid fa-pause me-1"></i>Dừng quét
-          </button>
           <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCopyFilteredIds">
             <i class="fa-regular fa-copy me-1"></i>Copy danh sách ID đang lọc (<span id="copyFilteredCount">0</span>)
           </button>
@@ -173,8 +245,8 @@ require __DIR__ . '/_layout_start.php';
             <i class="fa-solid fa-bug me-1"></i>Copy ID ảnh vỡ trên trang (<span id="copyBrokenPageCount">0</span>)
           </button>
         </div>
-        <div class="small text-secondary" id="auditSummaryNote">
-          Chỉ tải và kiểm tra các hồ sơ trong trang đang mở để bảo vệ tài nguyên máy chủ.
+        <div class="small text-secondary">
+          Mỗi hồ sơ hiển thị trạng thái <strong>Đã quét / Chưa quét</strong> lưu trực tiếp từ Database.
         </div>
       </div>
     </div>
@@ -187,9 +259,9 @@ require __DIR__ . '/_layout_start.php';
           <thead>
             <tr>
               <th style="width:76px;">ID</th>
-              <th style="width:280px;">Hồ sơ</th>
-              <th style="width:240px;">Chẩn đoán &amp; Nhãn lỗi</th>
-              <th>Xem trước Ảnh Bìa &amp; Gallery (Tải điều tiết 2 ảnh/lượt)</th>
+              <th style="width:260px;">Hồ sơ</th>
+              <th style="width:255px;">Trạng thái Quét DB &amp; Nhãn lỗi</th>
+              <th>Xem trước Ảnh Bìa &amp; Gallery (Nạp điều tiết 2 ảnh/lượt)</th>
               <th style="width:170px;" class="text-end">Thao tác</th>
             </tr>
           </thead>
@@ -210,11 +282,10 @@ require __DIR__ . '/_layout_start.php';
   const endpoint = <?php echo json_encode(admin_url('api/medical/image_audit.php'), JSON_UNESCAPED_SLASHES); ?>;
   const csrfToken = <?php echo json_encode($csrfToken, JSON_UNESCAPED_SLASHES); ?>;
 
-  // Throttle settings: keep concurrency gentle so browser & server stay responsive.
   const MAX_CONCURRENT_THUMBS = 2;
   const THUMB_DELAY_MS = 120;
-  const PROBE_BATCH_SIZE = 2;
-  const PROBE_DELAY_MS = 850;
+  const FULL_SCAN_BATCH_SIZE = 2;
+  const FULL_SCAN_DELAY_MS = 550;
 
   const state = {
     entityType: 'facility',
@@ -229,8 +300,8 @@ require __DIR__ . '/_layout_start.php';
     thumbQueue: [],
     activeThumbs: 0,
     generation: 0,
-    probing: false,
-    stopProbeRequested: false,
+    fullScanning: false,
+    stopFullScanRequested: false,
   };
 
   const el = {
@@ -245,13 +316,23 @@ require __DIR__ . '/_layout_start.php';
     pager: document.getElementById('auditPager'),
     queueBadge: document.getElementById('auditQueueBadge'),
     queueText: document.getElementById('auditQueueText'),
-    btnProbe: document.getElementById('btnProbeCurrentPage'),
-    btnStopProbe: document.getElementById('btnStopProbe'),
+    schemaWarningBox: document.getElementById('schemaWarningBox'),
+    btnMigrateSchema: document.getElementById('btnMigrateSchema'),
+    btnStartFullScan: document.getElementById('btnStartFullScan'),
+    btnUnscannedCount: document.getElementById('btnUnscannedCount'),
+    btnPauseFullScan: document.getElementById('btnPauseFullScan'),
+    btnResetAllScans: document.getElementById('btnResetAllScans'),
+    fullScanStatusLine: document.getElementById('fullScanStatusLine'),
+    fullScanProgressBar: document.getElementById('fullScanProgressBar'),
+    statScannedTotal: document.getElementById('statScannedTotal'),
+    statUnscanned: document.getElementById('statUnscanned'),
+    statScannedBroken: document.getElementById('statScannedBroken'),
+    statScannedWarning: document.getElementById('statScannedWarning'),
+    statScannedOk: document.getElementById('statScannedOk'),
     btnCopyFiltered: document.getElementById('btnCopyFilteredIds'),
     copyFilteredCount: document.getElementById('copyFilteredCount'),
     btnCopyBrokenPage: document.getElementById('btnCopyBrokenPageIds'),
     copyBrokenPageCount: document.getElementById('copyBrokenPageCount'),
-    summaryNote: document.getElementById('auditSummaryNote'),
   };
 
   function escapeHtml(value) {
@@ -273,6 +354,24 @@ require __DIR__ . '/_layout_start.php';
     el.copyBrokenPageCount.textContent = String(state.brokenIdsOnPage.size);
   }
 
+  function updateProgressWidgets(progress) {
+    const total = Number(progress?.total ?? 0);
+    const scanned = Number(progress?.scanned ?? 0);
+    const unscanned = Number(progress?.unscanned ?? Math.max(0, total - scanned));
+    const broken = Number(progress?.broken ?? 0);
+    const warning = Number(progress?.warning ?? 0);
+    const ok = Number(progress?.ok ?? 0);
+    const pct = total > 0 ? Math.min(100, Math.round((scanned / total) * 100)) : 0;
+
+    el.statScannedTotal.textContent = `${formatNumber(scanned)} / ${formatNumber(total)} (${pct}%)`;
+    el.statUnscanned.textContent = formatNumber(unscanned);
+    el.statScannedBroken.textContent = formatNumber(broken);
+    el.statScannedWarning.textContent = formatNumber(warning);
+    el.statScannedOk.textContent = formatNumber(ok);
+    el.btnUnscannedCount.textContent = formatNumber(unscanned);
+    el.fullScanProgressBar.style.width = `${pct}%`;
+  }
+
   function markRowBrokenOnPage(entityId, reasonText) {
     state.brokenIdsOnPage.add(Number(entityId));
     updateBrokenCounter();
@@ -289,13 +388,14 @@ require __DIR__ . '/_layout_start.php';
     }
   }
 
-  // Gentle thumbnail loader: loads at most MAX_CONCURRENT_THUMBS images at a time.
   function pumpThumbQueue(gen) {
     if (gen !== state.generation) return;
     while (state.activeThumbs < MAX_CONCURRENT_THUMBS && state.thumbQueue.length > 0) {
       const task = state.thumbQueue.shift();
       state.activeThumbs++;
-      updateQueueStatus(`Đang nạp ảnh xem trước (${state.thumbQueue.length} ảnh chờ)...`, true);
+      if (!state.fullScanning) {
+        updateQueueStatus(`Đang nạp ảnh trang này (${state.thumbQueue.length} chờ)...`, true);
+      }
 
       const { card, imgUrl, entityId } = task;
       const frame = card.querySelector('.audit-thumb-frame');
@@ -309,8 +409,8 @@ require __DIR__ . '/_layout_start.php';
         window.setTimeout(() => {
           if (gen !== state.generation) return;
           state.activeThumbs = Math.max(0, state.activeThumbs - 1);
-          if (state.thumbQueue.length === 0 && state.activeThumbs === 0 && !state.probing) {
-            updateQueueStatus('Đã nạp xong ảnh trên trang · Sẵn sàng', false);
+          if (state.thumbQueue.length === 0 && state.activeThumbs === 0 && !state.fullScanning) {
+            updateQueueStatus('Trạng thái: Sẵn sàng', false);
           } else {
             pumpThumbQueue(gen);
           }
@@ -365,6 +465,31 @@ require __DIR__ . '/_layout_start.php';
         badge.textContent = formatNumber(summary[key]);
       }
     });
+    const total = Number(summary.all || 0);
+    const unscanned = Number(summary.unscanned || 0);
+    updateProgressWidgets({
+      total,
+      scanned: Math.max(0, total - unscanned),
+      unscanned,
+      broken: Number(summary.scanned_broken || 0),
+      warning: Number(summary.scanned_warning || 0),
+      ok: Number(summary.scanned_ok || 0),
+    });
+  }
+
+  function renderDbScanBadge(item) {
+    const st = String(item.image_scan_status || 'unscanned');
+    const at = item.image_scanned_at ? ` · ${escapeHtml(item.image_scanned_at)}` : '';
+    if (st === 'broken') {
+      return `<span class="db-scan-badge broken"><i class="fa-solid fa-circle-xmark"></i>Đã quét: Lỗi${at}</span>`;
+    }
+    if (st === 'warning') {
+      return `<span class="db-scan-badge warning"><i class="fa-solid fa-circle-exclamation"></i>Đã quét: Cảnh báo${at}</span>`;
+    }
+    if (st === 'ok') {
+      return `<span class="db-scan-badge ok"><i class="fa-solid fa-circle-check"></i>Đã quét: Tốt${at}</span>`;
+    }
+    return `<span class="db-scan-badge unscanned"><i class="fa-regular fa-clock"></i>Chưa quét DB</span>`;
   }
 
   function renderPager(paging) {
@@ -405,7 +530,6 @@ require __DIR__ . '/_layout_start.php';
 
     if (!Array.isArray(items) || items.length === 0) {
       el.tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-5">Không tìm thấy hồ sơ nào khớp điều kiện lọc.</td></tr>';
-      updateQueueStatus('Không có ảnh cần nạp', false);
       return;
     }
 
@@ -423,14 +547,14 @@ require __DIR__ . '/_layout_start.php';
           }
         });
       });
-      if (rowIssues.some((r) => r.severity === 'danger')) {
+      if (rowIssues.some((r) => r.severity === 'danger') || item.image_scan_status === 'broken') {
         state.brokenIdsOnPage.add(entityId);
       }
 
       const allTags = [...rowIssues, ...imageIssuesFlat];
       const tagsHtml = allTags.length
         ? allTags.map((t) => `<span class="audit-issue-tag ${escapeHtml(t.severity || 'warning')}"><i class="fa-solid fa-circle-exclamation"></i><span>${escapeHtml(t.label)}</span></span>`).join('')
-        : '<span class="audit-issue-tag info"><i class="fa-solid fa-check"></i><span>Chưa phát hiện lỗi tĩnh</span></span>';
+        : '<span class="audit-issue-tag info"><i class="fa-solid fa-check"></i><span>Không có cảnh báo tĩnh</span></span>';
 
       const images = Array.isArray(item.images) ? item.images : [];
       const thumbsHtml = images.length === 0
@@ -468,12 +592,12 @@ require __DIR__ . '/_layout_start.php';
           <td>
             <div class="fw-semibold">${escapeHtml(item.name)}</div>
             <div class="small text-secondary">${escapeHtml(item.subtitle || '')}${item.city ? ' · ' + escapeHtml(item.city) : ''}</div>
-            <div class="small text-secondary mono text-truncate" style="max-width:250px;" title="${escapeHtml(item.slug)}">${escapeHtml(item.slug)}</div>
+            <div class="small text-secondary mono text-truncate" style="max-width:240px;" title="${escapeHtml(item.slug)}">${escapeHtml(item.slug)}</div>
           </td>
           <td>
+            <div class="mb-1">${renderDbScanBadge(item)}</div>
             <div class="small fw-semibold">${formatNumber(item.images_count)} ảnh (${formatNumber(item.gallery_count)} gallery)</div>
             <div class="audit-issue-list">${tagsHtml}</div>
-            ${item.last_image_fix_at ? `<div class="small text-secondary mt-1">Fix ảnh: ${escapeHtml(item.last_image_fix_at)}</div>` : ''}
           </td>
           <td>${thumbsHtml}</td>
           <td class="text-end">
@@ -495,7 +619,6 @@ require __DIR__ . '/_layout_start.php';
 
     updateBrokenCounter();
 
-    // Enqueue thumbnails for gentle sequential loading.
     el.tbody.querySelectorAll('.audit-thumb-card').forEach((card) => {
       const imgUrl = card.dataset.imageUrl || '';
       const entityId = Number(card.dataset.entityId || 0);
@@ -506,18 +629,12 @@ require __DIR__ . '/_layout_start.php';
 
     if (state.thumbQueue.length > 0) {
       pumpThumbQueue(gen);
-    } else {
-      updateQueueStatus('Hàng đợi ảnh: Sẵn sàng', false);
     }
   }
 
   async function loadPage(nextPage = 1) {
     state.generation++;
     const gen = state.generation;
-    state.probing = false;
-    state.stopProbeRequested = false;
-    el.btnStopProbe.classList.add('d-none');
-    el.btnProbe.disabled = false;
 
     state.page = Math.max(1, Number(nextPage || 1));
     state.entityType = el.entityType.value;
@@ -525,9 +642,6 @@ require __DIR__ . '/_layout_start.php';
     state.status = el.status.value;
     state.limit = Number(el.limit.value || 12);
     state.q = el.search.value.trim();
-
-    el.tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-5"><span class="spinner-border spinner-border-sm me-2"></span>Đang phân tích dữ liệu ảnh...</td></tr>';
-    updateQueueStatus('Đang phân loại dữ liệu...', true);
 
     try {
       const params = new URLSearchParams({
@@ -550,6 +664,9 @@ require __DIR__ . '/_layout_start.php';
       }
 
       if (gen !== state.generation) return;
+      el.schemaWarningBox.classList.toggle('d-none', Boolean(data.schema_ready));
+      el.schemaWarningBox.classList.toggle('d-flex', !data.schema_ready);
+
       state.matchedIds = Array.isArray(data.matched_ids) ? data.matched_ids : [];
       el.copyFilteredCount.textContent = formatNumber(state.matchedIds.length);
       renderSummaryPills(data.summary || {});
@@ -558,81 +675,119 @@ require __DIR__ . '/_layout_start.php';
     } catch (err) {
       if (gen !== state.generation) return;
       el.tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-5">${escapeHtml(err.message || 'Lỗi tải dữ liệu.')}</td></tr>`;
-      updateQueueStatus('Lỗi tải dữ liệu', false);
     }
   }
 
-  // Gentle HTTP probe across cards on the current page (2 URLs per batch + 850ms pause).
-  async function probeCurrentPage() {
-    if (state.probing) return;
-    const cards = Array.from(el.tbody.querySelectorAll('.audit-thumb-card'));
-    if (cards.length === 0) {
-      if (window.adminToast) window.adminToast('info', 'Trang hiện tại không có URL ảnh nào để quét HTTP.');
-      return;
-    }
+  // Continuous Full-System Auto-Scanner: scans unscanned records in small batches across the entire DB.
+  async function startFullSystemScan() {
+    if (state.fullScanning) return;
+    state.fullScanning = true;
+    state.stopFullScanRequested = false;
+    el.btnStartFullScan.disabled = true;
+    el.btnPauseFullScan.classList.remove('d-none');
 
-    state.probing = true;
-    state.stopProbeRequested = false;
-    el.btnProbe.disabled = true;
-    el.btnStopProbe.classList.remove('d-none');
-
-    const gen = state.generation;
-    let checked = 0;
-
+    let batchesRun = 0;
     try {
-      for (let i = 0; i < cards.length; i += PROBE_BATCH_SIZE) {
-        if (state.stopProbeRequested || gen !== state.generation) break;
-        const batchCards = cards.slice(i, i + PROBE_BATCH_SIZE);
-        const urls = batchCards.map((c) => c.dataset.imageUrl).filter(Boolean);
-        updateQueueStatus(`Đang quét HTTP sâu (${checked}/${cards.length} ảnh)...`, true);
-
-        const response = await fetch(endpoint, {
+      while (!state.stopFullScanRequested) {
+        updateQueueStatus('Đang quét tự động toàn hệ thống (2 hồ sơ/nhịp)...', true);
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-CSRF-Token': csrfToken,
           },
-          body: JSON.stringify({ action: 'probe_batch', urls }),
+          body: JSON.stringify({
+            action: 'scan_next_batch',
+            entity_type: el.entityType.value,
+            language: el.language.value,
+            status: el.status.value,
+            batch_size: FULL_SCAN_BATCH_SIZE,
+            only_unscanned: true,
+          }),
         });
-        const data = await response.json();
-        if (response.ok && data.ok && data.results) {
-          batchCards.forEach((card) => {
-            const u = card.dataset.imageUrl;
-            const eid = Number(card.dataset.entityId || 0);
-            const res = data.results[u];
-            if (!res) return;
-            const statusNode = card.querySelector('.audit-thumb-status');
-            card.classList.remove('state-ok', 'state-warning', 'state-broken');
-            if (res.state === 'broken') {
-              card.classList.add('state-broken');
-              statusNode.textContent = `HTTP ${res.http_status || 'Lỗi'}: ${res.reason}`;
-              markRowBrokenOnPage(eid, `HTTP ${res.http_status || 'Lỗi'}: ${res.reason}`);
-            } else if (res.state === 'warning') {
-              card.classList.add('state-warning');
-              statusNode.textContent = res.reason || 'Cảnh báo truy cập';
-            } else {
-              card.classList.add('state-ok');
-              statusNode.textContent = res.reason || 'HTTP 200 OK';
-            }
-          });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || 'Lỗi khi quét lô tiếp theo.');
         }
-        checked += batchCards.length;
-        if (i + PROBE_BATCH_SIZE < cards.length && !state.stopProbeRequested) {
-          await new Promise((r) => window.setTimeout(r, PROBE_DELAY_MS));
+
+        el.schemaWarningBox.classList.add('d-none');
+        el.schemaWarningBox.classList.remove('d-flex');
+
+        if (data.progress) {
+          updateProgressWidgets(data.progress);
         }
+        const items = Array.isArray(data.processed) ? data.processed : [];
+        if (items.length > 0) {
+          const last = items[items.length - 1];
+          el.fullScanStatusLine.innerHTML = `Vừa quét xong <strong>#${escapeHtml(last.id)} ${escapeHtml(last.name)}</strong> → Trạng thái: <code>${escapeHtml(last.status)}</code> (${formatNumber(last.broken_count)} lỗi, ${formatNumber(last.warning_count)} cảnh báo, ${formatNumber(last.ok_count)} tốt).`;
+        }
+
+        batchesRun++;
+        // Refresh table every 4 batches so user sees live DB badges updating.
+        if (batchesRun % 4 === 0) {
+          loadPage(state.page);
+        }
+
+        if (data.done || Number(data.progress?.unscanned || 0) === 0) {
+          el.fullScanStatusLine.innerHTML = `<strong class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Đã quét hoàn tất 100% hồ sơ trong phạm vi đã chọn!</strong>`;
+          if (window.adminToast) window.adminToast('success', 'Đã quét xong toàn bộ hồ sơ!');
+          break;
+        }
+
+        await new Promise((r) => window.setTimeout(r, FULL_SCAN_DELAY_MS));
       }
-      updateQueueStatus(state.stopProbeRequested ? 'Đã tạm dừng quét HTTP' : `Hoàn tất quét HTTP ${checked} ảnh trên trang`, false);
-      if (window.adminToast) {
-        window.adminToast('success', state.stopProbeRequested ? 'Đã dừng quét HTTP.' : `Đã kiểm tra HTTP xong ${checked} ảnh trên trang.`);
+      if (state.stopFullScanRequested) {
+        el.fullScanStatusLine.innerHTML = '<span class="text-warning fw-semibold">Đã tạm dừng quét. Tiến độ đã được lưu trong DB, bạn có thể bấm Tiếp tục bất cứ lúc nào.</span>';
       }
     } catch (err) {
-      updateQueueStatus('Quét HTTP bị gián đoạn', false);
-      if (window.adminToast) window.adminToast('danger', err.message || 'Lỗi khi quét HTTP.');
+      el.fullScanStatusLine.innerHTML = `<span class="text-danger fw-semibold">${escapeHtml(err.message || 'Quét bị gián đoạn.')}</span>`;
+      if (window.adminToast) window.adminToast('danger', err.message || 'Lỗi khi quét.');
     } finally {
-      state.probing = false;
-      el.btnProbe.disabled = false;
-      el.btnStopProbe.classList.add('d-none');
+      state.fullScanning = false;
+      el.btnStartFullScan.disabled = false;
+      el.btnPauseFullScan.classList.add('d-none');
+      updateQueueStatus('Trạng thái: Sẵn sàng', false);
+      loadPage(state.page);
+    }
+  }
+
+  async function migrateSchemaNow() {
+    el.btnMigrateSchema.disabled = true;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ action: 'migrate_schema' }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || 'Không thể tạo cột DB.');
+      if (window.adminToast) window.adminToast('success', data.message);
+      loadPage(state.page);
+    } catch (err) {
+      if (window.adminToast) window.adminToast('danger', err.message || 'Lỗi migrate DB.');
+    } finally {
+      el.btnMigrateSchema.disabled = false;
+    }
+  }
+
+  async function resetAllScansNow() {
+    if (!window.confirm('Đặt lại toàn bộ hồ sơ về trạng thái "Chưa quét" để quét lại từ đầu?')) return;
+    el.btnResetAllScans.disabled = true;
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ action: 'reset_all_scans', entity_type: el.entityType.value }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || 'Không thể đặt lại trạng thái.');
+      if (window.adminToast) window.adminToast('success', data.message);
+      loadPage(1);
+    } catch (err) {
+      if (window.adminToast) window.adminToast('danger', err.message || 'Lỗi khi đặt lại.');
+    } finally {
+      el.btnResetAllScans.disabled = false;
     }
   }
 
@@ -732,10 +887,14 @@ require __DIR__ . '/_layout_start.php';
       loadPage(1);
     });
   });
-  el.btnProbe.addEventListener('click', probeCurrentPage);
-  el.btnStopProbe.addEventListener('click', () => {
-    state.stopProbeRequested = true;
+  el.btnStartFullScan.addEventListener('click', startFullSystemScan);
+  el.btnPauseFullScan.addEventListener('click', () => {
+    state.stopFullScanRequested = true;
   });
+  el.btnResetAllScans.addEventListener('click', resetAllScansNow);
+  if (el.btnMigrateSchema) {
+    el.btnMigrateSchema.addEventListener('click', migrateSchemaNow);
+  }
   el.btnCopyFiltered.addEventListener('click', () => {
     copyText(state.matchedIds.join(','), `${state.matchedIds.length} ID đang lọc`);
   });

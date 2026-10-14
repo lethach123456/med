@@ -226,11 +226,38 @@ function medreview_migrate_core_tables(PDO $pdo): void
     medreview_migrate_content_columns($pdo);
 }
 
+/** Additive DB columns to track per-record image audit status across facilities and doctors. */
+function medreview_migrate_image_audit_columns(PDO $pdo): void
+{
+    if (!medreview_schema_migration_allowed()) return;
+    foreach (['medical_facilities', 'medical_doctors'] as $table) {
+        if (!medical_directory_table_exists($pdo, $table)) continue;
+        if (!medical_directory_column_exists($pdo, $table, 'image_scan_status')) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN image_scan_status VARCHAR(24) NOT NULL DEFAULT 'unscanned'");
+        }
+        if (!medical_directory_column_exists($pdo, $table, 'image_scanned_at')) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN image_scanned_at DATETIME NULL");
+        }
+        if (!medical_directory_column_exists($pdo, $table, 'image_scan_json')) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN image_scan_json MEDIUMTEXT NULL");
+        }
+        $idxName = 'idx_' . $table . '_image_scan';
+        $idxStmt = $pdo->prepare(
+            'SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND INDEX_NAME = :idx LIMIT 1'
+        );
+        $idxStmt->execute([':table' => $table, ':idx' => $idxName]);
+        if (!$idxStmt->fetchColumn()) {
+            $pdo->exec("CREATE INDEX `{$idxName}` ON `{$table}` (image_scan_status, image_scanned_at)");
+        }
+    }
+}
+
 /** Single explicit entry point shared by CLI deployment and the admin maintenance button. */
 function medreview_run_all_schema_migrations(PDO $pdo): void
 {
     medreview_with_schema_migration(static function () use ($pdo): void {
         medreview_migrate_core_tables($pdo);
         medical_directory_run_schema_migrations($pdo);
+        medreview_migrate_image_audit_columns($pdo);
     });
 }
