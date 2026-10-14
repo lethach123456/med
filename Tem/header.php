@@ -1366,7 +1366,7 @@ $navItems = $isEnglish
         <nav class="header-nav" aria-label="<?php echo htmlspecialchars($desktopMenuLabel, ENT_QUOTES, 'UTF-8'); ?>">
           <?php foreach ($navItems as $item): ?>
             <?php $matchPath = (string) ($item['match'] ?? ''); ?>
-            <?php $isDesktopActive = $matchPath !== '' && $requestPath === $matchPath; ?>
+            <?php $isDesktopActive = $matchPath !== '' && ($requestPath === $matchPath || ($pageKey === 'reviews' && $matchPath === $reviewPath)); ?>
             <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isDesktopActive ? 'is-active' : ''; ?>"<?php echo $isDesktopActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
           <?php endforeach; ?>
         </nav>
@@ -1394,7 +1394,7 @@ $navItems = $isEnglish
           <div class="mobile-panel" id="medical-mobile-menu-panel">
             <?php foreach ($navItems as $index => $item): ?>
               <?php $mobileMatchPath = (string) ($item['match'] ?? ''); ?>
-              <?php $isMobileActive = $mobileMatchPath !== '' && $requestPath === $mobileMatchPath; ?>
+              <?php $isMobileActive = $mobileMatchPath !== '' && ($requestPath === $mobileMatchPath || ($pageKey === 'reviews' && $mobileMatchPath === $reviewPath)); ?>
               <?php $mobileLabel = (!$isEnglish && $index === count($navItems) - 1) ? 'Về MedReview' : (string) $item['label']; ?>
               <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isMobileActive ? 'is-active' : ''; ?>"<?php echo $isMobileActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars($mobileLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph <?php echo $index === 0 ? 'ph-arrow-right' : 'ph-arrow-up-right'; ?>" aria-hidden="true"></i></a>
             <?php endforeach; ?>
