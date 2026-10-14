@@ -73,7 +73,10 @@ require __DIR__ . '/_layout_start.php';
         <h1>Tải ảnh trước, nén ảnh sau</h1>
         <p>API nhận bài chỉ lưu URL ảnh để phản hồi nhanh. Worker tách thành hai bước: tải ảnh gốc về thư viện trước, sau đó nén nền khi server rảnh hơn.</p>
       </div>
-      <span class="worker-status" id="workerStatus" role="status"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span>Đang kiểm tra hàng chờ…</span></span>
+      <div class="d-flex flex-column align-items-end gap-2">
+        <span class="worker-status" id="workerStatus" role="status"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span>Đang kiểm tra hàng chờ…</span></span>
+        <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_image_audit.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i>Rà soát ảnh hỏng</a>
+      </div>
     </div>
   </div>
 

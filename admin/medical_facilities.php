@@ -37,7 +37,8 @@ require __DIR__ . '/_layout_start.php';
             <div class="h5 mb-1">Cơ sở y tế</div>
             <div class="text-secondary">Quản lý danh sách, nội dung chi tiết và dữ liệu hiển thị frontend.</div>
           </div>
-          <div class="d-flex gap-2">
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(admin_url('medical_image_audit.php?entity_type=facility'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-shield-halved me-2"></i>Rà soát ảnh hỏng</a>
             <a class="btn btn-primary" href="<?php echo htmlspecialchars(admin_url('medical_facility_edit.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-plus me-2"></i>Thêm cơ sở y tế</a>
           </div>
         </div>
