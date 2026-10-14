@@ -83,6 +83,9 @@ $prompt = medical_doctor_research_prompt('Custom prompt {{name}}', ['id' => 1, '
 $assert(!str_contains($prompt, 'SECRET'), 'prompt never leaks claim');
 $assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2') && str_contains($prompt, 'education_json') && str_contains($prompt, '```json'), 'custom prompts get full contract');
 $defaultPrompt = medical_doctor_default_prompt();
+$assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1') && str_contains($prompt, 'MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1'), 'default and saved custom prompts exclude third-party booking/review sources');
+$assert(str_contains($prompt, 'Không ghi các trang này trong sources_json') && str_contains($prompt, 'booking_url chỉ điền trang đặt khám chính thức'), 'source policy covers evidence and official booking links');
+$assert(!str_contains($defaultPrompt, 'Trang đặt khám hoặc mạng xã hội nghề nghiệp chính thức dùng bổ trợ'), 'default no longer recommends booking platforms as supporting sources');
 $assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_URL_TYPES_V1') && str_contains($prompt, 'MEDREVIEW_DOCTOR_URL_TYPES_V1'), 'default and custom prompt enforce URL types');
 $assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_EDITORIAL_PROMPT_V3'), 'expanded doctor editorial prompt version');
 foreach (medical_doctor_json_fields() as $field) $assert(str_contains($defaultPrompt, $field), 'doctor prompt documents ' . $field);
