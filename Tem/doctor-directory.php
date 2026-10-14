@@ -32,12 +32,13 @@
       <section class="doctor-results" aria-label="<?php echo $isEnglish ? 'Doctor directory' : 'Danh sách bác sĩ'; ?>">
         <div class="doctor-result-topline">
           <div class="doctor-result-meta">
+            <h2 class="doctor-result-heading"><?php echo $isEnglish ? 'Doctors for you' : 'Bác sĩ dành cho bạn'; ?></h2>
             <p class="doctor-result-count" id="doctorResultCount"><strong><?php echo $number((int) ($initial['paging']['total'] ?? 0)); ?></strong> <?php echo $isEnglish ? 'matching doctors' : 'bác sĩ phù hợp'; ?></p>
             <span class="doctor-source"><?php echo $isEnglish ? 'Find out more before you choose' : 'Thêm thông tin trước khi lựa chọn'; ?></span>
           </div>
-          <div class="doctor-loading" id="doctorLoading" role="status" aria-live="polite"><i class="ph ph-spinner-gap"></i><?php echo $isEnglish ? 'Updating results' : 'Đang cập nhật danh sách'; ?></div>
+          <div class="doctor-loading" id="doctorLoading" role="status" aria-live="polite"><i class="ph ph-spinner-gap" aria-hidden="true"></i><?php echo $isEnglish ? 'Updating results' : 'Đang cập nhật danh sách'; ?></div>
           <div class="doctor-filter-panel">
-            <button class="doctor-filter-toggle" type="button" id="doctorFilterToggle" aria-expanded="false" aria-controls="doctorFilterOptions"><i class="ph ph-sliders-horizontal"></i><span><?php echo $isEnglish ? 'Filters' : 'Bộ lọc'; ?></span><b id="doctorFilterCount" hidden>0</b></button>
+            <button class="doctor-filter-toggle" type="button" id="doctorFilterToggle" aria-label="<?php echo $isEnglish ? 'Filter and sort doctors' : 'Lọc và sắp xếp bác sĩ'; ?>" aria-expanded="false" aria-controls="doctorFilterOptions"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span><?php echo $isEnglish ? 'Filter & sort' : 'Lọc & xếp'; ?></span><b id="doctorFilterCount" hidden>0</b></button>
             <div class="doctor-filter-options" id="doctorFilterOptions" hidden>
               <div class="doctor-filter-grid">
                 <div class="doctor-filter-field"><label for="doctorCity"><?php echo $isEnglish ? 'Location' : 'Khu vực'; ?></label><div class="doctor-select-wrap"><i class="ph ph-map-pin"></i><select id="doctorCity" name="city" form="doctorDirectoryFilter" data-doctor-filter><option value=""><?php echo $isEnglish ? 'All locations' : 'Tất cả khu vực'; ?></option><?php foreach ($cities as $city): ?><option value="<?php echo $escape($city); ?>"<?php echo $filters['city'] === $city ? ' selected' : ''; ?>><?php echo $escape($city); ?></option><?php endforeach; ?></select></div></div>

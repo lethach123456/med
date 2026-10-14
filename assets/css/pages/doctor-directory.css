@@ -62,6 +62,7 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 .dd-redesign.doctor-directory .doctor-result-topline{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
 .dd-redesign.doctor-directory .doctor-result-count{margin:0;font-size:18px;line-height:1.4;font-weight:500}
 .dd-redesign.doctor-directory .doctor-result-count strong{font-weight:750}
+.dd-redesign.doctor-directory .doctor-result-heading{display:none}
 .dd-redesign.doctor-directory .doctor-source{display:block;margin-top:5px;font-size:13px;color:var(--doctor-muted)}
 .dd-redesign.doctor-directory .doctor-filter-panel{flex-shrink:0}
 .dd-redesign.doctor-directory .doctor-filter-toggle{display:flex;align-items:center;gap:8px;min-height:var(--med-ui-control-height,40px);padding:var(--med-ui-control-padding,8px 14px);border:1px solid var(--doctor-line);border-radius:var(--med-ui-control-radius,11px);background:#fff;color:var(--doctor-ink);font-size:var(--med-ui-action,14px);font-weight:650;line-height:1.5}
@@ -258,6 +259,62 @@ body.doctor-directory-page{margin:0;background:#fff;color:#172e4d;font-family:In
 @keyframes doctor-discovery-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:no-preference){.dd-redesign.doctor-directory .doctor-hero,.dd-redesign.doctor-directory .doctor-search-area{animation:doctor-discovery-in .45s var(--med-ui-ease) both}.dd-redesign.doctor-directory .doctor-search-area{animation-delay:55ms}}
 @media(min-width:901px) and (prefers-reduced-motion:no-preference){.dd-redesign.doctor-directory .doctor-city-profile,.dd-redesign.doctor-directory .doctor-note-icon{animation:doctor-art-float 4.4s ease-in-out 1}}
+
+/* On phones, only identity sits beside the portrait. The remaining content uses
+   the whole card width, avoiding narrow columns and oversized empty footers. */
+@media(max-width:800px){
+  body .dd-redesign.doctor-directory .doctor-result-topline{align-items:center;gap:12px;margin-bottom:14px}
+  body .dd-redesign.doctor-directory .doctor-result-meta{flex:1;min-width:0}
+  body .dd-redesign.doctor-directory .doctor-result-heading{display:block;margin:0 0 4px;font-size:18px;font-weight:700;line-height:1.4;letter-spacing:-.025em}
+  body .dd-redesign.doctor-directory .doctor-result-count{font-size:13px;line-height:1.5;color:var(--doctor-muted)}
+  body .dd-redesign.doctor-directory .doctor-result-count::before{display:none}
+  body .dd-redesign.doctor-directory .doctor-result-count strong{font-size:inherit;color:var(--doctor-ink)}
+  body .dd-redesign.doctor-directory .doctor-source{display:none}
+  body .dd-redesign.doctor-directory .doctor-filter-toggle{justify-content:center;gap:6px;min-height:44px;padding:8px 10px;border-radius:11px;font-size:13px;white-space:nowrap;touch-action:manipulation}
+  body .dd-redesign.doctor-directory .doctor-filter-toggle>i{font-size:18px}
+  body .dd-redesign.doctor-directory .doctor-filter-toggle> b{width:18px;height:18px;font-size:11px}
+  body .dd-redesign.doctor-directory .doctor-filter-options{width:100%;padding:16px;max-height:calc(100dvh - 160px);overflow-y:auto;overscroll-behavior:contain}
+  body .dd-redesign.doctor-directory .doctor-select-wrap select{min-height:44px;font-size:16px}
+  body .dd-redesign.doctor-directory .doctor-list{gap:12px}
+  body .dd-redesign.doctor-directory .doctor-card{grid-template-columns:76px minmax(0,1fr);grid-template-areas:none;gap:6px 12px;padding:14px;border-radius:18px;box-shadow:none}
+  body .dd-redesign.doctor-directory .doctor-media{grid-area:auto;grid-column:1;grid-row:1/4;align-self:start;width:76px;height:84px;border-radius:12px}
+  body .dd-redesign.doctor-directory .doctor-media-empty{font-size:48px}
+  body .dd-redesign.doctor-directory .doctor-profile{display:contents}
+  body .dd-redesign.doctor-directory .doctor-eyebrow{grid-column:2;grid-row:1;align-self:end;gap:4px;margin:0;font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+  body .dd-redesign.doctor-directory .doctor-name-row{grid-column:2;grid-row:2;gap:6px;align-items:flex-start}
+  body .dd-redesign.doctor-directory .doctor-name-row h2{font-size:17px;line-height:1.4;overflow-wrap:anywhere}
+  body .dd-redesign.doctor-directory .doctor-verified{margin-top:3px;font-size:17px}
+  body .dd-redesign.doctor-directory .doctor-subtitle{grid-column:2;grid-row:3;align-self:start;margin:0;font-size:13px;line-height:1.55}
+  body .dd-redesign.doctor-directory .doctor-details{grid-column:1/-1;grid-row:4;gap:6px;margin-top:8px}
+  body .dd-redesign.doctor-directory .doctor-details span{font-size:14px;line-height:1.55;color:var(--doctor-muted)}
+  body .dd-redesign.doctor-directory .doctor-details i{margin-top:3px;font-size:16px}
+  body .dd-redesign.doctor-directory .doctor-tags{grid-column:1/-1;grid-row:5;margin-top:4px}
+  body .dd-redesign.doctor-directory .doctor-card-footer{grid-area:auto;grid-column:1/-1;grid-row:6;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;padding-top:10px;margin-top:6px}
+  body .dd-redesign.doctor-directory .doctor-score{grid-column:1;grid-row:1;gap:4px 6px;min-width:0}
+  body .dd-redesign.doctor-directory .doctor-score>i{font-size:17px}
+  body .dd-redesign.doctor-directory .doctor-score strong{font-size:16px;line-height:1.4}
+  body .dd-redesign.doctor-directory .doctor-score strong small{font-size:11px;color:var(--doctor-muted)}
+  body .dd-redesign.doctor-directory .doctor-score>span{font-size:12px;line-height:1.5;color:var(--doctor-muted)}
+  body .dd-redesign.doctor-directory .doctor-action{grid-column:2;grid-row:1;margin:0;max-width:none;min-height:44px;gap:6px;padding:8px 10px;border:0;border-radius:10px;background:transparent;font-size:13px;white-space:nowrap;touch-action:manipulation}
+  body .dd-redesign.doctor-directory .doctor-action>i{font-size:17px}
+  body .dd-redesign.doctor-directory .doctor-action:active{background:#edf3ff}
+  body .dd-redesign.doctor-directory .doctor-price{grid-column:1/-1;grid-row:2;display:flex;align-items:baseline;gap:8px;max-width:none;margin:0;padding-top:4px}
+  body .dd-redesign.doctor-directory .doctor-price span{flex:0 0 auto;font-size:12px;line-height:1.55;color:var(--doctor-muted)}
+  body .dd-redesign.doctor-directory .doctor-price strong{min-width:0;font-size:14px;font-weight:550;line-height:1.55}
+  body .dd-redesign.doctor-directory .doctor-price.is-unavailable{display:none}
+}
+@media(max-width:480px){
+  body .dd-redesign.doctor-directory .doctor-filter-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+}
+@media(max-width:360px){
+  body .dd-redesign.doctor-directory .doctor-filter-toggle{width:44px;padding:8px;position:relative}
+  body .dd-redesign.doctor-directory .doctor-filter-toggle>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  body .dd-redesign.doctor-directory .doctor-filter-toggle>b{position:absolute;right:-4px;top:-4px}
+  body .dd-redesign.doctor-directory .doctor-result-heading{font-size:17px}
+  body .dd-redesign.doctor-directory .doctor-card{padding:12px;gap:6px 10px}
+  body .dd-redesign.doctor-directory .doctor-name-row h2{font-size:16px}
+  body .dd-redesign.doctor-directory .doctor-price{flex-wrap:wrap;gap:2px 8px}
+}
 @media(max-width:1020px){.dd-redesign.doctor-directory .doctor-hero-decoration{right:275px}.dd-redesign.doctor-directory .doctor-hero-note{padding:20px}}
 @media(max-width:760px){.dd-redesign.doctor-directory .doctor-city-art{display:none}.dd-redesign.doctor-directory .doctor-city-card{padding:20px 18px}.dd-redesign.doctor-directory .doctor-city-card h2{font-size:23px}.dd-redesign.doctor-directory .doctor-city-card h2 br{display:none}.dd-redesign.doctor-directory .doctor-aside-card{display:none}.dd-redesign.doctor-directory .doctor-content{margin-top:26px}}
 @media(prefers-reduced-motion:reduce){.dd-redesign.doctor-directory .doctor-city-profile,.dd-redesign.doctor-directory .doctor-note-icon,.dd-redesign.doctor-directory .doctor-hero,.dd-redesign.doctor-directory .doctor-search-area{animation:none!important}}

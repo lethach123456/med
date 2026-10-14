@@ -46,10 +46,76 @@ function toplist_view_sort(array $rows, string $sort): array
     return $rows;
 }
 
-function toplist_view_page_url(string $path, array $filters): string
+function toplist_view_requested_page(array $query): int
+{
+    $value = $query['page'] ?? 1;
+    if (!is_int($value) && !is_string($value)) return 1;
+    $page = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    return $page === false ? 1 : $page;
+}
+
+/** Filter and sort the complete locale-specific collection before taking a page. */
+function toplist_view_paginate(array $rows, array $filters, int $requestedPage = 1, int $perPage = 12): array
+{
+    $perPage = min(48, max(1, $perPage));
+    $matched = toplist_view_sort(array_values(array_filter($rows,
+        static fn(array $row): bool => toplist_view_matches($row, $filters))), $filters['sort']);
+    $total = count($matched);
+    $pages = max(1, (int) ceil($total / $perPage));
+    $page = min(max(1, $requestedPage), $pages);
+    $offset = ($page - 1) * $perPage;
+    return ['items' => array_slice($matched, $offset, $perPage), 'total' => $total,
+        'page' => $page, 'pages' => $pages, 'per_page' => $perPage,
+        'start' => $total > 0 ? $offset + 1 : 0, 'end' => min($offset + $perPage, $total)];
+}
+
+function toplist_view_page_url(string $path, array $filters, int $page = 1): string
 {
     $query = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'updated'), ARRAY_FILTER_USE_BOTH);
+    // Page belongs to pagination, not to the filters; changing a filter resets it.
+    unset($query['page']);
+    if ($page > 1) $query['page'] = $page;
     return $path . ($query !== [] ? '?' . http_build_query($query) : '');
+}
+
+function toplist_view_pagination(string $path, array $filters, array $paging, string $locale): string
+{
+    if ($paging['total'] === 0) return '';
+    $e = 'toplist_view_escape';
+    $en = $locale === 'en';
+    $page = (int) $paging['page'];
+    $pages = (int) $paging['pages'];
+    $label = $en ? 'Toplist pagination' : 'Phân trang Toplist';
+    $range = $en ? sprintf('Showing %d–%d of %d lists', $paging['start'], $paging['end'], $paging['total'])
+        : sprintf('Hiển thị %d–%d / %d danh sách', $paging['start'], $paging['end'], $paging['total']);
+    $link = static function (int $target, string $label, string $content, string $rel = '', string $class = '') use ($e, $path, $filters): string {
+        return '<a href="' . $e(toplist_view_page_url($path, $filters, $target)) . '" data-toplist-page="' . $target
+            . '" aria-label="' . $e($label) . '"' . ($rel !== '' ? ' rel="' . $rel . '"' : '')
+            . ($class !== '' ? ' class="' . $class . '"' : '') . '>' . $content . '</a>';
+    };
+    $html = '<nav class="tl-pagination" aria-label="' . $e($label) . '"><p class="tl-page-range">' . $e($range) . '</p>';
+    if ($pages > 1) {
+        $html .= '<div class="tl-page-links">';
+        if ($page > 1) $html .= $link($page - 1, $en ? 'Previous page' : 'Trang trước', '<i class="ph ph-arrow-left" aria-hidden="true"></i>', 'prev');
+        // Keep first/current/last on small screens; arrows still step one page at a time.
+        // Ellipses are decorative, not tiny clickable hit areas.
+        $slots = array_values(array_unique(array_filter([1, $page - 1, $page, $page + 1, $pages],
+            static fn(int $number): bool => $number >= 1 && $number <= $pages)));
+        sort($slots);
+        $last = 0;
+        foreach ($slots as $number) {
+            if ($last > 0 && $number - $last > 1) $html .= '<span class="tl-page-gap" aria-hidden="true">…</span>';
+            $pageLabel = ($en ? 'Page ' : 'Trang ') . $number;
+            $html .= $number === $page
+                ? '<span class="tl-page-current" aria-current="page" aria-label="' . $e($pageLabel) . '">' . $number . '</span>'
+                : $link($number, $pageLabel, (string) $number, '',
+                    $number !== 1 && $number !== $pages && $page > 1 && $page < $pages ? 'tl-page-neighbor' : '');
+            $last = $number;
+        }
+        if ($page < $pages) $html .= $link($page + 1, $en ? 'Next page' : 'Trang sau', '<i class="ph ph-arrow-right" aria-hidden="true"></i>', 'next');
+        $html .= '</div>';
+    }
+    return $html . '</nav>';
 }
 
 function toplist_view_copy(string $locale): array

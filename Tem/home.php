@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../medical_directory.php';
 require_once __DIR__ . '/../toplist_directory.php';
+require_once __DIR__ . '/../medical_home_data.php';
 
 $locale = site_page_locale();
 $isEnglish = $locale === 'en';
@@ -110,25 +111,10 @@ $stats = ['facilities' => 0];
 try {
     $pdo = db();
 
-    $stats['facilities'] = (int) $pdo->query("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published'")->fetchColumn();
-    $facilities = $pdo->query(
-        "SELECT id, slug, name, category, city, subtitle, verified, rating, reviews_count, address_text,
-                image_url, gallery_json, tags_json, featured_services_json
-         FROM medical_facilities
-         WHERE status = 'published'
-         ORDER BY rating DESC, reviews_count DESC, updated_at DESC, id DESC
-         LIMIT 24"
-    )->fetchAll(PDO::FETCH_ASSOC);
-
-    $toplists = $pdo->query(
-        "SELECT t.id, t.slug, t.language_code, t.entity_type, t.title, t.excerpt, t.featured_image_url, t.updated_at,
-         (SELECT COUNT(*) FROM medical_toplist_facilities tf JOIN medical_facilities f ON f.id=tf.facility_id WHERE tf.toplist_id=t.id AND f.status='published' AND f.language_code=t.language_code) AS facility_count,
-         (SELECT COUNT(*) FROM medical_toplist_doctors td JOIN medical_doctors d ON d.id=td.doctor_id WHERE td.toplist_id=t.id AND d.status='published' AND d.language_code=t.language_code) AS doctor_count
-         FROM medical_toplists t
-         WHERE t.status = 'published'
-         ORDER BY t.updated_at DESC, t.id DESC
-         LIMIT 3"
-    )->fetchAll(PDO::FETCH_ASSOC);
+    $homeData = medical_home_data($pdo, $locale);
+    $stats = $homeData['stats'];
+    $facilities = $homeData['facilities'];
+    $toplists = $homeData['toplists'];
 
     // Older Toplists often have no editorial cover image. Reuse the first
     // published provider photo so the homepage cards don't become blank.
@@ -395,6 +381,7 @@ $featuredFacilities = array_values($featuredFacilities);
     <div class="container">
       <div class="section-heading reveal"><div><p class="eyebrow"><?= htmlspecialchars($isEnglish ? 'Curated Toplists' : 'Toplist chọn lọc', ENT_QUOTES, 'UTF-8') ?></p><h2 id="home-toplist-title"><span class="desktop-copy"><?= $isEnglish ? 'A shorter list.<br>A clearer place to start.' : 'Một danh sách ngắn.<br>Khởi đầu cho lựa chọn tốt.' ?></span><span class="mobile-copy"><?= htmlspecialchars($isEnglish ? 'Recommended for you' : 'Gợi ý cho bạn', ENT_QUOTES, 'UTF-8') ?></span></h2><p><?= htmlspecialchars($isEnglish ? 'Explore facilities by your needs and city.' : 'Cùng khám phá các cơ sở theo nhu cầu và thành phố của bạn.', ENT_QUOTES, 'UTF-8') ?></p></div><a class="text-link" href="<?= htmlspecialchars($toplistsPath, ENT_QUOTES, 'UTF-8') ?>"><span class="desktop-copy"><?= htmlspecialchars($isEnglish ? 'Explore Toplists' : 'Khám phá Toplist', ENT_QUOTES, 'UTF-8') ?></span><span class="mobile-copy"><?= htmlspecialchars($labels['viewAll'], ENT_QUOTES, 'UTF-8') ?></span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
       <div class="toplist-grid mobile-rail" id="home-toplist-grid" data-rail="Toplist" role="region" aria-label="<?= htmlspecialchars($isEnglish ? 'Featured Toplists' : 'Toplist — vuốt ngang để khám phá', ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($toplists === []): ?><p class="facility-empty"><?= htmlspecialchars($isEnglish ? 'Toplists in English will appear here soon.' : 'Toplist tiếng Việt sẽ sớm được cập nhật.', ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <?php foreach ($toplists as $index => $toplist): $toplistImage = medical_home_image($toplist); $toplistTitle = (string) $toplist['title']; $toplistRegion = medical_home_region($toplistTitle); $toplistLocation = ['hcm' => 'TP. Hồ Chí Minh', 'hanoi' => 'Hà Nội', 'danang' => 'Đà Nẵng'][$toplistRegion] ?? 'Việt Nam'; ?>
           <a class="toplist-card reveal<?= $toplistImage === '' ? ' has-image-fallback' : '' ?>" href="<?= htmlspecialchars(medical_public_entity_path('toplist', (string) $toplist['slug'], $locale), ENT_QUOTES, 'UTF-8') ?>"><span class="toplist-photo-placeholder" aria-hidden="true"><svg class="icon"><use href="#i-building"/></svg></span><?php if ($toplistImage !== ''): ?><img src="<?= htmlspecialchars($toplistImage, ENT_QUOTES, 'UTF-8') ?>" alt="" width="600" height="550" loading="lazy" decoding="async"><?php endif; ?><span class="editorial-tag"><?= htmlspecialchars($isEnglish ? 'CURATED LIST' : 'DANH SÁCH THAM KHẢO', ENT_QUOTES, 'UTF-8') ?></span><span class="toplist-number" aria-hidden="true"><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span><span class="toplist-location"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><?= htmlspecialchars($toplistLocation, ENT_QUOTES, 'UTF-8') ?></span><h3><?= htmlspecialchars($toplistTitle, ENT_QUOTES, 'UTF-8') ?></h3><span class="toplist-meta"><span><?= number_format((int) $toplist['member_count'], 0, ',', '.') ?> <?= htmlspecialchars(($toplist['entity_type'] === 'mixed' ? ($isEnglish ? 'providers' : 'hồ sơ') : ($toplist['entity_type'] === 'doctor' ? ($isEnglish ? 'doctors' : 'bác sĩ') : $labels['facilitiesCount'])), ENT_QUOTES, 'UTF-8') ?></span><span class="round-arrow"><svg class="icon" aria-hidden="true"><use href="#i-up-right"/></svg></span></span></a>
         <?php endforeach; ?>

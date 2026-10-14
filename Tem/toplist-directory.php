@@ -1,19 +1,17 @@
 <?php
 $e = 'toplist_view_escape';
 $toplistCopy = toplist_view_copy($locale);
-$toplistFilters = toplist_view_filters($_GET);
 $toplistPath = site_localized_path(medical_public_toplist_path(), $locale);
 $typeCounts = ['facility'=>0,'doctor'=>0,'mixed'=>0];
 $totalMembers = 0;
-$visibleCount = 0;
+$visibleCount = $toplistPaging['total'];
 foreach ($rows as $row) {
     $type = $row['entity_type'] ?? 'facility';
     if (isset($typeCounts[$type])) $typeCounts[$type]++;
     $totalMembers += max(0, (int) ($row['member_count'] ?? 0));
-    if (toplist_view_matches($row, $toplistFilters)) $visibleCount++;
 }
 ?>
-<main class="tl-directory site-typo" data-locale="<?= $e($locale) ?>">
+<main class="tl-directory site-typo" data-locale="<?= $e($locale) ?>" data-page="<?= (int) $toplistPaging['page'] ?>" data-pages="<?= (int) $toplistPaging['pages'] ?>">
   <div class="tl-container">
     <nav class="tl-breadcrumb" aria-label="<?= $locale === 'en' ? 'Breadcrumb' : 'Đường dẫn' ?>"><a href="<?= $e(site_localized_path('/', $locale)) ?>"><?= $e($toplistCopy['home']) ?></a><i class="ph ph-caret-right" aria-hidden="true"></i><span aria-current="page">Toplist</span></nav>
     <header class="tl-hero">
@@ -31,8 +29,9 @@ foreach ($rows as $row) {
       </aside>
       <section class="tl-results" aria-labelledby="toplistResultsHeading"><div class="tl-results-top"><div><h2 id="toplistResultsHeading"><?= $e($toplistCopy['resultTitle']) ?></h2><p id="toplistResultCount"><strong><?= $visibleCount ?></strong> <?= $e($toplistCopy['matches']) ?></p></div><div class="tl-sort"><label for="toplistSort"><?= $e($toplistCopy['sort']) ?></label><select id="toplistSort" name="sort" form="toplistSearchForm"><?php foreach (['updated'=>'updated','members'=>'members','title'=>'titleSort'] as $value=>$key): ?><option value="<?= $value ?>"<?= $toplistFilters['sort'] === $value ? ' selected' : '' ?>><?= $e($toplistCopy[$key]) ?></option><?php endforeach; ?></select></div></div>
         <p class="tl-sr-only" id="toplistStatus" role="status" aria-live="polite" aria-atomic="true"></p>
-        <div class="tl-grid" id="toplistList"><?php foreach (toplist_view_sort($rows,$toplistFilters['sort']) as $row) echo toplist_view_card($row,$locale,toplist_view_matches($row,$toplistFilters)); ?></div>
+        <div class="tl-grid" id="toplistList"><?php foreach ($toplistPageItems as $row) echo toplist_view_card($row,$locale); ?></div>
         <div class="tl-empty" id="toplistEmpty"<?= $visibleCount > 0 ? ' hidden' : '' ?>><i class="ph ph-magnifying-glass" aria-hidden="true"></i><h3><?= $e($toplistCopy['emptyTitle']) ?></h3><p><?= $e($toplistCopy['emptyCopy']) ?></p><a class="tl-button" href="<?= $e($toplistPath) ?>" data-toplist-clear><?= $e($toplistCopy['clear']) ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+        <div id="toplistPagination"><?= toplist_view_pagination($toplistPath, $toplistFilters, $toplistPaging, $locale) ?></div>
         <p class="tl-disclaimer"><i class="ph ph-info" aria-hidden="true"></i><?= $e($toplistCopy['disclaimer']) ?></p>
       </section>
     </div>

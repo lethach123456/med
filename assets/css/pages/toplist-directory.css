@@ -109,6 +109,19 @@ body.toplist-directory-page{margin:0;background:#fff;font-family:Inter,system-ui
 .tl-empty>i{font-size:34px;color:#89a5ce}
 .tl-empty h3{margin:12px 0 8px;font-size:20px}
 .tl-empty p{margin:0 0 16px;font-size:14px;color:var(--tl-muted)}
+.tl-pagination{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:24px;padding-top:18px;border-top:1px solid var(--tl-line)}
+.tl-page-range{margin:0;color:var(--tl-muted);font-size:13px;font-variant-numeric:tabular-nums}
+.tl-page-links{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;max-width:100%}
+.tl-page-links>a,.tl-page-current{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px;border:1px solid var(--tl-line);border-radius:11px;background:#fff;color:var(--tl-ink);font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1;transition:background .2s,border-color .2s,color .2s}
+.tl-page-links>a:hover{border-color:#b5cbff;background:#edf3ff;color:var(--tl-blue)}
+.tl-page-links .tl-page-current{border-color:var(--tl-blue);background:var(--tl-blue);color:#fff}
+.tl-page-links i{font-size:18px}
+.tl-page-gap{padding-inline:2px;color:var(--tl-muted);font-size:14px}
+.tl-results.is-loading .tl-grid{opacity:.55;transition:opacity .18s}
+.tl-fetch-error{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;padding:14px;border:1px solid #f0d7b0;border-radius:12px;background:#fffaf1;color:var(--tl-ink)}
+.tl-fetch-error p{flex:1 1 100%;margin:0;font-size:14px}
+@media(max-width:760px){.tl-pagination{justify-content:center;gap:12px;margin-top:20px;padding-top:16px}.tl-page-range{flex:1 1 100%;text-align:center}.tl-page-links{width:100%}.tl-page-links>a,.tl-page-current{border-radius:10px}}
+@media(max-width:480px){.tl-page-links>a.tl-page-neighbor{display:none}.tl-page-gap{padding-inline:0;font-size:12px}}
 .tl-disclaimer{display:flex;align-items:flex-start;gap:7px;margin:24px 0 0;color:var(--tl-muted);font-size:12px;line-height:1.7}
 .tl-disclaimer i{flex-shrink:0;margin-top:3px;font-size:16px}
 @keyframes tl-surface-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}

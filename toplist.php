@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/toplist_directory.php';
 require_once __DIR__ . '/medical_directory.php';
+require_once __DIR__ . '/medical_toplist_directory_view.php';
 medical_redirect_legacy_path('/toplist.php', medical_public_toplist_path());
 $locale = site_page_locale('toplist');
 $isEnglish = $locale === 'en';
@@ -21,6 +22,13 @@ if (!$hasToplistLanguage && $locale === 'en') {
 }
 foreach ($rows as &$row) {
   $row['member_count'] = $row['entity_type'] === 'mixed' ? (int) $row['facility_count'] + (int) $row['doctor_count'] : (int) ($row[$row['entity_type'] === 'doctor' ? 'doctor_count' : 'facility_count'] ?? 0);
+}
+unset($row);
+$toplistFilters = toplist_view_filters($_GET);
+$toplistPaging = toplist_view_paginate($rows, $toplistFilters, toplist_view_requested_page($_GET));
+$toplistPageItems = $toplistPaging['items'];
+// Build image collages only for the visible page, not for every published list.
+foreach ($toplistPageItems as &$row) {
   $images = [];
   foreach (toplist_directory_linked_rows($pdo, $row, 4) as $facility) {
     $image = trim((string) ($facility['image_url'] ?? ''));
@@ -49,13 +57,14 @@ $seoTitle = (string) ($seo['title'] ?? 'Toplist cơ sở y tế | MedReview');
 $seoDescription = (string) ($seo['description'] ?? '');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
 $seoCanonical = (string) ($seo['canonical_path'] ?? medical_public_toplist_path());
-require_once __DIR__ . '/medical_toplist_directory_view.php';
 if ($isEnglish) {
   $seoTitle = 'Healthcare & Doctor Toplists | MedReview';
   $seoDescription = 'Explore curated lists of healthcare facilities and doctors on MedReview. Get to know your options before making a choice.';
   $seoKeywords = 'healthcare Toplists, doctor lists, compare clinics, Vietnam healthcare';
 }
 $seoCanonical = site_localized_path($seoCanonical, $locale);
+$seoCanonical = toplist_view_page_url($seoCanonical, [], $toplistPaging['page']);
+if ($toplistPaging['page'] > 1) $seoTitle .= ($isEnglish ? ' — Page ' : ' — Trang ') . $toplistPaging['page'];
 $toplistStyleVersion = (string) filemtime(__DIR__ . '/assets/css/pages/toplist-directory.css');
 $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directory.js');
 ?><!doctype html>
@@ -67,9 +76,11 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
   <meta name="description" content="<?= toplist_view_escape($seoDescription) ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= toplist_view_escape($seoKeywords) ?>"><?php endif; ?>
   <link rel="canonical" href="<?= toplist_view_escape(site_absolute_url($seoCanonical)) ?>">
+  <?php if ($toplistPaging['page'] === 1): // Translations can have different counts; do not invent an equivalent page N. ?>
   <link rel="alternate" hreflang="vi" href="<?= toplist_view_escape(site_absolute_url(medical_public_toplist_path())) ?>">
   <link rel="alternate" hreflang="en" href="<?= toplist_view_escape(site_absolute_url(site_localized_path(medical_public_toplist_path(), 'en'))) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= toplist_view_escape(site_absolute_url(medical_public_toplist_path())) ?>">
+  <?php endif; ?>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <link rel="stylesheet" href="/assets/css/pages/toplist-directory.css?v=<?= toplist_view_escape($toplistStyleVersion) ?>">
   <script src="/assets/js/toplist-directory.js?v=<?= toplist_view_escape($toplistScriptVersion) ?>" defer></script>

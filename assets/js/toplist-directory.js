@@ -2,91 +2,155 @@
   'use strict';
   const root = document.querySelector('.tl-directory');
   const form = document.getElementById('toplistSearchForm');
-  const list = document.getElementById('toplistList');
-  if (!root || !form || !list) return;
+  if (!root || !form) return;
   const input = document.getElementById('toplistSearch');
   const type = document.getElementById('toplistType');
-  const sort = document.getElementById('toplistSort');
-  const empty = document.getElementById('toplistEmpty');
-  const count = document.getElementById('toplistResultCount');
-  const status = document.getElementById('toplistStatus');
-  const cards = [...list.querySelectorAll('[data-toplist-card]')];
   const en = root.dataset.locale === 'en';
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const fold = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi,'d').toLowerCase().replace(/\s+/g,' ').trim();
-  const format = value => new Intl.NumberFormat(en ? 'en-US' : 'vi-VN').format(value);
-  const results = () => root.querySelector('.tl-results-top')?.scrollIntoView({behavior:reduced ? 'auto' : 'smooth',block:'start'});
-  const compare = (a,b) => {
-    const recent = Number(b.dataset.updated) - Number(a.dataset.updated);
-    let order = recent;
-    if (sort.value === 'members') order = Number(b.dataset.members) - Number(a.dataset.members);
-    if (sort.value === 'title') order = a.dataset.title < b.dataset.title ? -1 : a.dataset.title > b.dataset.title ? 1 : 0;
-    return order || recent || Number(b.dataset.id) - Number(a.dataset.id);
-  };
-  const render = (updateUrl = true, animate = true) => {
-    const query = fold(input.value);
-    let visible = 0;
-    const fragment = document.createDocumentFragment();
-    cards.sort(compare).forEach(card => {
-      card.hidden = Boolean((type.value && card.dataset.type !== type.value) || (query && !card.dataset.search.includes(query)));
-      card.classList.remove('is-entering');
-      if (!card.hidden) { card.style.setProperty('--tl-order',String(visible++)); }
-      fragment.append(card);
+  const getSort = () => document.getElementById('toplistSort');
+  const results = () => root.querySelector('.tl-results');
+  let timer, controller, requestId = 0, composing = false;
+
+  function imageFallbacks() {
+    root.querySelectorAll('#toplistList img').forEach(image => {
+      const recover = () => {
+        const collage = image.closest('.tl-collage');
+        image.closest('.tl-collage-cell')?.remove();
+        if (!collage) return;
+        const remaining = collage.querySelectorAll('.tl-collage-cell').length;
+        if (remaining) collage.dataset.count = String(remaining);
+        else collage.remove();
+      };
+      image.addEventListener('error', recover, {once: true});
+      if (image.complete && !image.naturalWidth) recover();
     });
-    list.append(fragment);
-    count.querySelector('strong').textContent = format(visible);
-    empty.hidden = visible > 0;
-    status.textContent = format(visible) + (en ? ' matching lists' : ' danh sách phù hợp');
-    root.querySelectorAll('[data-toplist-type]').forEach(link => {
-      if (link.dataset.toplistType === type.value) link.setAttribute('aria-current','true');
-      else link.removeAttribute('aria-current');
-      const url = new URL(link.href,location.origin);
-      url.search = '';
-      if (input.value.trim()) url.searchParams.set('q',input.value.trim());
-      if (link.dataset.toplistType) url.searchParams.set('type',link.dataset.toplistType);
-      if (sort.value !== 'updated') url.searchParams.set('sort',sort.value);
-      link.href = url.href;
-    });
-    if (animate && !reduced) requestAnimationFrame(() => cards.filter(card=>!card.hidden).slice(0,6).forEach(card=>card.classList.add('is-entering')));
-    if (updateUrl) {
-      const url = new URL(location.href);
-      for (const key of ['q','type','sort']) url.searchParams.delete(key);
-      if (input.value.trim()) url.searchParams.set('q',input.value.trim());
-      if (type.value) url.searchParams.set('type',type.value);
-      if (sort.value !== 'updated') url.searchParams.set('sort',sort.value);
-      history.replaceState({},'',url);
-    }
-  };
-  let timer;
-  input.addEventListener('input',()=>{ clearTimeout(timer); timer = setTimeout(()=>render(true,false),220); });
-  form.addEventListener('submit',event=>{event.preventDefault();clearTimeout(timer);render();results();});
-  sort.addEventListener('change',()=>render());
-  root.querySelectorAll('[data-toplist-type],[data-toplist-clear]').forEach(link=>link.addEventListener('click',event=>{
-    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();clearTimeout(timer);
-    if (link.hasAttribute('data-toplist-clear')) { input.value='';type.value='';sort.value='updated'; }
-    else type.value=link.dataset.toplistType;
-    render();results();
-  }));
-  window.addEventListener('popstate',()=>{
+  }
+  imageFallbacks();
+  // Search forms, page links and type links remain normal native navigation.
+  if (!window.fetch || !window.AbortController || !window.DOMParser) return;
+
+  function controlsUrl(page = 1) {
+    const url = new URL(form.action, location.origin);
+    url.search = ''; url.hash = '';
+    const query = input.value.trim();
+    if (query) url.searchParams.set('q', query);
+    if (type.value) url.searchParams.set('type', type.value);
+    if (getSort().value !== 'updated') url.searchParams.set('sort', getSort().value);
+    if (page > 1) url.searchParams.set('page', String(page));
+    return url;
+  }
+  function setBusy(busy) {
+    const section = results();
+    section.classList.toggle('is-loading', busy);
+    section.setAttribute('aria-busy', String(busy));
+    if (busy) section.querySelector('#toplistStatus').textContent = en ? 'Loading lists…' : 'Đang tải danh sách…';
+  }
+  function cancelRequest() {
     clearTimeout(timer);
-    const params=new URLSearchParams(location.search);
-    input.value=(params.get('q') || '').slice(0,120);
-    type.value=['facility','doctor','mixed'].includes(params.get('type')) ? params.get('type') : '';
-    sort.value=['members','title'].includes(params.get('sort')) ? params.get('sort') : 'updated';
-    render(false,false);
+    requestId++;
+    controller?.abort();
+    setBusy(false);
+  }
+  function syncControls(url) {
+    input.value = (url.searchParams.get('q') || '').slice(0, 120);
+    type.value = ['facility', 'doctor', 'mixed'].includes(url.searchParams.get('type')) ? url.searchParams.get('type') : '';
+    getSort().value = ['members', 'title'].includes(url.searchParams.get('sort')) ? url.searchParams.get('sort') : 'updated';
+  }
+  function showError(url, options) {
+    results().querySelector('.tl-fetch-error')?.remove();
+    const alert = document.createElement('div');
+    alert.className = 'tl-fetch-error'; alert.setAttribute('role', 'alert');
+    const message = document.createElement('p');
+    message.textContent = en ? 'Could not load this page. Your current lists are still here.' : 'Chưa tải được trang này. Danh sách hiện tại vẫn được giữ lại.';
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.className = 'tl-button';
+    retry.textContent = en ? 'Try again' : 'Thử lại';
+    retry.addEventListener('click', () => navigate(url, options));
+    const native = document.createElement('a');
+    native.className = 'tl-button'; native.href = url.href;
+    native.textContent = en ? 'Open page' : 'Mở trang';
+    alert.append(message, retry, native);
+    results().querySelector('.tl-results-top').after(alert);
+  }
+  async function navigate(target, options = {}) {
+    clearTimeout(timer);
+    const url = new URL(target, location.origin);
+    if (url.origin !== location.origin || url.pathname !== new URL(form.action, location.origin).pathname) return;
+    const id = ++requestId;
+    controller?.abort();
+    controller = new AbortController();
+    const signal = controller.signal;
+    const focusedId = document.activeElement?.id;
+    results().querySelector('.tl-fetch-error')?.remove();
+    setBusy(true);
+    try {
+      const response = await fetch(url.href, {signal, credentials: 'same-origin', headers: {'Accept': 'text/html'}});
+      if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) throw new Error('Invalid page response');
+      const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+      if (id !== requestId || signal.aborted) return;
+      const nextRoot = doc.querySelector('.tl-directory');
+      const nextResults = nextRoot?.querySelector('.tl-results');
+      const nextTypes = nextRoot?.querySelector('.tl-types');
+      if (nextRoot?.dataset.locale !== root.dataset.locale || !nextResults?.querySelector('#toplistList') || !nextResults.querySelector('#toplistPagination') || !nextTypes) throw new Error('Incomplete page response');
+      results().replaceWith(document.importNode(nextResults, true));
+      root.querySelector('.tl-types').replaceWith(document.importNode(nextTypes, true));
+      root.dataset.page = nextRoot.dataset.page;
+      root.dataset.pages = nextRoot.dataset.pages;
+      input.value = doc.getElementById('toplistSearch').value;
+      type.value = doc.getElementById('toplistType').value;
+      const normalizedUrl = controlsUrl(Number(root.dataset.page));
+      if (options.history === 'replace') history.replaceState({}, '', normalizedUrl);
+      else if (options.history !== 'none' && normalizedUrl.href !== location.href) history.pushState({}, '', normalizedUrl);
+      else if (options.history === 'none' && normalizedUrl.href !== location.href) history.replaceState({}, '', normalizedUrl);
+      if (doc.title) document.title = doc.title;
+      const canonical = document.querySelector('link[rel="canonical"]');
+      const nextCanonical = doc.querySelector('link[rel="canonical"]');
+      if (canonical && nextCanonical) canonical.href = nextCanonical.href;
+      document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(link => link.remove());
+      doc.querySelectorAll('link[rel="alternate"][hreflang]').forEach(link => document.head.append(document.importNode(link, true)));
+      const range = results().querySelector('.tl-page-range');
+      results().querySelector('#toplistStatus').textContent = range?.textContent || results().querySelector('#toplistResultCount').textContent;
+      imageFallbacks();
+      if (!reduced) results().querySelectorAll('[data-toplist-card]').forEach((card, index) => {
+        card.style.setProperty('--tl-order', String(index)); card.classList.add('is-entering');
+      });
+      if (options.scroll) {
+        const heading = document.getElementById('toplistResultsHeading');
+        heading.setAttribute('tabindex', '-1'); heading.focus({preventScroll: true});
+        heading.closest('.tl-results-top').scrollIntoView({behavior: reduced ? 'auto' : 'smooth', block: 'start'});
+      } else if (focusedId === 'toplistSort') getSort().focus({preventScroll: true});
+    } catch (error) {
+      if (id === requestId && !signal.aborted) showError(url, options);
+    } finally {
+      if (id === requestId) setBusy(false);
+    }
+  }
+  function scheduleSearch() {
+    cancelRequest();
+    if (!composing) timer = setTimeout(() => navigate(controlsUrl(), {history: 'replace'}), 350);
+  }
+  input.addEventListener('compositionstart', () => {composing = true; cancelRequest();});
+  input.addEventListener('compositionend', () => {composing = false; scheduleSearch();});
+  input.addEventListener('input', event => {if (!event.isComposing) scheduleSearch();});
+  form.addEventListener('submit', event => {
+    event.preventDefault(); composing = false;
+    navigate(controlsUrl(), {scroll: true});
   });
-  list.querySelectorAll('img').forEach(image=>{
-    const recover=()=>{
-      const collage=image.closest('.tl-collage');
-      image.closest('.tl-collage-cell')?.remove();
-      if (!collage) return;
-      const remaining=collage.querySelectorAll('.tl-collage-cell').length;
-      if (remaining) collage.dataset.count=String(remaining);
-      else collage.remove();
-    };
-    image.addEventListener('error',recover,{once:true});
-    if (image.complete && !image.naturalWidth) recover();
+  root.addEventListener('change', event => {
+    if (event.target.id === 'toplistSort') navigate(controlsUrl());
   });
-  render(false);
+  root.addEventListener('click', event => {
+    const link = event.target.closest?.('[data-toplist-page],[data-toplist-type],[data-toplist-clear]');
+    if (!link || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault(); clearTimeout(timer);
+    if (link.hasAttribute('data-toplist-clear')) {input.value = ''; type.value = ''; getSort().value = 'updated';}
+    else if (link.hasAttribute('data-toplist-type')) type.value = link.dataset.toplistType;
+    const page = Number(link.dataset.toplistPage) || 1;
+    navigate(controlsUrl(page), {scroll: true});
+  });
+  window.addEventListener('popstate', () => {
+    clearTimeout(timer);
+    syncControls(new URL(location.href));
+    navigate(location.href, {history: 'none'});
+  });
 })();

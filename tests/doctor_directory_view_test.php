@@ -28,6 +28,13 @@ $assert(str_contains($long, 'data-extra-count="0"') && str_contains($long, 'Xem 
 $assert(str_contains($vi,'doctor-verified') && str_contains($vi,'Đã xác thực'),'Conditional verification label');
 $assert(!str_contains(doctor_directory_card(array_replace($item,['verified'=>false]),'vi'),'doctor-verified'),'Unverified profile has no verification badge');
 $assert(str_contains(doctor_directory_card(array_replace($item,['image'=>'/uploads/test.webp']),'vi'),'loading="lazy" decoding="async"'),'Portrait lazy loading');
+$portrait = doctor_directory_card(array_replace($item, ['image'=>'/uploads/test.webp']), 'vi');
+$assert(str_contains($portrait, 'width="116" height="136"'), 'Portrait dimensions reserve space before lazy loading');
+$assert(str_contains($vi, 'class="doctor-media-empty" aria-hidden="true"'), 'Decorative portrait fallback is hidden from assistive technology');
+$assert(str_contains($vi, 'class="ph ph-hospital" aria-hidden="true"') && str_contains($vi, 'class="ph ph-clock" aria-hidden="true"'), 'Workplace and schedule icons are decorative');
+$assert(str_contains($vi, 'class="doctor-price is-unavailable"'), 'Missing fee has an explicit presentational state');
+$feeHtml = doctor_directory_card(array_replace($item, ['price'=>'200.000 – 350.000 VND / lượt khám (tham khảo phòng khám ngoài giờ)']), 'vi');
+$assert(!str_contains($feeHtml, 'doctor-price is-unavailable') && str_contains($feeHtml, 'tham khảo phòng khám ngoài giờ'), 'Actual fee remains fully available, without clipping data');
 $assert(str_contains(doctor_directory_card(array_replace($item,['rating'=>0,'reviews_count'=>0]),'vi'),'Chưa có đánh giá'),'Unrated state');
 $assert(!str_contains(doctor_directory_card(array_replace($item,['reviews_count'=>0]),'vi'),'4.3<small>'),'No score without reviews');
 $en=doctor_directory_card($item,'en');
@@ -43,7 +50,13 @@ $assert(str_contains($js,'event.metaKey') && str_contains($js,'data-doctor-speci
 $assert(strpos($template, '</header>') < strpos($template, 'id="doctorDirectoryFilter"'), 'Search spans the full directory below the hero');
 $assert(str_contains($template, 'doctor-hero-note') && str_contains($template, '$number($reviewCount)'), 'Hero statistics retain real review data');
 $assert(str_contains($template, 'doctor-city-art') && str_contains($template, 'data-doctor-open-filters'), 'Illustrated location card has a working filter shortcut');
+$assert(str_contains($template, 'class="doctor-result-heading"') && str_contains($template, 'Bác sĩ dành cho bạn'), 'Compact results toolbar has a consistent mobile heading');
+$assert(str_contains($template, 'Lọc và sắp xếp bác sĩ') && str_contains($template, 'aria-controls="doctorFilterOptions"'), 'Shortened filter control retains a complete accessible name and disclosure relationship');
 $assert(str_contains($js, "focus({preventScroll:true})") && str_contains($js, "doctor-enhanced"), 'Shortcut focuses its real location control and only shows with enhancement');
 $css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/doctor-directory.css');
 $assert(str_contains($css, 'doctor-art-float 4.4s ease-in-out 1') && str_contains($css, 'prefers-reduced-motion:reduce'), 'Gentle settling animation respects reduced motion');
+$assert(str_contains($css, '.doctor-profile{display:contents}') && str_contains($css, '.doctor-details{grid-column:1/-1;grid-row:4'), 'Mobile card details use full width instead of the portrait-side column');
+$assert(str_contains($css, '.doctor-tags{grid-column:1/-1;grid-row:5'), 'Mobile specialties get the whole card width');
+$assert(str_contains($css, '.doctor-price.is-unavailable{display:none}') && str_contains($css, '.doctor-price{grid-column:1/-1;grid-row:2'), 'Mobile fee row is full width and avoids repetitive unavailable placeholders');
+$assert(str_contains($css, '@media(max-width:480px)') && str_contains($css, '.doctor-filter-grid{grid-template-columns:minmax(0,1fr)'), 'Phone filters use a readable single-column layout');
 echo "Doctor directory: {$checks} checks passed. No DB records modified.\n";
