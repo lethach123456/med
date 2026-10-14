@@ -6,7 +6,7 @@ Base URL in production: `https://medreview.vn`. Every request requires the exist
 
 ## Database
 
-`medical_doctors` has 48 additive research columns (74 columns in total):
+`medical_doctors` has 50 additive research columns:
 
 * Text/content: `subtitle`, `content`, `full_json`, `degree_text`, `experience_start_year`,
   `address_text`, `phone_text`, `email_text`, `website_url`, `booking_url`,
@@ -22,6 +22,8 @@ Base URL in production: `https://medreview.vn`. Every request requires the exist
   `practice_license_number`, `practice_license_issuer`, `practice_license_issued_date`,
   `practice_license_scope`, `practice_registry_url`, `practice_registration_json`,
   `legal_documents_json`, `legal_notes`, `legal_source_ids_json`.
+* Public external feedback: `aggregate_ratings_json`, `reviews_json` (MEDIUMTEXT,
+  empty/absent means no new evidence, not an instruction to erase existing ratings).
 
 The 11 professional/legal columns are an additive extension of contract v1, not a new
 endpoint or queue type. Existing extension clients and submissions without these keys
@@ -96,15 +98,112 @@ appended regardless of customization (`MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2`). 
 appended version includes the new legal keys even when a customized older prompt is
 saved. Editing its admin textarea affects future requests.
 The migration upgrades only the exact older built-in V2/legacy prompt to V3. For a
-custom saved Doctor prompt, it preserves the wording and appends the professional/legal
-addendum marked `MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1` once. Rerunning the migration does
-not append it again. Saved-prompt updates use a compare-and-swap condition against the
+custom saved Doctor prompt, it preserves the wording and appends missing
+professional/legal, primary-source and public-review addenda once
+(`MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1`, `MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1`,
+`MEDREVIEW_DOCTOR_PUBLIC_REVIEWS_V1`). Rerunning the migration does
+not append them again. Saved-prompt updates use a compare-and-swap condition against the
 previous text; a concurrent edit is never silently overwritten. Prompt/schema changes
 run only through this CLI migration, not from visitor/API requests.
 To explicitly replace a saved Doctor prompt with this built-in version, first back up its
 current text, then run `php scripts/migrate_doctor_content.php --replace-doctor-prompt`.
-Without that flag, a custom prompt is not replaced wholesale; only the missing legal
-addendum is appended.
+Without that flag, a custom prompt is not replaced wholesale; only missing mandatory
+addenda are appended.
+
+## Public doctor reviews (additive contract)
+
+The AI may collect real, public feedback for the **doctor**, never manufacture
+patient stories or copy a workplace's rating to that doctor. The default prompt
+and every saved custom prompt receive `MEDREVIEW_DOCTOR_PUBLIC_REVIEWS_V1` at request
+time. Third-party medical booking/directory/review websites remain excluded;
+professional/legal facts still come only from primary sources. Google Maps must
+rate a separate doctor profile for aggregate scores. Individual comments on a
+clinic page are eligible only when they explicitly refer to the identified doctor.
+An officially operated Facebook/profile feedback page can also be used.
+
+Review evidence lives in its own `url`, `source`/`source_text`, `evidence_text`
+fields, **not** in `sources_json` or clinical/legal `source_ids`. No public feedback
+is a legitimate outcome: return both arrays `[]`, do not mark an otherwise valid
+profile insufficient solely because it has no reviews. Neither the prompt nor
+URL/shape validation can prove a web claim true; the doctor remains unreviewed.
+
+Add these two fields inside the existing doctor's JSON object:
+
+```json
+{
+  "aggregate_ratings_json": [{
+    "entity_type": "doctor", "doctor_id": 12, "doctor_name": "Exact source name",
+    "source": "Google Maps", "score": 4.6, "count": 10,
+    "url": "https://example.org/public-doctor-feedback",
+    "checked_at": "2026-10-14", "evidence_text": "Observed score and count belong to this doctor's own profile."
+  }],
+  "reviews_json": [{
+    "entity_type": "doctor", "doctor_id": 12, "doctor_name": "Exact source name",
+    "source_text": "Google Maps", "url": "https://example.org/public-review",
+    "rating": 5, "author_text": null, "review_date_text": null,
+    "excerpt": "Short faithful summary of a real public comment.",
+    "evidence_text": "The public comment explicitly identifies this doctor."
+  }]
+}
+```
+
+The URLs/numbers above illustrate structure only. Each record requires
+`entity_type=doctor`, an integer `doctor_id` equal to the parent `id`, a real
+HTTP(S) evidence URL, a source label and nonempty evidence text. Supplied
+`doctor_name` must match the parent's exact name; omission inherits that name.
+Scores must be numeric 1..5. Aggregate counts are positive integers ≤1,000,000,000;
+total counts must fit the DB counter. `checked_at` is YYYY-MM-DD or null. A review
+requires a nonempty plain-text excerpt; author and displayed date can be null.
+Do not include sensitive patient information. Maximums: 20 aggregates, 50 reviews.
+HTML is removed from public feedback text; arbitrary extra fields are not mapped
+into the structured review columns, and imported reviews always have `verified=false`.
+
+Facility-style aliases `aggregate_ratings`, `reviews`, `reviews_list` and
+`reviews_list_json` are accepted. Arrays may be native or JSON-encoded, like older
+doctor JSON fields. An empty canonical template list can be populated by an alias;
+conflicting nonempty versions cause a field-specific HTTP 422 instead of silent loss.
+Exact duplicate aggregates/review samples are deduplicated; inconsistent scores
+for the same sample/source are rejected. Several distinct comments may share a
+source page. The same author/text/date sample repeated at another URL counts once.
+
+Clients still **must not send root `rating` or `reviews_count`**. The server derives
+those columns from the valid aggregates using count-weighted means, rounded to
+one decimal. If no aggregate exists, it uses the imported review sample; that count
+is only the sample size, not an invented full total. Samples are not added to an
+aggregate's count. Empty/no evidence preserves existing scores and stored feedback
+arrays; an empty template is not a deletion request. A nonempty feedback submission
+is a new snapshot of the supplied lists, not an incremental merge. The receipt adds
+`reviews_imported`, `aggregate_sources`, `rating_summary` with basis
+`external_aggregates` or `imported_review_sample` (or null); the server-generated
+summary is also recorded in `full_json`. Raw AI JSON is retained without the lease.
+
+The current extension already forwards new fields from `output_template`; it must
+keep these arrays verbatim and never move nested scores to protected root scalars.
+The API stores feedback with the doctor in the same transaction as the article,
+workplaces and lease release. It does **not** insert into `medical_reviews`, which
+belongs to facilities. Invalid feedback or a failed update rolls back the save.
+The existing row mapper/API exposes the new arrays; no new gallery or review UI
+is added by this transport change.
+
+The VI→EN doctor translation map excludes both feedback arrays: they are copied
+as source evidence, not rewritten by AI. IDs, names, scores, counts, URLs and text
+remain exactly from the VI record. When editing/publishing an EN copy, the admin
+validates these copied arrays against its DB-linked original VI doctor's identity,
+not the EN row's different ID. Existing VI feedback likewise retains its original
+evidence name during an admin display-name correction. This trusted identity comes
+from DB, never from a client-supplied `review_identity`; strict research API requests
+cannot override the parent ID/name. Translation does not invent new review samples.
+
+Deploy the code **and run** `php scripts/migrate_doctor_content.php` on the site's
+configured DB via CLI before reloading the doctor queue. The two columns are
+additive; existing rows, ratings and leases are preserved. No migration runs on
+visitor/API requests. Without the columns, the doctor API correctly reports schema
+unavailable (503). Old submissions omitting these fields remain supported after
+migration. Do not rerun old researched doctors or overwrite their articles merely
+to backfill feedback; that requires a separately authorized update workflow.
+
+Local verification: `php tests/doctor_reviews_test.php` uses pure validation and
+in-memory PDO doubles; it does not connect to DB, fetch source URLs, or alter data.
 
 ## Endpoints
 

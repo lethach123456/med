@@ -196,9 +196,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === [] && ($_POST['_transla
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($researchKeys as $key) $researchValues[$key] = trim((string) ($_POST['research'][$key] ?? $researchValues[$key]));
     $researchInput = $researchValues;
+    $researchInput['id'] = $id;
+    $researchInput['name'] = trim((string) ($_POST['name'] ?? $values['name']));
     $researchInput['insufficient_data'] = ($researchValues['insufficient_data'] ?? '') === '1';
     $researchInput['experience_start_year'] = $researchValues['experience_start_year'] === '' ? null : (int) $researchValues['experience_start_year'];
-    try { $researchFields = medical_doctor_normalize_payload($researchInput, false); }
+    try {
+        $reviewIdentity = $isEdit && isset($doctorTranslationRow['id'], $doctorTranslationRow['name'])
+            ? ['id' => (int) $doctorTranslationRow['id'], 'name' => (string) $doctorTranslationRow['name']] : null;
+        if (($doctorTranslationRow['language_code'] ?? '') === 'en' && (int) ($doctorTranslationRow['translation_of_id'] ?? 0) > 0) {
+            // Copied public feedback is evidence for the original physician;
+            // translations must not rename/rebind its evidence or score.
+            $sourceIdentityStmt = $pdo->prepare("SELECT id, name FROM medical_doctors WHERE id=:id AND language_code='vi' LIMIT 1");
+            $sourceIdentityStmt->execute([':id' => (int) $doctorTranslationRow['translation_of_id']]);
+            $originalDoctor = $sourceIdentityStmt->fetch(PDO::FETCH_ASSOC);
+            if ($originalDoctor) $reviewIdentity = ['id' => (int) $originalDoctor['id'], 'name' => (string) $originalDoctor['name']];
+        }
+        $researchFields = medical_doctor_normalize_payload($researchInput, false, $reviewIdentity);
+    }
     catch (InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));

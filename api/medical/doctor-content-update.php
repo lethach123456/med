@@ -46,5 +46,5 @@ foreach ($items as $index => $item) {
 }
 if ($results !== []) medical_search_cache_invalidate();
 $status = $errors === [] ? 200 : ($results !== [] ? 207 : max(array_column($errors, 'status')));
-json_response(['ok' => $errors === [], 'type' => 'doctor', 'updated_count' => count($results),
+json_response(['ok' => $errors === [], 'type' => 'doctor', 'reviews_contract_version' => 1, 'updated_count' => count($results),
     'updated' => $results, 'results' => $results, 'errors' => $errors], $status);

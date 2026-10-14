@@ -23,7 +23,7 @@ $payload['locations_json'] = [['facility_id' => null, 'facility_name' => 'Test h
 $normalized = medical_doctor_normalize_payload($payload);
 $assert(str_contains($normalized['content'], '<h2>'), 'HTML article retained');
 $assert(json_decode($normalized['education_json'], true)[0]['source_ids'] === ['s1'], 'source references retained');
-$assert(count(medical_doctor_column_definitions()) === 48, '48 additive columns including public profile/legal data');
+$assert(count(medical_doctor_column_definitions()) === 50, '50 additive columns including public profile/legal and review data');
 $assert(!isset($normalized['name'], $normalized['id'], $normalized['writer_claim_token']), 'identity and lease cannot be editorial fields');
 $tainted = $payload + ['verified' => 1, 'rating' => 5, 'reviews_count' => 123, 'language_code' => 'en', 'translation_of_id' => 22];
 $clean = medical_doctor_normalize_payload($tainted);
@@ -83,6 +83,14 @@ $prompt = medical_doctor_research_prompt('Custom prompt {{name}}', ['id' => 1, '
 $assert(!str_contains($prompt, 'SECRET'), 'prompt never leaks claim');
 $assert(str_contains($prompt, 'MEDREVIEW_DOCTOR_RESEARCH_CONTRACT_V2') && str_contains($prompt, 'education_json') && str_contains($prompt, '```json'), 'custom prompts get full contract');
 $defaultPrompt = medical_doctor_default_prompt();
+$savedCustom = 'Nội dung prompt do quản trị tùy chỉnh.';
+$savedUpgrade = medical_doctor_saved_prompt_with_current_rules($savedCustom);
+$assert(str_starts_with($savedUpgrade, $savedCustom), 'migration preserves custom prompt wording');
+$assert(medical_doctor_saved_prompt_with_current_rules($savedUpgrade) === $savedUpgrade, 'saved review rules migrate idempotently');
+foreach (['MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1', 'MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1', 'MEDREVIEW_DOCTOR_PUBLIC_REVIEWS_V1'] as $marker) {
+    $assert(substr_count($savedUpgrade, $marker) === 1, 'migration appends mandatory policy exactly once: ' . $marker);
+}
+$assert(medical_doctor_saved_prompt_with_current_rules($defaultPrompt) === $defaultPrompt, 'current built-in prompt is not rewritten by migration');
 $assert(str_contains($defaultPrompt, 'MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1') && str_contains($prompt, 'MEDREVIEW_DOCTOR_PRIMARY_SOURCES_V1'), 'default and saved custom prompts exclude third-party booking/review sources');
 $assert(str_contains($prompt, 'Không ghi các trang này trong sources_json') && str_contains($prompt, 'booking_url chỉ điền trang đặt khám chính thức'), 'source policy covers evidence and official booking links');
 $assert(!str_contains($defaultPrompt, 'Trang đặt khám hoặc mạng xã hội nghề nghiệp chính thức dùng bổ trợ'), 'default no longer recommends booking platforms as supporting sources');

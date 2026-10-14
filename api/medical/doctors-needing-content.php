@@ -44,6 +44,7 @@ try {
         $items[] = $item;
     }
     json_response(['ok' => true, 'type' => 'doctor', 'contract_version' => 1, 'page' => $page, 'limit' => $limit,
+        'reviews_contract_version' => 1, 'review_fields' => ['aggregate_ratings_json', 'reviews_json'],
         'total' => $total, 'pages' => (int) ceil($total / $limit), 'checked_ids' => array_values($ids),
         'eligibility' => 'published_vi_with_empty_content_and_no_completed_research',
         'claim_required' => true, 'receive_endpoint' => '/api/medical/doctor-content-update.php', 'items' => $items]);

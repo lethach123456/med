@@ -23,13 +23,15 @@ try {
     } elseif (!$row) {
         $pdo->prepare("INSERT INTO medical_ai_prompts (prompt_key,label,template) VALUES ('doctor','Bác sĩ',:template)")
             ->execute([':template' => medical_doctor_default_prompt()]);
-    } elseif (!str_contains((string) $row['template'], 'MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1')) {
-        $template = rtrim((string) $row['template']) . "\n\n" . medical_doctor_legal_prompt_addendum();
-        $stmt = $pdo->prepare('UPDATE medical_ai_prompts SET template=:template WHERE id=:id AND template=:old');
-        $stmt->execute([':template' => $template, ':id' => $row['id'], ':old' => $row['template']]);
-        if ($stmt->rowCount() !== 1) throw new RuntimeException('Prompt vừa thay đổi bởi người khác; chạy lại để bổ sung an toàn.');
-        echo "Custom doctor prompt preserved; public profile/legal contract appended.\n";
-    } else echo "Current doctor prompt with legal contract preserved.\n";
+    } else {
+        $template = medical_doctor_saved_prompt_with_current_rules((string) $row['template']);
+        if ($template !== (string) $row['template']) {
+            $stmt = $pdo->prepare('UPDATE medical_ai_prompts SET template=:template WHERE id=:id AND template=:old');
+            $stmt->execute([':template' => $template, ':id' => $row['id'], ':old' => $row['template']]);
+            if ($stmt->rowCount() !== 1) throw new RuntimeException('Prompt vừa thay đổi bởi người khác; chạy lại để bổ sung an toàn.');
+            echo "Custom doctor prompt preserved; missing legal/source/review rules appended.\n";
+        } else echo "Current doctor prompt with legal/source/review rules preserved.\n";
+    }
     $count = $pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='medical_doctors'")->fetchColumn();
     echo "Doctor schema ready: {$count} columns; medical_doctor_facilities ready. Existing records preserved.\n";
 } catch (Throwable $e) { fwrite(STDERR, 'Doctor migration failed: ' . $e->getMessage() . "\n"); exit(1); }

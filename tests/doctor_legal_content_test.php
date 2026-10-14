@@ -19,7 +19,7 @@ $legalKeys = ['professional_profile_url', 'practice_license_type', 'practice_lic
     'legal_notes', 'legal_source_ids_json'];
 $definitions = medical_doctor_column_definitions();
 foreach ($legalKeys as $key) $assert(array_key_exists($key, $definitions), 'schema includes ' . $key);
-$assert(count($definitions) === 48, '11 additive fields preserve the original 37 research columns');
+$assert(count($definitions) === 50, 'legal and review additive fields preserve the original research columns');
 $assert($definitions['practice_license_issued_date'] === 'DATE NULL', 'license issue date uses nullable DATE');
 $assert(isset($definitions['practice_license_json']), 'legacy license column remains');
 $template = medical_doctor_output_template(1, 'BS. Legal Test');
@@ -235,8 +235,11 @@ $assert(is_string($migration), 'doctor migration source readable');
 $assert(str_contains($migration, "if (PHP_SAPI !== 'cli')") && strpos($migration, "if (PHP_SAPI !== 'cli')") < strpos($migration, '$pdo = db()'), 'doctor migration exits HTTP before connecting to database');
 $assert(substr_count($migration, 'WHERE id=:id AND template=:old') === 2, 'both builtin replacement and custom append compare current saved text');
 $assert(str_contains($migration, "hash_equals('1edfcb7ec8212163a7cef61cbd8b4d15f61b357b09a6e99482e471040d778726'"), 'only exact previous builtin V2 is upgraded automatically');
-$assert(str_contains($migration, "!str_contains((string) \$row['template'], 'MEDREVIEW_DOCTOR_PROFILE_LEGAL_V1')"), 'custom addendum guarded against duplicate appends');
-$assert(str_contains($migration, 'rtrim((string) $row[\'template\'])') && str_contains($migration, 'medical_doctor_legal_prompt_addendum()'), 'custom wording is retained before appended legal rules');
+$customSaved = 'Custom wording with spaces   ';
+$upgradedSaved = medical_doctor_saved_prompt_with_current_rules($customSaved);
+$assert(str_contains($migration, 'medical_doctor_saved_prompt_with_current_rules(')
+    && medical_doctor_saved_prompt_with_current_rules($upgradedSaved) === $upgradedSaved, 'custom addenda guarded against duplicate appends');
+$assert(str_starts_with($upgradedSaved, rtrim($customSaved)) && str_contains($upgradedSaved, medical_doctor_legal_prompt_addendum()), 'custom wording is retained before appended legal rules');
 $assert(str_contains($migration, '$stmt->rowCount() !== 1') && str_contains($migration, '--replace-doctor-prompt'), 'concurrent custom edits fail safely; wholesale replacement requires explicit flag');
 foreach (['_doctor.php', 'doctors-needing-content.php', 'doctor-content.php', 'doctor-content-update.php', 'prompt.php'] as $entry) {
     $source = file_get_contents(dirname(__DIR__) . '/api/medical/' . $entry);
