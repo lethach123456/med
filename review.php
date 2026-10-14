@@ -10,8 +10,9 @@ $reviewBasePath = $isEnglish ? '/en/review' : '/review';
 $reviewContactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');
 $reviewFilters = review_view_filters($_GET);
 $reviewUnavailable = false;
+$reviewIsPartial = ($_GET['partial'] ?? null) === '1';
 try {
-    $reviewData = review_view_directory(db(), $reviewFilters, review_view_page($_GET), $locale);
+    $reviewData = review_view_directory(db(), $reviewFilters, review_view_page($_GET), $locale, 8, !$reviewIsPartial);
 } catch (Throwable $error) {
     error_log('Public review directory unavailable: ' . get_class($error));
     http_response_code(503);
@@ -21,6 +22,16 @@ try {
 $reviewRows = $reviewData['items'];
 $reviewSummary = $reviewData['summary'];
 $reviewPagination = $reviewData['pagination'];
+if ($reviewIsPartial) {
+    // Same published/locale filters and escaped server-rendered cards as normal navigation.
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    ob_start();
+    require __DIR__ . '/Tem/review-results.php';
+    $html = (string) ob_get_clean();
+    echo json_encode(['ok' => !$reviewUnavailable, 'locale' => $locale, 'html' => $html, 'paging' => $reviewPagination], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
 $seo = front_editor_page_seo('review', [
     'title' => 'Review & trải nghiệm y tế | MedReview',
     'description' => 'Đọc những chia sẻ về dịch vụ, chi phí và hành trình điều trị. Thêm một góc nhìn trước khi lựa chọn cơ sở y tế.',
@@ -32,6 +43,7 @@ if ($reviewPagination['page'] > 1) $title .= ($isEnglish ? ' — Page ' : ' — 
 $canonicalPath = review_view_url($reviewBasePath, $reviewFilters, $reviewPagination['page']);
 $seoKeywords = $isEnglish ? '' : (string) ($seo['keywords'] ?? '');
 $reviewStylesheet = 'review-directory.css';
+$reviewDirectoryScript = true;
 ?><!doctype html>
 <html lang="<?= $isEnglish ? 'en' : 'vi' ?>">
 <head><?php require __DIR__ . '/Tem/review-head.php'; ?></head>

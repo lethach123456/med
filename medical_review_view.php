@@ -113,6 +113,7 @@ function review_view_icon(string $name): string
     $paths = [
         'search' => '<circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/>',
         'arrow-right' => '<path d="M4 12h16m-6-6 6 6-6 6"/>', 'arrow-left' => '<path d="M20 12H4m6-6-6 6 6 6"/>',
+        'send' => '<path d="m21 3-6.8 18-3.5-7.7L3 9.8 21 3Z"/><path d="m10.7 13.3 5.5-5.5"/>',
         'star' => '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
         'check' => '<path d="m5 12 4 4L19 6"/>', 'shield' => '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>',
         'quote' => '<path d="M10 5H4v8h4c0 3-2 4-4 5m16-13h-6v8h4c0 3-2 4-4 5"/>',
@@ -159,7 +160,7 @@ function review_view_where(array $columns, string $locale): array
     return [$where, $params];
 }
 
-function review_view_directory(PDO $pdo, array $filters, int $requestedPage, string $locale = 'vi', int $perPage = 8): array
+function review_view_directory(PDO $pdo, array $filters, int $requestedPage, string $locale = 'vi', int $perPage = 8, bool $includeSummary = true): array
 {
     $perPage = min(24, max(1, $perPage));
     $summary = review_view_empty_summary();
@@ -168,13 +169,15 @@ function review_view_directory(PDO $pdo, array $filters, int $requestedPage, str
     [$where, $params] = review_view_where($columns, $locale);
     $photoSql = review_view_photo_sql();
     $ratingSql = 'rating>0 AND rating<=5';
-    $statement = $pdo->prepare("SELECT COUNT(*) total, SUM({$ratingSql}) rated_count, AVG(CASE WHEN {$ratingSql} THEN rating END) average, SUM(verified=1) verified_count, SUM({$photoSql}) photo_count," .
-        implode(',', array_map(static fn(int $score): string => "SUM(CASE WHEN {$ratingSql} AND GREATEST(1,LEAST(5,ROUND(rating)))={$score} THEN 1 ELSE 0 END) AS stars_{$score}", [1, 2, 3, 4, 5])) . " FROM medical_reviews WHERE {$where}");
-    $statement->execute($params);
-    $result = $statement->fetch(PDO::FETCH_ASSOC) ?: [];
-    foreach (['total', 'rated_count', 'verified_count', 'photo_count'] as $key) $summary[$key] = (int) ($result[$key] ?? 0);
-    $summary['average'] = (float) ($result['average'] ?? 0);
-    foreach ([1, 2, 3, 4, 5] as $score) $summary['breakdown'][$score] = (int) ($result['stars_' . $score] ?? 0);
+    if ($includeSummary) {
+        $statement = $pdo->prepare("SELECT COUNT(*) total, SUM({$ratingSql}) rated_count, AVG(CASE WHEN {$ratingSql} THEN rating END) average, SUM(verified=1) verified_count, SUM({$photoSql}) photo_count," .
+            implode(',', array_map(static fn(int $score): string => "SUM(CASE WHEN {$ratingSql} AND GREATEST(1,LEAST(5,ROUND(rating)))={$score} THEN 1 ELSE 0 END) AS stars_{$score}", [1, 2, 3, 4, 5])) . " FROM medical_reviews WHERE {$where}");
+        $statement->execute($params);
+        $result = $statement->fetch(PDO::FETCH_ASSOC) ?: [];
+        foreach (['total', 'rated_count', 'verified_count', 'photo_count'] as $key) $summary[$key] = (int) ($result[$key] ?? 0);
+        $summary['average'] = (float) ($result['average'] ?? 0);
+        foreach ([1, 2, 3, 4, 5] as $score) $summary['breakdown'][$score] = (int) ($result['stars_' . $score] ?? 0);
+    }
     if ($filters['q'] !== '') {
         $search = '%' . strtr($filters['q'], ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
         $clauses = [];

@@ -207,6 +207,10 @@ $assert(!str_contains($filteredSql['sql'], "' OR 1=1") && str_contains($filtered
 foreach (range(0, 5) as $index) $assert(($filteredSql['params'][':q' . $index] ?? '') === "%!%!_!! ' OR 1=1%", 'Distinct search placeholder safely escapes wildcards ' . $index);
 $assert($filteredSql['params'][':rating'] === 4 && str_contains($filteredSql['sql'], 'ORDER BY rating DESC') && str_contains($filteredSql['sql'], "REGEXP '^(https?://|/[^/])'"), 'Rating, media filter and sort have real SELECT clauses');
 $assert(review_view_directory(new ReviewViewTestPDO([$raw]), review_view_filters(['q' => 'absent']), 3)['pagination']['total'] === 0, 'Search filtering precedes pagination');
+$partialPdo = new ReviewViewTestPDO([$raw]);
+$partialData = review_view_directory($partialPdo, review_view_filters([]), 1, 'vi', 8, false);
+$assert(count($partialData['items']) === 1 && $partialData['pagination']['total'] === 1, 'Partial updates use the same visible records and total');
+$assert(count($partialPdo->calls) === 3 && !str_contains(implode(' ', array_column($partialPdo->calls, 'sql')), 'AVG('), 'Partial update skips unchanged global summary aggregation');
 
 $facilityRaw = ['slug' => 'phong-kham', 'name' => 'Cơ sở <A>', 'status' => 'published', 'city' => 'Hà Nội', 'address_text' => '95 Nguyễn Lương Bằng', 'rating' => 4.8, 'reviews_count' => 37, 'image_url' => '/uploads/facility.webp'];
 $detailPdo = new ReviewViewTestPDO([$raw, array_replace($raw, ['id' => 2, 'slug' => 'related', 'facility_slug' => 'phong-kham'])], [$facilityRaw]);
@@ -237,6 +241,10 @@ ob_start(); require dirname(__DIR__) . '/Tem/review-directory.php'; $directoryHt
 $assert(str_contains($directoryHtml, 'Trải nghiệm &lt;Test&gt; &amp; mắt') && !str_contains($directoryHtml, '<script>alert(1)</script>'), 'Directory escapes title and excerpt');
 $assert(str_contains($directoryHtml, 'method="get"') && str_contains($directoryHtml, 'name="q"') && str_contains($directoryHtml, 'type="submit"'), 'Search and filters work without JavaScript');
 $assert(!str_contains($directoryHtml, 'javascript:') && !str_contains($directoryHtml, 'src=""'), 'Directory has no unsafe or empty media requests');
+$assert(str_contains($directoryHtml, 'id="reviewDirectoryFilter"') && substr_count($directoryHtml, 'form="reviewDirectoryFilter"') === 4, 'Detached rating, media, sort and apply button belong to the search form');
+$assert(str_contains($directoryHtml, 'data-review-filters>') && !str_contains($directoryHtml, 'data-review-filters open'), 'Filter disclosure starts closed on desktop and mobile');
+$assert(str_contains($directoryHtml, 'class="rv-dir-search-submit"') && str_contains($directoryHtml, 'aria-label="Tìm kiếm"'), 'Compact icon submit has an accessible name');
+$assert(str_contains($directoryHtml, 'id="reviewResults"') && str_contains($directoryHtml, 'id="reviewDirectoryStatus"'), 'Progressive updates have a stable result region and status');
 $review = $item; $reviewFacility = $detail['facility']; $relatedReviews = [$item];
 ob_start(); require dirname(__DIR__) . '/Tem/review-detail.php'; $detailHtml = (string) ob_get_clean();
 $assert(str_contains($detailHtml, 'Trải nghiệm &lt;Test&gt; &amp; mắt') && str_contains($detailHtml, 'Cơ sở &lt;A&gt;'), 'Detail escapes article and linked facility');

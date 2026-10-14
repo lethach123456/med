@@ -1,17 +1,13 @@
 (() => {
   'use strict';
   const english = document.documentElement.lang === 'en';
-  const filters = document.querySelector('[data-review-filters]');
-  if (filters) {
-    const narrow = window.matchMedia('(max-width: 999px)');
-    const syncFilters = () => { filters.open = !narrow.matches || filters.dataset.active === 'true'; };
-    syncFilters();
-    narrow.addEventListener('change', syncFilters);
-  }
   const photoUnavailable = english ? 'Photo unavailable' : 'Ảnh hiện chưa tải được';
   const photos = [...document.querySelectorAll('[data-review-image]')];
   const failedPhotos = new Set();
-  document.querySelectorAll('.rv-directory img, .rv-detail img:not([data-lightbox-image])').forEach(image => {
+  const boundImages = new WeakSet();
+  const setupImageFallbacks = () => document.querySelectorAll('.rv-directory img, .rv-detail img:not([data-lightbox-image])').forEach(image => {
+    if (boundImages.has(image)) return;
+    boundImages.add(image);
     const fail = () => {
       const button = image.closest('[data-review-image]');
       if (button) {
@@ -43,6 +39,8 @@
     image.addEventListener('error', fail, { once: true });
     if (image.complete && !image.naturalWidth) fail();
   });
+  setupImageFallbacks();
+  document.addEventListener('review:results-updated', setupImageFallbacks);
 
   const dialog = document.querySelector('[data-review-lightbox]');
   if (!dialog || typeof dialog.showModal !== 'function') return;
