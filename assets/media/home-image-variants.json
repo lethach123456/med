@@ -1,0 +1,32 @@
+{
+    "version": 1,
+    "encoder": "webp-q78-v1",
+    "images": {
+        "https://gonight.vn/wp-content/uploads/2026/04/dahan-spa-gmap-69f2319b698f8-1.webp": {
+            "source_bytes": 442794,
+            "source_sha256": "3ef4fd9e90c3848f95a1256452aaac98ea035bc6efc0bd4649c8fc33f516f862",
+            "width": 1200,
+            "height": 900,
+            "variants": [
+                {
+                    "url": "/assets/media/variants/remote-bb88d31bf48df3430da69e35-320.webp",
+                    "width": 320,
+                    "height": 240,
+                    "bytes": 21490
+                },
+                {
+                    "url": "/assets/media/variants/remote-a07371772354b457ac6afaea-640.webp",
+                    "width": 640,
+                    "height": 480,
+                    "bytes": 79664
+                },
+                {
+                    "url": "/assets/media/variants/remote-0feb308dfb57b542d8dbfc29-960.webp",
+                    "width": 960,
+                    "height": 720,
+                    "bytes": 161646
+                }
+            ]
+        }
+    }
+}

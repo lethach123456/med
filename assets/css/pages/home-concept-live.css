@@ -36,7 +36,7 @@
       .med-home.hc-home .mobile-menu a{min-height:48px;padding:13px;border-radius:12px}
       .med-home.hc-home .language-menu{animation:pop .22s var(--ease)}
       .med-home.hc-home .hero{overflow:visible;background:linear-gradient(155deg,#f6f9ff,#edf4ff)}
-      .med-home.hc-home .hero:before{display:block;inset:0 0 auto;width:100%;height:260px;border:0;border-radius:0;box-shadow:none;background-image:linear-gradient(90deg,#f6f9ff 0%,#f6f9fff2 45%,#f6f9ff73 100%),linear-gradient(0deg,#f2f7ff 0%,#f2f7ff00 70%),url('/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg');background-position:center,right center,right center;background-size:cover;background-repeat:no-repeat;pointer-events:none}
+      .med-home.hc-home .hero:before{display:block;inset:0 0 auto;width:100%;height:260px;border:0;border-radius:0;box-shadow:none;background-image:linear-gradient(90deg,#f6f9ff 0%,#f6f9fff2 45%,#f6f9ff73 100%),linear-gradient(0deg,#f2f7ff 0%,#f2f7ff00 70%),var(--home-hero-mobile-image,url('/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg'));background-position:center,right center,right center;background-size:cover;background-repeat:no-repeat;pointer-events:none}
       .med-home.hc-home .hero-grid{grid-template-columns:minmax(0,1fr);padding-top:36px;padding-bottom:32px;gap:0}
       .med-home.hc-home .eyebrow{font-size:10px;letter-spacing:.6px}
       .med-home.hc-home .hero h1{font-size:clamp(32px,8.6vw,46px);line-height:1.2;letter-spacing:-1.5px;margin-top:14px}

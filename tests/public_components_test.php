@@ -48,9 +48,12 @@ $assert($uses('body .doctor-directory .doctor-action', 'white-space:normal'), 'L
 preg_match('/\.facility-page \.detail-btn,\.review-page \.detail-btn\{([^}]+)\}/', $legacy, $legacyDetail);
 $assert(isset($legacyDetail[1]) && !str_contains($legacyDetail[1], 'font-size:12px!important'), 'Legacy detail-button font cannot defeat the shared scale');
 $assert(str_contains($css, '@media(prefers-reduced-motion:reduce)') && str_contains($css, 'transition:none'), 'Reduced motion retained');
-$assert(str_contains($header, 'Inter:wght@400;450;500;550;600;650;700;750;800'), 'Common font includes real 650 and 750 weights');
-$assert(substr_count($header, 'href="/assets/css/core/public-components.css?v=') === 1
-    && str_contains($header, 'filemtime($publicComponentsStylesheetPath)'), 'Shared component layer loaded once with cache version');
+$fonts = (string) file_get_contents($root . '/assets/css/core/local-fonts.css');
+$assert(str_contains($fonts, 'font-weight:100 900'), 'Common variable font includes real 650 and 750 weights');
+require_once $root . '/medical_public_assets.php';
+$assert(str_contains($header, 'medical_public_shell_styles()')
+    && in_array('/assets/css/core/public-components.css', medical_public_shell_sources(), true)
+    && medical_public_shell_bundle() !== null, 'Shared component layer included in the fingerprinted shell bundle');
 $assert(str_contains($css, '--med-ui-card-title:17px'), 'Mobile heading uses the same responsive token');
 $assert((bool) preg_match('/@media\(max-width:760px\)\{\s*:root\{[^}]*--med-ui-control-height:44px;--med-ui-send-size:44px/s', $css), 'Mobile controls retain a 44px touch target');
 $headerControls = (string) file_get_contents($root . '/assets/css/pages/brand-header-match.css');

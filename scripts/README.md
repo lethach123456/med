@@ -2,6 +2,22 @@
 
 `debug/` và `seeds/` chỉ dành cho môi trường phát triển hoặc tác vụ bảo trì qua CLI. Chúng không phải endpoint public.
 
+## Dựng CSS/ảnh public (không DB)
+
+Sau khi sửa CSS dùng chung hoặc CSS trang chủ, chạy trước khi deploy:
+
+```bash
+php scripts/build_public_assets.php
+php scripts/build_media_variants.php
+php tests/public_assets_test.php
+php tests/media_variants_test.php
+node tests/local_fonts_test.cjs
+```
+
+CSS giữ nguyên thứ tự cascade; trang chủ tải một bundle + CSS icon local. Các trang khác dùng bundle shell. File có fingerprint nội dung để cache dài; nếu source CSS thay đổi nhưng chưa build, runtime tự dùng các source đúng thứ tự, không tự build trong request. Deploy cả manifest và file generated cùng nhau. Font và ảnh được dựng sẵn, không cần seed/migration/worker. Ảnh gốc và cài đặt logo riêng không bị ghi đè.
+
+Ảnh remote nặng đã kiểm tra trực quan có thể dựng riêng bằng `php scripts/build_home_image_variants.php` (hoặc `--force` để cập nhật lại nguồn). Lệnh chỉ tải URL công khai trong allowlist đã duyệt, kiểm tra HTTPS/IP public/giới hạn byte-pixel; không phải proxy ảnh public. Runtime chỉ đọc manifest và WebP dựng sẵn. Không thêm URL mới chỉ dựa vào HTTP 200: CDN có thể trả ảnh placeholder thay cho ảnh cơ sở/bác sĩ thật.
+
 ## Migration toàn hệ thống (không seed)
 
 Chạy một lần khi triển khai/nâng cấp, **không đặt lệnh này trong cron chạy thường xuyên**:

@@ -137,7 +137,8 @@ $css = (string) file_get_contents($root . '/assets/css/core/public-components.cs
 $assert((bool) preg_match('~body a\.facility-verification-link:focus-visible\s*\{[^}]*outline:2px solid #2563ff;[^}]*outline-offset:3px~s', $css), 'Policy links have visible keyboard focus');
 $assert((bool) preg_match('~@media\s*\(pointer:coarse\)[^{]*\{.*?body a\.facility-verification-link\{min-height:44px\}.*?body a\.facility-verification-link\.facility-verification-icon\{min-width:44px;min-height:44px\}~s', $css), 'Coarse pointers have at least 44px policy-link hit areas');
 $assert(str_contains($css, 'touch-action:manipulation') && str_contains($css, '@media(prefers-reduced-motion:reduce){body a.facility-verification-link{transition:none}}'), 'Policy interactions respect touch and reduced motion');
-$assert(str_contains((string) file_get_contents($root . '/Tem/header.php'), '/assets/css/core/public-components.css'), 'Policy interaction rules are loaded site-wide');
+$assert(str_contains((string) file_get_contents($root . '/Tem/header.php'), 'medical_public_shell_styles()')
+    && str_contains((string) file_get_contents($root . '/medical_public_assets.php'), '/assets/css/core/public-components.css'), 'Policy interaction rules are loaded site-wide');
 foreach (['medical_doctor_directory_view.php', 'Tem/doctor-profile.php', 'review.php', 'review-chi-tiet.php', 'assets/js/medical-global-search.js'] as $file) {
     $assert(!str_contains((string) file_get_contents($root . '/' . $file), 'facility-verification-link'), $file . ': unrelated doctor/review verification and full-row search links remain unchanged');
 }
