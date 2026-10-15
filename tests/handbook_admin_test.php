@@ -49,6 +49,12 @@ foreach ([
 ] as $row) {
     $insert->execute(array_merge($row, ['2026-10-14 12:00:00', '']));
 }
+if (($argv[1]??'')==='--render-fixture') {
+    $destination=$argv[2]??'';
+    if(!str_starts_with($destination,sys_get_temp_dir().'/')&&!str_starts_with($destination,'/private/tmp/'))throw new RuntimeException('Preview must be a temporary artifact');
+    file_put_contents($destination,handbook_admin_render_fixture([]));
+    echo "Rendered isolated list fixture: ".$destination."\n";exit;
+}
 $categories = admin_handbook_categories($pdo);
 $assert(array_keys($categories) === ['blog', 'blog-en'], 'Only handbook categories are selected');
 $assert(admin_handbook_category_id($categories, 'vi') === 1 && admin_handbook_category_id($categories, 'en') === 2, 'Creation uses each language category');
@@ -118,6 +124,8 @@ $html = handbook_admin_render_fixture(['q' => 'Legacy English']);
 $assert(str_contains($html, 'aria-label="Xem bài Legacy English"'), 'Published article with content restores View');
 $pdo->exec('DELETE FROM categories WHERE id = 2');
 $html = handbook_admin_render_fixture([]);
-$assert(str_contains($html, 'disabled aria-describedby="handbook-category-en"') && str_contains($html, '<code>blog-en</code>'), 'Missing category has disabled Add and explicit setup guidance');
+$assert(substr_count($html,'href="/admin/content_post_edit.php?handbook=1"')===1 && str_contains($html,'>Thêm bài</a>'),'List offers a single Add article action even when categories are missing');
+$assert(!str_contains($html,'Thêm bài tiếng Việt')&&!str_contains($html,'Thêm bài tiếng Anh')&&!str_contains($html,'handbook-category-en'),'Language choices and category setup do not clutter the list');
+$assert(!str_contains($html,'id="handbook-status"')&&!str_contains($html,'id="handbook-language"')&&str_contains($html,'id="handbook-search"'),'List retains simple search without extra language/status selectors');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 2, 'Rendering never seeds missing categories');
 echo "Handbook admin: {$checks} checks passed (SQLite memory only; no database/network changes).\n";

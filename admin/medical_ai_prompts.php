@@ -314,6 +314,7 @@ $promptNotes = [
     'toplist' => 'Lập danh sách cơ sở, bác sĩ hoặc cả hai (entity_type=mixed). Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{entity_type}}, {{entity_label}}, {{member_key}}, {{output_template}}. Mixed dùng members có type=facility/doctor cùng ID tương ứng; rank_order xếp chung cả hai loại. Prompt cơ sở cũ tự thay bằng prompt phù hợp cho bài bác sĩ/hỗn hợp; JSON bắt buộc trong block code json.',
     'toplist_doctor' => 'Prompt riêng cho danh sách bác sĩ trong bài Toplist (không phải nghiên cứu hồ sơ bác sĩ riêng lẻ). API tự chọn mẫu này khi entity_type=doctor. Hỗ trợ {{id}}, {{toplist_id}}, {{title}}, {{excerpt}}, {{content}}, {{entity_type}}, {{member_key}}, {{output_template}}. Đầu ra doctors với doctor_id/name/specialty_text/city/facility_name/rank_order, bắt buộc trong block code json; không tự tạo điểm đánh giá hay xác minh.',
     'doctor' => 'Prompt nghiên cứu hồ sơ bác sĩ: nhận diện đúng người, đào tạo/công tác, giấy phép, chuyên môn, nơi khám, lịch/giá, nguồn chứng minh, SEO và đánh giá công khai có thật. Nhận aggregate_ratings_json (score/count) và reviews_json có URL/bằng chứng, entity_type=doctor, doctor_id/name đúng hồ sơ; không dùng điểm cơ sở. Nguồn đánh giá tách khỏi nguồn chuyên môn/pháp lý; không dùng trang booking/review y tế bên thứ ba, không bịa review hoặc tự chấm verified. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{address}}, {{phone}}, {{website}}, {{source_json}}, {{output_template}}. API tự bổ sung contract cho cả mẫu đã lưu, tự tính điểm; AI không gửi rating/reviews_count gốc. JSON bắt buộc trong block code json.',
+    'handbook' => 'Viết bài Cẩm nang theo chủ đề nháp có tiêu đề và nội dung trống. Hỗ trợ {{id}}, {{title}}, {{topic}}, {{language}}, {{brief}}, {{source_json}}, {{output_template}}. Trả JSON với content_html chứa 1–4 ảnh minh hoạ thực sự do công cụ AI tạo, dạng data:image/jpeg|png|webp;base64,...; không bịa BASE64. API kiểm tra HTML/ảnh, nén và lưu file hosting rồi thay URL, giữ bài nháp để duyệt. Không gửi token/API key vào prompt. Cần chạy scripts/migrate_handbook_ai.php để thêm prompt ban đầu; request thường không tự seed hay migrate.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
     'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON; dịch đúng các trường được cho phép. API sẽ yêu cầu AI trả kết quả trong một block code ```json.',
 ];
@@ -323,7 +324,7 @@ foreach ($basePrompts as $basePrompt) {
     $basePromptByKey[(string) $basePrompt['prompt_key']] = $basePrompt;
 }
 $basePromptTabs = [];
-foreach (['facility', 'facility_image_prompt', 'facility_image_fix', 'toplist', 'toplist_doctor', 'doctor', 'review', 'translation'] as $promptKey) {
+foreach (['facility', 'facility_image_prompt', 'facility_image_fix', 'toplist', 'toplist_doctor', 'doctor', 'handbook', 'review', 'translation'] as $promptKey) {
     if (isset($basePromptByKey[$promptKey])) {
         $basePromptTabs[] = $basePromptByKey[$promptKey];
         unset($basePromptByKey[$promptKey]);

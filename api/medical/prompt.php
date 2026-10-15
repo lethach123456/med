@@ -6,9 +6,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok'=>false,'message'=>
 $type = trim((string)($_GET['type'] ?? 'facility')); $name = trim((string)($_GET['name'] ?? '')); $title = trim((string)($_GET['title'] ?? '')); $category = trim((string)($_GET['category'] ?? ''));
 if ($type === 'toplist_doctor') { $type = 'toplist'; $_GET['entity_type'] = 'doctor'; }
 if ($type === 'toplist' && $name === '') $name = $title;
-$allowed=['facility','facility_image_prompt','facility_image_fix','toplist','doctor','review','translation']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
-if ($name === '' && !in_array($type, ['translation', 'facility_image_fix'], true)) json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
+$allowed=['facility','facility_image_prompt','facility_image_fix','toplist','doctor','review','translation','handbook']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
+if ($name === '' && !in_array($type, ['translation', 'facility_image_fix', 'handbook'], true)) json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
 $pdo=db();
+if ($type === 'handbook') {
+    require_once __DIR__ . '/../../medical_handbook_ai.php';
+    $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$id) json_response(['ok'=>false,'message'=>'Prompt Cẩm nang cần id chủ đề đã tạo trong admin.'],422);
+    try {
+        handbook_ai_require_schema($pdo);
+        $lookup = $pdo->prepare('SELECT p.*,c.slug AS category_slug FROM posts p INNER JOIN categories c ON c.id=p.category_id WHERE p.id=:id LIMIT 1');
+        $lookup->execute([':id'=>$id]); $row = $lookup->fetch(PDO::FETCH_ASSOC);
+        if (!$row || !in_array($row['category_slug'], ['blog','blog-en'], true)) json_response(['ok'=>false,'message'=>'Không tìm thấy chủ đề Cẩm nang.'],404);
+        if (!handbook_ai_needs_content($row)) json_response(['ok'=>false,'message'=>'Chủ đề đã có nội dung hoặc không còn ở trạng thái nháp cần viết.'],409);
+        $prompt = handbook_ai_prompt($pdo, $row);
+        json_response(['ok'=>true,'type'=>'handbook','contract_version'=>1,'id'=>(int)$id,'name'=>$row['title'],
+            'source_revision'=>handbook_ai_revision($row),'limits'=>handbook_ai_limits()] + $prompt);
+    } catch (Throwable $error) {
+        error_log('Handbook prompt unavailable (' . get_class($error) . ').');
+        json_response(['ok'=>false,'message'=>'Chưa sẵn sàng Cẩm nang AI. Chạy php scripts/migrate_handbook_ai.php.'],503);
+    }
+}
 $resolved = medical_directory_resolve_ai_prompt($pdo, $type, $type === 'facility' ? $category : '');
 if ($type === 'facility_image_fix') {
     $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

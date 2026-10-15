@@ -6,11 +6,10 @@ require_once __DIR__ . '/_cam_nang.php';
 admin_require_login();
 
 $filters = admin_handbook_filters($_GET);
-$categories = admin_handbook_categories(db());
 $paging = admin_handbook_page(db(), $filters);
 $adminPageTitle = 'Admin • Cẩm nang';
 $adminHeaderTitle = 'Cẩm nang';
-$adminHeaderSubtitle = 'Quản lý bài viết, ngôn ngữ và trạng thái xuất bản';
+$adminHeaderSubtitle = 'Bài viết sức khỏe';
 $adminActive = 'cam-nang';
 require __DIR__ . '/_layout_start.php';
 $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -20,55 +19,22 @@ $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QU
   <div class="card-body p-3 p-md-4">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
       <div>
-        <h1 class="h5 mb-1">Bài viết Cẩm nang</h1>
-        <p class="text-secondary mb-0">Bài đã xuất bản sẽ hiển thị tại mục Cẩm nang trên website.</p>
+        <h1 class="h5 mb-1">Cẩm nang</h1>
+        <p class="small text-secondary mb-0"><?php echo (int)$paging['total']; ?> bài viết</p>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-outline-secondary" href="/cam-nang" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square me-2" aria-hidden="true"></i>Xem Cẩm nang</a>
-        <?php foreach (['vi' => 'Thêm bài tiếng Việt', 'en' => 'Thêm bài tiếng Anh'] as $language => $label): ?>
-          <?php $categoryId = admin_handbook_category_id($categories, $language); ?>
-          <?php if ($categoryId > 0): ?>
-            <a class="btn <?php echo $language === 'vi' ? 'btn-primary' : 'btn-outline-primary'; ?>" href="/admin/content_post_edit.php?handbook=1&amp;language=<?php echo $language; ?>&amp;category_id=<?php echo $categoryId; ?>"><i class="fa-solid fa-plus me-2" aria-hidden="true"></i><?php echo $label; ?></a>
-          <?php else: ?>
-            <button class="btn btn-outline-secondary" type="button" disabled aria-describedby="handbook-category-<?php echo $language; ?>"><?php echo $label; ?></button>
-          <?php endif; ?>
-        <?php endforeach; ?>
+        <a class="btn btn-primary" href="/admin/content_post_edit.php?handbook=1"><i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Thêm bài</a>
       </div>
     </div>
 
-    <?php foreach (['vi' => 'blog', 'en' => 'blog-en'] as $language => $slug): ?>
-      <?php if (admin_handbook_category_id($categories, $language) === 0): ?>
-        <div class="alert alert-warning" id="handbook-category-<?php echo $language; ?>">
-          Chưa có chuyên mục cho bài <?php echo $language === 'vi' ? 'tiếng Việt' : 'tiếng Anh'; ?>.
-          <a href="/admin/content_category_edit.php?language=<?php echo $language; ?>">Tạo chuyên mục</a> với slug <code><?php echo $slug; ?></code>, rồi quay lại để thêm bài. Trang này không tự tạo chuyên mục.
-        </div>
-      <?php endif; ?>
-    <?php endforeach; ?>
-
-    <form method="get" action="/admin/cam_nang.php" class="row g-3 align-items-end mb-4" role="search">
-      <div class="col-12 col-lg-5">
+    <form method="get" action="/admin/cam_nang.php" class="row g-2 align-items-end mb-4" role="search">
+      <div class="col-12 col-sm">
         <label class="form-label" for="handbook-search">Tìm bài viết</label>
         <input class="form-control" type="search" id="handbook-search" name="q" value="<?php echo $escape($filters['q']); ?>" placeholder="Tiêu đề, slug hoặc mô tả" maxlength="160">
       </div>
-      <div class="col-12 col-sm-6 col-lg-2">
-        <label class="form-label" for="handbook-status">Trạng thái</label>
-        <select class="form-select" id="handbook-status" name="status">
-          <option value="">Tất cả trạng thái</option>
-          <option value="published" <?php echo $filters['status'] === 'published' ? 'selected' : ''; ?>>Đã xuất bản</option>
-          <option value="draft" <?php echo $filters['status'] === 'draft' ? 'selected' : ''; ?>>Bản nháp</option>
-        </select>
-      </div>
-      <div class="col-12 col-sm-6 col-lg-2">
-        <label class="form-label" for="handbook-language">Ngôn ngữ</label>
-        <select class="form-select" id="handbook-language" name="language">
-          <option value="">Tất cả ngôn ngữ</option>
-          <option value="vi" <?php echo $filters['language'] === 'vi' ? 'selected' : ''; ?>>Tiếng Việt</option>
-          <option value="en" <?php echo $filters['language'] === 'en' ? 'selected' : ''; ?>>English</option>
-        </select>
-      </div>
-      <div class="col-12 col-lg-3 d-flex flex-wrap gap-2">
-        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter me-2" aria-hidden="true"></i>Lọc bài viết</button>
-        <a class="btn btn-outline-secondary" href="/admin/cam_nang.php">Đặt lại</a>
+      <div class="col-12 col-sm-auto d-flex gap-2">
+        <button class="btn btn-outline-secondary" type="submit"><i class="fa-solid fa-magnifying-glass me-2" aria-hidden="true"></i>Tìm</button>
+        <?php if($filters['q']!==''||$filters['language']!==''||$filters['status']!==''):?><a class="btn btn-outline-secondary" href="/admin/cam_nang.php">Tất cả</a><?php endif;?>
       </div>
     </form>
 

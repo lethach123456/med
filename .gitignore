@@ -11,3 +11,6 @@
 /storage/cache/*.lock
 /storage/cache/*.invalidated
 !/storage/cache/.gitkeep
+
+# AI handbook illustrations are runtime CMS uploads, not deploy-time assets.
+/uploads/handbook/

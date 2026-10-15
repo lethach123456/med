@@ -162,13 +162,20 @@ $GLOBALS['site_page_key'] = $isServicePost
     ? ($isEnglishPost ? 'services-en' : 'dich-vu')
     : ($isEnglishPost ? 'blog-en' : 'blog');
 if ($isHandbookDetailRoute) {
+    require_once __DIR__ . '/medical_handbook_translations.php';
     $GLOBALS['site_page_key'] = 'handbook';
     $handbookArticlePath = site_localized_path('/cam-nang/' . rawurlencode((string) $post['slug']), $handbookLocale);
+    $handbookCounterpart = handbook_translation_current($pdo,(int)$post['id'],true);
+    $handbookOtherPath = $handbookCounterpart
+        ? handbook_view_path((string)$handbookCounterpart['language'],(string)$handbookCounterpart['slug']) : null;
     $GLOBALS['site_language_links'] = [
         'current' => $handbookLocale,
-        'vi' => $handbookLocale === 'vi' ? $handbookArticlePath : '/cam-nang',
-        'en' => $handbookLocale === 'en' ? $handbookArticlePath : '/en/cam-nang',
+        'vi' => $handbookLocale === 'vi' ? $handbookArticlePath : ($handbookOtherPath ?? '/cam-nang'),
+        'en' => $handbookLocale === 'en' ? $handbookArticlePath : ($handbookOtherPath ?? '/en/cam-nang'),
     ];
+    $handbookArticleAlternates = $handbookCounterpart ? [
+        'vi'=>$GLOBALS['site_language_links']['vi'],'en'=>$GLOBALS['site_language_links']['en'],
+        'x-default'=>$GLOBALS['site_language_links']['vi']] : [];
 }
 $homePath = $isEnglishPost ? '/services' : '/';
 $homeLabel = $isEnglishPost ? 'Home' : 'Trang chủ';

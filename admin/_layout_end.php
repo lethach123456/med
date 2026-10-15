@@ -758,7 +758,6 @@
             const elChecklist = panel.querySelector("[data-yoast-checklist]");
 
             const defaultDomain = panel.getAttribute("data-yoast-domain") || window.location.host || "example.com";
-            const urlPrefix = panel.getAttribute("data-yoast-url-prefix") || "/";
             const isFacilityProfile = panel.getAttribute("data-yoast-profile") === "facility";
             const minimumWords = isFacilityProfile ? 120 : 300;
 
@@ -785,6 +784,7 @@
             }
 
             function compute() {
+              const urlPrefix = panel.getAttribute("data-yoast-url-prefix") || "/";
               const pageTitle = (titleInput && titleInput.value) ? titleInput.value.trim() : "";
               const pageSlug = (slugInput && slugInput.value) ? slugInput.value.trim() : "";
               const seoTitle = (seoTitleInput && seoTitleInput.value) ? seoTitleInput.value.trim() : "";
@@ -892,6 +892,7 @@
         }
       })();
     </script>
+    <?php if (($adminActive ?? '') === 'cam-nang'): ?><script src="/assets/js/handbook-editor.js?v=1" defer></script><?php endif; ?>
     <?php
     $toast = function_exists('flash_toast_pop') ? flash_toast_pop() : null;
     if (is_array($toast) && isset($toast['type'], $toast['message'])):

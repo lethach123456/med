@@ -38,6 +38,7 @@ $values = [
     'seo_description' => trim((string) ($_GET['seo_description'] ?? '')),
     'seo_keywords' => trim((string) ($_GET['seo_keywords'] ?? '')),
     'status' => $defaultStatus,
+    'linked_post_id' => '0',
 ];
 
 if ($isHandbook && !$isEdit) {
@@ -69,16 +70,17 @@ if ($isEdit) {
     $values['seo_description'] = (string) ($row['seo_description'] ?? '');
     $values['seo_keywords'] = (string) ($row['seo_keywords'] ?? '');
     $values['status'] = (string) ($row['status'] ?? 'draft');
+    if ($isHandbook) {
+        $linked = handbook_translation_current($pdo,$id);
+        $values['linked_post_id'] = (string) ($linked['id'] ?? 0);
+    }
 }
 
 $handbookCategoryId = (int) $values['category_id'];
 $handbookLanguage = $values['language'];
-if ($isHandbook && $handbookCategoryId <= 0) {
-    if ($isModal) json_response(['ok' => false, 'message' => 'Chưa có chuyên mục Cẩm nang cho ngôn ngữ này.'], 422);
-    flash_toast_set('warning', 'Chưa có chuyên mục Cẩm nang cho ngôn ngữ này. Vui lòng tạo chuyên mục trước khi thêm bài.', 'fa-solid fa-triangle-exclamation');
-    header('Location: /admin/cam_nang.php');
-    exit;
-}
+// Missing handbook categories must not block opening the add form. A valid,
+// explicit save creates the chosen language category and article together.
+if ($isHandbook) $values['template'] = '0';
 
 $categories = $pdo->query('SELECT id, name FROM categories ORDER BY name ASC')->fetchAll();
 $errors = [];
@@ -96,7 +98,7 @@ function render_post_modal_form(array $values, array $errors, array $categories,
     ?>
     <div class="p-2 p-sm-0">
       <?php if (count($errors) > 0): ?>
-        <div class="alert alert-danger">
+        <div class="alert alert-danger" role="alert" tabindex="-1">
           <?php foreach ($errors as $e): ?>
             <div><?php echo htmlspecialchars((string) $e, ENT_QUOTES, 'UTF-8'); ?></div>
           <?php endforeach; ?>
@@ -113,7 +115,7 @@ function render_post_modal_form(array $values, array $errors, array $categories,
           <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
         <?php endif; ?>
         <input type="hidden" name="category_id" value="<?php echo htmlspecialchars((string) ($values['category_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-        <input type="hidden" name="language" value="<?php echo htmlspecialchars(normalize_content_language((string) ($values['language'] ?? 'vi')), ENT_QUOTES, 'UTF-8'); ?>">
+        <?php if (!$isHandbook): ?><input type="hidden" name="language" value="<?php echo htmlspecialchars(normalize_content_language((string) ($values['language'] ?? 'vi')), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
         <input type="hidden" name="template" value="<?php echo $templateMode ? '1' : '0'; ?>">
 
         <div class="col-12">
@@ -129,9 +131,12 @@ function render_post_modal_form(array $values, array $errors, array $categories,
                 <option value="published" <?php echo (($values['status'] ?? '') === 'published') ? 'selected' : ''; ?>>published</option>
               </select>
             </div>
-            <div class="col-12">
-              <div class="small text-secondary">Ngôn ngữ: <span class="badge text-bg-light text-dark"><?php echo normalize_content_language((string) ($values['language'] ?? 'vi')) === 'en' ? 'English' : 'Tiếng Việt'; ?></span></div>
+            <div class="col-12<?php echo $isHandbook && !$isEdit ? ' col-md-4' : ''; ?>">
+              <?php if ($isHandbook): echo admin_handbook_language_field($values,$id); else: ?>
+                <div class="small text-secondary">Ngôn ngữ: <span class="badge text-bg-light text-dark"><?php echo normalize_content_language((string) ($values['language'] ?? 'vi')) === 'en' ? 'English' : 'Tiếng Việt'; ?></span></div>
+              <?php endif; ?>
             </div>
+            <?php if ($isHandbook) echo admin_handbook_translation_field(db(),$values,$id); ?>
           </div>
         </div>
 
@@ -173,7 +178,7 @@ function render_post_modal_form(array $values, array $errors, array $categories,
           <?php endif; ?>
         </div>
         <div class="col-12 col-lg-4">
-          <div class="border rounded-4 bg-white p-3" data-yoast-panel data-yoast-domain="">
+          <div class="border rounded-4 bg-white p-3" data-yoast-panel data-yoast-domain=""<?php if($isHandbook):?> data-yoast-url-prefix="<?php echo($values['language']??'vi')==='en'?'/en/cam-nang/':'/cam-nang/';?>"<?php endif;?>>
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="fw-semibold"><i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>SEO</div>
               <div class="d-flex align-items-center gap-2">
@@ -243,12 +248,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $values['status'] = trim((string) ($_POST['status'] ?? 'draft'));
 
     if ($isHandbook) {
+        $values['template'] = '0';
+        if (!is_string($_POST['language'] ?? null) || !in_array($_POST['language'],['vi','en'],true)) $errors[] = 'Ngôn ngữ bài Cẩm nang phải là vi hoặc en.';
+        $submittedLink = $_POST['linked_post_id'] ?? '0';
+        if (!is_string($submittedLink) || preg_match('/^(?:0|[1-9][0-9]{0,9})$/D',$submittedLink)!==1) {
+            $errors[] = 'Bài liên kết cần ID hợp lệ từ danh sách bản dịch.';
+            $submittedLink = '0';
+        }
+        $values['linked_post_id'] = $submittedLink;
         $expectedToken = (string) ($_SESSION['admin_csrf_token'] ?? '');
         $providedToken = is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : '';
         if ($expectedToken === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
             $errors[] = 'Yêu cầu đã hết hạn hoặc không hợp lệ. Tải lại trang rồi thử lại.';
         }
-        if ((int) $values['category_id'] !== $handbookCategoryId || $values['language'] !== $handbookLanguage) {
+        // New forms may retain the old hidden category after choosing another
+        // language. Derive it server-side; existing articles remain immutable.
+        if ($isEdit && ((int) $values['category_id'] !== $handbookCategoryId || $values['language'] !== $handbookLanguage)) {
             $errors[] = 'Không thể thay đổi chuyên mục hoặc ngôn ngữ của bài viết trong màn Cẩm nang.';
         }
         $values['category_id'] = (string) $handbookCategoryId;
@@ -294,7 +309,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'SEO keywords quá dài (tối đa 255 ký tự).';
     }
 
-    if (count($errors) === 0) {
+    if (count($errors) === 0 && $isHandbook) {
+        try {
+            $savedId = admin_handbook_save($pdo,$values,$postId,[
+                'has_featured_image'=>$hasFeaturedImage,'has_template'=>$hasTemplateMode,
+                'update_link'=>array_key_exists('linked_post_id',$_POST),'linked_post_id'=>(int)$values['linked_post_id']]);
+            if ($isModal) json_response(['ok'=>true,'message'=>'Đã lưu bài Cẩm nang.','id'=>$savedId]);
+            flash_toast_set('success','Đã lưu bài Cẩm nang.','fa-solid fa-circle-check');
+            header('Location: /admin/content_post_edit.php?id='.$savedId.'&handbook=1');
+            exit;
+        } catch (InvalidArgumentException $error) {
+            $errors[] = $error->getMessage();
+        } catch (Throwable $error) {
+            error_log('Handbook editor save failed ('.get_class($error).').');
+            $errors[] = 'Không lưu được bài. Vui lòng tải lại danh sách để kiểm tra slug/chuyên mục và thử lại; các nội dung đã nhập vẫn được giữ bên dưới.';
+        }
+    }
+
+    if (count($errors) === 0 && !$isHandbook) {
         if ($isEditPost) {
             $sql = "UPDATE posts
                     SET category_id = :category_id,
@@ -423,12 +455,12 @@ require __DIR__ . '/_layout_start.php';
 <div class="row g-3">
   <div class="col-12">
     <div class="card border-0 shadow-soft">
-      <div class="card-body p-4">
+      <div class="card-body <?php echo $isHandbook ? 'p-3 p-md-4' : 'p-4'; ?>">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
           <div class="h5 mb-0"><?php echo htmlspecialchars($adminHeaderTitle, ENT_QUOTES, 'UTF-8'); ?></div>
           <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrow-left me-2" aria-hidden="true"></i>Quay lại</a>
-            <?php if ($hasTemplateMode && $values['template'] !== '1'): ?>
+            <a class="btn btn-outline-secondary text-nowrap" href="<?php echo htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrow-left me-2" aria-hidden="true"></i>Quay lại</a>
+            <?php if (!$isHandbook && $hasTemplateMode && $values['template'] !== '1'): ?>
               <button class="btn btn-outline-primary" type="submit" form="postEditForm" name="enable_template" value="1">
                 <i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Sử dụng template
               </button>
@@ -441,7 +473,7 @@ require __DIR__ . '/_layout_start.php';
         </div>
 
         <?php if (count($errors) > 0): ?>
-          <div class="alert alert-danger">
+          <div class="alert alert-danger" role="alert" tabindex="-1" id="post-form-errors">
             <?php foreach ($errors as $e): ?>
               <div><?php echo htmlspecialchars($e, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endforeach; ?>
@@ -463,11 +495,11 @@ require __DIR__ . '/_layout_start.php';
             <input type="hidden" name="id" value="<?php echo $id; ?>">
           <?php endif; ?>
           <input type="hidden" name="category_id" value="<?php echo htmlspecialchars((string) ($values['category_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-          <input type="hidden" name="language" value="<?php echo htmlspecialchars(normalize_content_language((string) ($values['language'] ?? 'vi')), ENT_QUOTES, 'UTF-8'); ?>">
+          <?php if (!$isHandbook): ?><input type="hidden" name="language" value="<?php echo htmlspecialchars(normalize_content_language((string) ($values['language'] ?? 'vi')), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
           <input type="hidden" name="template" value="<?php echo ($hasTemplateMode && $values['template'] === '1') ? '1' : '0'; ?>">
 
           <div class="col-12 col-xl-8">
-            <div class="border rounded-4 bg-white p-3">
+            <div<?php if (!$isHandbook): ?> class="border rounded-4 bg-white p-3"<?php endif; ?>>
               <div class="row g-3">
                 <div class="col-12 col-md-8">
                   <label class="form-label" for="title">Tiêu đề</label>
@@ -480,9 +512,12 @@ require __DIR__ . '/_layout_start.php';
                     <option value="published" <?php echo ($values['status'] === 'published') ? 'selected' : ''; ?>>published</option>
                   </select>
                 </div>
-                <div class="col-12">
-                  <div class="small text-secondary">Ngôn ngữ: <span class="badge text-bg-light text-dark"><?php echo normalize_content_language((string) ($values['language'] ?? 'vi')) === 'en' ? 'English' : 'Tiếng Việt'; ?></span></div>
+                <div class="col-12<?php echo $isHandbook && !$isEdit ? ' col-md-4' : ''; ?>">
+                  <?php if ($isHandbook): echo admin_handbook_language_field($values,$id); else: ?>
+                    <div class="small text-secondary">Ngôn ngữ: <span class="badge text-bg-light text-dark"><?php echo normalize_content_language((string) ($values['language'] ?? 'vi')) === 'en' ? 'English' : 'Tiếng Việt'; ?></span></div>
+                  <?php endif; ?>
                 </div>
+                <?php if ($isHandbook) echo admin_handbook_translation_field($pdo,$values,$id); ?>
                 <div class="col-12">
                   <label class="form-label" for="excerpt">Mô tả ngắn</label>
                   <textarea id="excerpt" name="excerpt" class="form-control" rows="3"><?php echo htmlspecialchars($values['excerpt'], ENT_QUOTES, 'UTF-8'); ?></textarea>
@@ -529,7 +564,7 @@ require __DIR__ . '/_layout_start.php';
 
           <div class="col-12 col-xl-4">
             <div class="card border-0 shadow-soft">
-              <div class="card-body p-3" data-yoast-panel data-yoast-domain="">
+              <div class="card-body p-3" data-yoast-panel data-yoast-domain=""<?php if($isHandbook):?> data-yoast-url-prefix="<?php echo($values['language']??'vi')==='en'?'/en/cam-nang/':'/cam-nang/';?>"<?php endif;?>>
                 <div class="d-flex align-items-center justify-content-between mb-2">
                   <div class="fw-semibold"><i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>SEO</div>
                   <div class="d-flex align-items-center gap-2">
@@ -580,6 +615,8 @@ require __DIR__ . '/_layout_start.php';
         <script>
           window.addEventListener("DOMContentLoaded", function () {
             if (window.adminInitPostForms) window.adminInitPostForms(document);
+            var errors = document.getElementById('post-form-errors');
+            if (errors) errors.focus();
           });
         </script>
       </div>
