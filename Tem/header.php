@@ -24,6 +24,8 @@ $facilitiesPath = site_localized_path(medical_public_facility_path(), $locale);
 $doctorsPath = site_localized_path('/bac-si.php', $locale);
 $reviewPath = site_localized_path('/review.php', $locale);
 $toplistPath = site_localized_path(medical_public_toplist_path(), $locale);
+$handbookPath = site_localized_path('/cam-nang', $locale);
+$isHandbookPage = in_array($pageKey, ['handbook', 'blog', 'blog-en'], true);
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $requestPath = is_string($requestPath) && $requestPath !== '' ? $requestPath : '/';
 
@@ -54,6 +56,7 @@ $navItems = $isEnglish
       ['label' => 'Doctors', 'href' => $doctorsPath, 'match' => $doctorsPath],
       ['label' => 'Reviews', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Toplist', 'href' => $toplistPath, 'match' => $toplistPath],
+      ['label' => 'Guides', 'href' => $handbookPath, 'match' => $handbookPath],
       ['label' => 'About', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ]
   : [
@@ -62,6 +65,7 @@ $navItems = $isEnglish
       ['label' => 'Bác sĩ', 'href' => $doctorsPath, 'match' => $doctorsPath],
       ['label' => 'Review', 'href' => $reviewPath, 'match' => $reviewPath],
       ['label' => 'Toplist', 'href' => $toplistPath, 'match' => $toplistPath],
+      ['label' => 'Cẩm nang', 'href' => $handbookPath, 'match' => $handbookPath],
       ['label' => 'Về chúng tôi', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ];
 ?>
@@ -73,7 +77,7 @@ $navItems = $isEnglish
     <a href="<?php echo htmlspecialchars($contactPath . '?topic=provider#gui-lien-he', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($providerLinkLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
   </div>
 </div>
-<header class="medical-header">
+<header class="medical-header medical-header--guides">
   <div class="container">
     <div class="header-shell">
       <a class="brand-link<?php echo $hasBrandIcon ? ' has-image-brand' : ''; ?>" href="<?php echo htmlspecialchars($homePath, ENT_QUOTES, 'UTF-8'); ?>">
@@ -91,7 +95,7 @@ $navItems = $isEnglish
         <nav class="header-nav" aria-label="<?php echo htmlspecialchars($desktopMenuLabel, ENT_QUOTES, 'UTF-8'); ?>">
           <?php foreach ($navItems as $item): ?>
             <?php $matchPath = (string) ($item['match'] ?? ''); ?>
-            <?php $isDesktopActive = $matchPath !== '' && ($requestPath === $matchPath || ($pageKey === 'reviews' && $matchPath === $reviewPath)); ?>
+            <?php $isDesktopActive = $matchPath !== '' && ($requestPath === $matchPath || ($pageKey === 'reviews' && $matchPath === $reviewPath) || ($isHandbookPage && $matchPath === $handbookPath)); ?>
             <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isDesktopActive ? 'is-active' : ''; ?>"<?php echo $isDesktopActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
           <?php endforeach; ?>
         </nav>
@@ -119,7 +123,7 @@ $navItems = $isEnglish
           <div class="mobile-panel" id="medical-mobile-menu-panel">
             <?php foreach ($navItems as $index => $item): ?>
               <?php $mobileMatchPath = (string) ($item['match'] ?? ''); ?>
-              <?php $isMobileActive = $mobileMatchPath !== '' && ($requestPath === $mobileMatchPath || ($pageKey === 'reviews' && $mobileMatchPath === $reviewPath)); ?>
+              <?php $isMobileActive = $mobileMatchPath !== '' && ($requestPath === $mobileMatchPath || ($pageKey === 'reviews' && $mobileMatchPath === $reviewPath) || ($isHandbookPage && $mobileMatchPath === $handbookPath)); ?>
               <?php $mobileLabel = (!$isEnglish && $index === count($navItems) - 1) ? 'Về MedReview' : (string) $item['label']; ?>
               <a href="<?php echo htmlspecialchars((string) $item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo $isMobileActive ? 'is-active' : ''; ?>"<?php echo $isMobileActive ? ' aria-current="page"' : ''; ?>><?php echo htmlspecialchars($mobileLabel, ENT_QUOTES, 'UTF-8'); ?><i class="ph <?php echo $index === 0 ? 'ph-arrow-right' : 'ph-arrow-up-right'; ?>" aria-hidden="true"></i></a>
             <?php endforeach; ?>

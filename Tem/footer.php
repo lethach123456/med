@@ -48,11 +48,13 @@ $featuredLinks = $isEnglish ? [
     ['label' => 'Healthcare facilities', 'href' => $servicesPath],
     ['label' => 'Doctors & specialists', 'href' => site_localized_path('/bac-si.php', $locale)],
     ['label' => 'Community reviews', 'href' => site_localized_path('/review.php', $locale)],
+    ['label' => 'Health guides', 'href' => site_localized_path('/cam-nang', $locale)],
     ['label' => 'Curated toplists', 'href' => site_localized_path(medical_public_toplist_path(), $locale)],
 ] : [
     ['label' => 'Cơ sở y tế', 'href' => $servicesPath],
     ['label' => 'Bác sĩ & chuyên gia', 'href' => site_localized_path('/bac-si.php', $locale)],
     ['label' => 'Review từ cộng đồng', 'href' => site_localized_path('/review.php', $locale)],
+    ['label' => 'Cẩm nang sức khỏe', 'href' => site_localized_path('/cam-nang', $locale)],
     ['label' => 'Toplist chọn lọc', 'href' => site_localized_path(medical_public_toplist_path(), $locale)],
 ];
 $quickLinks = $isEnglish ? [

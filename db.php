@@ -763,6 +763,7 @@ function front_editor_allowed_pages(): array
         'products' => __DIR__ . '/san-pham.php',
         'projects' => __DIR__ . '/du-an.php',
         'blog' => __DIR__ . '/blog.php',
+        'handbook' => __DIR__ . '/cam-nang.php',
         'contact' => __DIR__ . '/lien-he.php',
         'about' => __DIR__ . '/ve-chung-toi.php',
         'dich-vu' => __DIR__ . '/dich-vu.php',
@@ -831,6 +832,12 @@ function front_editor_page_catalog(): array
             'default_route' => '/blog',
             'aliases' => ['/blog', '/blog.php'],
             'supports_slug' => true,
+        ],
+        'handbook' => [
+            'title' => 'Cẩm nang',
+            'default_route' => '/cam-nang',
+            'aliases' => ['/cam-nang', '/cam-nang.php'],
+            'supports_slug' => false,
         ],
         'contact' => [
             'title' => 'Liên hệ',
@@ -919,7 +926,7 @@ function front_editor_page_reserved_slugs(): array
     $catalog = front_editor_page_catalog();
     $reserved = [
         'admin', 'builder', 'uploads', 'api', 'index.php', 'post.php',
-        'blog.php', 'du-an.php', 'san-pham.php', 'dich-vu.php',
+        'blog.php', 'cam-nang.php', 'du-an.php', 'san-pham.php', 'dich-vu.php',
         've-chung-toi.php', 'lien-he.php',
     ];
     foreach ($catalog as $meta) {
@@ -996,6 +1003,7 @@ function site_page_script_map(): array
         'san-pham.php' => 'products',
         'du-an.php' => 'projects',
         'blog.php' => 'blog',
+        'cam-nang.php' => 'handbook',
         'lien-he.php' => 'contact',
         've-chung-toi.php' => 'about',
         'ho-so-da-xac-thuc.php' => 'verification',
@@ -1020,6 +1028,7 @@ function site_bilingual_public_page_paths(): array
         'toplist' => medical_public_toplist_path(),
         'about' => '/ve-chung-toi',
         'verification' => '/ho-so-da-xac-thuc',
+        'handbook' => '/cam-nang',
     ];
 }
 
@@ -1035,8 +1044,13 @@ function site_localized_path(string $path, ?string $locale = null, ?array $query
         '/ve-chung-toi.php' => '/ve-chung-toi', '/danh-muc-y-te.php' => '/danh-muc-y-te',
         '/co-so-y-te.php' => '/co-so-y-te', '/toplist.php' => '/toplist',
         '/lien-he.php' => '/lien-he',
+        '/cam-nang.php' => '/cam-nang',
     ];
     $route = $cleanRoutes[$route] ?? $route;
+    // Accept an already-localized handbook path without duplicating /en.
+    if ($route === '/en/cam-nang' || str_starts_with($route, '/en/cam-nang/')) {
+        $route = substr($route, 3);
+    }
     $parameters = $query ?? [];
     if ($query === null && isset($parts['query'])) parse_str((string) $parts['query'], $parameters);
     unset($parameters['lang']);
@@ -1107,6 +1121,7 @@ function site_page_locale_map(): array
         'products' => 'vi',
         'projects' => 'vi',
         'blog' => 'vi',
+        'handbook' => 'vi',
         'contact' => 'vi',
         'about' => 'vi',
         'dich-vu' => 'vi',
@@ -1153,12 +1168,14 @@ function site_locale_from_path(?string $path = null): ?string
         '/dich-vu',
         '/ve-chung-toi',
         '/blog',
+        '/cam-nang',
         '/lien-he',
         '/rang-su-dang-hot-girl-da-nang',
         '/index.php',
         '/dich-vu.php',
         '/ve-chung-toi.php',
         '/blog.php',
+        '/cam-nang.php',
         '/lien-he.php',
     ];
     foreach ($vietnamesePrefixes as $prefix) {
@@ -1197,6 +1214,10 @@ function site_browser_preferred_locale(): string
 function site_detect_locale(?string $pageKey = null): string
 {
     $pageKey = trim((string) ($pageKey ?? site_current_page_key()));
+    if ($pageKey === 'handbook') {
+        // Stable routes own their language; ?lang= cannot reveal another locale.
+        return str_starts_with(site_request_path(), '/en/') ? 'en' : 'vi';
+    }
     $bilingualPages = site_bilingual_public_page_paths();
     $queryLocale = trim((string) ($_GET['lang'] ?? ''));
     if (isset($bilingualPages[$pageKey]) && in_array(strtolower($queryLocale), ['vi', 'en'], true)) {
@@ -1263,6 +1284,9 @@ function site_language_switch_links(?string $pageKey = null): array
         $path = $bilingualPages[$pageKey];
         $query = is_array($_GET) ? $_GET : [];
         unset($query['lang'], $query['page'], $query['limit']);
+        if ($pageKey === 'handbook') {
+            unset($query['slug'], $query['id'], $query['route'], $query['front_editor_route_page'], $query['edit_template']);
+        }
         return [
             'current' => $locale,
             'vi' => site_localized_path($path, 'vi', $query),

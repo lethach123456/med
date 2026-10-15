@@ -13,6 +13,17 @@ $editTemplate = isset($_GET['edit_template']) && (string) $_GET['edit_template']
 $canEditTemplate = $editTemplate && function_exists('admin_front_is_logged_in') && admin_front_is_logged_in();
 $requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
 $requestPath = is_string($requestPath) ? trim($requestPath) : '';
+$isHandbookDetailRoute = $routeContext === 'handbook'
+    || preg_match('~^/(?:en/)?cam-nang/[^/]+/?$~', $requestPath) === 1;
+$handbookLocale = str_starts_with($requestPath, '/en/') ? 'en' : 'vi';
+$handbookScope = $isHandbookDetailRoute
+    ? " AND c.slug IN ('blog', 'blog-en') AND COALESCE(NULLIF(LOWER(TRIM(p.language)),''),'vi') = :handbook_locale"
+        . " AND p.status = 'published' AND TRIM(COALESCE(p.content,'')) <> '' AND TRIM(COALESCE(p.slug,'')) <> ''"
+    : '';
+if ($isHandbookDetailRoute) {
+    $GLOBALS['site_page_key'] = 'handbook';
+    $GLOBALS['site_forced_locale'] = $handbookLocale;
+}
 $isBlogDetailRoute = $routeContext === 'blog'
     || $routeContext === 'news'
     || preg_match('~^/(?:blog|news)/[^/]+/?$~', $requestPath) === 1;
@@ -22,7 +33,7 @@ $pdo = db();
 $post = null;
 if ($slug !== '') {
     $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.seo_title, p.seo_description, p.updated_at, p.template,
-                   p.status, c.name AS category_name, c.slug AS category_slug
+                   p.status, p.language, c.name AS category_name, c.slug AS category_slug
             FROM posts p
             LEFT JOIN categories c ON c.id = p.category_id
             WHERE p.slug = :slug";
@@ -32,13 +43,15 @@ if ($slug !== '') {
     if (!$canEditTemplate) {
         $sql .= " AND p.status = 'published'";
     }
-    $sql .= " LIMIT 1";
+    $sql .= $handbookScope . " LIMIT 1";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':slug' => $slug]);
+    $params = [':slug' => $slug];
+    if ($isHandbookDetailRoute) $params[':handbook_locale'] = $handbookLocale;
+    $stmt->execute($params);
     $post = $stmt->fetch();
 } elseif ($id > 0) {
     $sql = "SELECT p.id, p.title, p.slug, p.featured_image_url, p.excerpt, p.content, p.seo_title, p.seo_description, p.updated_at, p.template,
-                   p.status, c.name AS category_name, c.slug AS category_slug
+                   p.status, p.language, c.name AS category_name, c.slug AS category_slug
             FROM posts p
             LEFT JOIN categories c ON c.id = p.category_id
             WHERE p.id = :id";
@@ -48,9 +61,11 @@ if ($slug !== '') {
     if (!$canEditTemplate) {
         $sql .= " AND p.status = 'published'";
     }
-    $sql .= " LIMIT 1";
+    $sql .= $handbookScope . " LIMIT 1";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':id' => $id]);
+    $params = [':id' => $id];
+    if ($isHandbookDetailRoute) $params[':handbook_locale'] = $handbookLocale;
+    $stmt->execute($params);
     $post = $stmt->fetch();
 }
 
@@ -64,7 +79,8 @@ if (!$post) {
     $categoryName = '';
     $templateMode = false;
 } else {
-    $post = post_template_resolve_content($post);
+    // Handbook never fills a blank article from another slug/language/draft.
+    if (!$isHandbookDetailRoute) $post = post_template_resolve_content($post);
     $title = (string) ($post['title'] ?? '');
     $excerpt = (string) ($post['excerpt'] ?? '');
     $content = (string) ($post['content'] ?? '');
@@ -76,7 +92,7 @@ if (!$post) {
 $frontEditorPostKey = ($templateMode && $post && isset($post['id']) && $canEditTemplate) ? ('post:' . (int) $post['id']) : '';
 
 $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
-$heroImg = $featured !== '' ? $featured : '/uploads/library/2026/03/6a55a84cd37cfcf62fdc196ddd24f2af.jpg';
+$heroImg = $featured !== '' ? $featured : ($isHandbookDetailRoute ? '' : '/uploads/library/2026/03/6a55a84cd37cfcf62fdc196ddd24f2af.jpg');
 $kicker = $categoryName !== '' ? $categoryName : 'Bài viết';
 $postCategorySlug = trim((string) ($post['category_slug'] ?? ''));
 $isServicePost = $postCategorySlug === 'dich-vu' || $postCategorySlug === 'dich-vu-en';
@@ -84,6 +100,7 @@ $isEnglishPost = $postCategorySlug === 'blog-en'
     || $postCategorySlug === 'dich-vu-en'
     || $routeContext === 'news'
     || preg_match('~^/news/[^/]+/?$~', $requestPath) === 1;
+if ($isHandbookDetailRoute) $isEnglishPost = $handbookLocale === 'en';
 $htmlLang = $isEnglishPost ? 'en' : 'vi';
 if (!$post) {
     http_response_code(404);
@@ -106,7 +123,9 @@ $isIndexableArticle = is_array($post) && (string) ($post['status'] ?? '') === 'p
 $articleCanonicalPath = '';
 if ($isIndexableArticle) {
     $articleSlug = rawurlencode((string) ($post['slug'] ?? ''));
-    if ($postCategorySlug === 'blog-en') {
+    if ($isHandbookDetailRoute) {
+        $articleCanonicalPath = site_localized_path('/cam-nang/' . $articleSlug, $handbookLocale);
+    } elseif ($postCategorySlug === 'blog-en') {
         $articleCanonicalPath = '/news/' . $articleSlug;
     } elseif ($postCategorySlug === 'blog') {
         $articleCanonicalPath = '/blog/' . $articleSlug;
@@ -142,6 +161,15 @@ if ($isIndexableArticle) {
 $GLOBALS['site_page_key'] = $isServicePost
     ? ($isEnglishPost ? 'services-en' : 'dich-vu')
     : ($isEnglishPost ? 'blog-en' : 'blog');
+if ($isHandbookDetailRoute) {
+    $GLOBALS['site_page_key'] = 'handbook';
+    $handbookArticlePath = site_localized_path('/cam-nang/' . rawurlencode((string) $post['slug']), $handbookLocale);
+    $GLOBALS['site_language_links'] = [
+        'current' => $handbookLocale,
+        'vi' => $handbookLocale === 'vi' ? $handbookArticlePath : '/cam-nang',
+        'en' => $handbookLocale === 'en' ? $handbookArticlePath : '/en/cam-nang',
+    ];
+}
 $homePath = $isEnglishPost ? '/services' : '/';
 $homeLabel = $isEnglishPost ? 'Home' : 'Trang chủ';
 $listingPath = $isServicePost
@@ -153,12 +181,25 @@ $listingLabel = $isServicePost
 $backLabel = $isServicePost
     ? ($isEnglishPost ? 'Back to services' : 'Quay lại dịch vụ')
     : ($isEnglishPost ? 'Back to news' : 'Quay lại');
+if ($isHandbookDetailRoute) {
+    $homePath = site_localized_path('/', $handbookLocale);
+    $listingPath = site_localized_path('/cam-nang', $handbookLocale);
+    $listingLabel = $isEnglishPost ? 'Guides' : 'Cẩm nang';
+    $backLabel = $isEnglishPost ? 'Back to guides' : 'Về Cẩm nang';
+}
 $contactPath = $isEnglishPost ? '/contact-us' : '/lien-he';
 $contactLabel = $isEnglishPost ? 'Contact us' : 'Nhận tư vấn';
 $updatedLabel = $isEnglishPost ? 'Updated' : 'Cập nhật';
 $missingPostTitle = $isEnglishPost ? 'Article not found' : 'Không tìm thấy bài viết';
 $missingPostText = $isEnglishPost ? 'Article not found.' : 'Không tìm thấy bài viết.';
 $emptyContentText = $isEnglishPost ? 'No content yet.' : 'Chưa có nội dung.';
+if ($isHandbookDetailRoute) {
+    require_once __DIR__ . '/medical_handbook.php';
+    require_once __DIR__ . '/medical_public_assets.php';
+    require_once __DIR__ . '/medical_media_variants.php';
+    require __DIR__ . '/Tem/handbook-article.php';
+    exit;
+}
 $suggestedFacilities = array_slice(medical_directory_facility_rows(true), 0, 3);
 $suggestedReviews = array_slice(medical_directory_review_rows(true), 0, 3);
 if (!$post) {

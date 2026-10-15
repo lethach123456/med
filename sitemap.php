@@ -63,6 +63,8 @@ function medreview_sitemap_static_paths(string $language = 'vi'): array
         '/danh-muc-y-te.php',
         '/ho-so-da-xac-thuc',
         '/en/ho-so-da-xac-thuc',
+        '/cam-nang',
+        '/en/cam-nang',
         medical_public_toplist_path(),
         site_localized_path(medical_public_toplist_path(), 'en'),
         site_localized_path('/ve-chung-toi.php', 'en'),

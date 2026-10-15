@@ -792,3 +792,12 @@
   .medical-header .header-nav a{font-size:13px!important}
   .medical-header .brand-copy>.brand-tagline{font-size:10.5px!important}
 }
+
+/* Seven primary destinations fit comfortably before the existing tablet menu. */
+@media (min-width:1021px) and (max-width:1279px){
+  .medical-header--guides .header-shell{gap:18px!important}
+  .medical-header--guides .header-nav{gap:14px!important}
+  .medical-header--guides .header-actions{gap:8px!important}
+  .medical-header--guides .header-nav a{font-size:12px!important}
+  .medical-header--guides .brand-copy>.brand-tagline{font-size:9px!important}
+}

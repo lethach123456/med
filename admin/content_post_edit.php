@@ -2,16 +2,22 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
+require_once __DIR__ . '/_cam_nang.php';
 
 admin_require_login();
 
 $pdo = db();
 
 $isModal = (isset($_GET['modal']) && (string) $_GET['modal'] === '1') || (isset($_POST['modal']) && (string) $_POST['modal'] === '1');
+$isHandbook = (isset($_GET['handbook']) && (string) $_GET['handbook'] === '1') || (isset($_POST['handbook']) && (string) $_POST['handbook'] === '1');
+$backUrl = $isHandbook ? '/admin/cam_nang.php' : '/admin/content.php';
+$handbookCategories = $isHandbook ? admin_handbook_categories($pdo) : [];
 $hasFeaturedImage = db_has_column($pdo, 'posts', 'featured_image_url');
 $hasTemplateMode = db_has_column($pdo, 'posts', 'template');
 
-$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$id = $isHandbook && $_SERVER['REQUEST_METHOD'] === 'POST'
+    ? (int) ($_POST['id'] ?? 0)
+    : (isset($_GET['id']) ? (int) $_GET['id'] : 0);
 $isEdit = $id > 0;
 $prefCategoryId = isset($_GET['category_id']) ? (int) $_GET['category_id'] : 0;
 $defaultStatus = trim((string) ($_GET['status'] ?? 'draft'));
@@ -23,7 +29,7 @@ $values = [
     'category_id' => $prefCategoryId > 0 ? (string) $prefCategoryId : '',
     'title' => trim((string) ($_GET['title'] ?? '')),
     'slug' => trim((string) ($_GET['slug'] ?? '')),
-    'language' => normalize_content_language((string) ($_GET['language'] ?? 'vi')),
+    'language' => normalize_content_language((string) ($isHandbook && $_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['language'] ?? 'vi') : ($_GET['language'] ?? 'vi'))),
     'featured_image_url' => '',
     'template' => ((string) ($_GET['template'] ?? '0') === '1') ? '1' : '0',
     'excerpt' => trim((string) ($_GET['excerpt'] ?? '')),
@@ -34,16 +40,21 @@ $values = [
     'status' => $defaultStatus,
 ];
 
+if ($isHandbook && !$isEdit) {
+    // A new article always starts in the language's existing handbook category.
+    $values['category_id'] = (string) admin_handbook_category_id($handbookCategories, $values['language']);
+}
+
 if ($isEdit) {
     $stmt = $pdo->prepare('SELECT * FROM posts WHERE id = :id LIMIT 1');
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch();
-    if (!$row) {
+    if (!$row || ($isHandbook && !admin_handbook_contains_post($handbookCategories, $row))) {
         if ($isModal) {
             json_response(['ok' => false, 'message' => 'Trang không tồn tại.'], 404);
         }
         flash_toast_set('danger', 'Trang không tồn tại.', 'fa-solid fa-triangle-exclamation');
-        header('Location: /admin/content.php');
+        header('Location: ' . $backUrl);
         exit;
     }
     $values['category_id'] = ($row['category_id'] !== null) ? (string) (int) $row['category_id'] : '';
@@ -60,10 +71,19 @@ if ($isEdit) {
     $values['status'] = (string) ($row['status'] ?? 'draft');
 }
 
+$handbookCategoryId = (int) $values['category_id'];
+$handbookLanguage = $values['language'];
+if ($isHandbook && $handbookCategoryId <= 0) {
+    if ($isModal) json_response(['ok' => false, 'message' => 'Chưa có chuyên mục Cẩm nang cho ngôn ngữ này.'], 422);
+    flash_toast_set('warning', 'Chưa có chuyên mục Cẩm nang cho ngôn ngữ này. Vui lòng tạo chuyên mục trước khi thêm bài.', 'fa-solid fa-triangle-exclamation');
+    header('Location: /admin/cam_nang.php');
+    exit;
+}
+
 $categories = $pdo->query('SELECT id, name FROM categories ORDER BY name ASC')->fetchAll();
 $errors = [];
 
-function render_post_modal_form(array $values, array $errors, array $categories, bool $isEdit, int $id): string
+function render_post_modal_form(array $values, array $errors, array $categories, bool $isEdit, int $id, bool $isHandbook = false): string
 {
     ob_start();
     $mediaFieldId = 'post_featured_image_modal';
@@ -83,8 +103,12 @@ function render_post_modal_form(array $values, array $errors, array $categories,
         </div>
       <?php endif; ?>
 
-      <form method="post" action="/admin/content_post_edit.php?modal=1" class="row g-3" data-modal-form="1" data-post-form="1">
+      <form method="post" action="/admin/content_post_edit.php?modal=1<?php echo $isHandbook ? '&amp;handbook=1' : ''; ?>" class="row g-3" data-modal-form="1" data-post-form="1">
         <input type="hidden" name="modal" value="1">
+        <?php if ($isHandbook): ?>
+          <input type="hidden" name="handbook" value="1">
+          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(admin_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+        <?php endif; ?>
         <?php if ($isEdit): ?>
           <input type="hidden" name="id" value="<?php echo (int) $id; ?>">
         <?php endif; ?>
@@ -218,6 +242,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $values['seo_keywords'] = trim((string) ($_POST['seo_keywords'] ?? ''));
     $values['status'] = trim((string) ($_POST['status'] ?? 'draft'));
 
+    if ($isHandbook) {
+        $expectedToken = (string) ($_SESSION['admin_csrf_token'] ?? '');
+        $providedToken = is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : '';
+        if ($expectedToken === '' || $providedToken === '' || !hash_equals($expectedToken, $providedToken)) {
+            $errors[] = 'Yêu cầu đã hết hạn hoặc không hợp lệ. Tải lại trang rồi thử lại.';
+        }
+        if ((int) $values['category_id'] !== $handbookCategoryId || $values['language'] !== $handbookLanguage) {
+            $errors[] = 'Không thể thay đổi chuyên mục hoặc ngôn ngữ của bài viết trong màn Cẩm nang.';
+        }
+        $values['category_id'] = (string) $handbookCategoryId;
+        $values['language'] = $handbookLanguage;
+    }
+
     if ($values['title'] === '') {
         $errors[] = 'Vui lòng nhập tiêu đề trang.';
     }
@@ -301,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 json_response(['ok' => true, 'message' => 'Đã lưu trang.', 'id' => $postId]);
             }
             flash_toast_set('success', 'Đã lưu trang.', 'fa-solid fa-circle-check');
-            header('Location: /admin/content_post_edit.php?id=' . $postId);
+            header('Location: /admin/content_post_edit.php?id=' . $postId . ($isHandbook ? '&handbook=1' : ''));
             exit;
         }
 
@@ -354,7 +391,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             json_response(['ok' => true, 'message' => 'Đã tạo trang.', 'id' => $newId]);
         }
         flash_toast_set('success', 'Đã tạo trang.', 'fa-solid fa-circle-check');
-        header('Location: /admin/content_post_edit.php?id=' . $newId);
+        header('Location: /admin/content_post_edit.php?id=' . $newId . ($isHandbook ? '&handbook=1' : ''));
         exit;
     }
 
@@ -362,20 +399,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         json_response([
             'ok' => false,
             'message' => 'Dữ liệu không hợp lệ.',
-            'html' => render_post_modal_form($values, $errors, is_array($categories) ? $categories : [], $isEditPost, $postId),
+            'html' => render_post_modal_form($values, $errors, is_array($categories) ? $categories : [], $isEditPost, $postId, $isHandbook),
         ], 422);
     }
 }
 
 if ($isModal) {
-    echo render_post_modal_form($values, [], is_array($categories) ? $categories : [], $isEdit, $id);
+    echo render_post_modal_form($values, [], is_array($categories) ? $categories : [], $isEdit, $id, $isHandbook);
     exit;
 }
 
 $adminPageTitle = $isEdit ? 'Admin • Sửa trang' : 'Admin • Thêm trang';
 $adminHeaderTitle = $isEdit ? 'Sửa trang' : 'Thêm trang';
+if ($isHandbook) {
+    $adminPageTitle = $isEdit ? 'Admin • Sửa bài Cẩm nang' : 'Admin • Thêm bài Cẩm nang';
+    $adminHeaderTitle = $isEdit ? 'Sửa bài Cẩm nang' : 'Thêm bài Cẩm nang';
+}
 $adminHeaderSubtitle = 'Tiêu đề, nội dung và SEO';
-$adminActive = 'content';
+$adminActive = $isHandbook ? 'cam-nang' : 'content';
 require __DIR__ . '/_layout_start.php';
 ?>
 
@@ -386,7 +427,7 @@ require __DIR__ . '/_layout_start.php';
         <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
           <div class="h5 mb-0"><?php echo htmlspecialchars($adminHeaderTitle, ENT_QUOTES, 'UTF-8'); ?></div>
           <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="/admin/content.php"><i class="fa-solid fa-arrow-left me-2" aria-hidden="true"></i>Quay lại</a>
+            <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars($backUrl, ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrow-left me-2" aria-hidden="true"></i>Quay lại</a>
             <?php if ($hasTemplateMode && $values['template'] !== '1'): ?>
               <button class="btn btn-outline-primary" type="submit" form="postEditForm" name="enable_template" value="1">
                 <i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Sử dụng template
@@ -414,6 +455,10 @@ require __DIR__ . '/_layout_start.php';
         $mediaFieldValue = (string) ($values['featured_image_url'] ?? '');
         ?>
         <form method="post" class="row g-3" data-post-form="1" id="postEditForm">
+          <?php if ($isHandbook): ?>
+            <input type="hidden" name="handbook" value="1">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(admin_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+          <?php endif; ?>
           <?php if ($isEdit): ?>
             <input type="hidden" name="id" value="<?php echo $id; ?>">
           <?php endif; ?>
