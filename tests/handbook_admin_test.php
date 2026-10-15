@@ -11,6 +11,7 @@ function admin_url(string $path = ''): string { return '/admin/' . ltrim($path, 
 function site_url(string $path = ''): string { return '/' . ltrim($path, '/'); }
 function admin_is_logged_in(): bool { return true; }
 function admin_is_admin(): bool { return false; }
+function admin_csrf_token(): string { return str_repeat('a',64); }
 function handbook_admin_render_fixture(array $query): string
 {
     $_GET = $query;

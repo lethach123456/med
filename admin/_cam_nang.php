@@ -100,11 +100,11 @@ function admin_handbook_public_url(array $post): string
 }
 
 /** Only invoked after an authenticated, CSRF-valid POST, inside the save transaction. */
-function admin_handbook_ensure_category(PDO $pdo, string $language): int
+function admin_handbook_ensure_category(PDO $pdo, string $language, bool $lock = false): int
 {
     if (!in_array($language,['vi','en'],true)) throw new InvalidArgumentException('Ngôn ngữ Cẩm nang không hợp lệ.');
     $slug=$language==='en'?'blog-en':'blog';
-    $find=$pdo->prepare('SELECT id FROM categories WHERE slug=:slug LIMIT 1');$find->execute([':slug'=>$slug]);
+    $find=$pdo->prepare('SELECT id FROM categories WHERE slug=:slug LIMIT 1'.($lock&&$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)!=='sqlite'?' FOR UPDATE':''));$find->execute([':slug'=>$slug]);
     $id=(int)$find->fetchColumn(); if($id>0)return$id;
     try {
         $pdo->prepare('INSERT INTO categories(name,slug,language) VALUES(:name,:slug,:language)')->execute([

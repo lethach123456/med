@@ -34,7 +34,19 @@
     document.querySelectorAll("select[data-handbook-language]").forEach(function (language) {
       syncLanguage(language, false);
     });
+    var error = document.querySelector('[data-handbook-import-error]');
+    if (error) error.focus();
   }
+  document.addEventListener('submit', function (event) {
+    if (!event.target.matches('form[data-handbook-import]')) return;
+    var button = event.target.querySelector('[data-handbook-import-submit]');
+    if (button) { button.disabled = true; button.textContent = 'Đang tạo bài nháp…'; }
+  });
+  window.addEventListener('pageshow', function () {
+    document.querySelectorAll('[data-handbook-import-submit]').forEach(function (button) {
+      button.disabled = false; button.textContent = 'Tạo bài nháp';
+    });
+  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize);
   else initialize();
 })();

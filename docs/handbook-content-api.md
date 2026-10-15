@@ -25,6 +25,20 @@ Hai endpoint mới dùng API key hiện có trong header `X-Medical-Api-Key`. Kh
 
 4. Prompt có thể sửa ở Admin → Prompt AI → Viết bài Cẩm nang sau migration. Prompt mặc định có sẵn trong code để fallback read-only; quy tắc vận chuyển hiện hành luôn được bổ sung cho mẫu cũ. Không cần tạo key/token riêng cho Cẩm nang.
 
+### Nhập chủ đề hàng loạt trong admin
+
+Admin → Cẩm nang → **Nhập JSON** → chọn ngôn ngữ mặc định → dán mảng → **Tạo bài nháp**:
+
+```json
+[
+  "Cách chăm sóc răng miệng hằng ngày",
+  {"title":"Khi nào nên đi khám mắt?","language":"vi"},
+  {"title":"Daily dental care tips","language":"en"}
+]
+```
+
+Tối đa 100 tiêu đề, 128 KB JSON/lần; title 1–160 ký tự văn bản. Chuỗi dùng ngôn ngữ mặc định, đối tượng có thể đặt `language` riêng. Chỉ nhận `title`/`language`, không nhập content/status hay tự ghép bản dịch. Tự sinh slug duy nhất; bỏ qua tiêu đề trùng cùng ngôn ngữ trong Cẩm nang (kể cả bài đã xuất bản và mục trùng trong batch), không sửa bài có sẵn. Tất cả bài mới là **draft**, **content rỗng**, template tắt và sẵn sàng cho hàng đợi AI. Lỗi định dạng ở bất kỳ mục nào chặn toàn bộ batch trước khi ghi; lỗi DB rollback transaction. Form yêu cầu đăng nhập, CSRF và chuyển hướng về danh sách sau khi nhập thành công.
+
 ## 1. Lấy chủ đề cần viết
 
 ```http

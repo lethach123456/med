@@ -3,8 +3,28 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/_cam_nang.php';
+require_once __DIR__ . '/_cam_nang_import.php';
 admin_require_login();
 
+$importError = '';
+$importJson = '';
+$importLanguage = 'vi';
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $importJson = is_string($_POST['titles_json'] ?? null) ? $_POST['titles_json'] : '';
+    $importLanguage = ($_POST['default_language'] ?? null) === 'en' ? 'en' : 'vi';
+    try {
+        $_SESSION['handbook_import_result'] = admin_handbook_import_request(db(), $_POST, admin_csrf_token(), ['has_template' => db_has_column(db(), 'posts', 'template')]);
+        header('Location: /admin/cam_nang.php');
+        exit;
+    } catch (InvalidArgumentException $error) {
+        $importError = $error->getMessage();
+    } catch (Throwable $error) {
+        error_log('Handbook title import failed (' . get_class($error) . ').');
+        $importError = 'Không xác nhận được kết quả nhập. Tải lại danh sách để kiểm tra trước khi thử lại.';
+    }
+}
+$importResult = $_SESSION['handbook_import_result'] ?? null;
+unset($_SESSION['handbook_import_result']);
 $filters = admin_handbook_filters($_GET);
 $paging = admin_handbook_page(db(), $filters);
 $adminPageTitle = 'Admin • Cẩm nang';
@@ -23,8 +43,38 @@ $escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QU
         <p class="small text-secondary mb-0"><?php echo (int)$paging['total']; ?> bài viết</p>
       </div>
       <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#handbook-import" aria-controls="handbook-import" aria-expanded="<?php echo $importError!==''?'true':'false'; ?>"><i class="fa-solid fa-file-import me-2" aria-hidden="true"></i>Nhập JSON</button>
         <a class="btn btn-primary" href="/admin/content_post_edit.php?handbook=1"><i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Thêm bài</a>
       </div>
+    </div>
+
+    <?php if(is_array($importResult)): ?>
+      <div class="alert alert-success" role="status">
+        Đã tạo <?php echo count($importResult['created']); ?> bài nháp. Bỏ qua <?php echo count($importResult['skipped']); ?> tiêu đề trùng cùng ngôn ngữ. Không ghi đè bài có sẵn.
+        <?php if($importResult['skipped']!==[]): ?><details class="mt-2"><summary>Xem tiêu đề đã bỏ qua</summary><ul class="mb-0 mt-2"><?php foreach($importResult['skipped']as$item): ?><li><?php echo $escape($item['title']); ?> (<?php echo $escape($item['language']); ?>) — <a href="/admin/content_post_edit.php?handbook=1&amp;id=<?php echo(int)$item['id']; ?>">Mở bài</a></li><?php endforeach; ?></ul></details><?php endif; ?>
+      </div>
+    <?php endif; ?>
+    <div class="collapse<?php echo $importError!==''?' show':''; ?> mb-4" id="handbook-import">
+      <form method="post" action="/admin/cam_nang.php" class="border rounded-4 p-3" data-handbook-import>
+        <input type="hidden" name="action" value="import_titles">
+        <input type="hidden" name="csrf_token" value="<?php echo $escape(admin_csrf_token()); ?>">
+        <h2 class="h6">Nhập tiêu đề hàng loạt</h2>
+        <p class="small text-secondary">Tạo tối đa 100 bài nháp/lần, nội dung rỗng để AI viết tiếp. Tiêu đề trùng cùng ngôn ngữ sẽ được bỏ qua.</p>
+        <div class="mb-3">
+          <label class="form-label" for="handbook-import-language">Ngôn ngữ mặc định</label>
+          <select class="form-select" id="handbook-import-language" name="default_language"><option value="vi" <?php echo $importLanguage==='vi'?'selected':''; ?>>Tiếng Việt</option><option value="en" <?php echo $importLanguage==='en'?'selected':''; ?>>English</option></select>
+        </div>
+        <label class="form-label" for="handbook-import-json">Danh sách JSON</label>
+        <textarea class="form-control font-monospace<?php echo $importError!==''?' is-invalid':''; ?>" id="handbook-import-json" name="titles_json" rows="7" maxlength="131072" required spellcheck="false" aria-describedby="handbook-import-help<?php echo $importError!==''?' handbook-import-error':''; ?>" <?php echo $importError!==''?'aria-invalid="true"':''; ?>><?php echo $escape(mb_substr($importJson,0,131072)); ?></textarea>
+        <?php if($importError!==''): ?><div class="invalid-feedback d-block" id="handbook-import-error" role="alert" tabindex="-1" data-handbook-import-error><?php echo $escape($importError); ?></div><?php endif; ?>
+        <div class="form-text" id="handbook-import-help">Dán mảng chuỗi tiêu đề, hoặc mảng đối tượng có title và language (vi/en). Nếu có mục sai, toàn bộ lần nhập chưa được lưu.</div>
+        <details class="mt-3"><summary class="small text-primary">Xem mẫu JSON</summary><pre class="small bg-light rounded-3 p-3 mt-2 mb-0" style="white-space:pre-wrap">[
+  "Cách chăm sóc răng miệng hằng ngày",
+  {"title": "Khi nào nên đi khám mắt?", "language": "vi"},
+  {"title": "Daily dental care tips", "language": "en"}
+]</pre></details>
+        <button class="btn btn-primary mt-3" type="submit" data-handbook-import-submit><i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Tạo bài nháp</button>
+      </form>
     </div>
 
     <form method="get" action="/admin/cam_nang.php" class="row g-2 align-items-end mb-4" role="search">

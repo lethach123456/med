@@ -892,7 +892,7 @@
         }
       })();
     </script>
-    <?php if (($adminActive ?? '') === 'cam-nang'): ?><script src="/assets/js/handbook-editor.js?v=1" defer></script><?php endif; ?>
+    <?php if (($adminActive ?? '') === 'cam-nang'): ?><script src="/assets/js/handbook-editor.js?v=2" defer></script><?php endif; ?>
     <?php
     $toast = function_exists('flash_toast_pop') ? flash_toast_pop() : null;
     if (is_array($toast) && isset($toast['type'], $toast['message'])):
