@@ -11,6 +11,11 @@ $reject = static function(callable $fn) use ($assert): void {
     try { $fn(); $assert(false, 'Invalid payload accepted'); }
     catch (InvalidArgumentException) { $assert(true, 'Invalid payload rejected'); }
 };
+$adminDefaults=handbook_ai_admin_prompts([]);
+$assert(count($adminDefaults)===1&&$adminDefaults[0]['prompt_key']==='handbook'&&$adminDefaults[0]['template']===handbook_ai_default_prompt(),'Admin exposes built-in handbook prompt before DB seed');
+$savedPrompts=[['prompt_key'=>'doctor','template'=>'Doctor custom'],['prompt_key'=>'handbook','template'=>'Handbook custom']];
+$assert(handbook_ai_admin_prompts($savedPrompts)===$savedPrompts,'Admin fallback never replaces or duplicates a saved custom prompt');
+$assert(handbook_ai_admin_prompts($adminDefaults)===$adminDefaults,'Applying admin fallback twice keeps a single handbook tab');
 $row = ['id'=>1,'title'=>'Cách chăm sóc mắt','slug'=>'cham-soc-mat','language'=>'vi','category_slug'=>'blog',
     'category_id'=>1,'excerpt'=>'Giải thích cho người làm việc văn phòng','status'=>'draft','content'=>'',
     'updated_at'=>'2026-10-15 00:00:00'];

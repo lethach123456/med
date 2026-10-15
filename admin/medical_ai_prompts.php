@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../medical_directory.php';
+require_once __DIR__ . '/../medical_handbook_ai.php';
 
 admin_require_login();
 $pdo = db();
@@ -31,6 +32,7 @@ $redirect = static function (string $type, string $message, ?string $icon = null
 $basePrompts = $pdo->query(
     'SELECT prompt_key, label, template, updated_at FROM medical_ai_prompts ORDER BY id ASC'
 )->fetchAll(PDO::FETCH_ASSOC);
+$basePrompts = handbook_ai_admin_prompts($basePrompts);
 
 $categoryOptions = [];
 try {
@@ -105,7 +107,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare('UPDATE medical_ai_prompts SET template = :template WHERE prompt_key = :key');
             foreach ($updates as $key => $template) {
-                $stmt->execute([':template' => $template, ':key' => $key]);
+                if ($key === 'handbook') {
+                    // Explicit CSRF-valid save also supports the built-in row
+                    // before the optional handbook migration has seeded it.
+                    $pdo->prepare("INSERT INTO medical_ai_prompts(prompt_key,label,template) VALUES('handbook','Viết bài Cẩm nang',:template) ON DUPLICATE KEY UPDATE template=VALUES(template)")
+                        ->execute([':template'=>$template]);
+                } else {
+                    $stmt->execute([':template' => $template, ':key' => $key]);
+                }
             }
             $pdo->commit();
             $redirect('success', 'Đã lưu các prompt chung. Prompt cơ sở y tế vẫn là fallback khi không có quy tắc theo ngành.', 'fa-solid fa-circle-check');
@@ -340,6 +349,11 @@ foreach ($basePromptTabs as $basePrompt) {
         break;
     }
 }
+if (is_string($_GET['prompt'] ?? null)) {
+    foreach ($basePromptTabs as $basePrompt) {
+        if ($basePrompt['prompt_key'] === $_GET['prompt']) $basePromptDefaultKey = $_GET['prompt'];
+    }
+}
 
 $adminPageTitle = 'Admin • Prompt AI';
 $adminHeaderTitle = 'Prompt AI';
@@ -441,6 +455,7 @@ require __DIR__ . '/_layout_start.php';
             <div>
               <label class="form-label fw-bold mb-1" for="basePrompt<?php echo $escape($promptKey); ?>"><?php echo $escape($prompt['label']); ?></label>
               <?php if ($isFacilityFallback): ?><span class="badge text-bg-primary ms-2">Fallback theo ngành</span><?php endif; ?>
+              <?php if (!empty($prompt['is_builtin'])): ?><div class="small text-secondary mt-1">Mẫu mặc định có sẵn. Bấm Lưu prompt chung để lưu vào DB. API nhận bài vẫn cần chạy migration Cẩm nang.</div><?php endif; ?>
               <div class="form-text mt-1"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i><?php echo $escape($promptNotes[$promptKey] ?? 'Chỉ trả về JSON hợp lệ.'); ?></div>
             </div>
             <?php if (!empty($prompt['updated_at'])): ?><span class="small text-secondary">Cập nhật: <?php echo $escape($prompt['updated_at']); ?></span><?php endif; ?>

@@ -76,6 +76,18 @@ XUẤT HTML VÀ ẢNH THẬT
 PROMPT;
 }
 
+/** Expose the built-in handbook template without a GET-time database write. */
+function handbook_ai_admin_prompts(array $prompts): array
+{
+    foreach ($prompts as $prompt) {
+        if (($prompt['prompt_key'] ?? null) === 'handbook') return $prompts;
+    }
+    // Read-only fallback: opening admin must never seed or migrate the DB.
+    $prompts[] = ['prompt_key' => 'handbook', 'label' => 'Viết bài Cẩm nang',
+        'template' => handbook_ai_default_prompt(), 'updated_at' => null, 'is_builtin' => true];
+    return $prompts;
+}
+
 /** The current transport contract is appended even to a saved custom prompt. */
 function handbook_ai_transport_rules(): string
 {
