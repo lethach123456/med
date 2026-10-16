@@ -27,6 +27,8 @@ Hai endpoint mới dùng API key hiện có trong header `X-Medical-Api-Key`. Kh
 
 Hỗ trợ ảnh URL là thay đổi **bổ sung, vẫn `contract_version=1`**: bài cũ chỉ có BASE64 tiếp tục hợp lệ; có thể gửi chỉ URL ảnh hoặc trộn URL và BASE64 trong cùng `content_html`. `limits.accepted_image_sources` là `["base64","public_http_url"]`; các giới hạn số lượng, bytes và kích thước ảnh không đổi.
 
+Luồng AI trong trình duyệt dùng **JSON gọn + file BASE64 `.txt` riêng** để tránh chuỗi dài bị sai/cắt khi in trong chat. Đây chỉ là định dạng trung gian giữa AI và tiện ích: `image_files`, mã `link1`… và link tải TXT **không mở rộng định dạng ảnh mà API nhận**. Tiện ích phải đọc/kiểm tra file rồi thay mã ảnh bằng data URI thật, loại `image_files` trước POST. Payload cũ chứa sẵn BASE64 hoặc URL ảnh HTTP(S) công khai trực tiếp vẫn tương thích.
+
 Các trường giới hạn mới phân biệt hai nhánh lưu: `preserve_webp_below_bytes=102400`, `preserved_webp_max_side=8192`, `compressed_max_side=1280`. `stored_max_side=1280` được giữ tương thích cho **nhánh nén JPEG**, không áp đặt resize lên WebP nhỏ được giữ nguyên; `stored_max_bytes=102399` vẫn là giới hạn bytes file kết quả của cả hai nhánh. Giới hạn đầu vào `max_image_pixels=12000000`/`max_image_dimension=8192` không thay đổi.
 
 ### Nhập chủ đề hàng loạt trong admin
@@ -89,7 +91,7 @@ Hủy bài: `action=release` cùng id/token; xem trạng thái: `action=status,i
 
 ## 2. AI viết và tạo minh hoạ
 
-AI phải trả một object JSON trong một block code json, gồm:
+AI phải đợi công cụ tạo ảnh và các file TXT hoàn tất, sau đó trả một object JSON gọn trong **đúng một block code `json` ngay trong chat**, gồm:
 
 ```json
 {
@@ -99,23 +101,44 @@ AI phải trả một object JSON trong một block code json, gồm:
   "excerpt": "Mô tả ngắn cho người đọc.",
   "seo_title": "Tiêu đề SEO",
   "seo_description": "Mô tả SEO",
-  "content_html": "<h2>Mục nội dung</h2><p>Nội dung đầy đủ...</p><figure><img src=\"data:image/png;base64,<actual-file-base64>\" alt=\"Mô tả hình minh hoạ thứ nhất\"><figcaption>Minh hoạ ... (ảnh tạo bằng AI).</figcaption></figure><figure><img src=\"https://images.example.org/generated-illustration.webp\" alt=\"Mô tả hình minh hoạ thứ hai\"><figcaption>Minh hoạ ... (ảnh tạo bằng AI).</figcaption></figure>",
+  "content_html": "<h2>Mục nội dung</h2><p>Nội dung đầy đủ...</p><figure><img src=\"link1\" alt=\"Mô tả hình minh hoạ thứ nhất\"><figcaption>Minh hoạ ... (ảnh tạo bằng AI).</figcaption></figure>",
+  "image_files": [
+    {
+      "key": "link1",
+      "filename": "link1_base64.txt",
+      "mime": "image/webp",
+      "bytes": 20392,
+      "sha256": "<64-lowercase-hex-of-real-decoded-image-bytes>"
+    }
+  ],
   "sources_json": [{"url":"https://www.who.int/health-topics","title":"Tên tài liệu thực sự đã đọc"}]
 }
 ```
 
-Ví dụ trên **chỉ mô tả cấu trúc ảnh trộn hai dạng**, `<actual-file-base64>` và URL tên miền `example.org` không phải ảnh đầu vào thật. Công cụ phải thực sự tạo file ảnh rồi mã hoá bytes file đó hoặc cung cấp URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP đã tạo. Model văn bản không thể bịa chuỗi BASE64 hoặc URL để thay cho công cụ tạo ảnh. Kết quả hoàn tất phải nằm đầy đủ trong đúng một block code `json` ngay trong chat; file/link “Tải JSON” không thay thế block code.
+Ví dụ trên **chỉ mô tả cấu trúc**; giá trị `bytes` minh hoạ và placeholder SHA-256 không phải metadata hợp lệ để gửi. Công cụ phải thực sự tạo file PNG/JPEG/WebP, mở kiểm tra ảnh, mã hoá bytes file bằng chương trình rồi ghi **toàn bộ data URI BASE64** vào file UTF-8 `link1_base64.txt`. Tạo `link2_base64.txt`… tương tự khi có nhiều ảnh. Tính `bytes` và SHA-256 trên **bytes ảnh gốc đã giải mã**, không phải bytes file TXT hay chuỗi BASE64. Không bịa BASE64, hash, số bytes hoặc link tải.
+
+Ngay **dưới block JSON**, cung cấp các link tải thật đến `link1_base64.txt`, `link2_base64.txt`… của chính câu trả lời đó. Không in BASE64 dài trong block JSON hoặc trong lời giải thích. Link tải file TXT có thể là attachment của provider (kể cả `sandbox:/mnt/data/...` hiển thị bởi công cụ), nhưng chỉ để tiện ích mở/đọc file; không dùng làm `img src` hay gửi cho server tải. File/link “Tải JSON” không thay thế block JSON trong chat.
+
+### Định dạng file và nối ảnh trong tiện ích
+
+- `image_files` có 1–4 mục, mỗi `key` là `link1`…`link4`, `filename` đúng dạng `{key}_base64.txt`, `mime` là `image/png`, `image/jpeg` hoặc `image/webp`, `bytes` là số nguyên dương và `sha256` là 64 ký tự hex chữ thường. Các mã ảnh trong `content_html` và manifest phải khớp; không có mã thiếu file, mục thừa, khóa hay tên file trùng.
+- Mỗi TXT chỉ chứa một data URI chuẩn đầy đủ, ví dụ cấu trúc `data:image/webp;base64,<complete-encoded-file>`, không phải đường dẫn ảnh, JSON, Markdown hoặc một đoạn BASE64 mẫu. Không xuống dòng trong chuỗi BASE64. Không dùng dấu `...`, placeholder hoặc nhờ model chép lại chuỗi dài. BOM UTF-8/khoảng trắng ở hai đầu không phải dữ liệu ảnh.
+- Tiện ích chỉ lấy file đính kèm được liên kết với **đúng lượt trả lời hiện tại của bài đang chạy**; không quét ảnh/file bài khác hoặc lấy một file cùng tên ở lịch sử chat. Không đoán URL sandbox/API tải riêng của provider và không chuyển API key hay claim token sang nguồn tải file.
+- Sau khi đọc đủ file, tiện ích giải mã BASE64, đối chiếu MIME, số bytes và SHA-256 với manifest, kiểm tra chữ ký file/kích thước và giải mã raster thực tế. Header có kích thước đúng hoặc Base64 giải mã thành bytes chưa đủ chứng minh ảnh hợp lệ. Một file thiếu, hỏng, hash/size sai hoặc không mở được đều chặn việc gửi toàn bộ bài; không thay bằng ảnh khác hoặc bỏ ảnh âm thầm.
+- Chỉ sau khi xác minh đủ, tiện ích thay đúng `img src="linkN"` bằng data URI của file tương ứng, **xóa trường `image_files`**, kiểm tra lại payload cuối rồi POST API như mục 3. Manifest/TXT là dữ liệu trung gian, không phải nguồn ảnh mà API tự tải.
 
 - Nên 2, tối thiểu 1, tối đa 4 thẻ ảnh; JPEG/PNG/WebP, mỗi ảnh giải mã hoặc tải về ≤5 MiB, tổng ảnh riêng biệt ≤12 MiB, ≤12 MP và ≤8192 px mỗi cạnh. Giới hạn này áp dụng cả ảnh URL, không chỉ độ dài URL trong JSON. Nên xuất 1024–1280 px, không cần 4K. Toàn bộ JSON tối đa **24 MiB**; đây là giới hạn bytes, không phải số ký tự. Với PHP ít RAM, ảnh lớn có thể bị từ chối an toàn sớm hơn.
 - `content_html` chỉ là fragment có h2/h3/p/list/figure/figcaption/table đơn giản; không document wrapper/h1/CSS/script/form/iframe. API sanitize lại thay vì tin HTML đầu vào.
-- Ảnh phải là ảnh **minh hoạ AI** và ghi rõ như vậy; không giả ảnh lâm sàng/cơ sở/bác sĩ thật, không logo, không khẳng định minh hoạ là bằng chứng điều trị. Mỗi `img src` nhận một trong hai dạng: data URI BASE64 chuẩn đầy đủ, không xuống dòng, MIME khớp file thật; hoặc URL HTTP(S) công khai trả trực tiếp bytes PNG/JPEG/WebP. URL không bắt buộc có đuôi file nếu response thực sự là ảnh raster hợp lệ. Không SVG/GIF, URL trang HTML, sandbox/blob, file cục bộ, URL chỉ mở được sau đăng nhập hay chứa khóa/token riêng tư. Không dùng link tải JSON làm URL ảnh.
-- Nếu provider chỉ trả attachment: tiện ích thu **đúng file ảnh do công cụ tạo cho bài này**, mã hoá phía client, thay vào đúng vị trí HTML rồi mới POST. Khi tiện ích xác nhận file ảnh và chỉ định `handbook-image:N`, AI được dùng đúng mã đó ở bước trung gian trong chat; mã phải được thay bằng BASE64 thật **trước gửi API**. Nếu có URL ảnh công khai trực tiếp hợp lệ thì không bắt buộc mã hoá phía client. Không tự tìm ảnh bất kỳ trên giao diện, không gửi fake success hoặc BASE64 mẫu. Placeholder không được đến API nhận.
+- Ảnh phải là ảnh **minh hoạ AI** và ghi rõ như vậy; không giả ảnh lâm sàng/cơ sở/bác sĩ thật, không logo, không khẳng định minh hoạ là bằng chứng điều trị. Ở payload **cuối gửi API**, mỗi `img src` chỉ nhận data URI BASE64 chuẩn đầy đủ, không xuống dòng, MIME khớp file thật; hoặc URL HTTP(S) công khai trả trực tiếp bytes PNG/JPEG/WebP. URL không bắt buộc có đuôi file nếu response thực sự là ảnh raster hợp lệ. Không SVG/GIF, URL trang HTML, sandbox/blob, file cục bộ, URL chỉ mở được sau đăng nhập hay chứa khóa/token riêng tư. Không dùng link tải JSON/TXT làm URL ảnh. Mã `linkN` chỉ tồn tại ở JSON trung gian trong chat.
+- Tương thích luồng cũ: nếu provider chỉ trả attachment ảnh và tiện ích đã xác nhận, gắn đúng file ảnh do công cụ tạo cho bài này, mã trung gian `handbook-image:N` phải được thay bằng BASE64 thật **trước gửi API**. Payload đã có BASE64 thật hoặc URL ảnh công khai trực tiếp hợp lệ vẫn dùng được. Không tự tìm ảnh bất kỳ trên giao diện, không gửi fake success hoặc BASE64 mẫu. Mọi placeholder đều không được đến API nhận.
 - `sources_json` cần 1–12 nguồn thật {url,title}. Không token/query riêng tư trong URL. Không chẩn đoán/kê liều/cam kết; bài là thông tin tham khảo. Không bịa nghiên cứu, review hoặc thành tích.
 - `title/seo_title` ≤160 ký tự, excerpt ≤1200, seo_description ≤300. `id/language` giữ nguyên; không đổi slug/category/status. API kiểm tra ≥200 ký tự nội dung sau sanitize, nhưng prompt yêu cầu bài đầy đủ chứ không viết để vừa ngưỡng.
 
 ## 3. Nhận HTML với BASE64 và/hoặc URL ảnh, lưu file ngay
 
 POST `receive_endpoint` với JSON đầu ra đã gắn ảnh thật cộng **các trường tiện ích giữ ngoài prompt**:
+
+Không gửi `image_files`, mã `linkN`, link `.txt`, `sandbox:` hoặc đường dẫn tải tạm vào API. Server không mở file attachment từ phiên chat thay tiện ích.
 
 ```json
 {
@@ -157,8 +180,9 @@ Admin mở bài trong Cẩm nang để kiểm tra nội dung và hình rồi xu�
 ## Tiện ích và lỗi
 
 - Source mới `handbook`, nhãn “Viết bài Cẩm nang”; lấy prompt server, dùng claim endpoint riêng. Không nhầm sang luồng doctor/facility.
-- Tiến trình: lấy chủ đề → claim → viết/tạo ảnh → gắn BASE64 thật và/hoặc URL ảnh công khai trực tiếp → gửi → server tải/kiểm tra/nén/lưu mọi ảnh nội bộ → nháp đã lưu.
+- Tiến trình chính: lấy chủ đề → claim → viết/tạo ảnh thật → công cụ ghi TXT BASE64 và tính metadata → AI trả JSON gọn + link TXT → tiện ích đọc đúng file, kiểm tra bytes/hash/raster, thay mã ảnh và bỏ manifest → gửi → server kiểm tra/nén/lưu mọi ảnh nội bộ → nháp đã lưu. Tiếp tục heartbeat trong lúc đợi tạo ảnh/file và chuẩn bị payload; không gửi yêu cầu sửa JSON khi provider còn đang tạo ảnh.
 - Không lưu BASE64 trong `chrome.storage.sync`, list item, toast/log/telemetry hoặc hàng đợi nhẹ. Chỉ response URL sau thành công. Nếu phải giữ payload retry, dùng kho phù hợp file/Blob/IndexedDB với giới hạn/cleanup, không dẫn đến lỗi QuotaBytes.
+- Thiếu TXT, chưa tạo file xong, tải lỗi, manifest không khớp hoặc ảnh không giải mã được: báo lỗi chuẩn bị ảnh và giữ bài để kiểm tra, không báo đã gửi thành công. Yêu cầu AI bổ sung/định dạng lại phải giữ luồng JSON gọn + file thật, không bắt in BASE64 dài trở lại. Tải lại tab/khôi phục tác vụ phải tiếp tục đối chiếu file với đúng lượt phản hồi của bài, không tái sử dụng attachment chưa xác minh.
 - 401: cấu hình API key. 400: JSON sai; 405: method; 413: body quá lớn; 415: Content-Type sai; 422: HTML/ảnh/MIME/nguồn/trường sai, URL ảnh không an toàn/không truy cập được hoặc không trả file ảnh hợp lệ; 409: `already_claimed`, `lease_lost`, `not_eligible`, `source_revision_changed`, `idempotency_conflict`; 503: schema chưa migrate hoặc server thiếu cURL/GD/khả năng nén/lưu ảnh; 500: lỗi server/DB không lộ nội dung riêng tư. Lỗi nguồn URL không được biến thành thành công thiếu ảnh.
 - Chỉ retry network/5xx có kiểm soát, giữ payload/job identity. Không tự gửi lại 409/422 vô hạn. Giữ bản lỗi để đối chiếu không có nghĩa được overwrite.
 - Kiểm thử repo: `php tests/handbook_ai_test.php`, `php tests/handbook_media_test.php`, `php tests/handbook_api_test.php`. Fixtures SQLite/tạm, không tác động DB và ảnh hosting thật.

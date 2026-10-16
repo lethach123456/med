@@ -36,9 +36,14 @@ foreach ([handbook_ai_default_prompt(),handbook_ai_transport_rules(),$inlineRule
         $assert(str_contains($rules,$text),'Mixed image rules include allowed forms and unsafe-source restriction: '.$text);
     }
 }
-foreach (['```json','file .json','Tải JSON hoàn chỉnh','sandbox:/mnt/data','Canvas','artifact','File ẢNH','handbook-image:N','không cắt nội dung hay BASE64'] as $text) {
+foreach (['```json','file .json','Tải JSON hoàn chỉnh','sandbox:/mnt/data','Canvas','artifact','File ẢNH','handbook-image:N','không cắt nội dung hay BASE64','link1_base64.txt','image_files','SHA-256','BYTES ẢNH GỐC','LOẠI image_files','KHÔNG CHÉP BASE64 DÀI VÀO CHAT'] as $text) {
     $assert(str_contains($inlineRules,$text),'Inline output contract covers: '.$text);
 }
+$assert(str_contains($inlineRules,'BÊN NGOÀI block JSON')&&str_contains($inlineRules,'File .txt không có lời giải thích, Markdown/code fence, JSON'),'Image text-file links live outside the one compact JSON block and contain only a complete data URI');
+$assert(str_contains($inlineRules,'"key":"link1","filename":"link1_base64.txt","mime":"image/webp","bytes":20392,"sha256"')&&str_contains($inlineRules,'MẪU CẤU TRÚC, không phải số liệu được phép sao chép'),'File manifest defines original-image metadata without treating example metadata as real');
+$assert(str_contains($inlineRules,'Không tính hash của văn bản .txt/BASE64')&&str_contains($inlineRules,'không mục thừa/trùng/mã thiếu'),'Manifest must map exactly to HTML images and hash the decoded original bytes');
+$assert(str_contains($inlineRules,'API không nhận trực tiếp linkN, file .txt, link sandbox hoặc image_files'),'AI file references remain a client-only intermediate representation');
+$assert(!str_contains(handbook_ai_default_prompt(),'không chuyển sang file JSON/link tải dù chuỗi BASE64 dài')&&!str_contains(handbook_ai_default_prompt(),'Không có lời dẫn, tóm tắt hay giải thích bên ngoài block.'),'New default never requires printing giant BASE64 or forbids image text-file links outside JSON');
 $row = ['id'=>1,'title'=>'Cách chăm sóc mắt','slug'=>'cham-soc-mat','language'=>'vi','category_slug'=>'blog',
     'category_id'=>1,'excerpt'=>'Giải thích cho người làm việc văn phòng','status'=>'draft','content'=>'',
     'updated_at'=>'2026-10-15 00:00:00'];
@@ -64,7 +69,8 @@ $assert(!array_key_exists('claim_token', handbook_ai_validate_payload($payload+[
 foreach ([['id'=>true],['id'=>2],['language'=>'en'],['title'=>[]],['title'=>str_repeat('x',161)],['title'=>'<b>Title</b>'],
     ['excerpt'=>'data:image/png;base64,secret'],['seo_title'=>str_repeat('x',161)],['seo_description'=>str_repeat('x',301)],
     ['sources_json'=>[]],['sources_json'=>[null]],['sources_json'=>'invalid'],['sources_json'=>['url'=>'https://www.who.int']],
-    ['content_html'=>[]],['content_html'=>'<p>Too short</p>'],['content_html'=>"bad\0"],['status'=>'published'],['category_id'=>[]],['slug'=>'other']] as $change) {
+    ['content_html'=>[]],['content_html'=>'<p>Too short</p>'],['content_html'=>"bad\0"],['status'=>'published'],['category_id'=>[]],['slug'=>'other'],
+    ['image_files'=>[]],['image_files'=>null],['image_files'=>[['key'=>'link1','filename'=>'link1_base64.txt']]]] as $change) {
     $reject(static fn()=>handbook_ai_validate_payload(array_replace($payload,$change),$row));
 }
 foreach (['javascript:alert(1)','data:image/png;base64,abc','https://user:secret@example.org/a','https://localhost/a',
@@ -81,9 +87,10 @@ $assert(!str_contains($prompt['prompt'],'secret-do-not-leak') && !str_contains($
 foreach (['Cách chăm sóc mắt','BASE64','data:image/png;base64','công cụ tạo ảnh','sources_json','nháp','[MEDREVIEW_HANDBOOK_CONTRACT_V1]'] as $text) {
     $assert(str_contains($prompt['prompt'],$text), 'Prompt contains current workflow: '.$text);
 }
-$assert(!array_key_exists('claim_token',$prompt['output_template']) && $prompt['output_template']['id']===1, 'Output template only asks for content fields');
+$assert(!array_key_exists('claim_token',$prompt['output_template']) && $prompt['output_template']['id']===1, 'Output template only asks for content and client image mapping fields');
+$assert($prompt['output_template']['image_files']===[],'AI output schema explicitly includes the image-file manifest');
 $assert(str_starts_with($prompt['prompt'],$inlineRules)&&str_ends_with($prompt['prompt'],$inlineRules),'Rendered prompt repeats current inline contract at start and end');
-$assert(substr_count($prompt['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V1]')===2,'Default rendering does not accumulate repeated managed inline blocks');
+$assert(substr_count($prompt['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V2]')===2,'Default rendering does not accumulate repeated managed inline blocks');
 $assert(substr_count($prompt['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]')===1,'Default rendering has one current transport contract');
 $assert(str_contains($prompt['prompt'],"```json\n".json_encode($prompt['output_template'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n```"),'Authoritative schema demonstrates actual fenced JSON output');
 $pdo->exec('CREATE TABLE medical_ai_prompts(prompt_key TEXT,label TEXT,template TEXT)');
@@ -95,18 +102,23 @@ $assert(substr_count($custom['prompt'],$webpPreservationRule)>=2&&!str_contains(
 $assert(str_contains($custom['prompt'],'Custom instructions') && str_contains($custom['prompt'],'Cách chăm sóc mắt') && str_contains($custom['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]'), 'Current contract and authoritative topic appended to legacy custom prompt');
 $assert(str_starts_with($custom['prompt'],$inlineRules)&&str_ends_with($custom['prompt'],$inlineRules),'Saved custom prompts also receive repeated inline output rule');
 $legacyBody="- Ảnh trong payload gửi API phải là data URI BASE64 chuẩn, chỉ image/jpeg, image/png hoặc image/webp. Không SVG/GIF, URL từ xa, blob URL hay placeholder trong payload cuối.\n- Yêu cầu đối với payload cuối gửi API: ".$oldBase64OnlyRule."\n- Nếu công cụ chỉ trả file/attachment và không cung cấp chuỗi BASE64, giữ file ẢNH thật; nếu không lấy được bytes thật, báo rõ chưa hoàn tất.\n- Mỗi ảnh tối đa 5 MiB bytes trước nén; tổng tối đa 12 MiB; tối đa 12 triệu pixels và 8192px mỗi cạnh. Server sẽ kiểm tra, nén và lưu ảnh thành file nội bộ, không lưu BASE64 trong DB.";
-$oldTemplate="Keep my custom editorial instructions.\n[MEDREVIEW_HANDBOOK_CONTRACT_V1]OLD_TRANSPORT_ONLY_DOWNLOAD[/MEDREVIEW_HANDBOOK_CONTRACT_V1]\n".$inlineRules."\n".$legacyBody;
+$legacyChatBody="5. Chèn ảnh vào đúng vị trí giải thích nội dung trong HTML bằng figure/img/figcaption: src là data:image/png;base64 có bytes đầy đủ.\n6. Đợi các file ảnh thực sự tạo xong; rà lại HTML. Sau đó in TOÀN BỘ JSON, không chuyển sang file JSON/link tải dù chuỗi BASE64 dài.\n- Ảnh trong payload gửi API có hai dạng src hợp lệ, được trộn trong cùng bài: data URI BASE64 chuẩn hoặc URL HTTP(S).\n- Nếu công cụ cung cấp URL HTTP(S) công khai trỏ trực tiếp tới file ảnh thật thì có thể dùng URL đó; nếu chỉ trả file/attachment, chờ tiện ích xác nhận.\n- Chỉ trả một object JSON hợp lệ, đầy đủ trong một block code json NGAY TRONG CHAT (không có giải thích bên ngoài khi đã hoàn tất).";
+$oldInline="[MEDREVIEW_HANDBOOK_INLINE_JSON_V1]OLD_PRINT_GIANT_BASE64_IN_CHAT[/MEDREVIEW_HANDBOOK_INLINE_JSON_V1]";
+$oldTemplate="Keep my custom editorial instructions.\n[MEDREVIEW_HANDBOOK_CONTRACT_V1]OLD_TRANSPORT_ONLY_DOWNLOAD[/MEDREVIEW_HANDBOOK_CONTRACT_V1]\n".$oldInline."\n".$inlineRules."\n".$legacyBody."\n".$legacyChatBody;
 $pdo->prepare('UPDATE medical_ai_prompts SET template=? WHERE prompt_key=?')->execute([$oldTemplate,'handbook']);
 $refreshed=handbook_ai_prompt($pdo,$row);
 $assert(str_contains($refreshed['prompt'],'Keep my custom editorial instructions.')&&!str_contains($refreshed['prompt'],'OLD_TRANSPORT_ONLY_DOWNLOAD'),'Managed transport rules refreshed without replacing custom editorial instructions');
 $assert(!str_contains($refreshed['prompt'],$oldBase64OnlyRule)&&!str_contains($refreshed['prompt'],'Không SVG/GIF, URL từ xa')&&!str_contains($refreshed['prompt'],'nếu không lấy được bytes thật, báo rõ chưa hoàn tất.'),'Old shipped BASE64-only guidance refreshed in saved prompt without contradictory restrictions');
-$assert(substr_count($refreshed['prompt'],$realImageRule)>=2&&str_contains($refreshed['prompt'],'URL HTTP(S) công khai trỏ trực tiếp tới file ảnh thật'),'Saved prompt with old V1 markers receives current mixed image guidance');
+$assert(substr_count($refreshed['prompt'],$realImageRule)>=2&&str_contains($refreshed['prompt'],'URL HTTP(S) công khai trỏ trực tiếp tới file ảnh'),'Saved prompt with old V1 markers receives current mixed image guidance');
 $assert(!str_contains($refreshed['prompt'],'Server sẽ kiểm tra, nén và lưu ảnh')&&str_contains($refreshed['prompt'],'giữ nguyên bytes/kích thước thành .webp'),'Known legacy always-compress body is refreshed without a DB write');
-$assert(substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V1]')===2&&substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]')===1,'Saved managed blocks do not multiply when rules are refreshed');
+$assert(substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V2]')===2&&substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V1]')===0&&substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]')===1,'Old and current managed blocks are replaced without accumulation');
+$assert(!str_contains($refreshed['prompt'],'OLD_PRINT_GIANT_BASE64_IN_CHAT')&&!str_contains($refreshed['prompt'],'không chuyển sang file JSON/link tải dù chuỗi BASE64 dài')&&!str_contains($refreshed['prompt'],'không có giải thích bên ngoài khi đã hoàn tất'),'Known legacy output text no longer forces giant inline BASE64 or forbids outside text-file links');
+$assert(str_contains($refreshed['prompt'],'các link tải linkN_base64.txt thật')&&str_contains($refreshed['prompt'],'src="linkN"'),'Saved prompts receive the compact JSON and actual image-file workflow');
 $assert($pdo->query("SELECT template FROM medical_ai_prompts WHERE prompt_key='handbook'")->fetchColumn()===$oldTemplate,'Rendering a prompt never writes the saved template');
 $topicWithMarker='Topic [MEDREVIEW_HANDBOOK_CONTRACT_V1]literal topic text[/MEDREVIEW_HANDBOOK_CONTRACT_V1]';
 $assert(str_contains(handbook_ai_prompt($pdo,array_replace($row,['title'=>$topicWithMarker]))['prompt'],$topicWithMarker),'Managed template refresh does not strip interpolated topic data');
 $assert(handbook_ai_refresh_legacy_image_rules('Custom editorial: discuss BASE64 and remote URL trade-offs.')==='Custom editorial: discuss BASE64 and remote URL trade-offs.','Refreshing known shipped transport wording leaves unrelated custom editorial text intact');
+$assert(handbook_ai_refresh_legacy_image_rules(handbook_ai_refresh_legacy_image_rules($legacyChatBody))===handbook_ai_refresh_legacy_image_rules($legacyChatBody),'Refreshing legacy image text is idempotent');
 $crlfLegacy=handbook_ai_refresh_legacy_image_rules(str_replace("\n","\r\n",$legacyBody));
 $assert(!str_contains($crlfLegacy,$oldBase64OnlyRule)&&!str_contains($crlfLegacy,'Không SVG/GIF, URL từ xa')&&str_contains($crlfLegacy,'URL HTTP(S) công khai'),'Legacy Windows-line-ending prompt also refreshes mixed-image transport guidance');
 $englishPrompt=handbook_ai_prompt($pdo,array_replace($row,['language'=>'en','category_slug'=>'blog-en']));
