@@ -41,6 +41,9 @@ require __DIR__ . '/_layout_start.php';
 <div class="finder" id="finder">
   <aside class="finder-side" id="finderSide">
     <div class="finder-brand"><i class="fa-solid fa-photo-film" aria-hidden="true"></i><span>Thư viện media</span></div>
+    <?php if (admin_is_admin()): ?>
+      <div class="px-3 pb-3"><a class="btn btn-outline-primary btn-sm w-100" href="<?php echo htmlspecialchars(admin_url('medical_image_branding.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-stamp me-1" aria-hidden="true"></i>Gắn logo ảnh hàng loạt</a></div>
+    <?php endif; ?>
     <div class="finder-side-actions"><button id="btnUpload" class="btn btn-primary" type="button"><i class="fa-solid fa-arrow-up-from-bracket me-1"></i>Upload</button><button id="btnNewFolder" class="btn btn-outline-primary" type="button"><i class="fa-solid fa-folder-plus me-1"></i>Folder</button><input id="uploadInput" type="file" accept="image/*,video/mp4" multiple hidden></div>
     <div class="finder-label">Vị trí</div><div id="folderTree" class="folder-tree" aria-label="Cây thư mục"></div>
     <div class="finder-filter"><label for="typeFilter" class="form-label small fw-semibold text-secondary mb-1">Hiển thị</label><select id="typeFilter" class="form-select"><option value="all">Tất cả file</option><option value="image">Chỉ ảnh</option><option value="video">Chỉ MP4</option></select></div>

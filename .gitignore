@@ -14,3 +14,7 @@
 
 # AI handbook illustrations are runtime CMS uploads, not deploy-time assets.
 /uploads/handbook/
+
+# Bulk image-branding ledger and generated copies belong to the hosting instance.
+/storage/image-branding/
+/uploads/library/medreview-branded/

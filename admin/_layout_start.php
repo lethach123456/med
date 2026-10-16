@@ -8,7 +8,7 @@ if (strpos($adminPageTitle, 'Admin • ') === 0) {
 $adminHeaderTitle = isset($adminHeaderTitle) ? (string) $adminHeaderTitle : $adminPageTitle;
 $adminHeaderSubtitle = isset($adminHeaderSubtitle) ? (string) $adminHeaderSubtitle : '';
 $adminActive = isset($adminActive) ? (string) $adminActive : '';
-$adminSettingsActive = in_array($adminActive, ['settings', 'medical-ai-prompts', 'medical-media-worker', 'medical-image-audit', 'cron', 'users'], true);
+$adminSettingsActive = in_array($adminActive, ['settings', 'medical-ai-prompts', 'medical-media-worker', 'medical-image-audit', 'medical-image-branding', 'cron', 'users'], true);
 $adminCanManageSystem = function_exists('admin_is_admin') && admin_is_admin();
 ?>
 <!DOCTYPE html>
@@ -354,6 +354,7 @@ $adminCanManageSystem = function_exists('admin_is_admin') && admin_is_admin();
               <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span>Worker ảnh y tế</span></a>
               <a class="nav-link <?php echo ($adminActive === 'medical-image-audit') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_image_audit.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Rà soát ảnh hỏng</span></a>
               <?php if ($adminCanManageSystem): ?>
+                <a class="nav-link <?php echo ($adminActive === 'medical-image-branding') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_image_branding.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-stamp" aria-hidden="true"></i><span>Gắn logo ảnh</span></a>
                 <a class="nav-link <?php echo ($adminActive === 'cron') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('cron.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span>Cron &amp; Cache</span></a>
                 <a class="nav-link <?php echo ($adminActive === 'users') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('users.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-users-gear" aria-hidden="true"></i><span>Quản lý người dùng</span></a>
               <?php endif; ?>
@@ -431,6 +432,7 @@ $adminCanManageSystem = function_exists('admin_is_admin') && admin_is_admin();
                   <a class="nav-link <?php echo ($adminActive === 'medical-media-worker') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_media_worker.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>Worker ảnh y tế</a>
                   <a class="nav-link <?php echo ($adminActive === 'medical-image-audit') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_image_audit.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Rà soát ảnh hỏng</a>
                   <?php if ($adminCanManageSystem): ?>
+                    <a class="nav-link <?php echo ($adminActive === 'medical-image-branding') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('medical_image_branding.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-stamp" aria-hidden="true"></i>Gắn logo ảnh</a>
                     <a class="nav-link <?php echo ($adminActive === 'cron') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('cron.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Cron &amp; Cache</a>
                     <a class="nav-link <?php echo ($adminActive === 'users') ? 'active' : ''; ?>" href="<?php echo htmlspecialchars(admin_url('users.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-users-gear" aria-hidden="true"></i>Quản lý người dùng</a>
                   <?php endif; ?>
