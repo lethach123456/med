@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/medical_handbook.php';
+require_once __DIR__ . '/medical_directory.php';
 
 /** No configuration lookup, connection, migration or file write happens on include. */
 function handbook_ai_limits(): array
@@ -52,6 +53,7 @@ function handbook_ai_inline_output_rules(): string
     return <<<'RULES'
 [MEDREVIEW_HANDBOOK_INLINE_JSON_V2]
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC — ĐỌC TRƯỚC KHI LÀM VÀ KIỂM TRA LẠI TRƯỚC KHI TRẢ:
+JSON phải có suggested_facilities_json và suggested_doctors_json là hai MẢNG riêng (cho phép []). Mỗi mục là hồ sơ thực đã kiểm tra: cơ sở {name,address,city?,category?,phone?,website?,evidence_url}; bác sĩ {name,specialty?,facility_name?,address?,city?,website?,evidence_url}. Chỉ thêm facility_id/doctor_id khi xác minh ID trên MedReview. Không dùng nguồn trích dẫn chuyên môn để giả làm bằng chứng định danh; không bịa bác sĩ/cơ sở hoặc xếp hạng.
 Khi đã hoàn tất, trả TOÀN BỘ object JSON GỌN trực tiếp trong tin nhắn chat, trong ĐÚNG MỘT block code Markdown: dòng mở là ```json, dòng đóng là ```. Sau block chỉ đặt các link tải file ảnh BASE64 có tên chính xác link1_base64.txt, link2_base64.txt... Không có lời dẫn, tóm tắt hay tuyên bố thành công thay cho dữ liệu.
 Không in chuỗi BASE64 dài trong JSON hoặc văn bản chat. Sau khi công cụ tạo ảnh xong, dùng chương trình đọc bytes file ảnh gốc và ghi mỗi file UTF-8 linkN_base64.txt chứa ĐÚNG MỘT dòng data:image/png;base64,... hoặc data:image/jpeg;base64,... hoặc data:image/webp;base64,... đầy đủ. File .txt không có lời giải thích, Markdown/code fence, JSON, dấu ... hay BASE64 viết tay. Chỉ mã hoá từ file ảnh thật; đợi việc tạo ảnh VÀ ghi file .txt hoàn tất rồi mới trả JSON.
 Trong content_html dùng img src="link1", src="link2"... (1–4 ảnh, nên 2). Thêm image_files là danh sách object {"key":"link1","filename":"link1_base64.txt","mime":"image/webp","bytes":20392,"sha256":"64 ký tự hex thường"}. Đây là MẪU CẤU TRÚC, không phải số liệu được phép sao chép: tính mime, số bytes nguyên và SHA-256 của CHÍNH BYTES ẢNH GỐC đã giải mã bằng chương trình. Không tính hash của văn bản .txt/BASE64, không bịa hash/số bytes. Mỗi mã ảnh trong HTML phải có đúng một mục image_files và một link tải .txt tương ứng ngay trong câu trả lời hiện tại; không mục thừa/trùng/mã thiếu, không lặp ảnh cho đủ số lượng. filename phải đúng linkN_base64.txt, không đưa đường dẫn sandbox hay URL .txt vào src/filename.
@@ -59,6 +61,7 @@ Các file .txt ảnh được phép đính kèm và PHẢI có link tải nhìn 
 Giữ đủ nội dung HTML, nguồn, id và language; JSON-escape đúng dấu nháy/xuống dòng. Không chia JSON thành nhiều block, không cắt nội dung hay BASE64 trong file, không dùng dấu ... hoặc bịa bytes ảnh để rút ngắn đầu ra.
 Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài. Không dùng URL tạm sandbox/blob, link cần đăng nhập, URL trang HTML hay placeholder. Server tải/giải mã, kiểm tra và lưu mọi ảnh thành file nội bộ; không nhúng nóng ảnh từ website khác.
 WebP thật đã giải mã đầy đủ, có dung lượng nhỏ hơn 100 KiB (102400 bytes), được lưu nguyên bytes thành .webp, không nén lại hoặc resize; vẫn phải đạt giới hạn 12MP và 8192px mỗi cạnh. WebP từ 102400 bytes trở lên và các định dạng khác được nén thành JPEG dưới 100 KiB, cạnh dài tối đa 1280px. Không coi file nhỏ hoặc chỉ có header là ảnh hợp lệ.
+Hai danh sách suggested_facilities_json và suggested_doctors_json phải là mảng object (được phép []), mỗi loại tối đa 8 mục; ưu tiên tối đa 5 mục thật sự phù hợp chủ đề. Mỗi mục cần tên thực, địa chỉ cơ sở hoặc chuyên khoa/vị trí hành nghề bác sĩ khi có, URL evidence_url công khai đã kiểm tra; chỉ điền facility_id/doctor_id nếu xác minh trực tiếp hồ sơ MedReview. Nếu không đủ bằng chứng để nhận diện, bỏ mục đó. Không bịa hồ sơ, địa chỉ hay liên kết làm việc. API tự đối chiếu tên/địa chỉ, liên kết hồ sơ có sẵn hoặc tạo hồ sơ published nhưng chưa xác minh, nội dung trống để hàng đợi viết hồ sơ xử lý khi đủ bằng chứng; trường hợp mơ hồ trả unresolved và không tự tạo. Bài Cẩm nang hợp lệ được tự xuất bản sau khi toàn bộ nội dung, ảnh và gợi ý đã lưu thành công. Đây là metadata gợi ý, không thay các nguồn y khoa sources_json.
 Đây là hai bước khác nhau: mã linkN + image_files + link .txt chỉ là đầu ra trung gian AI cho tiện ích; tiện ích đọc file .txt hiện tại, kiểm tra bytes/hash/ảnh thật, thay từng src bằng data URI thật rồi LOẠI image_files trước POST. API không nhận trực tiếp linkN, file .txt, link sandbox hoặc image_files. Chỉ khi tiện ích đã xác nhận file ảnh thật và chỉ định handbook-image:N ở một yêu cầu tiếp theo mới dùng đúng các mã dự phòng đó. Luồng cũ dùng BASE64 thật/URL ảnh công khai vẫn tương thích, nhưng luồng được ưu tiên ở lần trả lời này là JSON gọn + file .txt riêng.
 Nếu không thể tạo ảnh thật, ghi file .txt thật hoặc kiểm tra bytes/hash, nói rõ chưa hoàn tất; không báo thành công giả, không bịa link tải hay xuất JSON thiếu file. NHẮC LẠI: MỘT BLOCK ```json GỌN với src=linkN và image_files; ngay dưới block là các link linkN_base64.txt thật. KHÔNG CHÉP BASE64 DÀI VÀO CHAT.
 [/MEDREVIEW_HANDBOOK_INLINE_JSON_V2]
@@ -81,6 +84,7 @@ QUY TRÌNH
 1. Hiểu ý định người đọc từ chủ đề; lập dàn ý ngắn nội bộ. Tìm và đọc tài liệu y tế công khai đáng tin: cơ quan y tế, bệnh viện, hiệp hội chuyên ngành, hướng dẫn chuyên môn hoặc nghiên cứu gốc. Ghi đúng URL và tiêu đề nguồn đã thực sự kiểm tra; không bịa nguồn, số liệu, trích dẫn hay ngày cập nhật. Không dùng trang booking/review y tế bên thứ ba làm bằng chứng chuyên môn.
 2. Viết khoảng 800–1.400 từ nếu chủ đề đủ rộng; ưu tiên rõ ràng và đúng hơn kéo dài cho đủ chữ. Mở đầu ngắn đi thẳng vấn đề; h2/h3 theo nội dung thực tế. Có thông tin người đọc cần biết, điều nên làm/không nên tự làm, khi nào cần gặp bác sĩ, tóm tắt và câu hỏi thường gặp nếu phù hợp. Không bắt buộc nhồi mọi mục vào mọi chủ đề. Giải thích thuật ngữ, dùng đoạn ngắn và danh sách vừa phải; bảng chỉ khi so sánh thật sự hữu ích.
 3. Không chẩn đoán cho cá nhân, kê đơn, liều thuốc, cam kết kết quả hay khẳng định tuyệt đối. Với dấu hiệu nguy hiểm, khuyên đi khám/cấp cứu phù hợp, không tự bịa số điện thoại. Phân biệt điều đã có bằng chứng với điều còn chưa chắc chắn; chi phí/phác đồ phụ thuộc trường hợp. Không quảng cáo trá hình hay bịa trải nghiệm/đánh giá bệnh nhân. Kết bài nhắc đây là thông tin tham khảo, không thay thế tư vấn chuyên môn.
+3a. Gợi ý tối đa 5 cơ sở y tế và 5 bác sĩ thật có liên quan trực tiếp chủ đề (có thể để mảng rỗng). Kiểm tra tên, địa chỉ cơ sở hoặc chuyên khoa/vị trí hành nghề bác sĩ bằng nguồn công khai đáng tin; ưu tiên trang chính thức của cơ sở, bệnh viện hoặc trang hồ sơ MedReview đã xem. Ghi URL bằng chứng ở evidence_url, không bịa ID, hồ sơ, xếp hạng hoặc quan hệ làm việc. Nếu chưa xác minh được danh tính thì bỏ mục đó. suggested_facilities_json là mảng {name,address,city,category,phone,website,evidence_url,facility_id?}; suggested_doctors_json là mảng {name,specialty,facility_name,address,city,website,evidence_url,doctor_id?}. ID chỉ điền nếu đã kiểm tra đúng hồ sơ trong MedReview, còn lại bỏ khóa ID. Danh sách này là gợi ý hồ sơ liên quan, không thay sources_json dùng cho bằng chứng y khoa.
 4. TẠO ẢNH MINH HOẠ MỚI bằng công cụ tạo ảnh thực sự của nền tảng AI: nên có 2 ảnh liên quan trực tiếp chủ đề, tối thiểu 1, tối đa 4 ảnh khác nhau. Không lấy logo, ảnh bìa website, ảnh stock gắn nhãn sai, ảnh người thật/ca bệnh như bằng chứng điều trị. Ưu tiên minh hoạ giáo dục sạch, dễ hiểu; tránh chữ nhỏ/số liệu giải phẫu không chắc chắn hoặc hình gây hiểu nhầm. Ảnh do AI tạo phải được ghi rõ là minh hoạ AI, không phải ảnh chụp chứng minh y khoa.
 5. Sau khi có file ảnh thật, dùng chương trình mã hoá bytes ảnh và ghi các file link1_base64.txt, link2_base64.txt... Mỗi file chỉ chứa một data URI BASE64 đầy đủ, không bịa/rút gọn/chép BASE64 dài qua chat. Tính MIME, số bytes và SHA-256 của bytes ảnh gốc bằng chương trình, đưa vào image_files theo quy tắc ở đầu. Chèn figure/img/figcaption đúng vị trí trong HTML với src="link1", src="link2"... Alt mô tả ngắn đúng hình; figcaption ghi minh hoạ tạo bằng AI. Với bài tiếng Anh dùng chú thích tiếng Anh và ghi AI-generated illustration. Không gom mọi ảnh cuối bài hoặc lặp một ảnh cho đủ số lượng.
 6. Đợi công cụ tạo ảnh và ghi file .txt thực sự xong; rà lại ngôn ngữ, thông tin, nguồn, HTML và ánh xạ image_files. Sau đó in TOÀN BỘ JSON GỌN trong MỘT block code json ngay trong chat; dưới block đặt các link tải linkN_base64.txt thật. Không thay JSON bằng file JSON/link tải, không chép chuỗi BASE64 vào chat.
@@ -93,7 +97,7 @@ XUẤT HTML VÀ ẢNH THẬT
 - Nếu công cụ không thể ghi file .txt hoặc tạo link tải thật, báo rõ chưa hoàn tất; không bịa file/hash. File ảnh thật được phép đính kèm thêm. Chỉ dùng nhánh dự phòng handbook-image:N khi tiện ích đã xác nhận và chỉ định mã ảnh; không tự đoán mã đó. Không dùng file JSON thay block code. Mã linkN, handbook-image:N và image_files chỉ thuộc bước trung gian, phải được tiện ích giải quyết/loại bỏ trước API.
 - Không đưa API key, claim_token, source_revision hay request_id vào bài/prompt trả ra. Tiện ích tự gắn thông tin vận chuyển khi gửi API; không yêu cầu người đọc cung cấp bí mật.
 - sources_json là danh sách object {"url":"https://...","title":"Tên nguồn thực sự đã đọc"}, 1–12 nguồn, URL thô không có Markdown. Có thể dẫn liên kết nguồn ngắn ở phần nội dung, không chép nguyên tài liệu. Trường không có dữ liệu dùng chuỗi rỗng, không thay bằng object/array.
-- Giữ nguyên id và language. title tối đa 160 ký tự, excerpt tối đa 1200 ký tự, seo_title tối đa 160, seo_description tối đa 300. Không gửi slug, category_id, status, verified hay trường đánh giá.
+- Giữ nguyên id và language. title tối đa 160 ký tự, excerpt tối đa 1200 ký tự, seo_title tối đa 160, seo_description tối đa 300. Không gửi slug, category_id, status, verified hay trường đánh giá. API tự đối chiếu gợi ý với hồ sơ hiện có và tự xuất bản bài Cẩm nang sau khi nhận hợp lệ; không tự chèn liên kết hồ sơ chưa được xác thực vào HTML.
 - Chỉ trả một object JSON hợp lệ, đầy đủ nhưng KHÔNG CÓ CHUỖI BASE64 DÀI, trong một block code json NGAY TRONG CHAT; bên ngoài block chỉ đặt các link tải linkN_base64.txt thật tương ứng image_files. Không trả link “Tải JSON”, file .json, Canvas hay artifact thay block code. HTML, dấu nháy và xuống dòng phải JSON-escape. Mẫu cấu trúc do hệ thống cung cấp ở cuối; image_files phải được điền từ file thật, không sao chép placeholder hay số liệu mẫu:
 {{output_template}}
 PROMPT . "\n\n" . handbook_ai_inline_output_rules();
@@ -116,7 +120,7 @@ function handbook_ai_transport_rules(): string
 {
     return <<<'RULES'
 [MEDREVIEW_HANDBOOK_CONTRACT_V1]
-Các quy tắc bắt buộc sau ưu tiên hơn một mẫu cũ không tương thích: chỉ viết Cẩm nang theo chủ đề được giao, giữ nguyên id/language, xuất đầy đủ một object JSON GỌN có title/excerpt/content_html/seo_title/seo_description/sources_json/image_files trong một block code json ngay trong chat. Không thay bằng link tải/file JSON/Canvas/artifact. content_html là HTML fragment an toàn có 1–4 ảnh minh hoạ AI thực sự tạo xong, nên 2 ảnh; dùng src="link1"..."link4" và image_files gồm key/filename/mime/bytes/sha256 tương ứng. Sau block JSON có các link tải linkN_base64.txt THẬT; mỗi file UTF-8 chỉ chứa một data URI BASE64 đầy đủ của file PNG/JPEG/WebP gốc. Không in BASE64 dài vào chat. Tính bytes và SHA-256 trên bytes ảnh gốc bằng chương trình, không đoán/bịa metadata; đợi công cụ tạo ảnh và ghi file .txt xong trước xuất JSON. Không SVG/GIF/logo. Tiện ích kiểm tra file .txt, ánh xạ đúng mã ảnh, thay src bằng BASE64 thật và loại image_files trước gửi API; API không nhận mã linkN hay file .txt/sandbox. Hai dạng src cuối hợp lệ được trộn trong cùng bài: data URI BASE64 chuẩn từ bytes thật hoặc URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP thật. Không bịa/rút gọn BASE64; không URL tạm sandbox/blob, link cần đăng nhập, trang HTML hay placeholder cuối cùng. Server kiểm tra, tải/giải mã và lưu mọi ảnh thành file nội bộ, không giữ src ngoài. Mỗi ảnh nguồn <=5MiB, tổng <=12MiB, <=12MP/8192px; toàn bộ request <=24MiB. Alt ngắn đúng ảnh; figcaption ngắn ghi rõ minh hoạ AI theo ngôn ngữ bài. File ảnh thật vẫn được phép đính kèm; chỉ khi tiện ích xác nhận file ảnh thật và chỉ định handbook-image:N mới dùng mã dự phòng đó ở bước trung gian. Thiếu khả năng tạo ảnh thật/file .txt thật/kiểm tra hash thì chưa được báo hoàn tất. Không xuất token/API key/claim/revision/request_id. Không gửi status/slug/category_id; server lưu nháp, không tự xuất bản. sources_json cần 1–12 {url,title} nguồn y tế công khai thực sự đã kiểm tra; không bịa dữ liệu/nguồn, không dùng trang booking/review y tế bên thứ ba làm chứng cứ chuyên môn. Không chẩn đoán/kê đơn/liều thuốc/cam kết kết quả; nội dung chỉ tham khảo. title/seo_title<=160, excerpt<=1200, seo_description<=300 ký tự.
+Các quy tắc bắt buộc sau ưu tiên hơn một mẫu cũ không tương thích: chỉ viết Cẩm nang theo chủ đề được giao, giữ nguyên id/language, xuất đầy đủ một object JSON GỌN có title/excerpt/content_html/seo_title/seo_description/sources_json/suggested_facilities_json/suggested_doctors_json/image_files trong một block code json ngay trong chat. Không thay bằng link tải/file JSON/Canvas/artifact. content_html là HTML fragment an toàn có 1–4 ảnh minh hoạ AI thực sự tạo xong, nên 2 ảnh; dùng src="link1"..."link4" và image_files gồm key/filename/mime/bytes/sha256 tương ứng. Sau block JSON có các link tải linkN_base64.txt THẬT; mỗi file UTF-8 chỉ chứa một data URI BASE64 đầy đủ của file PNG/JPEG/WebP gốc. Không in BASE64 dài vào chat. Tính bytes và SHA-256 trên bytes ảnh gốc bằng chương trình, không đoán/bịa metadata; đợi công cụ tạo ảnh và ghi file .txt xong trước xuất JSON. Không SVG/GIF/logo. Tiện ích kiểm tra file .txt, ánh xạ đúng mã ảnh, thay src bằng BASE64 thật và loại image_files trước gửi API; API không nhận mã linkN hay file .txt/sandbox. Hai dạng src cuối hợp lệ được trộn trong cùng bài: data URI BASE64 chuẩn từ bytes thật hoặc URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP thật. Không bịa/rút gọn BASE64; không URL tạm sandbox/blob, link cần đăng nhập, trang HTML hay placeholder cuối cùng. Server kiểm tra, tải/giải mã và lưu mọi ảnh thành file nội bộ, không giữ src ngoài. Mỗi ảnh nguồn <=5MiB, tổng <=12MiB, <=12MP/8192px; toàn bộ request <=24MiB. Alt ngắn đúng ảnh; figcaption ngắn ghi rõ minh hoạ AI theo ngôn ngữ bài. File ảnh thật vẫn được phép đính kèm; chỉ khi tiện ích xác nhận file ảnh thật và chỉ định handbook-image:N mới dùng mã dự phòng đó ở bước trung gian. Thiếu khả năng tạo ảnh thật/file .txt thật/kiểm tra hash thì chưa được báo hoàn tất. Không xuất token/API key/claim/revision/request_id. Không gửi status/slug/category_id; server đối chiếu hoặc tạo hồ sơ gợi ý và tự xuất bản bài khi toàn bộ dữ liệu hợp lệ. sources_json cần 1–12 {url,title} nguồn y tế công khai thực sự đã kiểm tra; không bịa dữ liệu/nguồn, không dùng trang booking/review y tế bên thứ ba làm chứng cứ chuyên môn. Không chẩn đoán/kê đơn/liều thuốc/cam kết kết quả; nội dung chỉ tham khảo. title/seo_title<=160, excerpt<=1200, seo_description<=300 ký tự.
 WebP thật đã giải mã đầy đủ, có dung lượng nhỏ hơn 100 KiB (102400 bytes), được lưu nguyên bytes thành .webp, không nén lại hoặc resize; vẫn phải đạt giới hạn 12MP và 8192px mỗi cạnh. WebP từ 102400 bytes trở lên và các định dạng khác được nén thành JPEG dưới 100 KiB, cạnh dài tối đa 1280px. Không coi file nhỏ hoặc chỉ có header là ảnh hợp lệ.
 Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.
 [/MEDREVIEW_HANDBOOK_CONTRACT_V1]
@@ -128,6 +132,8 @@ function handbook_ai_refresh_legacy_image_rules(string $template): string
 {
     $rules = 'Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.';
     $template = str_replace('Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.', $rules, $template);
+    $template = str_replace('server lưu nháp, không tự xuất bản.', 'server tự xuất bản bài Cẩm nang hợp lệ sau khi đối chiếu hồ sơ gợi ý.', $template);
+    $template = str_replace('API Cẩm nang chỉ lưu bản nháp, không tự xuất bản.', 'API Cẩm nang tự xuất bản khi bài hợp lệ.', $template);
     $template = (string) preg_replace('~^5\. Chèn ảnh vào đúng vị trí giải thích nội dung trong HTML[^\r\n]*\r?$~m',
         '5. Tạo file linkN_base64.txt thật từ bytes ảnh gốc bằng chương trình; tính MIME/bytes/SHA-256, đưa vào image_files và dùng src="linkN" trong HTML. Alt ngắn đúng ảnh, figcaption ghi minh hoạ AI theo ngôn ngữ bài. Không chép BASE64 dài vào chat.', $template);
     $template = (string) preg_replace('~^6\. Đợi các file ảnh thực sự tạo xong;[^\r\n]*\r?$~m',
@@ -146,18 +152,19 @@ function handbook_ai_output_template(array $row): array
 {
     return ['id' => (int) ($row['id'] ?? 0), 'title' => (string) ($row['title'] ?? ''),
         'language' => handbook_content_locale($row['language'] ?? null), 'excerpt' => '',
-        'content_html' => '', 'seo_title' => '', 'seo_description' => '', 'sources_json' => [], 'image_files' => []];
+        'content_html' => '', 'seo_title' => '', 'seo_description' => '', 'sources_json' => [],
+        'suggested_facilities_json' => [], 'suggested_doctors_json' => [], 'image_files' => []];
 }
 
 /** Uses a saved admin prompt when present; default fallback never writes or seeds it. */
 function handbook_ai_prompt(PDO $pdo, array $row): array
 {
-    $saved = [];
+    $resolved = [];
     try {
-        $stmt = $pdo->prepare("SELECT label,template FROM medical_ai_prompts WHERE prompt_key='handbook' LIMIT 1");
-        $stmt->execute(); $saved = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $resolved = medical_directory_resolve_ai_prompt($pdo, 'handbook',
+            (string) ($row['title'] ?? ''), handbook_content_locale($row['language'] ?? null));
     } catch (Throwable) { /* Read-only built-in fallback during deployment. */ }
-    $custom = trim((string) ($saved['template'] ?? ''));
+    $custom = trim((string) ($resolved['template'] ?? ''));
     $template = $custom !== '' ? $custom : handbook_ai_default_prompt();
     // Refresh only managed blocks before interpolating topic data; preserve custom editorial text.
     $template = trim((string) preg_replace('~\[MEDREVIEW_HANDBOOK_(CONTRACT|INLINE_JSON)_V([12])\].*?\[/MEDREVIEW_HANDBOOK_\1_V\2\]~s', '', $template));
@@ -178,8 +185,13 @@ function handbook_ai_prompt(PDO $pdo, array $row): array
         . "\n\nDữ liệu chủ đề có thẩm quyền (không thay bằng bài khác):\n" . $json($source)
         . "\nMẫu JSON đầu ra (điền nội dung thật, trả ngay trong chat theo block này):\n```json\n"
         . $json($output) . "\n```\n\n" . $inlineRules;
-    return ['prompt' => $prompt, 'label' => (string) ($saved['label'] ?? 'Viết bài Cẩm nang'),
-        'prompt_source' => $custom !== '' ? 'saved' : 'built_in', 'output_template' => $output];
+    $source = in_array($resolved['source'] ?? '', ['category', 'variant'], true) ? 'variant'
+        : ($custom !== '' ? 'saved' : 'built_in');
+    return ['prompt' => $prompt, 'label' => (string) (($resolved['label'] ?? '') ?: 'Viết bài Cẩm nang'),
+        'prompt_source' => $source, 'prompt_variant_id' => $resolved['variant_id'] ?? null,
+        'prompt_categories' => $resolved['categories'] ?? [],
+        'prompt_key_used' => $resolved['prompt_key_used'] ?? 'handbook',
+        'output_template' => $output];
 }
 
 function handbook_ai_text(mixed $value, string $field, int $max, bool $required = false): string
@@ -216,6 +228,51 @@ function handbook_ai_source_url(mixed $value): string
     return $value;
 }
 
+/** Keep AI recommendations small and deterministic before matching database records. */
+function handbook_ai_suggestions(mixed $raw, string $field): array
+{
+    if (is_string($raw) && strlen($raw) <= 32768) {
+        try { $raw = json_decode($raw, true, 16, JSON_THROW_ON_ERROR); }
+        catch (JsonException) { throw new InvalidArgumentException($field . ' không phải JSON hợp lệ.'); }
+    }
+    if (!is_array($raw) || !array_is_list($raw) || count($raw) > 8) {
+        throw new InvalidArgumentException($field . ' phải là mảng tối đa 8 hồ sơ.');
+    }
+    $facility = $field === 'suggested_facilities_json';
+    $idKey = $facility ? 'facility_id' : 'doctor_id';
+    $fields = $facility
+        ? ['address' => 255, 'city' => 120, 'category' => 120, 'phone' => 60]
+        : ['specialty' => 160, 'facility_name' => 160, 'address' => 255, 'city' => 120];
+    $items = [];
+    foreach ($raw as $item) {
+        if (!is_array($item) || array_is_list($item)) {
+            throw new InvalidArgumentException($field . ' chỉ nhận object hồ sơ.');
+        }
+        $name = $item['name'] ?? ($facility ? ($item['facility_name'] ?? null) : ($item['doctor_name'] ?? $item['full_name'] ?? null));
+        $normalized = ['name' => handbook_ai_text($name, $field . '.name', 160, true)];
+        foreach ($fields as $key => $max) {
+            $alias = $key === 'address' ? ($item['address_text'] ?? null) : null;
+            $normalized[$key] = handbook_ai_text($item[$key] ?? $alias ?? '', $field . '.' . $key, $max);
+        }
+        foreach (['website', 'evidence_url'] as $urlKey) {
+            $value = $item[$urlKey] ?? '';
+            $normalized[$urlKey] = $value === '' || $value === null ? '' : handbook_ai_source_url($value);
+        }
+        $rawId = $item[$idKey] ?? null;
+        if ($rawId !== null && $rawId !== '' && $rawId !== 0 && $rawId !== '0') {
+            if ((!is_int($rawId) && !is_string($rawId)) || !preg_match('/^[1-9][0-9]{0,9}$/D', (string) $rawId)
+                || (int) $rawId > 2147483647) {
+                throw new InvalidArgumentException($field . '.' . $idKey . ' phải là ID nguyên dương.');
+            }
+            $normalized[$idKey] = (int) $rawId;
+        }
+        $identity = ($normalized[$idKey] ?? '') . '|' . mb_strtolower($normalized['name'], 'UTF-8')
+            . '|' . mb_strtolower($normalized['address'] ?? '', 'UTF-8');
+        $items[$identity] = $normalized;
+    }
+    return array_values($items);
+}
+
 function handbook_ai_validate_payload(array $body, array $row): array
 {
     if (array_key_exists('image_files', $body)) {
@@ -228,7 +285,7 @@ function handbook_ai_validate_payload(array $body, array $row): array
     if (!in_array($language, ['vi', 'en'], true) || $language !== handbook_content_locale($row['language'] ?? null)) {
         throw new InvalidArgumentException('language phải giữ nguyên ngôn ngữ của chủ đề.');
     }
-    if (array_key_exists('status', $body) && $body['status'] !== 'draft') throw new InvalidArgumentException('API Cẩm nang chỉ lưu bản nháp, không tự xuất bản.');
+    if (array_key_exists('status', $body) && $body['status'] !== 'draft') throw new InvalidArgumentException('status do API Cẩm nang tự quyết định, không nhận từ bài AI.');
     foreach (['slug', 'category_id'] as $immutable) {
         if (array_key_exists($immutable, $body) && (!is_scalar($body[$immutable]) || (string) $body[$immutable] !== (string) ($row[$immutable] ?? ''))) {
             throw new InvalidArgumentException('Không được thay đổi ' . $immutable . ' của chủ đề.');
@@ -260,14 +317,21 @@ function handbook_ai_validate_payload(array $body, array $row): array
         'language' => $language, 'excerpt' => handbook_ai_text($body['excerpt'] ?? '', 'excerpt', 1200),
         'content_html' => $content, 'seo_title' => handbook_ai_text($body['seo_title'] ?? '', 'seo_title', 160),
         'seo_description' => handbook_ai_text($body['seo_description'] ?? '', 'seo_description', 300),
-        'sources_json' => array_values($sources)];
+        'sources_json' => array_values($sources),
+        'suggested_facilities_json' => handbook_ai_suggestions($body['suggested_facilities_json'] ?? [], 'suggested_facilities_json'),
+        'suggested_doctors_json' => handbook_ai_suggestions($body['suggested_doctors_json'] ?? [], 'suggested_doctors_json')];
 }
 
 /** Streaming fields avoids allocating another JSON copy of an entire BASE64 article. */
 function handbook_ai_payload_hash(array $normalized): string
 {
     $context = hash_init('sha256');
-    foreach (['id','title','language','excerpt','content_html','seo_title','seo_description','sources_json'] as $key) {
+    $fields = ['id','title','language','excerpt','content_html','seo_title','seo_description','sources_json'];
+    // Empty new fields keep the original fingerprint for idempotent retries from older clients.
+    foreach (['suggested_facilities_json', 'suggested_doctors_json'] as $key) {
+        if (!empty($normalized[$key])) $fields[] = $key;
+    }
+    foreach ($fields as $key) {
         $value = $normalized[$key] ?? '';
         if (is_array($value)) $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $value = (string) $value;

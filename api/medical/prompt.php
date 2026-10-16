@@ -68,8 +68,13 @@ if ($type === 'doctor') {
         $stmt->execute([':id' => $source['id']]);
         $source = $stmt->fetch(PDO::FETCH_ASSOC) ?: $source;
     }
+    $specialtyScope = trim((string) ($source['specialty_text'] ?? ''));
+    $resolved = medical_directory_resolve_ai_prompt($pdo, 'doctor',
+        $specialtyScope !== '' ? $specialtyScope : $category);
     json_response(['ok' => true, 'type' => 'doctor', 'label' => $resolved['label'],
-        'prompt_source' => $resolved['source'], 'name' => $source['name'],
+        'prompt_source' => $resolved['source'], 'prompt_variant_id' => $resolved['variant_id'],
+        'prompt_categories' => $resolved['categories'], 'prompt_key_used' => $resolved['prompt_key_used'],
+        'name' => $source['name'],
         'output_template' => medical_doctor_output_template((int) $source['id'], (string) $source['name']),
         'prompt' => medical_doctor_research_prompt($resolved['template'] ?: medical_doctor_default_prompt(), $source)]);
 }

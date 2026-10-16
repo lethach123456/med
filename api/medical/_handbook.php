@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 /** Shared, independently testable Cẩm nang API operations. Loading this file never opens the DB. */
 require_once __DIR__ . '/../../medical_handbook_ai.php';
+require_once __DIR__ . '/../../medical_handbook_suggestions.php';
 
 const HANDBOOK_API_MAX_BODY_BYTES = 24 * 1024 * 1024;
 const HANDBOOK_API_LEASE_SECONDS = 600;
@@ -188,14 +189,18 @@ function handbook_api_list(PDO $pdo, array $query, ?int $now = null): array
             'language' => strtolower(trim((string) ($row['language'] ?? ''))) ?: 'vi',
             'source_revision' => handbook_ai_revision($row), 'needs_content' => true,
             'prompt' => (string) $prompt['prompt'], 'prompt_label' => (string) $prompt['label'],
-            'prompt_source' => (string) $prompt['prompt_source'], 'output_template' => $prompt['output_template']];
+            'prompt_source' => (string) $prompt['prompt_source'],
+            'prompt_variant_id' => $prompt['prompt_variant_id'] ?? null,
+            'prompt_categories' => $prompt['prompt_categories'] ?? [],
+            'prompt_key_used' => $prompt['prompt_key_used'] ?? 'handbook',
+            'output_template' => $prompt['output_template']];
     }
     return ['ok' => true, 'type' => 'handbook', 'contract_version' => 1, 'page' => $page, 'limit' => $filter['limit'],
         'total' => $total, 'pages' => $pages, 'checked_ids' => $filter['ids'],
         'eligibility' => 'draft_handbook_with_empty_content', 'claim_required' => true,
         'claim_endpoint' => HANDBOOK_API_QUEUE_ENDPOINT, 'receive_endpoint' => HANDBOOK_API_RECEIVE_ENDPOINT,
         'lease_seconds' => HANDBOOK_API_LEASE_SECONDS, 'heartbeat_interval_seconds' => HANDBOOK_API_HEARTBEAT_SECONDS,
-        'max_body_bytes' => HANDBOOK_API_MAX_BODY_BYTES, 'limits' => handbook_ai_limits(), 'save_status' => 'draft', 'items' => $items];
+        'max_body_bytes' => HANDBOOK_API_MAX_BODY_BYTES, 'limits' => handbook_ai_limits(), 'save_status' => 'published', 'items' => $items];
 }
 
 function handbook_api_write_claim(PDO $pdo, int $id, ?array $claim): void
@@ -315,7 +320,9 @@ function handbook_api_save(PDO $pdo, array $body, ?callable $prepareMedia = null
             $pdo->commit();
             return ['ok' => true, 'type' => 'handbook', 'id' => $id, 'status' => (string) $row['status'],
                 'idempotent' => true, 'images' => $previous['images'] ?? [],
-                'images_count' => count(is_array($previous['images'] ?? null) ? $previous['images'] : [])];
+                'images_count' => count(is_array($previous['images'] ?? null) ? $previous['images'] : []),
+                'suggested_facilities_json' => $previous['suggested_facilities_json'] ?? [],
+                'suggested_doctors_json' => $previous['suggested_doctors_json'] ?? []];
         }
         if (!handbook_ai_needs_content($row)) throw new HandbookApiException('Bài đã có nội dung hoặc không còn cần viết; không ghi đè.', 409, 'not_eligible');
         $claim = handbook_api_decode_json($row['ai_writer_claim_json'] ?? null);
@@ -340,21 +347,27 @@ function handbook_api_save(PDO $pdo, array $body, ?callable $prepareMedia = null
         $images = $media['images'];
         $firstImage = $images[0] ?? null;
         $featured = is_array($firstImage) ? (string) ($firstImage['url'] ?? $firstImage['src'] ?? '') : (is_string($firstImage) ? $firstImage : '');
+        $suggestions = handbook_suggested_entities_resolve($pdo,
+            $normalized['suggested_facilities_json'], $normalized['suggested_doctors_json'], $normalized['language']);
         $metadata = ['contract_version' => 1, 'request_id' => $request, 'payload_sha256' => $hash,
             'claim_token_sha256' => hash('sha256', $token), 'source_revision' => $revision,
             'language' => $normalized['language'], 'sources_json' => $normalized['sources_json'],
-            'images' => $images, 'processed_at' => gmdate('c', $now), 'status' => 'draft'];
+            'suggested_facilities_json' => $suggestions['facilities'],
+            'suggested_doctors_json' => $suggestions['doctors'],
+            'images' => $images, 'processed_at' => gmdate('c', $now), 'status' => 'published'];
         $statement = $pdo->prepare("UPDATE posts SET title=:title,excerpt=:excerpt,content=:content,seo_title=:seo_title,"
-            . "seo_description=:seo_description,language=:language,featured_image_url=:featured,template=0,status='draft',"
+            . "seo_description=:seo_description,language=:language,featured_image_url=:featured,template=0,status='published',"
             . 'ai_content_json=:metadata,ai_writer_claim_json=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=:id');
         $statement->execute([':title' => $normalized['title'], ':excerpt' => $normalized['excerpt'], ':content' => $media['content'],
             ':seo_title' => $normalized['seo_title'], ':seo_description' => $normalized['seo_description'], ':language' => $normalized['language'],
             ':featured' => $featured !== '' ? $featured : null, ':metadata' => handbook_api_json($metadata), ':id' => $id]);
         $commitStarted = true;
         $pdo->commit();
-        return ['ok' => true, 'type' => 'handbook', 'id' => $id, 'status' => 'draft', 'idempotent' => false,
+        return ['ok' => true, 'type' => 'handbook', 'id' => $id, 'status' => 'published', 'idempotent' => false,
             'images_count' => count($images), 'images' => $images,
-            'message' => 'Đã lưu bài nháp và ảnh tối ưu trên hosting; cần quản trị viên kiểm tra trước khi xuất bản.'];
+            'suggested_facilities_json' => $suggestions['facilities'],
+            'suggested_doctors_json' => $suggestions['doctors'],
+            'message' => 'Đã lưu ảnh, đối chiếu hồ sơ gợi ý và xuất bản bài Cẩm nang.'];
     } catch (Throwable $e) {
         $rollbackConfirmed = false;
         if ($pdo->inTransaction()) {

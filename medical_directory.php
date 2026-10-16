@@ -321,53 +321,108 @@ function medical_directory_ai_prompt_render_template(string $template, array $va
 }
 
 /**
- * Resolve a prompt for an item. A facility category variant wins over the
- * shared prompt; unavailable, disabled and non-matching variants safely fall
- * back to the existing prompt in medical_ai_prompts.
+ * Resolve an editorial prompt by scope (facility category, doctor specialty,
+ * or handbook topic). A specific phrase match wins over a handbook language
+ * variant, a categoryless variant, then the shared prompt. Among phrase
+ * matches, the longest scope wins; priority breaks ties.
  *
  * @return array{prompt_type:string,label:string,template:string,source:string,variant_id:?int,categories:array<int,string>,prompt_key_used:string}
  */
-function medical_directory_resolve_ai_prompt(PDO $pdo, string $type, string $category = ''): array
+function medical_directory_resolve_ai_prompt(PDO $pdo, string $type, string $category = '', string $locale = ''): array
 {
     $type = trim($type);
     $categoryKey = medical_directory_ai_prompt_normalize_category($category);
+    $localeKey = $type === 'handbook' ? medical_directory_ai_prompt_normalize_category($locale) : '';
 
-    if ($type === 'facility' && $categoryKey !== '') {
-        $variantStmt = $pdo->prepare(
-            "SELECT v.id, v.label, v.template
-             FROM medical_ai_prompt_variants v
-             INNER JOIN medical_ai_prompt_variant_categories c ON c.variant_id = v.id
-             WHERE v.prompt_type = :type
-               AND v.is_active = 1
-               AND c.category_key = :category_key
-             ORDER BY v.priority ASC, v.updated_at DESC, v.id DESC
-             LIMIT 1"
-        );
-        $variantStmt->execute([':type' => $type, ':category_key' => $categoryKey]);
-        $variant = $variantStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (is_array($variant)) {
-            $categoriesStmt = $pdo->prepare(
-                'SELECT category_label
-                 FROM medical_ai_prompt_variant_categories
-                 WHERE variant_id = :variant_id
-                 ORDER BY category_label ASC'
+    if (in_array($type, ['facility', 'doctor', 'handbook'], true)) {
+        $variants = [];
+        try {
+            $variantStmt = $pdo->prepare(
+                "SELECT v.id, v.label, c.category_key, c.category_label
+                 FROM medical_ai_prompt_variants v
+                 LEFT JOIN medical_ai_prompt_variant_categories c ON c.variant_id = v.id
+                 WHERE v.prompt_type = :type AND v.is_active = 1
+                 ORDER BY v.priority ASC, v.updated_at DESC, v.id DESC"
             );
-            $categoriesStmt->execute([':variant_id' => (int) $variant['id']]);
-            $categories = array_values(array_filter(array_map(
-                static fn($value): string => trim((string) $value),
-                $categoriesStmt->fetchAll(PDO::FETCH_COLUMN) ?: []
-            ), static fn(string $value): bool => $value !== ''));
+            $variantStmt->execute([':type' => $type]);
+            foreach ($variantStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $id = (int) $row['id'];
+                if (!isset($variants[$id])) {
+                    $variants[$id] = ['id' => $id, 'label' => (string) $row['label'],
+                        'scope_keys' => [], 'categories' => []];
+                }
+                $scope = trim((string) ($row['category_key'] ?? ''));
+                if ($scope !== '') {
+                    $variants[$id]['scope_keys'][] = medical_directory_ai_prompt_normalize_category($scope);
+                    $variants[$id]['categories'][] = trim((string) ($row['category_label'] ?? ''));
+                }
+            }
+        } catch (PDOException $error) {
+            // Sites deployed before the optional variant migration still use
+            // their saved base prompt. Other SQL failures must remain visible.
+            if (!preg_match('/(?:no such table|doesn.t exist|42S02)/i', $error->getMessage())) {
+                throw $error;
+            }
+            $variants = [];
+        }
 
-            return [
-                'prompt_type' => $type,
-                'label' => (string) ($variant['label'] ?? ''),
-                'template' => (string) ($variant['template'] ?? ''),
-                'source' => 'category',
-                'variant_id' => (int) $variant['id'],
-                'categories' => $categories,
-                'prompt_key_used' => 'facility-variant-' . (int) $variant['id'],
-            ];
+        $variant = null;
+        $variantSource = 'variant';
+        $longestMatch = -1;
+        foreach ($variants as $candidate) {
+            foreach ($candidate['scope_keys'] as $scope) {
+                if ($categoryKey === '' || ($type === 'handbook' && in_array($scope, ['vi', 'en'], true))) {
+                    continue;
+                }
+                $pattern = '/(?<![\p{L}\p{N}\p{M}])' . preg_quote($scope, '/') . '(?![\p{L}\p{N}\p{M}])/u';
+                if (preg_match($pattern, $categoryKey) !== 1) {
+                    continue;
+                }
+                $length = function_exists('mb_strlen') ? mb_strlen($scope, 'UTF-8') : strlen($scope);
+                if ($length > $longestMatch) {
+                    $longestMatch = $length;
+                    $variant = $candidate;
+                    $variantSource = 'category';
+                }
+            }
+        }
+        if ($variant === null && $localeKey !== '') {
+            foreach ($variants as $candidate) {
+                if (in_array($localeKey, $candidate['scope_keys'], true)) {
+                    $variant = $candidate;
+                    $variantSource = 'category';
+                    break;
+                }
+            }
+        }
+        if ($variant === null) {
+            foreach ($variants as $candidate) {
+                if ($candidate['scope_keys'] === []) {
+                    $variant = $candidate;
+                    break;
+                }
+            }
+        }
+
+        if ($variant !== null) {
+            // Large templates are fetched only for the selected variant.
+            $selectedStmt = $pdo->prepare(
+                'SELECT label, template FROM medical_ai_prompt_variants
+                 WHERE id = :id AND prompt_type = :type AND is_active = 1 LIMIT 1'
+            );
+            $selectedStmt->execute([':id' => $variant['id'], ':type' => $type]);
+            $selected = $selectedStmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($selected)) {
+                return [
+                    'prompt_type' => $type,
+                    'label' => (string) $selected['label'],
+                    'template' => (string) $selected['template'],
+                    'source' => $variantSource,
+                    'variant_id' => $variant['id'],
+                    'categories' => array_values(array_filter($variant['categories'], static fn(string $value): bool => $value !== '')),
+                    'prompt_key_used' => $type . '-variant-' . $variant['id'],
+                ];
+            }
         }
     }
 

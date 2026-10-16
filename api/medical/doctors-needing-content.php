@@ -26,8 +26,7 @@ try {
     $stmt = $pdo->prepare("SELECT d.* FROM medical_doctors d WHERE {$where} ORDER BY {$priority}, d.id ASC LIMIT :limit OFFSET :offset");
     foreach ($params as $key => $id) $stmt->bindValue($key, $id, PDO::PARAM_INT);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT); $stmt->bindValue(':offset', ($page - 1) * $limit, PDO::PARAM_INT);
-    $stmt->execute(); $items = [];
-    $resolved = medical_directory_resolve_ai_prompt($pdo, 'doctor');
+    $stmt->execute(); $items = []; $resolvedPromptCache = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $source = $row;
         // Provide a known facility ID as a matching hint, never guess from a name.
@@ -36,9 +35,18 @@ try {
             $facility->execute([':slug' => $row['facility_slug']]);
             $source['primary_facility'] = $facility->fetch(PDO::FETCH_ASSOC) ?: null;
         }
+        $specialty = (string) ($row['specialty_text'] ?? '');
+        $scopeKey = medical_directory_ai_prompt_normalize_category($specialty);
+        if (!isset($resolvedPromptCache[$scopeKey])) {
+            $resolvedPromptCache[$scopeKey] = medical_directory_resolve_ai_prompt($pdo, 'doctor', $specialty);
+        }
+        $resolved = $resolvedPromptCache[$scopeKey];
         $item = medical_doctor_api_source($row);
         $item['type'] = 'doctor'; $item['prompt_type'] = 'doctor';
         $item['prompt_source'] = $resolved['source']; $item['prompt_label'] = $resolved['label'];
+        $item['prompt_variant_id'] = $resolved['variant_id'];
+        $item['prompt_categories'] = $resolved['categories'];
+        $item['prompt_key_used'] = $resolved['prompt_key_used'];
         $item['output_template'] = medical_doctor_output_template((int) $row['id'], $row['name']);
         $item['prompt'] = medical_doctor_research_prompt((string) ($resolved['template'] ?: medical_doctor_default_prompt()), $source);
         $items[] = $item;
@@ -47,7 +55,8 @@ try {
         'reviews_contract_version' => 1, 'review_fields' => ['aggregate_ratings_json', 'reviews_json'],
         'total' => $total, 'pages' => (int) ceil($total / $limit), 'checked_ids' => array_values($ids),
         'eligibility' => 'published_vi_with_empty_content_and_no_completed_research',
-        'claim_required' => true, 'receive_endpoint' => '/api/medical/doctor-content-update.php', 'items' => $items]);
+        'claim_required' => true, 'prompt_selection' => 'per_doctor_specialty_with_default_fallback',
+        'receive_endpoint' => '/api/medical/doctor-content-update.php', 'items' => $items]);
 } catch (Throwable $e) {
     error_log('Doctor research queue: ' . $e->getMessage());
     json_response(['ok' => false, 'message' => 'Không thể lấy danh sách bác sĩ cần viết.'], 500);
