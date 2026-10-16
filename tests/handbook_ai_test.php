@@ -84,7 +84,7 @@ $prompt = handbook_ai_prompt($pdo,$row+['ai_writer_claim_json'=>'secret-do-not-l
 $assert($prompt['prompt_source']==='built_in', 'Default prompt works without GET seed');
 $assert(substr_count($prompt['prompt'],$realImageRule)>=2,'Rendered default prompt repeats the exact real-image requirement');
 $assert(!str_contains($prompt['prompt'],'secret-do-not-leak') && !str_contains($prompt['prompt'],'{{'), 'Rendered prompt exposes no operational secrets/unresolved placeholders');
-foreach (['Cách chăm sóc mắt','BASE64','data:image/png;base64','công cụ tạo ảnh','sources_json','nháp','[MEDREVIEW_HANDBOOK_CONTRACT_V1]'] as $text) {
+foreach (['Cách chăm sóc mắt','BASE64','data:image/png;base64','công cụ tạo ảnh','sources_json','xuất bản','[MEDREVIEW_HANDBOOK_CONTRACT_V1]'] as $text) {
     $assert(str_contains($prompt['prompt'],$text), 'Prompt contains current workflow: '.$text);
 }
 $assert(!array_key_exists('claim_token',$prompt['output_template']) && $prompt['output_template']['id']===1, 'Output template only asks for content and client image mapping fields');
