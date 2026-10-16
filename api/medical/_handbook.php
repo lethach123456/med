@@ -330,7 +330,7 @@ function handbook_api_save(PDO $pdo, array $body, ?callable $prepareMedia = null
         }
         try { $media = $prepareMedia($normalized['content_html'], $id); }
         catch (RuntimeException $error) {
-            throw new HandbookApiException('Máy chủ chưa thể nén hoặc lưu ảnh. Kiểm tra GD, DOM, memory_limit và quyền ghi uploads/handbook.', 503, 'image_processing_unavailable');
+            throw new HandbookApiException('Máy chủ chưa thể tải, nén hoặc lưu ảnh. Kiểm tra cURL, GD, DOM, memory_limit và quyền ghi uploads/handbook.', 503, 'image_processing_unavailable');
         }
         $created = is_array($media['created_files'] ?? null) ? $media['created_files'] : [];
         if (!is_string($media['content'] ?? null) || !is_array($media['images'] ?? null)) throw new RuntimeException('Invalid media preparation result.');

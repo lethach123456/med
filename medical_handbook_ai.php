@@ -9,8 +9,12 @@ function handbook_ai_limits(): array
         'min_images' => 1, 'max_images' => 4, 'recommended_images' => 2,
         'max_image_bytes' => 5 * 1024 * 1024, 'max_total_image_bytes' => 12 * 1024 * 1024,
         'max_image_pixels' => 12000000, 'max_image_dimension' => 8192,
+        // Legacy encoder limits; preserved WebP uses the separate input-safe dimensions below.
         'stored_max_side' => 1280, 'stored_max_bytes' => 102399,
-        'accepted_mimes' => ['image/jpeg', 'image/png', 'image/webp']];
+        'preserve_webp_below_bytes' => 102400, 'preserved_webp_max_side' => 8192,
+        'compressed_max_side' => 1280,
+        'accepted_mimes' => ['image/jpeg', 'image/png', 'image/webp'],
+        'accepted_image_sources' => ['base64', 'public_http_url']];
 }
 
 /** Readiness checks are deliberately SELECT-only, including calls from CLI workers. */
@@ -51,7 +55,8 @@ function handbook_ai_inline_output_rules(): string
 Khi đã hoàn tất, trả TOÀN BỘ object JSON trực tiếp trong tin nhắn chat, trong ĐÚNG MỘT block code Markdown: dòng mở là ```json, dòng đóng là ```. Không có lời dẫn, tóm tắt hay giải thích bên ngoài block.
 Không thay block code bằng file .json đính kèm, link “Tải JSON hoàn chỉnh”, đường dẫn sandbox:/mnt/data, Canvas, artifact hoặc câu “Đã tạo bài viết”. Có tạo file JSON để kiểm tra nội bộ thì vẫn phải in đầy đủ JSON trong block code ngay trong chat. Tiện ích đọc block code, không đọc link tải file.
 Giữ đủ nội dung HTML, nguồn, id và language; JSON-escape đúng dấu nháy/xuống dòng. Không chia thành nhiều block, không cắt nội dung hay BASE64, không dùng dấu ... hoặc bịa bytes ảnh để rút ngắn đầu ra.
-Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.
+Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài. Không dùng URL tạm sandbox/blob, link cần đăng nhập, URL trang HTML hay placeholder. Server tải/giải mã, kiểm tra và lưu mọi ảnh thành file nội bộ; không nhúng nóng ảnh từ website khác.
+WebP thật đã giải mã đầy đủ, có dung lượng nhỏ hơn 100 KiB (102400 bytes), được lưu nguyên bytes thành .webp, không nén lại hoặc resize; vẫn phải đạt giới hạn 12MP và 8192px mỗi cạnh. WebP từ 102400 bytes trở lên và các định dạng khác được nén thành JPEG dưới 100 KiB, cạnh dài tối đa 1280px. Không coi file nhỏ hoặc chỉ có header là ảnh hợp lệ.
 File ẢNH minh hoạ thật từ công cụ tạo ảnh vẫn được phép đính kèm; điều bị cấm là dùng file JSON thay câu trả lời trong block code. Chỉ khi tiện ích đã xác nhận file ảnh thật và chỉ định rõ handbook-image:N ở một yêu cầu tiếp theo, mới dùng đúng các mã đó trong src để tiện ích thay bằng BASE64 thật trước gửi API. Không tự tạo mã ảnh khi chưa được chỉ định.
 Nếu không thể tạo/lấy ảnh thật hoặc không thể xuất JSON đầy đủ, nói rõ chưa hoàn tất; không báo thành công giả hoặc chỉ gửi link file. Khi đã hoàn tất, nhắc lại: CHỈ MỘT BLOCK ```json CHỨA TOÀN BỘ JSON NGAY TRONG CHAT.
 [/MEDREVIEW_HANDBOOK_INLINE_JSON_V1]
@@ -75,15 +80,15 @@ QUY TRÌNH
 2. Viết khoảng 800–1.400 từ nếu chủ đề đủ rộng; ưu tiên rõ ràng và đúng hơn kéo dài cho đủ chữ. Mở đầu ngắn đi thẳng vấn đề; h2/h3 theo nội dung thực tế. Có thông tin người đọc cần biết, điều nên làm/không nên tự làm, khi nào cần gặp bác sĩ, tóm tắt và câu hỏi thường gặp nếu phù hợp. Không bắt buộc nhồi mọi mục vào mọi chủ đề. Giải thích thuật ngữ, dùng đoạn ngắn và danh sách vừa phải; bảng chỉ khi so sánh thật sự hữu ích.
 3. Không chẩn đoán cho cá nhân, kê đơn, liều thuốc, cam kết kết quả hay khẳng định tuyệt đối. Với dấu hiệu nguy hiểm, khuyên đi khám/cấp cứu phù hợp, không tự bịa số điện thoại. Phân biệt điều đã có bằng chứng với điều còn chưa chắc chắn; chi phí/phác đồ phụ thuộc trường hợp. Không quảng cáo trá hình hay bịa trải nghiệm/đánh giá bệnh nhân. Kết bài nhắc đây là thông tin tham khảo, không thay thế tư vấn chuyên môn.
 4. TẠO ẢNH MINH HOẠ MỚI bằng công cụ tạo ảnh thực sự của nền tảng AI: nên có 2 ảnh liên quan trực tiếp chủ đề, tối thiểu 1, tối đa 4 ảnh khác nhau. Không lấy logo, ảnh bìa website, ảnh stock gắn nhãn sai, ảnh người thật/ca bệnh như bằng chứng điều trị. Ưu tiên minh hoạ giáo dục sạch, dễ hiểu; tránh chữ nhỏ/số liệu giải phẫu không chắc chắn hoặc hình gây hiểu nhầm. Ảnh do AI tạo phải được ghi rõ là minh hoạ AI, không phải ảnh chụp chứng minh y khoa.
-5. Chèn ảnh vào đúng vị trí giải thích nội dung trong HTML: <figure><img src="data:image/png;base64,..." alt="Mô tả ngắn đúng hình minh hoạ"><figcaption>Minh hoạ ... (ảnh tạo bằng AI).</figcaption></figure>. Với bài tiếng Anh dùng chú thích tiếng Anh và ghi AI-generated illustration. Cho ảnh vào vị trí hợp lý, không gom tất cả cuối bài; không dùng một ảnh lặp lại cho đủ số lượng.
+5. Chèn ảnh vào đúng vị trí giải thích nội dung trong HTML bằng figure/img/figcaption: src là data:image/png;base64 hoặc data:image/jpeg;base64 hoặc data:image/webp;base64 có bytes đầy đủ, HOẶC URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP thật. Có thể trộn BASE64 và URL ảnh trong cùng bài. Alt mô tả ngắn đúng hình; figcaption ghi minh hoạ tạo bằng AI. Với bài tiếng Anh dùng chú thích tiếng Anh và ghi AI-generated illustration. Cho ảnh vào vị trí hợp lý, không gom tất cả cuối bài; không dùng một ảnh lặp lại cho đủ số lượng. Không lấy URL trang xem ảnh, trang bài viết, đường dẫn sandbox/blob hay link chỉ truy cập được trong phiên đăng nhập.
 6. Đợi các file ảnh thực sự tạo xong; rà lại ngôn ngữ, thông tin, nguồn và HTML. Sau đó in TOÀN BỘ JSON trong MỘT block code json ngay trong chat, không chuyển sang file JSON/link tải dù chuỗi BASE64 dài.
 
 XUẤT HTML VÀ ẢNH THẬT
 - content_html chỉ là HTML fragment phần nội dung, không có html/head/body, h1, CSS/style, JavaScript, iframe, form hay mã theo dõi. Dùng h2/h3, p, ul/ol/li, strong/em, blockquote, figure/img/figcaption và bảng đơn giản nếu cần. Không Markdown trong HTML. Tiêu đề chính nằm ở title, không lặp lại thành h1.
-- Ảnh trong payload gửi API phải là data URI BASE64 chuẩn, chỉ image/jpeg, image/png hoặc image/webp. Không SVG/GIF, URL từ xa, blob URL hay placeholder trong payload cuối. Không tự tưởng tượng/viết tay/rút gọn chuỗi BASE64: phải là mã hoá từ bytes file ảnh công cụ đã tạo. BASE64 không có dấu ... hay xuống dòng trong chuỗi.
-- Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.
-- Mỗi ảnh tối đa 5 MiB bytes trước nén; tổng tối đa 12 MiB; tối đa 12 triệu pixels và 8192px mỗi cạnh. Nên xuất 1024–1280px, không cần ảnh 4K. Server sẽ kiểm tra, nén và lưu ảnh thành file nội bộ, không lưu BASE64 trong DB.
-- Nếu công cụ chỉ trả file/attachment và không cung cấp chuỗi BASE64, giữ file ẢNH thật để tiện ích thu và mã hoá; chờ tiện ích xác nhận và chỉ định handbook-image:N trước khi dùng các mã ảnh đó trong JSON. Đây không phải quyền thay câu trả lời bằng file JSON: JSON vẫn phải nằm đầy đủ trong một block code json ngay trong chat. Không giả vờ đã nhúng ảnh. Nếu không có công cụ tạo ảnh hoặc không lấy được bytes thật, báo rõ chưa hoàn tất, không xuất payload thành công giả có BASE64 hỏng. Tiện ích chỉ gửi API sau khi thay các mã được chỉ định bằng bytes ảnh thật.
+- Ảnh trong payload gửi API có hai dạng src hợp lệ, được trộn trong cùng bài: data URI BASE64 chuẩn (image/jpeg, image/png hoặc image/webp), hoặc URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP thật. Với BASE64, phải mã hoá từ bytes thật, không tưởng tượng/viết tay/rút gọn, không dấu ... hay xuống dòng trong chuỗi. Với URL, phải kiểm tra file ảnh thực tế truy cập công khai được; không URL trang HTML, sandbox/blob, cần đăng nhập hay chứa khóa/token riêng tư. Không SVG/GIF hoặc placeholder trong payload cuối.
+- Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.
+- Mỗi ảnh tối đa 5 MiB bytes đầu vào; tổng tối đa 12 MiB; tối đa 12 triệu pixels và 8192px mỗi cạnh. Nên xuất 1024–1280px, không cần ảnh 4K. Server giải mã/kiểm tra ảnh thật trước khi lưu: WebP hợp lệ nhỏ hơn 100 KiB (102400 bytes) giữ nguyên bytes và kích thước thành .webp; WebP từ 102400 bytes trở lên hoặc PNG/JPEG được nén thành JPEG dưới 100 KiB, cạnh dài tối đa 1280px. Không lưu BASE64 trong DB, không bỏ qua kiểm tra ảnh chỉ vì file nhỏ.
+- Nếu công cụ cung cấp URL HTTP(S) công khai trỏ trực tiếp tới file ảnh thật thì có thể dùng URL đó; nếu chỉ trả file/attachment, giữ file ẢNH thật để tiện ích thu và mã hoá, chờ tiện ích xác nhận và chỉ định handbook-image:N trước khi dùng các mã ảnh đó trong JSON. Đây không phải quyền thay câu trả lời bằng file JSON: JSON vẫn phải nằm đầy đủ trong một block code json ngay trong chat. Nếu không có file ảnh thật, URL ảnh công khai hợp lệ hoặc bytes ảnh thật, báo rõ chưa hoàn tất, không xuất payload thành công giả có BASE64 hỏng. Tiện ích phải thay các mã ảnh được chỉ định bằng bytes ảnh thật trước gửi API; không gửi placeholder cuối cùng.
 - Không đưa API key, claim_token, source_revision hay request_id vào bài/prompt trả ra. Tiện ích tự gắn thông tin vận chuyển khi gửi API; không yêu cầu người đọc cung cấp bí mật.
 - sources_json là danh sách object {"url":"https://...","title":"Tên nguồn thực sự đã đọc"}, 1–12 nguồn, URL thô không có Markdown. Có thể dẫn liên kết nguồn ngắn ở phần nội dung, không chép nguyên tài liệu. Trường không có dữ liệu dùng chuỗi rỗng, không thay bằng object/array.
 - Giữ nguyên id và language. title tối đa 160 ký tự, excerpt tối đa 1200 ký tự, seo_title tối đa 160, seo_description tối đa 300. Không gửi slug, category_id, status, verified hay trường đánh giá.
@@ -109,10 +114,24 @@ function handbook_ai_transport_rules(): string
 {
     return <<<'RULES'
 [MEDREVIEW_HANDBOOK_CONTRACT_V1]
-Các quy tắc bắt buộc sau ưu tiên hơn một mẫu cũ không tương thích: chỉ viết Cẩm nang theo chủ đề được giao, giữ nguyên id/language, xuất đầy đủ một object JSON có title/excerpt/content_html/seo_title/seo_description/sources_json trong một block code json ngay trong chat, không thay bằng link tải/file JSON/Canvas/artifact. content_html là HTML fragment an toàn có 1–4 ảnh minh hoạ AI thực sự tạo xong, nên 2 ảnh; src gửi API là data:image/jpeg|png|webp;base64,... từ bytes thật, không bịa/rút gọn BASE64, không SVG/GIF/logo/remote/blob. Mỗi ảnh <=5MiB, tổng <=12MiB, <=12MP/8192px; toàn bộ request <=24MiB. Alt ngắn đúng ảnh; figcaption ngắn ghi rõ minh hoạ AI theo ngôn ngữ bài. File ảnh thật vẫn được phép đính kèm; chỉ khi tiện ích xác nhận file ảnh thật và chỉ định handbook-image:N, mới dùng các mã đó trong JSON ở chat để tiện ích thay bằng bytes BASE64 thật trước gửi API. Không tự tạo placeholder; thiếu khả năng tạo/lấy ảnh thì chưa được báo hoàn tất. Không xuất token/API key/claim/revision/request_id. Không gửi status/slug/category_id; server lưu nháp, không tự xuất bản. sources_json cần 1–12 {url,title} nguồn y tế công khai thực sự đã kiểm tra; không bịa dữ liệu/nguồn, không dùng trang booking/review y tế bên thứ ba làm chứng cứ chuyên môn. Không chẩn đoán/kê đơn/liều thuốc/cam kết kết quả; nội dung chỉ tham khảo. title/seo_title<=160, excerpt<=1200, seo_description<=300 ký tự.
-Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.
+Các quy tắc bắt buộc sau ưu tiên hơn một mẫu cũ không tương thích: chỉ viết Cẩm nang theo chủ đề được giao, giữ nguyên id/language, xuất đầy đủ một object JSON có title/excerpt/content_html/seo_title/seo_description/sources_json trong một block code json ngay trong chat, không thay bằng link tải/file JSON/Canvas/artifact. content_html là HTML fragment an toàn có 1–4 ảnh minh hoạ AI thực sự tạo xong, nên 2 ảnh. Hai dạng src hợp lệ được trộn trong cùng bài: data URI BASE64 chuẩn từ bytes thật hoặc URL HTTP(S) công khai trỏ trực tiếp tới file PNG/JPEG/WebP thật. Không bịa/rút gọn BASE64; không SVG/GIF/logo, URL tạm sandbox/blob, link cần đăng nhập, trang HTML hay placeholder cuối cùng. Server kiểm tra, tải/giải mã và lưu mọi ảnh thành file nội bộ, không giữ src ngoài. Mỗi ảnh nguồn <=5MiB, tổng <=12MiB, <=12MP/8192px; toàn bộ request <=24MiB. Alt ngắn đúng ảnh; figcaption ngắn ghi rõ minh hoạ AI theo ngôn ngữ bài. File ảnh thật vẫn được phép đính kèm; chỉ khi tiện ích xác nhận file ảnh thật và chỉ định handbook-image:N, mới dùng các mã đó trong JSON ở chat để tiện ích thay bằng bytes BASE64 thật trước gửi API. Không tự tạo placeholder; thiếu khả năng tạo/lấy ảnh thật hoặc URL ảnh công khai thì chưa được báo hoàn tất. Không xuất token/API key/claim/revision/request_id. Không gửi status/slug/category_id; server lưu nháp, không tự xuất bản. sources_json cần 1–12 {url,title} nguồn y tế công khai thực sự đã kiểm tra; không bịa dữ liệu/nguồn, không dùng trang booking/review y tế bên thứ ba làm chứng cứ chuyên môn. Không chẩn đoán/kê đơn/liều thuốc/cam kết kết quả; nội dung chỉ tham khảo. title/seo_title<=160, excerpt<=1200, seo_description<=300 ký tự.
+WebP thật đã giải mã đầy đủ, có dung lượng nhỏ hơn 100 KiB (102400 bytes), được lưu nguyên bytes thành .webp, không nén lại hoặc resize; vẫn phải đạt giới hạn 12MP và 8192px mỗi cạnh. WebP từ 102400 bytes trở lên và các định dạng khác được nén thành JPEG dưới 100 KiB, cạnh dài tối đa 1280px. Không coi file nhỏ hoặc chỉ có header là ảnh hợp lệ.
+Yêu cầu đối với payload cuối gửi API: Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.
 [/MEDREVIEW_HANDBOOK_CONTRACT_V1]
 RULES;
+}
+
+/** Refresh only known shipped image transport prose; keep custom editorial text untouched. */
+function handbook_ai_refresh_legacy_image_rules(string $template): string
+{
+    $rules = 'Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.';
+    $template = str_replace('Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.', $rules, $template);
+    $template = (string) preg_replace('~^- Ảnh trong payload gửi API phải là data URI BASE64 chuẩn,[^\r\n]*\r?$~m',
+        '- '.$rules.' Không bịa/rút gọn BASE64; không SVG/GIF, URL tạm sandbox/blob, trang HTML, link cần đăng nhập hay placeholder cuối cùng.', $template);
+    $template = (string) preg_replace('~^- Mỗi ảnh tối đa 5 MiB bytes trước nén;[^\r\n]*\r?$~m',
+        '- Mỗi ảnh đầu vào tối đa 5 MiB, tổng tối đa 12 MiB, tối đa 12MP và 8192px mỗi cạnh. WebP thật được giải mã đầy đủ, nhỏ hơn 102400 bytes, giữ nguyên bytes/kích thước thành .webp; WebP từ 102400 bytes trở lên và các định dạng khác nén JPEG dưới 100 KiB, tối đa 1280px. Không lưu BASE64 trong DB.', $template);
+    return (string) preg_replace('~^- Nếu công cụ chỉ trả file/attachment và không cung cấp chuỗi BASE64,[^\r\n]*\r?$~m',
+        '- Nếu có URL HTTP(S) công khai trỏ trực tiếp tới file ảnh thật thì dùng URL đó; nếu chỉ có file ảnh thật thì chờ tiện ích xác nhận handbook-image:N để mã hoá thành BASE64 trước gửi API. JSON vẫn phải xuất đầy đủ trong một block code json, không dùng file JSON thay thế. Không bịa bytes hay tự tạo placeholder; thiếu ảnh thật thì báo chưa hoàn tất.', $template);
 }
 
 function handbook_ai_output_template(array $row): array
@@ -134,6 +153,7 @@ function handbook_ai_prompt(PDO $pdo, array $row): array
     $template = $custom !== '' ? $custom : handbook_ai_default_prompt();
     // Refresh only managed blocks before interpolating topic data; preserve custom editorial text.
     $template = trim((string) preg_replace('~\[MEDREVIEW_HANDBOOK_(CONTRACT|INLINE_JSON)_V1\].*?\[/MEDREVIEW_HANDBOOK_\1_V1\]~s', '', $template));
+    $template = handbook_ai_refresh_legacy_image_rules($template);
     $template .= "\n\n" . handbook_ai_transport_rules();
     $output = handbook_ai_output_template($row);
     $source = ['id' => $output['id'], 'topic' => $output['title'], 'language' => $output['language'],
@@ -167,7 +187,7 @@ function handbook_ai_text(mixed $value, string $field, int $max, bool $required 
     return $value;
 }
 
-/** URL validation only; the server does not fetch article or image URLs. */
+/** Source citation URL validation only; media URLs use the separate safe image downloader. */
 function handbook_ai_source_url(mixed $value): string
 {
     if (!is_string($value) || strlen($value) > 2048 || preg_match('/[\x00-\x20\x7f\\\\]/', $value)) {

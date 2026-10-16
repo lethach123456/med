@@ -2,9 +2,12 @@
 declare(strict_types=1);
 
 /**
- * In-request import of AI-generated handbook illustrations. No network I/O.
- * HTML and every image are validated and re-encoded before a file is created.
+ * In-request import of handbook illustrations from real data URIs or public HTTP(S) files.
+ * HTML and every image are validated before a file is created. Small valid WebP
+ * files are preserved; other inputs are re-encoded below the storage size cap.
+ * Remote downloads run only when this importer is called after API authentication/lease checks.
  */
+require_once __DIR__ . '/medical_handbook_remote_media.php';
 
 function handbook_ai_media_text(string $value, int $limit): string
 {
@@ -27,21 +30,13 @@ function handbook_ai_media_link(string $value): string
 }
 
 /** @return array{bytes:string,width:int,height:int,mime:string} */
-function handbook_ai_media_decode(string $source): array
+function handbook_ai_media_decode_bytes(string $bytes, string $mime): array
 {
-    // Canonical, unwrapped BASE64 only: no SVG, URL fetching, parameters or whitespace.
-    if (strlen($source) > (int) ceil(5 * 1024 * 1024 / 3) * 4 + 40
-        || !preg_match('~\Adata:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]*={0,2})\z~iD', $source, $matches)) {
-        throw new InvalidArgumentException('Ảnh phải là data URI JPEG, PNG hoặc WebP BASE64 hợp lệ, tối đa 5 MiB/ảnh.');
-    }
-    $bytes = base64_decode($matches[2], true);
-    if (!is_string($bytes) || $bytes === '' || strlen($bytes) > 5 * 1024 * 1024 || base64_encode($bytes) !== $matches[2]) {
-        throw new InvalidArgumentException('Dữ liệu BASE64 của ảnh không hợp lệ hoặc vượt quá 5 MiB.');
-    }
+    if ($bytes === '' || strlen($bytes) > 5 * 1024 * 1024) throw new InvalidArgumentException('Mỗi ảnh phải có dữ liệu thật, tối đa 5 MiB.');
     $info = @getimagesizefromstring($bytes);
-    $mime = strtolower($matches[1]);
+    $mime = strtolower($mime);
     $types = ['image/jpeg' => IMAGETYPE_JPEG, 'image/png' => IMAGETYPE_PNG, 'image/webp' => IMAGETYPE_WEBP];
-    if (!is_array($info) || (int) ($info[2] ?? 0) !== $types[$mime] || ($info['mime'] ?? '') !== $mime) {
+    if (!isset($types[$mime]) || !is_array($info) || (int) ($info[2] ?? 0) !== $types[$mime] || ($info['mime'] ?? '') !== $mime) {
         throw new InvalidArgumentException('Loại MIME khai báo không khớp với dữ liệu ảnh raster.');
     }
     $width = (int) $info[0]; $height = (int) $info[1];
@@ -51,9 +46,34 @@ function handbook_ai_media_decode(string $source): array
     return ['bytes' => $bytes, 'width' => $width, 'height' => $height, 'mime' => $mime];
 }
 
-/** @return array{bytes:string,width:int,height:int,size:int} */
+/** @return array{bytes:string,width:int,height:int,mime:string} */
+function handbook_ai_media_decode(string $source): array
+{
+    // Canonical, unwrapped BASE64 only. HTTP(S) uses the separate pinned downloader.
+    if (strlen($source) > (int) ceil(5 * 1024 * 1024 / 3) * 4 + 40
+        || !preg_match('~\Adata:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]*={0,2})\z~iD', $source, $matches)) {
+        throw new InvalidArgumentException('Ảnh phải là JPEG/PNG/WebP BASE64 đầy đủ hoặc link HTTP(S) công khai trực tiếp, tối đa 5 MiB/ảnh.');
+    }
+    $bytes = base64_decode($matches[2], true);
+    if (!is_string($bytes) || $bytes === '' || strlen($bytes) > 5 * 1024 * 1024 || base64_encode($bytes) !== $matches[2]) {
+        throw new InvalidArgumentException('Dữ liệu BASE64 của ảnh không hợp lệ hoặc vượt quá 5 MiB.');
+    }
+    return handbook_ai_media_decode_bytes($bytes, $matches[1]);
+}
+
+/** @return array{bytes:string,width:int,height:int,size:int,mime:string,extension:string} */
 function handbook_ai_media_compress(array $image): array
 {
+    if (($image['mime'] ?? '') === 'image/webp' && strlen($image['bytes']) < 100 * 1024) {
+        // Size and header checks alone are not enough. Verify the complete RIFF
+        // and raster before bypassing the encoder, including BASE64-supplied WebP.
+        if (!function_exists('imagecreatefromstring')) throw new RuntimeException('Máy chủ chưa bật GD để kiểm tra ảnh WebP.');
+        if (handbook_ai_remote_image_mime($image['bytes']) !== 'image/webp') {
+            throw new InvalidArgumentException('File WebP không khớp dữ liệu ảnh thực tế.');
+        }
+        return ['bytes' => $image['bytes'], 'width' => $image['width'], 'height' => $image['height'],
+            'size' => strlen($image['bytes']), 'mime' => 'image/webp', 'extension' => 'webp'];
+    }
     if (!function_exists('imagecreatefromstring') || !function_exists('imagejpeg')) {
         throw new RuntimeException('Máy chủ chưa bật GD để nén ảnh minh họa.');
     }
@@ -87,7 +107,8 @@ function handbook_ai_media_compress(array $image): array
                     try { $ok = @imagejpeg($canvas, null, $quality); $bytes = (string) ob_get_contents(); }
                     finally { ob_end_clean(); }
                     if ($ok && $bytes !== '' && strlen($bytes) < 100 * 1024) {
-                        return ['bytes' => $bytes, 'width' => $width, 'height' => $height, 'size' => strlen($bytes)];
+                        return ['bytes' => $bytes, 'width' => $width, 'height' => $height, 'size' => strlen($bytes),
+                            'mime' => 'image/jpeg', 'extension' => 'jpg'];
                     }
                 }
             } finally { imagedestroy($canvas); }
@@ -101,7 +122,7 @@ function handbook_ai_media_compress(array $image): array
 }
 
 /** Copy only semantic, inert markup into a fresh DOM. */
-function handbook_ai_media_copy_node(DOMNode $node, DOMNode $parent, DOMDocument $output, array &$images, array &$imageNodes, int &$totalBytes, int $depth = 0): void
+function handbook_ai_media_copy_node(DOMNode $node, DOMNode $parent, DOMDocument $output, array &$images, array &$imageNodes, int &$totalBytes, int $depth = 0, ?array &$remote = null): void
 {
     if ($depth > 80) throw new InvalidArgumentException('HTML lồng quá nhiều cấp.');
     if ($node instanceof DOMText) { $parent->appendChild($output->createTextNode($node->nodeValue ?? '')); return; }
@@ -111,23 +132,42 @@ function handbook_ai_media_copy_node(DOMNode $node, DOMNode $parent, DOMDocument
     if (in_array($tag, $drop, true) || str_contains($tag, ':')) return;
     $allowed = ['p','h2','h3','h4','ul','ol','li','strong','em','b','i','a','blockquote','figure','figcaption','img','table','thead','tbody','tfoot','tr','th','td','caption','colgroup','col','br','hr'];
     if (!in_array($tag, $allowed, true)) {
-        foreach ($node->childNodes as $child) handbook_ai_media_copy_node($child, $parent, $output, $images, $imageNodes, $totalBytes, $depth + 1);
+        foreach ($node->childNodes as $child) handbook_ai_media_copy_node($child, $parent, $output, $images, $imageNodes, $totalBytes, $depth + 1, $remote);
         return;
     }
     $element = $output->createElement($tag);
     if ($tag === 'img') {
         if (count($imageNodes) >= 4) throw new InvalidArgumentException('HTML chỉ nhận tối đa 4 thẻ ảnh minh họa.');
-        $image = handbook_ai_media_decode($node->getAttribute('src'));
+        $source = $node->getAttribute('src');
         $node->removeAttribute('src'); // Do not retain another BASE64 copy in the parsed DOM.
-        $hash = hash('sha256', $image['bytes']);
+        $isRemote = preg_match('~\Ahttps?://~i', $source) === 1;
+        $hash = $isRemote ? ($remote['cache'][$source] ?? null) : null;
+        if (!is_string($hash) || !isset($images[$hash])) {
+            if ($isRemote) {
+                $remote ??= ['download' => static fn(string $url, float $deadline): array => handbook_ai_remote_image_download($url, null, null, $deadline),
+                    'deadline' => microtime(true) + 30.0, 'cache' => []];
+                if (microtime(true) >= $remote['deadline']) throw new InvalidArgumentException('Tải các ảnh Cẩm nang quá thời gian cho phép.');
+                $download = ($remote['download'])($source, $remote['deadline']);
+                if (!is_string($download['bytes'] ?? null) || !is_string($download['mime'] ?? null)) {
+                    throw new InvalidArgumentException('Link ảnh không trả về file JPEG/PNG/WebP hợp lệ.');
+                }
+                $image = handbook_ai_media_decode_bytes($download['bytes'], $download['mime']);
+                unset($download);
+            } else {
+                $image = handbook_ai_media_decode($source);
+            }
+            $hash = hash('sha256', $image['bytes']);
+            if ($isRemote) $remote['cache'][$source] = $hash;
+        }
         if (!isset($images[$hash])) {
             if (count($images) >= 4) throw new InvalidArgumentException('Bài cẩm nang chỉ nhận từ 1 đến 4 ảnh raster duy nhất.');
             $totalBytes += strlen($image['bytes']);
             if ($totalBytes > 12 * 1024 * 1024) throw new InvalidArgumentException('Tổng dữ liệu ảnh vượt quá 12 MiB.');
-            // Keep only the small re-encoded result. Retaining four decoded
+            // Keep only the bounded stored result. Retaining four decoded
             // originals alongside the DOM would be unsafe on 128 MiB PHP.
             $images[$hash] = handbook_ai_media_compress($image);
         }
+        unset($image, $source);
         $element->setAttribute('alt', handbook_ai_media_text($node->getAttribute('alt'), 240));
         $imageNodes[] = ['node' => $element, 'hash' => $hash];
     } elseif ($tag === 'a') {
@@ -150,7 +190,7 @@ function handbook_ai_media_copy_node(DOMNode $node, DOMNode $parent, DOMDocument
         if (ctype_digit($start) && (int) $start >= 1 && (int) $start <= 1000) $element->setAttribute('start', (string) (int) $start);
     }
     $parent->appendChild($element);
-    foreach ($node->childNodes as $child) handbook_ai_media_copy_node($child, $element, $output, $images, $imageNodes, $totalBytes, $depth + 1);
+    foreach ($node->childNodes as $child) handbook_ai_media_copy_node($child, $element, $output, $images, $imageNodes, $totalBytes, $depth + 1, $remote);
 }
 
 function handbook_ai_media_storage_root(?string $storageRoot): string
@@ -192,7 +232,7 @@ function &handbook_ai_media_created_registry(): array
  * @throws InvalidArgumentException for invalid article/image data.
  * @throws RuntimeException for missing server capabilities/storage failures.
  */
-function handbook_ai_prepare_article_html(string $html, int $postId, ?string $storageRoot = null): array
+function handbook_ai_prepare_article_html(string $html, int $postId, ?string $storageRoot = null, ?callable $downloadImage = null): array
 {
     if ($postId < 1) throw new InvalidArgumentException('ID bài cẩm nang không hợp lệ.');
     if ($html === '' || strlen($html) > 24 * 1024 * 1024 || !preg_match('//u', $html)) {
@@ -222,13 +262,16 @@ function handbook_ai_prepare_article_html(string $html, int $postId, ?string $st
     $output = new DOMDocument('1.0', 'UTF-8');
     $container = $output->createElement('div'); $output->appendChild($container);
     $images = []; $imageNodes = []; $totalBytes = 0;
+    // One bounded network budget for the whole article; cache only source-to-hash mappings.
+    $remote = ['download' => $downloadImage ?? static fn(string $url, float $deadline): array => handbook_ai_remote_image_download($url, null, null, $deadline),
+        'deadline' => microtime(true) + 30.0, 'cache' => []];
     // Snapshot because sanitization releases each processed src attribute.
-    foreach (iterator_to_array($body->childNodes) as $node) handbook_ai_media_copy_node($node, $container, $output, $images, $imageNodes, $totalBytes);
+    foreach (iterator_to_array($body->childNodes) as $node) handbook_ai_media_copy_node($node, $container, $output, $images, $imageNodes, $totalBytes, 0, $remote);
     unset($source, $body);
-    if ($images === []) throw new InvalidArgumentException('Bài cẩm nang cần từ 1 đến 4 ảnh minh họa BASE64.');
+    if ($images === []) throw new InvalidArgumentException('Bài cẩm nang cần từ 1 đến 4 ảnh JPEG/PNG/WebP thật, bằng BASE64 hoặc link HTTP(S) công khai.');
     if (trim((string) preg_replace('/\s+/u', ' ', $container->textContent)) === '') throw new InvalidArgumentException('Bài cẩm nang cần có nội dung văn bản.');
     foreach ($images as $hash => $image) {
-        $filename = 'ai-' . bin2hex(random_bytes(16)) . '.jpg';
+        $filename = 'ai-' . bin2hex(random_bytes(16)) . '.' . $image['extension'];
         $images[$hash] = $image + ['filename' => $filename, 'url' => '/uploads/handbook/' . $postId . '/' . $filename, 'alt' => '', 'caption' => '', 'ai_generated' => true];
     }
     unset($image);
@@ -276,7 +319,7 @@ function handbook_ai_prepare_article_html(string $html, int $postId, ?string $st
                 if (!fflush($handle)) throw new RuntimeException('Không hoàn tất được tệp ảnh cẩm nang.');
                 @chmod($target, 0644);
             } finally { fclose($handle); }
-            $metadata[] = array_intersect_key($image, array_flip(['url','width','height','size','alt','caption','ai_generated']));
+            $metadata[] = array_intersect_key($image, array_flip(['url','width','height','size','mime','alt','caption','ai_generated']));
         }
     } catch (Throwable $error) {
         handbook_ai_cleanup_created_files($created, $root);
@@ -290,7 +333,7 @@ function handbook_ai_cleanup_created_files(array $files, ?string $storageRoot = 
 {
     try { $root = handbook_ai_media_storage_root($storageRoot); } catch (Throwable) { return; }
     $registry = &handbook_ai_media_created_registry();
-    $pattern = '~\A' . preg_quote($root, '~') . '/uploads/handbook/([1-9][0-9]*)/ai-[a-f0-9]{32}\.jpg\z~D';
+    $pattern = '~\A' . preg_quote($root, '~') . '/uploads/handbook/([1-9][0-9]*)/ai-[a-f0-9]{32}\.(?:jpg|webp)\z~D';
     foreach ($files as $file) {
         if (!is_string($file) || !isset($registry[$file]) || !preg_match($pattern, $file, $matches)) continue;
         $directory = handbook_ai_media_directory($root, (int) $matches[1], false);

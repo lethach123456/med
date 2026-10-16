@@ -189,6 +189,81 @@ try{
     catch(PDOException){$assert(count($createdReal)===3&&is_file($createdReal[2])&&handbook_api_row($ambiguous,20)['content']!=='','Uncertain COMMIT never deletes an image referenced by a saved article');}
     $reconciled=handbook_api_save($ambiguous,$ambiguityBody,$trackingPrepare,$realCleanup,$now+2);
     $assert($reconciled['idempotent']&&count($createdReal)===3,'Retry reconciles a lost COMMIT acknowledgement without duplicate images');
+
+    // Mixed input formats use the same authenticated lease, atomic DB save and real encoder.
+    $fixture=handbook_api_row($pdo,1);unset($fixture['category_slug']);
+    foreach([30,31,32,33,40,41]as$id){
+        $testRow=array_replace($fixture,['id'=>$id,'slug'=>'mixed-image-'.$id,'content'=>'','ai_writer_claim_json'=>null,'ai_content_json'=>null]);
+        $pdo->prepare('INSERT INTO posts('.implode(',',array_keys($testRow)).') VALUES('.implode(',',array_fill(0,count($testRow),'?')).')')->execute(array_values($testRow));
+    }
+    $remoteImage=imagecreatetruecolor(800,600);imagefill($remoteImage,0,0,0x22aa77);ob_start();imagepng($remoteImage);$remotePng=(string)ob_get_clean();imagedestroy($remoteImage);
+    $downloadCalls=0;
+    $download=static function(string $url,float $deadline)use(&$downloadCalls,$remotePng):array{
+        $downloadCalls++;
+        if(str_ends_with($url,'missing'))throw new InvalidArgumentException('Ảnh từ link trả HTTP 404.');
+        return['bytes'=>$remotePng,'mime'=>'image/png'];
+    };
+    $mixedPrepare=static function(string $html,int $id)use($mediaRoot,$download,&$createdReal):array{
+        $result=handbook_ai_prepare_article_html($html,$id,$mediaRoot,$download);
+        $createdReal=array_merge($createdReal,$result['created_files']);return$result;
+    };
+    $mixedClaim=handbook_api_lease($pdo,$claimFor(30,'mixed-image-job'),$now);
+    $mixedBody=$payload(30,$mixedClaim,'mixed-image-job');
+    $mixedBody['content_html']=$realBody['content_html'].'<figure><img src="https://images.example.org/illustration" alt="File công khai"><figcaption>Ảnh minh hoạ AI.</figcaption></figure>';
+    $beforeCount=count($createdReal);
+    $mixedSaved=handbook_api_save($pdo,$mixedBody,$mixedPrepare,$realCleanup,$now+1);
+    $mixedRow=handbook_api_row($pdo,30);
+    $assert($mixedSaved['ok']&&$mixedSaved['images_count']===2&&count($createdReal)===$beforeCount+2,'Mixed BASE64 + URL payload commits two real compressed images');
+    $assert($mixedRow['status']==='draft'&&$mixedRow['ai_writer_claim_json']===null,'Mixed image receipt remains draft and clears only the successful lease');
+    $assert(!str_contains($mixedRow['content'],'https://images.example.org')&&!str_contains($mixedRow['content'],'data:image'),'Saved HTML contains neither original remote URL nor BASE64');
+    $assert($mixedRow['featured_image_url']===$mixedSaved['images'][0]['url']&&str_contains($mixedRow['content'],$mixedSaved['images'][1]['url']),'Featured and inline images reference hosting files');
+    $assert(!str_contains($mixedRow['ai_content_json'],'https://images.example.org')&&!str_contains($mixedRow['ai_content_json'],'data:image'),'Result metadata retains only stored image URLs');
+    $repeatMixed=handbook_api_save($pdo,$mixedBody,$mixedPrepare,$realCleanup,$now+1000);
+    $assert($repeatMixed['idempotent']&&$downloadCalls===1&&count($createdReal)===$beforeCount+2,'Idempotent retry does not fetch remote images or create new files');
+
+    $badClaim=handbook_api_lease($pdo,$claimFor(31,'missing-remote-job'),$now);
+    $badMixed=$payload(31,$badClaim,'missing-remote-job');
+    $badMixed['content_html']=$realBody['content_html'].'<img src="https://images.example.org/missing">';
+    try{handbook_api_save($pdo,$badMixed,$mixedPrepare,$realCleanup,$now+1);$assert(false,'Unavailable remote image accepted');}
+    catch(InvalidArgumentException){$assert(true,'Unavailable remote image rejected as invalid user input');}
+    $badRow=handbook_api_row($pdo,31);
+    $assert($badRow['content']===''&&$badRow['ai_content_json']===null&&$badRow['ai_writer_claim_json']!==null&&!$pdo->inTransaction(),'Remote image failure rolls back the article and preserves its lease');
+    $assert(!is_dir($mediaRoot.'/uploads/handbook/31'),'Remote image failure writes no partial BASE64 image');
+
+    $dbFailClaim=handbook_api_lease($pdo,$claimFor(32,'mixed-db-fail'),$now);
+    $dbFailBody=$payload(32,$dbFailClaim,'mixed-db-fail');$dbFailBody['content_html']=$mixedBody['content_html'];
+    $pdo->exec("CREATE TRIGGER fail_mixed_save BEFORE UPDATE OF content ON posts WHEN NEW.id=32 BEGIN SELECT RAISE(FAIL,'mixed fixture failure'); END");
+    $beforeFailed=count($createdReal);
+    try{handbook_api_save($pdo,$dbFailBody,$mixedPrepare,$realCleanup,$now+1);$assert(false,'DB write expected to fail');}
+    catch(PDOException){$assert(count($createdReal)===$beforeFailed+2&&!is_file($createdReal[$beforeFailed])&&!is_file($createdReal[$beforeFailed+1]),'DB rollback deletes both mixed-input files created in this operation');}
+    $assert(is_file($createdReal[$beforeCount])&&is_file($createdReal[$beforeCount+1]),'Mixed rollback never removes earlier successful article media');
+    $noLease=handbook_api_lease($pdo,$claimFor(33,'denied-download'),$now);
+    $unauthorized=$payload(33,$noLease,'denied-download');$unauthorized['content_html']=$mixedBody['content_html'];$unauthorized['claim_token']=str_repeat('f',64);
+    $beforeDenied=$downloadCalls;
+    $fails(static fn()=>handbook_api_save($pdo,$unauthorized,$mixedPrepare,$realCleanup,$now+1),409,'lease_lost');
+    $assert($downloadCalls===$beforeDenied&&!is_dir($mediaRoot.'/uploads/handbook/33'),'Rejected lease cannot trigger any remote download or file creation');
+
+    $webpSource=imagecreatefromstring($png);ob_start();imagewebp($webpSource,null,80);$webpBytes=(string)ob_get_clean();imagedestroy($webpSource);
+    $webpClaim=handbook_api_lease($pdo,$claimFor(40,'preserve-webp-job'),$now);
+    $webpBody=$payload(40,$webpClaim,'preserve-webp-job');
+    $webpBody['content_html']=str_replace('data:image/png;base64,fixture','data:image/webp;base64,'.base64_encode($webpBytes),$webpBody['content_html'])
+        .'<figure><img src="https://images.example.org/companion.png" alt="Companion PNG"></figure>';
+    $beforeWebp=count($createdReal);$beforeWebpDownloads=$downloadCalls;
+    $webpSaved=handbook_api_save($pdo,$webpBody,$mixedPrepare,$realCleanup,$now+1);
+    $webpRow=handbook_api_row($pdo,40);$webpMetadata=json_decode($webpRow['ai_content_json'],true);
+    $assert($webpSaved['ok']&&$webpSaved['images_count']===2&&count($createdReal)===$beforeWebp+2,'API commits unchanged WebP alongside re-encoded PNG');
+    $assert(str_ends_with($createdReal[$beforeWebp],'.webp')&&hash_file('sha256',$createdReal[$beforeWebp])===hash('sha256',$webpBytes),'API preserves exact original WebP bytes below100KiB');
+    $assert($webpRow['featured_image_url']===$webpSaved['images'][0]['url']&&str_ends_with($webpRow['featured_image_url'],'.webp'),'Featured image links directly to preserved WebP');
+    $assert($webpMetadata['images'][0]['mime']==='image/webp'&&$webpMetadata['images'][1]['mime']==='image/jpeg','Result metadata records the actual stored formats');
+    $webpRetry=handbook_api_save($pdo,$webpBody,$mixedPrepare,$realCleanup,$now+1000);
+    $assert($webpRetry['idempotent']&&count($createdReal)===$beforeWebp+2&&$downloadCalls===$beforeWebpDownloads+1,'Retry preserves original WebP result without duplicate files or downloads');
+    $webpFailClaim=handbook_api_lease($pdo,$claimFor(41,'preserve-webp-rollback'),$now);
+    $webpFail=$payload(41,$webpFailClaim,'preserve-webp-rollback');$webpFail['content_html']=$webpBody['content_html'];
+    $pdo->exec("CREATE TRIGGER fail_webp_save BEFORE UPDATE OF content ON posts WHEN NEW.id=41 BEGIN SELECT RAISE(FAIL,'webp fixture failure'); END");
+    $beforeWebpFail=count($createdReal);
+    try{handbook_api_save($pdo,$webpFail,$mixedPrepare,$realCleanup,$now+1);$assert(false,'WebP DB write expected to fail');}
+    catch(PDOException){$assert(count($createdReal)===$beforeWebpFail+2&&!is_file($createdReal[$beforeWebpFail])&&!is_file($createdReal[$beforeWebpFail+1]),'DB rollback cleans both preserved WebP and compressed JPEG files');}
+    $assert(is_file($createdReal[$beforeWebp])&&hash_file('sha256',$createdReal[$beforeWebp])===hash('sha256',$webpBytes),'WebP rollback leaves earlier successful media unchanged');
 }finally{
     $realCleanup($createdReal);
     // Only empty test-owned directories remain after exact-file cleanup.
@@ -204,5 +279,5 @@ $assert(str_contains($helperSource, "require_once __DIR__ . '/_auth.php'") && st
 $assert(str_contains($helperSource, "stream_get_contents($" . 'stream, $maxBytes + 1)'), 'Request JSON is read with a real stream byte limit.');
 $assert(str_contains($helperSource, "chrome-extension:") && str_contains($helperSource, 'Access-Control-Allow-Headers: X-Medical-Api-Key, Content-Type'), 'CORS supports authenticated extension requests.');
 $assert(!preg_match('/\b(?:CREATE|ALTER)\s+TABLE\b/i', $helperSource), 'API helper never runs migrations.');
-$assert(!str_contains($helperSource, 'file_get_contents($') && !str_contains($helperSource, 'curl_exec'), 'Endpoints do not fetch untrusted remote image URLs.');
+$assert(!str_contains($helperSource, 'file_get_contents($') && !str_contains($helperSource, 'curl_exec'), 'Endpoints delegate image fetching to the secure media importer rather than fetching URLs directly.');
 echo "handbook_api_test: {$checks} checks passed\n";

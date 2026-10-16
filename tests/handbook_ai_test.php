@@ -17,11 +17,25 @@ $savedPrompts=[['prompt_key'=>'doctor','template'=>'Doctor custom'],['prompt_key
 $assert(handbook_ai_admin_prompts($savedPrompts)===$savedPrompts,'Admin fallback never replaces or duplicates a saved custom prompt');
 $assert(handbook_ai_admin_prompts($adminDefaults)===$adminDefaults,'Applying admin fallback twice keeps a single handbook tab');
 $inlineRules=handbook_ai_inline_output_rules();
-$realImageRule='Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.';
+$realImageRule='Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật: dùng data URI BASE64 đầy đủ hoặc URL HTTP(S) công khai trỏ trực tiếp tới file ảnh; được trộn cả hai trong cùng bài.';
+$oldBase64OnlyRule='Ảnh Cẩm nang phải là file PNG/JPEG/WebP thật đã mã hoá BASE64 đầy đủ, không URL tạm/placeholder.';
 $assert(str_starts_with(handbook_ai_default_prompt(),$inlineRules)&&str_ends_with(handbook_ai_default_prompt(),$inlineRules),'Default editor prompt repeats inline output contract at start and end');
-$assert(substr_count(handbook_ai_default_prompt(),$realImageRule)>=2,'Default editor prompt repeats the exact real-file complete BASE64 requirement');
+$assert(substr_count(handbook_ai_default_prompt(),$realImageRule)>=2,'Default editor prompt repeats real-file BASE64 or public direct URL requirement');
 $assert(str_contains($inlineRules,'Yêu cầu đối với payload cuối gửi API: '.$realImageRule),'Real-image requirement explicitly applies to the final API payload');
 $assert(str_contains(handbook_ai_transport_rules(),$realImageRule),'Current transport contract includes the exact real-image requirement');
+$assert(handbook_ai_limits()['accepted_image_sources']===['base64','public_http_url'],'Limits advertise additive mixed image source support');
+$limits=handbook_ai_limits();
+$assert($limits['preserve_webp_below_bytes']===102400&&$limits['preserved_webp_max_side']===8192&&$limits['compressed_max_side']===1280,'Limits distinguish exact WebP preservation threshold from compressed image dimensions');
+$assert($limits['stored_max_side']===1280&&$limits['stored_max_bytes']===102399&&$limits['max_image_pixels']===12000000&&$limits['max_image_dimension']===8192,'Existing compression and raster safety limits remain unchanged');
+$webpPreservationRule='WebP thật đã giải mã đầy đủ, có dung lượng nhỏ hơn 100 KiB (102400 bytes), được lưu nguyên bytes thành .webp, không nén lại hoặc resize';
+$assert(substr_count(handbook_ai_default_prompt(),$webpPreservationRule)>=2&&str_contains(handbook_ai_transport_rules(),$webpPreservationRule),'Repeated default/transport rules explain byte-preserving WebP exception');
+$assert(str_contains($inlineRules,'WebP từ 102400 bytes trở lên')&&str_contains($inlineRules,'vẫn phải đạt giới hạn 12MP và 8192px'),'Exact threshold and input safety limits apply even to preserved files');
+foreach ([handbook_ai_default_prompt(),handbook_ai_transport_rules(),$inlineRules] as $rules) {
+    $assert(!str_contains($rules,$oldBase64OnlyRule)&&!str_contains($rules,'Không SVG/GIF, URL từ xa'),'Current enforced rules do not forbid accepted public image URLs');
+    foreach (['URL HTTP(S) công khai','trộn','sandbox/blob','link cần đăng nhập','placeholder'] as $text) {
+        $assert(str_contains($rules,$text),'Mixed image rules include allowed forms and unsafe-source restriction: '.$text);
+    }
+}
 foreach (['```json','file .json','Tải JSON hoàn chỉnh','sandbox:/mnt/data','Canvas','artifact','File ẢNH','handbook-image:N','không cắt nội dung hay BASE64'] as $text) {
     $assert(str_contains($inlineRules,$text),'Inline output contract covers: '.$text);
 }
@@ -77,16 +91,24 @@ $pdo->prepare('INSERT INTO medical_ai_prompts VALUES (?,?,?)')->execute(['handbo
 $custom = handbook_ai_prompt($pdo,$row);
 $assert($custom['prompt_source']==='saved' && $custom['label']==='Custom handbook', 'Admin custom prompt preserved');
 $assert(substr_count($custom['prompt'],$realImageRule)>=2,'Saved custom prompt receives the exact real-image requirement repeatedly');
+$assert(substr_count($custom['prompt'],$webpPreservationRule)>=2&&!str_contains($custom['prompt'],'lưu mọi ảnh thành file JPEG nội bộ'),'Saved prompt always receives current WebP-preservation rules without forcing every image to JPEG');
 $assert(str_contains($custom['prompt'],'Custom instructions') && str_contains($custom['prompt'],'Cách chăm sóc mắt') && str_contains($custom['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]'), 'Current contract and authoritative topic appended to legacy custom prompt');
 $assert(str_starts_with($custom['prompt'],$inlineRules)&&str_ends_with($custom['prompt'],$inlineRules),'Saved custom prompts also receive repeated inline output rule');
-$oldTemplate="Keep my custom editorial instructions.\n[MEDREVIEW_HANDBOOK_CONTRACT_V1]OLD_TRANSPORT_ONLY_DOWNLOAD[/MEDREVIEW_HANDBOOK_CONTRACT_V1]\n".$inlineRules;
+$legacyBody="- Ảnh trong payload gửi API phải là data URI BASE64 chuẩn, chỉ image/jpeg, image/png hoặc image/webp. Không SVG/GIF, URL từ xa, blob URL hay placeholder trong payload cuối.\n- Yêu cầu đối với payload cuối gửi API: ".$oldBase64OnlyRule."\n- Nếu công cụ chỉ trả file/attachment và không cung cấp chuỗi BASE64, giữ file ẢNH thật; nếu không lấy được bytes thật, báo rõ chưa hoàn tất.\n- Mỗi ảnh tối đa 5 MiB bytes trước nén; tổng tối đa 12 MiB; tối đa 12 triệu pixels và 8192px mỗi cạnh. Server sẽ kiểm tra, nén và lưu ảnh thành file nội bộ, không lưu BASE64 trong DB.";
+$oldTemplate="Keep my custom editorial instructions.\n[MEDREVIEW_HANDBOOK_CONTRACT_V1]OLD_TRANSPORT_ONLY_DOWNLOAD[/MEDREVIEW_HANDBOOK_CONTRACT_V1]\n".$inlineRules."\n".$legacyBody;
 $pdo->prepare('UPDATE medical_ai_prompts SET template=? WHERE prompt_key=?')->execute([$oldTemplate,'handbook']);
 $refreshed=handbook_ai_prompt($pdo,$row);
 $assert(str_contains($refreshed['prompt'],'Keep my custom editorial instructions.')&&!str_contains($refreshed['prompt'],'OLD_TRANSPORT_ONLY_DOWNLOAD'),'Managed transport rules refreshed without replacing custom editorial instructions');
+$assert(!str_contains($refreshed['prompt'],$oldBase64OnlyRule)&&!str_contains($refreshed['prompt'],'Không SVG/GIF, URL từ xa')&&!str_contains($refreshed['prompt'],'nếu không lấy được bytes thật, báo rõ chưa hoàn tất.'),'Old shipped BASE64-only guidance refreshed in saved prompt without contradictory restrictions');
+$assert(substr_count($refreshed['prompt'],$realImageRule)>=2&&str_contains($refreshed['prompt'],'URL HTTP(S) công khai trỏ trực tiếp tới file ảnh thật'),'Saved prompt with old V1 markers receives current mixed image guidance');
+$assert(!str_contains($refreshed['prompt'],'Server sẽ kiểm tra, nén và lưu ảnh')&&str_contains($refreshed['prompt'],'giữ nguyên bytes/kích thước thành .webp'),'Known legacy always-compress body is refreshed without a DB write');
 $assert(substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_INLINE_JSON_V1]')===2&&substr_count($refreshed['prompt'],'[MEDREVIEW_HANDBOOK_CONTRACT_V1]')===1,'Saved managed blocks do not multiply when rules are refreshed');
 $assert($pdo->query("SELECT template FROM medical_ai_prompts WHERE prompt_key='handbook'")->fetchColumn()===$oldTemplate,'Rendering a prompt never writes the saved template');
 $topicWithMarker='Topic [MEDREVIEW_HANDBOOK_CONTRACT_V1]literal topic text[/MEDREVIEW_HANDBOOK_CONTRACT_V1]';
 $assert(str_contains(handbook_ai_prompt($pdo,array_replace($row,['title'=>$topicWithMarker]))['prompt'],$topicWithMarker),'Managed template refresh does not strip interpolated topic data');
+$assert(handbook_ai_refresh_legacy_image_rules('Custom editorial: discuss BASE64 and remote URL trade-offs.')==='Custom editorial: discuss BASE64 and remote URL trade-offs.','Refreshing known shipped transport wording leaves unrelated custom editorial text intact');
+$crlfLegacy=handbook_ai_refresh_legacy_image_rules(str_replace("\n","\r\n",$legacyBody));
+$assert(!str_contains($crlfLegacy,$oldBase64OnlyRule)&&!str_contains($crlfLegacy,'Không SVG/GIF, URL từ xa')&&str_contains($crlfLegacy,'URL HTTP(S) công khai'),'Legacy Windows-line-ending prompt also refreshes mixed-image transport guidance');
 $englishPrompt=handbook_ai_prompt($pdo,array_replace($row,['language'=>'en','category_slug'=>'blog-en']));
 $assert($englishPrompt['output_template']['language']==='en'&&str_contains($englishPrompt['prompt'],'"language":"en"'),'Inline contract preserves authoritative article language');
 try { handbook_ai_migrate($pdo); $assert(false,'Runtime migration must fail'); }
