@@ -49,7 +49,7 @@ try {
     medical_image_brand_store(static function (array &$state) use ($identity): void {
         medical_image_brand_add_source($state, $identity('one'), null, true, 'facility');
     }, true, $stateDir);
-    $assert(medical_image_brand_status('facility', 'all', 1, $stateDir)['summary']['done'] === 1, 'Rescanning a library original does not rebrand it');
+    $assert(medical_image_brand_status('facility', 'all', 1, $stateDir)['summary']['pending'] === 1, 'Legacy copied jobs requeue to adopt in-place mode');
     medical_image_brand_store(static function (array &$state) use ($identity, $ref): void {
         medical_image_brand_add_source($state, $identity('one'), $ref);
     }, true, $stateDir);
@@ -101,14 +101,10 @@ try {
     $assert(medical_image_brand_status('all', 'all', 1, $stateDir)['summary']['total'] === 3, 'New source joins existing inventory');
     $keys = array_keys(medical_image_brand_status('all', 'all', 1, $stateDir)['items'][0]);
     $assert(!in_array('output_hash', $keys, true) && !in_array('source_hash', $keys, true), 'Public status excludes internal render metadata');
-    $backup = medical_image_brand_preserve_original(str_repeat('a', 64), 'original-fixture-bytes', $stateDir);
-    $assert(file_get_contents($backup) === 'original-fixture-bytes', 'Remote original bytes preserved exactly');
-    $assert(medical_image_brand_preserve_original(str_repeat('a', 64), 'original-fixture-bytes', $stateDir) === $backup,
-        'An identical original reuses its content-addressed backup');
-    $assert(count(glob($stateDir . '/originals/.*') ?: []) === 2, 'No temporary partial backup files remain');
-    try { medical_image_brand_preserve_original('../bad', 'bytes', $stateDir); $assert(false, 'Invalid backup key accepted'); }
-    catch (InvalidArgumentException) { $assert(true, 'Backup filenames cannot escape storage'); }
-    unlink($backup); rmdir($stateDir . '/originals');
+    $remote = medical_image_brand_source_identity('https://example.com/photo.jpg');
+    try { medical_image_brand_prepare($remote); $assert(false, 'External origin unexpectedly accepted for overwrite'); }
+    catch (InvalidArgumentException $error) { $assert(str_contains($error->getMessage(), 'website bên ngoài'), 'Remote files report that hosting cannot overwrite their origin'); }
+    $assert(!is_dir($stateDir . '/originals') && !function_exists('medical_image_brand_preserve_original'), 'In-place implementation no longer creates original backups');
     file_put_contents($stateDir . '/state.json', '{invalid');
     try { medical_image_brand_status('all', 'all', 1, $stateDir); $assert(false, 'Corrupt ledger silently accepted'); }
     catch (JsonException) { $assert(true, 'Corrupt ledger cannot silently reset completed status'); }

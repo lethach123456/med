@@ -88,17 +88,16 @@ function medical_image_brand_add_source(array &$state, array $source, ?array $re
             'status' => 'pending', 'output_url' => null, 'error' => '', 'created_at' => gmdate('c'), 'updated_at' => gmdate('c')];
     }
     $job =& $state['jobs'][$key];
-    if ($job['status'] === 'done' && is_string($source['local_path'] ?? null)) {
-        $stamp = @stat($source['local_path']);
-        if (is_array($stamp) && (($job['source_mtime'] ?? null) !== $stamp['mtime'] || ($job['source_size'] ?? null) !== $stamp['size'])
-            && ($job['source_hash'] ?? '') !== @hash_file('sha256', $source['local_path'])) {
+    if ($job['status'] === 'done') {
+        // In-place images are still found under their original URL on every
+        // scan. Only changed bytes (not another DB occurrence) need branding.
+        $path = $source['local_path'] ?? null;
+        if (($job['mode'] ?? '') !== 'in_place' || !is_string($path)
+            || ($job['output_hash'] ?? '') !== @hash_file('sha256', $path)) {
             $job['status'] = 'pending'; $job['error'] = '';
         }
     }
     if ($ref !== null) {
-        // A current DB occurrence is unbranded even if this profile was seen
-        // before (an editor/import may restore the old URL). Reuse the output.
-        if ($job['status'] === 'done') $job['status'] = 'pending';
         $refKey = $ref['type'] . ':' . $ref['id'];
         $exists = false;
         foreach ($job['refs'] as $index => $known) {
@@ -119,8 +118,9 @@ function medical_image_brand_scan_start(?string $directory = null): array
         foreach ($state['jobs'] as &$job) {
             // The caller holds operation.lock: no active image worker can be
             // processing while a new scan starts. Recover interrupted requests.
-            if ($job['status'] === 'processing'
-                || ($job['status'] === 'done' && medical_image_brand_output_path((string) ($job['output_url'] ?? '')) === null)) {
+            $path = medical_image_brand_output_path((string) ($job['output_url'] ?? ''));
+            if ($job['status'] === 'processing' || ($job['status'] === 'done'
+                && (($job['mode'] ?? '') !== 'in_place' || $path === null))) {
                 $job['status'] = 'pending'; $job['error'] = '';
             }
         }
@@ -176,7 +176,7 @@ function medical_image_brand_scan_step(PDO $pdo, ?string $directory = null): arr
                 $entry = $real . '/' . $name;
                 if (!is_link($entry)) {
                     if (is_dir($entry)) $scan['directories'][] = $relative . '/' . $name;
-                    elseif (is_file($entry) && !str_starts_with($name, 'source-') && preg_match('/\.(?:jpe?g|png|webp)$/iD', $name)) {
+                    elseif (is_file($entry) && !str_starts_with($name, '.') && !str_starts_with($name, 'source-') && preg_match('/\.(?:jpe?g|png|webp)$/iD', $name)) {
                         $source = medical_image_brand_source_identity('/uploads/library/' . $relative . '/' . $name);
                         if ($source !== null) medical_image_brand_add_source($state, $source, null, true,
                             str_starts_with($relative, 'bac-si') ? 'doctor' : 'facility');
@@ -213,7 +213,8 @@ function medical_image_brand_status(string $type = 'all', string $status = 'all'
         $items = array_slice(array_reverse($items), ($page - 1) * 20, 20);
         // Do not expose local paths, binary metadata or internal processing tokens.
         $items = array_map(static fn(array $job): array => array_intersect_key($job, array_flip([
-            'key', 'url', 'refs', 'library', 'status', 'output_url', 'error', 'updated_at'])), $items);
+            'key', 'url', 'refs', 'library', 'status', 'output_url', 'error', 'updated_at']))
+            + ['cache_revision' => substr((string) ($job['output_hash'] ?? ''), 0, 20)], $items);
         return ['ok' => true, 'summary' => $summary, 'scan' => array_intersect_key($state['scan'], array_flip(['phase', 'scanned', 'steps', 'updated_at'])),
             'items' => $items, 'page' => $page, 'pages' => $pages];
     }, false, $directory);
@@ -234,10 +235,8 @@ function medical_image_brand_retry_failed(string $type = 'all', ?string $directo
 
 function medical_image_brand_output_path(string $url): ?string
 {
-    if (!preg_match('~^/uploads/library/medreview-branded/[a-f0-9-]+\.(?:jpg|png|webp)$~D', $url)) return null;
-    $root = realpath(__DIR__ . '/uploads/library/medreview-branded');
-    $path = realpath(__DIR__ . $url);
-    return $root && $path && str_starts_with($path, $root . '/') && is_file($path) ? $path : null;
+    $source = medical_image_brand_source_normalize($url);
+    return $source !== null && str_starts_with($source['url'], '/') ? $source['local_path'] : null;
 }
 
 /** One image per HTTP request keeps GD memory use and hosting latency bounded. */
@@ -255,15 +254,18 @@ function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $direct
     if ($job === null) return ['processed' => 0, 'message' => 'Không còn ảnh chờ gắn logo trong nhóm này.'];
     try {
         medical_image_brand_source_load_exclusions($pdo);
-        $prepared = ($prepare ?? 'medical_image_brand_prepare')($job);
         $replacedOutputs = is_array($job['replace_output_urls'] ?? null) ? $job['replace_output_urls'] : [];
-        if (is_string($job['output_url'] ?? null) && $job['output_url'] !== $prepared['output_url']) $replacedOutputs[] = $job['output_url'];
-        $replacedOutputs = array_values(array_unique($replacedOutputs));
-        medical_image_brand_store(static function (array &$state) use ($job, $prepared, $replacedOutputs): void {
-            // Keep every exact owned old URL until commit is known to have
-            // succeeded, including a retry after an uncertain commit response.
-            $state['jobs'][$job['key']] = array_replace($state['jobs'][$job['key']], $prepared, ['replace_output_urls' => $replacedOutputs]);
-        }, true, $directory);
+        $journal = static function (array $prepared) use ($job, $directory, &$replacedOutputs): void {
+            if (is_string($job['output_url'] ?? null) && $job['output_url'] !== $prepared['output_url']) $replacedOutputs[] = $job['output_url'];
+            $replacedOutputs = array_values(array_unique($replacedOutputs));
+            medical_image_brand_store(static function (array &$state) use ($job, $prepared, $replacedOutputs): void {
+                // Write expected output hash BEFORE atomic replacement. After
+                // a lost response, matching bytes are reused, never branded twice.
+                $state['jobs'][$job['key']] = array_replace($state['jobs'][$job['key']], $prepared, ['replace_output_urls' => $replacedOutputs]);
+            }, true, $directory);
+        };
+        $prepared = $prepare === null ? medical_image_brand_prepare($job, $journal) : $prepare($job);
+        $journal($prepared);
         if ($pdo->inTransaction()) throw new LogicException('Lượt gắn logo cần transaction riêng.');
         $pdo->beginTransaction();
         try {
@@ -282,16 +284,16 @@ function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $direct
             $row['status'] = 'done'; $row['error'] = ''; $row['updated_at'] = gmdate('c'); $row['changes'] = $changes;
             unset($row['replace_output_urls']);
         }, true, $directory);
-        if (($changes['updated'] ?? 0) > 0) {
+        if (($changes['updated'] ?? 0) > 0 || ($prepared['mode'] ?? '') === 'in_place') {
             require_once __DIR__ . '/medical_search_cache.php';
             try { medical_search_cache_invalidate(); }
             catch (Throwable $cacheError) { error_log('Image branding cache invalidation failed.'); }
         }
-        return ['processed' => 1, 'message' => 'Đã gắn logo và cập nhật các liên kết ảnh phù hợp.'];
+        return ['processed' => 1, 'message' => 'Đã ghi đè ảnh có logo, giữ nguyên thư mục và tên file.'];
     } catch (Throwable $error) {
         error_log('Medical image branding failed (' . get_class($error) . '): ' . $error->getMessage());
         $message = $error instanceof InvalidArgumentException ? $error->getMessage()
-            : 'Không xử lý được ảnh. Kiểm tra file nguồn, GD/cURL, bộ nhớ và quyền ghi; sau đó bấm Thử lại ảnh lỗi.';
+            : 'Chưa hoàn tất lượt xử lý. Ảnh có thể đã được ghi đè; bấm thử lại để kiểm tra hash và tiếp tục, không đóng logo chồng.';
         medical_image_brand_store(static function (array &$state) use ($job, $message): void {
             $row =& $state['jobs'][$job['key']]; $row['status'] = 'failed'; $row['error'] = mb_substr($message, 0, 700); $row['updated_at'] = gmdate('c');
         }, true, $directory);
@@ -299,72 +301,31 @@ function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $direct
     }
 }
 
-/** Atomic, content-addressed original backup; never leave a partial final file. */
-function medical_image_brand_preserve_original(string $key, string $bytes, ?string $directory = null): string
-{
-    if (!preg_match('/^[a-f0-9]{64}$/D', $key) || $bytes === '') throw new InvalidArgumentException('Invalid original image backup.');
-    $directory ??= medical_image_brand_store_dir();
-    $backupDir = $directory . '/originals';
-    if (is_link($backupDir) || (!is_dir($backupDir) && !@mkdir($backupDir, 0750, true) && !is_dir($backupDir))) {
-        throw new RuntimeException('Cannot preserve the downloaded original.');
-    }
-    $hash = hash('sha256', $bytes);
-    $backup = $backupDir . '/' . $key . '-' . $hash . '.source';
-    if (is_link($backup)) throw new RuntimeException('Invalid original backup.');
-    if (is_file($backup)) {
-        if (hash_file('sha256', $backup) !== $hash) throw new RuntimeException('Original backup checksum mismatch.');
-        return $backup;
-    }
-    $temporary = tempnam($backupDir, '.original-');
-    try {
-        if (!is_string($temporary) || file_put_contents($temporary, $bytes) !== strlen($bytes)
-            || !@chmod($temporary, 0640) || hash_file('sha256', $temporary) !== $hash) {
-            throw new RuntimeException('Cannot finish preserving original bytes.');
-        }
-        if (!@link($temporary, $backup) && (!is_file($backup) || is_link($backup) || hash_file('sha256', $backup) !== $hash)) {
-            throw new RuntimeException('Cannot publish original image backup.');
-        }
-        return $backup;
-    } finally { if (is_string($temporary) && is_file($temporary)) @unlink($temporary); }
-}
-
-/** Downloads are DNS-pinned; sources stay untouched, outputs get immutable URLs. */
-function medical_image_brand_prepare(array $job): array
+/** Local-only in-place writes. The journal is persisted before atomic rename. */
+function medical_image_brand_prepare(array $job, ?callable $journal = null): array
 {
     $source = medical_image_brand_source_identity($job['url']);
     if ($source === null || $source['key'] !== $job['key']) throw new InvalidArgumentException('Ảnh nguồn không còn hợp lệ.');
+    if (!str_starts_with($source['url'], '/')) throw new InvalidArgumentException('Ảnh ở website bên ngoài không thể ghi đè. Hãy lưu ảnh vào thư viện hosting trước.');
     $path = $source['local_path'];
-    $backup = '';
-    if ($path === null && is_string($job['remote_original'] ?? null) && preg_match('/^[a-f0-9-]+\.source$/D', $job['remote_original'])) {
-        $backup = medical_image_brand_store_dir() . '/originals/' . $job['remote_original'];
-        if (is_file($backup) && !is_link($backup) && hash_file('sha256', $backup) === ($job['source_hash'] ?? '')) $path = $backup;
-    }
-    if ($path === null) {
-        if (str_starts_with($source['url'], '/')) throw new InvalidArgumentException('File ảnh nguồn không tồn tại trên hosting.');
-        require_once __DIR__ . '/medical_handbook_remote_media.php';
-        $download = handbook_ai_remote_image_download($source['url'], null, null, microtime(true) + 18);
-        $backup = medical_image_brand_preserve_original($job['key'], $download['bytes']);
-        $path = $backup;
-    }
-    $sourceHash = hash_file('sha256', $path);
+    if ($path === null) throw new InvalidArgumentException('File ảnh nguồn không tồn tại trên hosting; không còn bản gốc để tạo lại.');
+    clearstatcache(true, $path);
+    $currentHash = hash_file('sha256', $path);
     $stat = @stat($path);
-    $stamp = $source['local_path'] !== null && is_array($stat) ? ['source_mtime' => $stat['mtime'], 'source_size' => $stat['size']] : [];
-    if ($backup !== '') $stamp['remote_original'] = basename($backup);
-    $previous = is_string($job['output_url'] ?? null) ? medical_image_brand_output_path($job['output_url']) : null;
-    if ($previous !== null && ($job['source_hash'] ?? null) === $sourceHash && ($job['output_hash'] ?? '') === hash_file('sha256', $previous)) {
-        return ['output_url' => $job['output_url'], 'source_hash' => $sourceHash, 'output_hash' => $job['output_hash']] + $stamp;
+    if (($job['mode'] ?? '') === 'in_place' && ($job['output_hash'] ?? '') === $currentHash) {
+        // Covers a crash after rename, DB failure, a lost response and rescan.
+        // The already-branded file is the only copy; do not composite again.
+        return ['mode' => 'in_place', 'output_url' => $source['url'], 'output_hash' => $currentHash,
+            'source_hash' => $job['source_hash'] ?? $currentHash,
+            'source_mtime' => $stat['mtime'], 'source_size' => $stat['size']];
     }
-    $info = @getimagesize($path);
-    $extension = match ($info[2] ?? 0) { IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', default => null };
-    if ($extension === null) throw new InvalidArgumentException('Chỉ gắn logo cho file JPEG, PNG hoặc WebP hợp lệ.');
-    $targetDir = __DIR__ . '/uploads/library/medreview-branded';
-    if (is_link($targetDir) || (!is_dir($targetDir) && !@mkdir($targetDir, 0755, true) && !is_dir($targetDir))) {
-        throw new RuntimeException('Cannot create branded photo folder.');
-    }
-    $libraryRoot = realpath(__DIR__ . '/uploads/library');
-    if (!$libraryRoot || realpath($targetDir) !== $libraryRoot . '/medreview-branded') throw new RuntimeException('Invalid branded folder.');
-    $url = '/uploads/library/medreview-branded/' . substr($job['key'], 0, 24) . '-' . bin2hex(random_bytes(8)) . '.' . $extension;
-    $metadata = medical_image_brand_render($path, __DIR__ . $url);
-    return ['output_url' => $url, 'source_hash' => $metadata['source_hash'], 'output_hash' => $metadata['hash'],
-        'render_version' => $metadata['version'], 'width' => $metadata['width'], 'height' => $metadata['height']] + $stamp;
+    $toPrepared = static fn(array $metadata): array => ['mode' => 'in_place', 'output_url' => $source['url'],
+        'source_hash' => $metadata['source_hash'], 'output_hash' => $metadata['hash'], 'render_version' => $metadata['version'],
+        'width' => $metadata['width'], 'height' => $metadata['height']];
+    $metadata = medical_image_brand_render_in_place($path, static function (array $result) use ($journal, $toPrepared): void {
+        if ($journal !== null) $journal($toPrepared($result));
+    });
+    clearstatcache(true, $path);
+    $stat = stat($path);
+    return $toPrepared($metadata) + ['source_mtime' => $stat['mtime'], 'source_size' => $stat['size']];
 }

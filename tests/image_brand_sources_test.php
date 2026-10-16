@@ -16,6 +16,30 @@ $assert($a !== null && medical_image_brand_source_identity('https://medreview.vn
 $foreign = medical_image_brand_source_identity('https://photos.example.org' . $local);
 $assert($foreign !== null && $foreign['local_path'] === null && $foreign['key'] !== $a['key'], 'Foreign matching path never becomes a local file.');
 $assert(medical_image_brand_source_identity('/uploads/library/missing-photo.png')['local_path'] === null, 'Missing local images remain reportable.');
+$pathFixtureName = '.brand-source-path-fixture-' . bin2hex(random_bytes(8));
+$pathFixture = dirname(__DIR__) . '/uploads/library/' . $pathFixtureName;
+mkdir($pathFixture . '/real/nested', 0700, true);
+try {
+    file_put_contents($pathFixture . '/real/nested/photo.png', 'path-normalization-fixture-only');
+    symlink($pathFixture . '/real', $pathFixture . '/alias');
+    symlink($pathFixture . '/real/nested/photo.png', $pathFixture . '/linked-photo.png');
+    symlink($pathFixture . '/missing', $pathFixture . '/dangling-alias');
+    $normalPath = '/uploads/library/' . $pathFixtureName . '/real/nested/photo.png';
+    $assert(medical_image_brand_source_normalize($normalPath)['local_path'] === realpath($pathFixture . '/real/nested/photo.png'),
+        'An ordinary nested local image resolves under the library root.');
+    $assert(medical_image_brand_source_normalize('/uploads/library/' . $pathFixtureName . '/alias/nested/photo.png') === null,
+        'A symlinked ancestor cannot introduce another URL for the same local image.');
+    $assert(medical_image_brand_source_normalize('https://medreview.vn/uploads/library/' . $pathFixtureName . '/alias/nested/photo.png') === null,
+        'Canonical own-origin URLs also reject a symlinked ancestor.');
+    $assert(medical_image_brand_source_normalize('/uploads/library/' . $pathFixtureName . '/linked-photo.png') === null,
+        'A final image symlink is rejected.');
+    $assert(medical_image_brand_source_normalize('/uploads/library/' . $pathFixtureName . '/dangling-alias/missing.png') === null,
+        'A dangling directory symlink is rejected rather than inventoried as a missing image.');
+} finally {
+    foreach (['alias', 'linked-photo.png', 'dangling-alias'] as $link) if (is_link($pathFixture . '/' . $link)) unlink($pathFixture . '/' . $link);
+    unlink($pathFixture . '/real/nested/photo.png');
+    rmdir($pathFixture . '/real/nested'); rmdir($pathFixture . '/real'); rmdir($pathFixture);
+}
 foreach (['data:image/png;base64,abc', 'blob:https://medreview.vn/abc', 'sandbox:/tmp/a.jpg', '//photos.example.org/x.jpg', 'http://127.0.0.1/a.jpg', 'http://[::1]/a.jpg', 'http://10.0.0.1/a.jpg', 'http://100.64.0.1/a.jpg', 'https://foo.local/a.jpg', 'https://foo.home/a.jpg', 'http://2130706433/a.jpg', 'https://user:pass@photos.example.org/a.jpg', 'https://photos.example.org/a.jpg?token=private', 'https://photos.example.org:80/a.jpg', 'https://photos.example.org:8443/a.jpg', '/uploads/library/../secret.jpg', '/uploads/library/%2e%2e/secret.jpg', '/uploads/library/x.svg', '/assets/photo.jpg', '/uploads/library/medreview-branded/a.jpg', '/uploads/library/2026/07/fbef23f192e21b0669c670803723ec66.jpg'] as $bad) {
     $assert(medical_image_brand_source_identity($bad) === null, 'Reject unsafe or excluded source: ' . $bad);
 }
@@ -88,6 +112,24 @@ $recovered = $pdo->query('SELECT image_url,gallery_json FROM medical_facilities 
 $recoveredGallery = json_decode($recovered['gallery_json'], true);
 $assert($recovered['image_url'] === $output && $recoveredGallery[0]['url'] === $output && $recoveredGallery[0]['caption'] === $previous, 'Recovery updates current old-output locations but preserves captions.');
 $assert($recoveredGallery[1]['url'] === $unrelated && $recoveredGallery[2]['url'] === $foreignPrevious, 'Recovery leaves unrelated branded images and foreign matching paths untouched.');
+$pdo->rollBack();
+$inPlace = '/uploads/library/co-so-y-te/facility-3/original-name.jpg';
+$pdo->beginTransaction();
+$assert(medical_image_brand_apply($pdo, [['type' => 'facility', 'id' => 3]], $identity['key'], $inPlace, $previous) === ['updated' => 1, 'skipped' => 0],
+    'Legacy copy references can return to the original local filename after in-place branding.');
+$inPlaceRow = $pdo->query('SELECT image_url,gallery_json FROM medical_facilities WHERE id=3')->fetch();
+$inPlaceGallery = json_decode($inPlaceRow['gallery_json'], true);
+$assert($inPlaceRow['image_url'] === $inPlace && $inPlaceGallery[0]['url'] === $inPlace && $inPlaceGallery[0]['caption'] === $previous,
+    'In-place reference recovery preserves captions while restoring the local URL.');
+$assert($inPlaceGallery[1]['url'] === $unrelated && $inPlaceGallery[2]['url'] === $foreignPrevious,
+    'In-place recovery remains scoped to the exact owned legacy output.');
+$assert(medical_image_brand_apply($pdo, [['type' => 'facility', 'id' => 3]], $identity['key'], $inPlace, $previous) === ['updated' => 0, 'skipped' => 1],
+    'In-place recovery is idempotent.');
+foreach (['https://photos.example.org' . $inPlace, '/uploads/library/../secret.jpg', '/uploads/library/photo.svg', '/assets/photo.jpg', 'data:image/png;base64,abc'] as $badOutput) {
+    $rejected = false;
+    try { medical_image_brand_apply($pdo, [], $identity['key'], $badOutput, $previous); } catch (InvalidArgumentException) { $rejected = true; }
+    $assert($rejected, 'In-place destination rejects nonlocal or unsafe output: ' . $badOutput);
+}
 $pdo->rollBack();
 $pdo->prepare('UPDATE medical_facilities SET image_url=?, gallery_json=? WHERE id=3')->execute(['https://photos.example.org/editor-new.jpg', '[]']);
 $pdo->beginTransaction();

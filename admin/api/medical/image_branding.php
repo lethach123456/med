@@ -29,6 +29,9 @@ try {
     if ($method === 'POST') {
         $action = $body['action'] ?? '';
         if (!in_array($action, ['scan_start', 'scan_step', 'run', 'retry_failed'], true)) json_response(['ok' => false, 'message' => 'Thao tác không hợp lệ.'], 422);
+        if ($action === 'run' && ($body['overwrite_confirmed'] ?? null) !== true) {
+            json_response(['ok' => false, 'message' => 'Chế độ mới ghi đè ảnh gốc, không lưu bản sao. Tải lại trang và xác nhận ghi đè trước khi chạy.'], 422);
+        }
         $result = medical_image_brand_operation(static function () use ($action, $type): array {
             if ($action === 'scan_start') return ['scan' => medical_image_brand_scan_start(), 'message' => 'Bắt đầu quét ảnh. Hồ sơ và ảnh gốc chưa bị thay đổi.'];
             if ($action === 'scan_step') return ['scan' => medical_image_brand_scan_step(db())];
@@ -48,5 +51,5 @@ try {
 } catch (Throwable $error) {
     error_log('Admin image branding (' . get_class($error) . '): ' . $error->getMessage());
     json_response(['ok' => false, 'message' => $error->getCode() === 409 ? $error->getMessage()
-        : 'Không hoàn tất thao tác gắn logo. Kiểm tra quyền ghi storage/uploads và log máy chủ; dữ liệu đang có vẫn được giữ.'], $error->getCode() === 409 ? 409 : 500);
+        : 'Không hoàn tất thao tác gắn logo. Có thể ảnh đã được ghi đè; làm mới để kiểm tra trạng thái trước khi tiếp tục. Kiểm tra quyền ghi storage/uploads và log máy chủ.'], $error->getCode() === 409 ? 409 : 500);
 }

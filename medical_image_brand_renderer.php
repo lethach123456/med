@@ -201,6 +201,93 @@ if (!function_exists('medical_image_brand_render')) {
         }
     }
 
+    /**
+     * Brand one existing local image and atomically replace that exact pathname.
+     * No source backup is created. Until the final same-directory rename the
+     * existing image is untouched; any failed validation/callback cleans staging.
+     * The caller owns concurrency across jobs and must journal the two hashes in
+     * beforePublish if it needs crash recovery after publication.
+     *
+     * @param null|callable(array):void $beforePublish Called only after the new
+     * image fully decodes, before replacing the original. Throw to cancel.
+     * @return array<string,mixed> Normal render metadata plus overwritten=true.
+     */
+    function medical_image_brand_render_in_place(string $path, ?callable $beforePublish = null): array
+    {
+        medical_image_brand_assert_local_path($path);
+        clearstatcache(true, $path);
+        $source = realpath($path);
+        $originalStat = @lstat($path);
+        if (!is_string($source) || !is_array($originalStat) || is_link($path)
+            || ($originalStat['mode'] & 0170000) !== 0100000 || !is_readable($source)) {
+            throw new InvalidArgumentException('In-place branding requires a readable non-symlink regular file.');
+        }
+        $directory = dirname($source);
+        if (!is_writable($directory)) {
+            throw new InvalidArgumentException('In-place branding requires a writable source directory.');
+        }
+        // Capture before rendering: render() also fingerprints its input, so a
+        // changed input cannot accidentally be journalled as the initial source.
+        $sourceHash = @hash_file('sha256', $source);
+        if (!is_string($sourceHash)) throw new RuntimeException('Cannot fingerprint the original branding source.');
+        $assertUnchanged = static function () use ($path, $source, $originalStat, $sourceHash): void {
+            clearstatcache(true, $path);
+            clearstatcache(true, $source);
+            $current = @lstat($path);
+            if (!is_array($current) || is_link($path) || realpath($path) !== $source
+                || ($current['mode'] & 0170000) !== 0100000
+                || $current['dev'] !== $originalStat['dev'] || $current['ino'] !== $originalStat['ino']
+                || $current['mode'] !== $originalStat['mode'] || $current['size'] !== $originalStat['size']
+                || !hash_equals($sourceHash, (string) @hash_file('sha256', $source))) {
+                throw new RuntimeException('The original branding source changed before publication.');
+            }
+        };
+        $assertUnchanged();
+        $extension = strtolower((string) pathinfo($source, PATHINFO_EXTENSION));
+        $stage = $directory . '/.medreview-brand-in-place-' . bin2hex(random_bytes(16)) . '.' . $extension;
+        $decoded = null;
+        try {
+            $result = medical_image_brand_render($source, $stage);
+            $assertUnchanged();
+            if (!hash_equals($sourceHash, $result['source_hash'])) {
+                throw new RuntimeException('The branding source changed while rendering.');
+            }
+            // Header-only checks are insufficient for an irreversible overwrite.
+            // Reopen the entire encoded result with its actual raster decoder.
+            $decoder = 'imagecreatefrom' . $result['format'];
+            $decoded = @$decoder($stage);
+            if (!$decoded instanceof GdImage || imagesx($decoded) !== $result['width']
+                || imagesy($decoded) !== $result['height']
+                || !hash_equals($result['hash'], (string) @hash_file('sha256', $stage))) {
+                throw new RuntimeException('The staged branded image failed full raster validation.');
+            }
+            imagedestroy($decoded);
+            $decoded = null;
+            if (!@chmod($stage, $originalStat['mode'] & 07777)
+                || !@touch($stage, max(time(), $originalStat['mtime'] + 1))) {
+                throw new RuntimeException('Cannot preserve the branded image permissions or update its cache timestamp.');
+            }
+            if ($beforePublish !== null) $beforePublish($result);
+            // Callback may perform I/O, fail, or observe a concurrently replaced
+            // image. Never replace a file that no longer matches our start hash.
+            $assertUnchanged();
+            clearstatcache(true, $stage);
+            if (is_link($stage) || !is_file($stage)
+                || !hash_equals($result['hash'], (string) @hash_file('sha256', $stage))) {
+                throw new RuntimeException('The staged branded image changed before publication.');
+            }
+            if (!@rename($stage, $source)) {
+                throw new RuntimeException('Cannot atomically replace the original branded image.');
+            }
+            clearstatcache(true, $source);
+            clearstatcache(true, $path);
+            return $result + ['overwritten' => true];
+        } finally {
+            if ($decoded instanceof GdImage) imagedestroy($decoded);
+            if (is_file($stage) || is_link($stage)) @unlink($stage);
+        }
+    }
+
     /** Never allow stream wrappers or control-character filenames. */
     function medical_image_brand_assert_local_path(string $path): void
     {

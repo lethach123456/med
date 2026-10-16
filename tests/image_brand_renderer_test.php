@@ -122,6 +122,75 @@ try {
     if (symlink($directory . '/missing-source.png', $directory . '/dangling-symlink.png')) {
         $reject(static fn() => medical_image_brand_render($source, $directory . '/dangling-symlink.png'), 'Dangling target symlink rejected');
     }
+
+    foreach (['png', 'jpeg', 'webp'] as $format) {
+        if (!function_exists('image' . $format)) continue;
+        $extension = $format === 'jpeg' ? 'jpg' : $format;
+        $path = $directory . '/same-name-in-place.' . $extension;
+        $make($path, 420, 280, $format, $format !== 'jpeg');
+        chmod($path, 0640);
+        touch($path, time() - 10);
+        clearstatcache(true, $path);
+        $oldHash = hash_file('sha256', $path);
+        $oldMtime = filemtime($path);
+        $callbacks = 0;
+        $result = medical_image_brand_render_in_place($path, static function (array $metadata) use ($assert, $path, $oldHash, &$callbacks): void {
+            $callbacks++;
+            $assert(hash_file('sha256', $path) === $oldHash, 'Journal callback sees unmodified original');
+            $assert($metadata['source_hash'] === $oldHash && $metadata['hash'] !== $oldHash, 'Journal receives original and intended output fingerprints');
+        });
+        $assert(is_file($path) && $result['overwritten'] === true, $format . ': original pathname retained');
+        $assert($callbacks === 1 && $result['hash'] === hash_file('sha256', $path), $format . ': single journal callback and output hash');
+        $assert($result['source_hash'] === $oldHash && $result['hash'] !== $oldHash, $format . ': original replaced by branded raster');
+        $assert($result['width'] === 420 && $result['height'] === 280 && $result['format'] === $format, $format . ': original format and dimensions retained in place');
+        $assert((fileperms($path) & 0777) === 0640, $format . ': file permissions retained');
+        $assert(filemtime($path) > $oldMtime, $format . ': mtime advances to invalidate cached image variants');
+        $decoder = 'imagecreatefrom' . $format;
+        $image = $decoder($path);
+        $assert($image instanceof GdImage && imagesx($image) === 420 && imagesy($image) === 280, $format . ': overwritten image fully decodes');
+        imagedestroy($image);
+    }
+
+    $inPlace = $directory . '/cancel-in-place.png';
+    $make($inPlace, 400, 250, 'png');
+    $beforeCancel = hash_file('sha256', $inPlace);
+    $reject(static fn() => medical_image_brand_render_in_place($inPlace, static function (): void {
+        throw new RuntimeException('Synthetic ledger failure before publication.');
+    }), 'A journal failure cancels publication');
+    $assert(hash_file('sha256', $inPlace) === $beforeCancel, 'Callback failure leaves original bytes intact');
+    $assert(glob($directory . '/.medreview-brand-in-place-*') === [], 'Callback failure cleans staged output');
+
+    $changedHash = '';
+    $reject(static function () use ($inPlace, $make, &$changedHash): void {
+        medical_image_brand_render_in_place($inPlace, static function () use ($inPlace, $make, &$changedHash): void {
+            $make($inPlace, 400, 251, 'png');
+            $changedHash = (string) hash_file('sha256', $inPlace);
+        });
+    }, 'A concurrently edited original is never overwritten');
+    $assert($changedHash !== '' && hash_file('sha256', $inPlace) === $changedHash, 'Concurrent edited original remains untouched');
+
+    $replacement = $directory . '/same-bytes-different-inode.png';
+    $make($replacement, 400, 251, 'png');
+    $reject(static fn() => medical_image_brand_render_in_place($inPlace, static function () use ($inPlace, $replacement): void {
+        if (!rename($replacement, $inPlace)) throw new RuntimeException('Cannot replace synthetic original.');
+    }), 'Same bytes with a different inode are rejected');
+    $assert(hash_file('sha256', $inPlace) === $changedHash, 'Same-byte inode replacement retained after rejection');
+
+    $reject(static fn() => medical_image_brand_render_in_place($inPlace, static function () use ($directory): void {
+        $stages = glob($directory . '/.medreview-brand-in-place-*');
+        if (count($stages) !== 1) throw new RuntimeException('Expected one synthetic stage.');
+        file_put_contents($stages[0], 'corrupted output');
+    }), 'Staged output changed by callback cannot be published');
+    $assert(hash_file('sha256', $inPlace) === $changedHash, 'Corrupt staged output leaves original unchanged');
+
+    $reject(static fn() => medical_image_brand_render_in_place($directory . '/source-symlink.png'), 'In-place source symlink rejected');
+    $reject(static fn() => medical_image_brand_render_in_place($directory . '/dangling-symlink.png'), 'In-place dangling symlink rejected');
+    $reject(static fn() => medical_image_brand_render_in_place('file://' . $source), 'In-place stream wrapper rejected');
+    $reject(static fn() => medical_image_brand_render_in_place($directory), 'In-place directory rejected');
+    $reject(static fn() => medical_image_brand_render_in_place($directory . '/missing.png'), 'In-place missing file rejected');
+    $reject(static fn() => medical_image_brand_render_in_place($directory . '/not-an-image.png'), 'In-place invalid raster rejected without replacing it');
+    $assert(file_get_contents($directory . '/not-an-image.png') === 'not an image', 'Invalid original raster remains intact');
+    $assert(glob($directory . '/.medreview-brand-in-place-*') === [], 'All in-place staging files cleaned up');
     $assert(glob($directory . '/.medreview-brand-*') === [], 'All temporary encoder files cleaned up');
     $asset = imagecreatefrompng(dirname(__DIR__) . '/assets/brand/medreview-wordmark.png');
     $assert(((imagecolorat($asset, 0, 0) >> 24) & 0x7f) === 127, 'Bundled wordmark background is transparent');

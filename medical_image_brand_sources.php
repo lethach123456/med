@@ -53,6 +53,16 @@ function medical_image_brand_source_normalize(string $url): ?array
     $path = rawurldecode((string) ($parts['path'] ?? ''));
     if (!preg_match('~^/uploads/library/[a-zA-Z0-9_./-]+\.(?:jpe?g|png|webp)$~i', $path)
         || preg_match('~(?:^|/)\.{1,2}(?:/|$)~', $path) || str_contains($path, '//')) return null;
+    // A DB URL may reach the same photo through a symlinked subdirectory even
+    // though library scanning never follows such links. Reject every component
+    // below the library root so distinct URL jobs cannot brand one file twice.
+    // The root itself may be mounted/linked by the hosting deployment.
+    $component = __DIR__ . '/uploads/library';
+    foreach (explode('/', substr($path, strlen('/uploads/library/'))) as $segment) {
+        $component .= '/' . $segment;
+        clearstatcache(true, $component);
+        if (is_link($component)) return null;
+    }
     $root = realpath(__DIR__ . '/uploads/library');
     $candidate = realpath(__DIR__ . $path);
     $localPath = null;
@@ -239,7 +249,12 @@ function medical_image_brand_apply(PDO $pdo, array $refs, string $sourceKey, str
     if (!$pdo->inTransaction()) throw new LogicException('Image reference replacement requires a caller transaction.');
     if (!preg_match('/^[a-f0-9]{64}$/', $sourceKey)) throw new InvalidArgumentException('Invalid source key.');
     $output = medical_image_brand_source_normalize($outputUrl);
-    if ($output === null || !preg_match('~^/uploads/library/medreview-branded/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~', $output['url'])) throw new InvalidArgumentException('Invalid branded output URL.');
+    // In-place branding keeps the original library path. The same normalizer
+    // also accepts canonical own-origin URLs, but never maps a foreign host's
+    // matching upload path onto this hosting filesystem.
+    if ($output === null || !str_starts_with($output['url'], '/uploads/library/')) {
+        throw new InvalidArgumentException('Invalid local branded output URL.');
+    }
     $outputUrl = $output['url'];
     $previousOutput = null;
     if ($previousOutputUrl !== null) {

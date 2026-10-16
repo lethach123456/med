@@ -29,6 +29,14 @@
     }
   }
 
+  function cacheBustedUrl(value, revision) {
+    const safe = safeUrl(value);
+    if (!safe || typeof revision !== 'string' || !/^[a-f0-9]{8,64}$/i.test(revision)) return safe;
+    const url = new URL(safe);
+    url.searchParams.set('branding_v', revision);
+    return url.href;
+  }
+
   function setFeedback(message, tone = '') {
     el.feedback.textContent = message;
     el.feedback.className = `branding-feedback${tone ? ` is-${tone}` : ''}`;
@@ -111,7 +119,11 @@
       const [label, icon] = statusInfo[status];
       const originalUrl = safeUrl(item.url);
       const outputUrl = safeUrl(item.output_url);
-      const previewUrl = status === 'done' && outputUrl ? outputUrl : originalUrl;
+      const legacyOutput = Boolean(outputUrl && originalUrl && outputUrl !== originalUrl);
+      const currentUrl = status === 'done' && outputUrl && !legacyOutput
+        ? cacheBustedUrl(outputUrl, item.cache_revision) : originalUrl;
+      const previewUrl = status === 'done' && outputUrl
+        ? cacheBustedUrl(outputUrl, item.cache_revision) : currentUrl;
       let filename = 'Ảnh y tế';
       if (originalUrl) {
         try { filename = decodeURIComponent(new URL(originalUrl).pathname.split('/').filter(Boolean).pop() || filename); } catch (_) { /* Keep the safe fallback label. */ }
@@ -126,7 +138,7 @@
         <td><div class="branding-image-cell"><div class="branding-thumb"><i class="fa-regular fa-image" aria-hidden="true"></i>${previewUrl ? `<img src="${escapeHtml(previewUrl)}" alt="" width="64" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</div><div class="branding-image-copy"><span class="branding-image-name">${escapeHtml(filename)}</span><span class="branding-image-path">${escapeHtml(item.url || 'Không có URL ảnh hợp lệ')}</span></div></div></td>
         <td data-label="Sử dụng tại"><div class="branding-source-list">${refsHtml}${libraryHtml}${!refsHtml && !libraryHtml ? '<span>Chưa có nguồn tham chiếu</span>' : ''}</div></td>
         <td data-label="Trạng thái"><span class="branding-badge is-${status}"><i class="fa-solid fa-${icon}" aria-hidden="true"></i>${label}</span>${item.error ? `<p class="branding-row-error">${escapeHtml(item.error)}</p>` : ''}${item.updated_at ? `<div class="branding-row-date">${escapeHtml(item.updated_at)}</div>` : ''}</td>
-        <td data-label="Xem ảnh"><div class="branding-row-links">${originalUrl ? `<a href="${escapeHtml(originalUrl)}" target="_blank" rel="noopener noreferrer">Ảnh gốc <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="visually-hidden"> (mở tab mới)</span></a>` : ''}${outputUrl ? `<a href="${escapeHtml(outputUrl)}" target="_blank" rel="noopener noreferrer">Có logo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="visually-hidden"> (mở tab mới)</span></a>` : ''}${!originalUrl && !outputUrl ? '<span>URL không hợp lệ</span>' : ''}</div></td>
+        <td data-label="Xem ảnh"><div class="branding-row-links">${currentUrl ? `<a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer">${legacyOutput ? 'Ảnh hiện tại' : 'Xem ảnh'} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="visually-hidden"> (mở tab mới)</span></a>` : ''}${legacyOutput ? `<a href="${escapeHtml(cacheBustedUrl(outputUrl, item.cache_revision))}" target="_blank" rel="noopener noreferrer">Bản có logo cũ <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="visually-hidden"> (mở tab mới)</span></a>` : ''}${!originalUrl && !outputUrl ? '<span>URL không hợp lệ</span>' : ''}</div></td>
       </tr>`;
     }).join('');
     el.rows.querySelectorAll('img').forEach((img) => img.addEventListener('error', () => { img.hidden = true; }, { once: true }));
@@ -161,7 +173,7 @@
       options.method = 'POST';
       options.headers['Content-Type'] = 'application/json';
       options.headers['X-CSRF-Token'] = root.dataset.csrfToken;
-      options.body = JSON.stringify({ action, type: state.type, status: state.status, page: state.page });
+      options.body = JSON.stringify({ action, type: state.type, status: state.status, page: state.page, ...(action === 'run' ? { overwrite_confirmed: true } : {}) });
     }
     let response;
     try { response = await fetch(endpoint.href, options); } catch (_) {
@@ -238,8 +250,12 @@
   }
 
   async function run() {
+    if (state.busy || el.run.disabled) return;
+    const scope = { all: 'tất cả ảnh y tế', facility: 'ảnh cơ sở y tế', doctor: 'ảnh bác sĩ' }[state.type] || 'ảnh y tế';
+    const pending = fmt(state.data?.summary?.pending);
+    if (!window.confirm(`Gắn logo và GHI ĐÈ ${pending} ảnh đang chờ trong phạm vi ${scope}?\n\nẢnh trên hosting sẽ bị thay thế tại cùng thư mục và tên; URL trong DB được giữ nguyên. KHÔNG giữ bản gốc hoặc bản sao dự phòng, không thể hoàn tác bằng công cụ. Ảnh nguồn bên ngoài sẽ báo lỗi, không được ghi đè.\n\nBấm OK để bắt đầu.`)) return;
     if (!begin('run')) return;
-    setFeedback('Đang gắn logo lần lượt từng ảnh. Ảnh gốc được giữ lại.');
+    setFeedback('Đang gắn logo và ghi đè lần lượt từng ảnh trên hosting. Giữ nguyên thư mục, tên và URL; không lưu bản gốc.');
     try {
       let data = state.data;
       let previous = '';
@@ -255,7 +271,7 @@
       }
       const summary = data?.summary || {};
       if (state.pauseRequested && count(summary.pending) > 0) {
-        setFeedback(`Đã tạm dừng an toàn. ${fmt(summary.done)} ảnh có logo; ${fmt(summary.pending)} ảnh còn chờ. Bấm “Gắn logo hàng loạt” để tiếp tục.`);
+        setFeedback(`Đã tạm dừng an toàn. ${fmt(summary.done)} ảnh có logo; ${fmt(summary.pending)} ảnh còn chờ. Bấm “Gắn logo & ghi đè” để tiếp tục.`);
       } else if (count(summary.processing) > 0) {
         setFeedback(`Không còn ảnh đang chờ nhưng có ${fmt(summary.processing)} ảnh chưa hoàn tất. Nếu tác vụ trước bị gián đoạn, bấm “Quét danh sách ảnh” để khôi phục hàng chờ an toàn.`);
       } else {
@@ -269,7 +285,7 @@
     setFeedback('Đang đưa các ảnh lỗi trong phạm vi đã chọn về hàng chờ…');
     try {
       const data = await request('retry_failed');
-      setFeedback(`Đã đưa ảnh lỗi về hàng chờ. Có ${fmt(data.summary?.pending)} ảnh đang chờ; bấm “Gắn logo hàng loạt” để xử lý.`, 'success');
+      setFeedback(`Đã đưa ảnh lỗi về hàng chờ. Có ${fmt(data.summary?.pending)} ảnh đang chờ; bấm “Gắn logo & ghi đè” để xử lý.`, 'success');
     } catch (error) { reportError(error); } finally { end(); }
   }
 

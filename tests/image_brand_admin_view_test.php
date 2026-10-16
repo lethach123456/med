@@ -71,9 +71,9 @@ function image_brand_admin_synthetic_preview(string $html): string
   const imageC = '/assets/media/variants/remote-bb88d31bf48df3430da69e35-320.webp';
   const date = '2026-10-17 09:30:00';
   const records = [
-    { key: 'synthetic-facility-1', url: imageA, output_url: imageA + '?synthetic=branded', status: 'done', error: null, refs: [{ type: 'facility', id: 1, name: 'Phòng khám Minh An (giả lập)' }, { type: 'doctor', id: 2, name: 'BS. Nguyễn Minh (giả lập)' }], library: true, updated_at: date },
+    { key: 'synthetic-facility-1', url: imageA, output_url: imageA, cache_revision: 'a'.repeat(64), status: 'done', error: null, refs: [{ type: 'facility', id: 1, name: 'Phòng khám Minh An (giả lập)' }, { type: 'doctor', id: 2, name: 'BS. Nguyễn Minh (giả lập)' }], library: true, updated_at: date },
     { key: 'synthetic-doctor-2', url: imageB, output_url: null, status: 'pending', error: null, refs: [{ type: 'doctor', id: 3, name: 'BS. Trần Thanh Hà (giả lập)' }], library: true, updated_at: date },
-    { key: 'synthetic-facility-3', url: imageC, output_url: null, status: 'failed', error: 'Ví dụ lỗi giả lập: máy chủ nguồn trả về HTTP 404. Kiểm tra ảnh gốc rồi thử lại.', refs: [{ type: 'facility', id: 4, name: 'Trung tâm Chăm sóc Sức khỏe Thành Phố (giả lập)' }], library: false, updated_at: date },
+    { key: 'synthetic-facility-3', url: imageC, output_url: null, status: 'failed', error: 'Ví dụ lỗi giả lập: tệp ảnh chưa có quyền ghi. Kiểm tra quyền trên hosting rồi thử lại.', refs: [{ type: 'facility', id: 4, name: 'Trung tâm Chăm sóc Sức khỏe Thành Phố (giả lập)' }], library: false, updated_at: date },
     { key: 'synthetic-library-4', url: imageB + '?synthetic=library', output_url: imageB + '?synthetic=library-branded', status: 'done', error: null, refs: [], library: true, updated_at: date },
     { key: 'synthetic-facility-5', url: imageA + '?synthetic=facility', output_url: null, status: 'pending', error: null, refs: [{ type: 'facility', id: 5, name: 'Phòng khám Đa khoa & Chuyên khoa Y học Gia đình (giả lập)' }], library: true, updated_at: date },
     { key: 'synthetic-doctor-6', url: '/assets/brand/medreview-wordmark.png', output_url: null, status: 'pending', error: null, refs: [{ type: 'doctor', id: 6, name: 'BS. Lê Anh Thư (giả lập)' }], library: false, updated_at: date },
@@ -99,7 +99,7 @@ function image_brand_admin_synthetic_preview(string $html): string
     }
     if (action === 'run') {
       const item = scoped.find(record => record.status === 'pending');
-      if (item) { item.status = 'done'; item.output_url = item.url + (item.url.includes('?') ? '&' : '?') + 'synthetic=branded'; item.error = null; }
+      if (item) { item.status = 'done'; item.output_url = item.url; item.cache_revision = 'c'.repeat(64); item.error = null; }
     }
     if (action === 'retry_failed') scoped.filter(item => item.status === 'failed').forEach(item => { item.status = 'pending'; item.error = null; });
     const summary = { total: scoped.length, done: 0, pending: 0, failed: 0, processing: 0 };
@@ -177,7 +177,10 @@ $assert($nodes('//*[@id="brandingList" and @aria-busy="true"]') === 1 && $nodes(
 $assert($nodes('//*[@id="brandingPager" and @aria-label]') === 1, 'Pagination has an accessible name');
 $assert($nodes('//figure[contains(@class,"branding-preview")]//img[@src="/assets/brand/medreview-wordmark.png" and @alt="" and @width and @height]') === 1, 'Hero uses the local wordmark with stable dimensions');
 $assert($nodes('//figure[contains(@class,"branding-preview")]//img[starts-with(@src,"http")]') === 0, 'Hero never requests external photos');
-$assert(str_contains($html, '/uploads/library/medreview-branded') && str_contains($html, 'Ảnh gốc được giữ lại.'), 'Original preservation and output directory are explained');
+$assert(str_contains($html, 'Ghi đè ảnh tại chỗ') && str_contains($html, 'Không lưu bản gốc hoặc bản sao dự phòng') && str_contains($html, 'không thể hoàn tác'), 'Irreversible overwrite without an original backup is clearly explained');
+$assert($nodes('//button[@id="brandingRun" and @aria-describedby="brandingOverwriteNote"]') === 1 && $nodes('//*[@id="brandingOverwriteNote"]') === 1, 'Run action is connected to the destructive overwrite warning');
+$assert(str_contains($html, 'cùng thư mục, tên và URL') && str_contains($html, 'không thể ghi đè máy chủ nguồn'), 'Same-name storage and remote-origin restriction are explained');
+$assert(!str_contains($html, 'Ảnh gốc được giữ lại.') && !str_contains($html, 'Lưu bản có logo riêng'), 'Page must not promise recoverable originals');
 $assert(str_contains($html, 'dựa trên lịch sử của công cụ') && str_contains($html, 'Không dùng nhận diện hình ảnh'), 'Counters are explicitly ledger-based, not visual logo recognition');
 $assert(str_contains($html, 'hoàn tất yêu cầu hiện tại rồi dừng') && $nodes('//noscript') === 1, 'Safe pause and JavaScript requirement are explained');
 $assert($nodes('//*[@id="brandingSyntheticFixture"]') === 0, 'Production rendering contains no synthetic preview code');

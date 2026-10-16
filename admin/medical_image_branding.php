@@ -27,7 +27,7 @@ require __DIR__ . '/_layout_start.php';
       <span class="branding-eyebrow"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> CÔNG CỤ ẢNH HÀNG LOẠT</span>
       <h1>Dấu ấn MedReview,<br>đồng bộ trên từng ảnh.</h1>
       <p>Gắn logo chữ <strong>MedReview</strong> vào góc trên bên phải của ảnh cơ sở y tế và bác sĩ. Quét danh sách trước, kiểm tra số lượng rồi bắt đầu xử lý.</p>
-      <div class="branding-safety"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Giữ nguyên tệp ảnh gốc · Lưu bản có logo riêng</div>
+      <div class="branding-safety"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Ghi đè ảnh tại chỗ · Không giữ bản gốc</div>
     </div>
     <figure class="branding-preview">
       <div class="branding-preview-art" role="img" aria-label="Minh họa vị trí logo chữ MedReview ở góc trên bên phải của ảnh">
@@ -77,7 +77,7 @@ require __DIR__ . '/_layout_start.php';
       </div>
       <div class="branding-action-group">
         <button type="button" class="btn btn-outline-primary" id="brandingScan" disabled><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> <span>1. Quét danh sách ảnh</span></button>
-        <button type="button" class="btn btn-primary" id="brandingRun" disabled><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <span>2. Gắn logo hàng loạt</span><span class="branding-button-count" id="brandingRunCount">0</span></button>
+        <button type="button" class="btn btn-primary" id="brandingRun" disabled aria-describedby="brandingOverwriteNote"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <span>2. Gắn logo &amp; ghi đè</span><span class="branding-button-count" id="brandingRunCount">0</span></button>
         <button type="button" class="btn btn-outline-secondary" id="brandingPause" hidden><i class="fa-solid fa-pause" aria-hidden="true"></i> <span>Tạm dừng</span></button>
       </div>
     </div>
@@ -113,7 +113,8 @@ require __DIR__ . '/_layout_start.php';
   </section>
 
   <div class="branding-notes">
-    <p><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span><strong>Ảnh gốc được giữ lại.</strong> Bản có logo lưu tại <code>/uploads/library/medreview-branded</code>; chỉ cập nhật các tham chiếu ảnh trong phạm vi y tế.</span></p>
+    <p id="brandingOverwriteNote"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><strong>Ghi đè trực tiếp, không thể hoàn tác bằng công cụ.</strong> Ảnh có logo thay thế tệp hiện tại, giữ cùng thư mục, tên và URL. Không lưu bản gốc hoặc bản sao dự phòng. Mỗi lần bắt đầu chạy sẽ yêu cầu xác nhận.</span></p>
+    <p><i class="fa-solid fa-folder-open" aria-hidden="true"></i><span><strong>Chỉ ghi đè ảnh trên hosting.</strong> Ảnh ở website bên ngoài sẽ báo cần xử lý; công cụ không thể ghi đè máy chủ nguồn.</span></p>
     <p><i class="fa-solid fa-eye" aria-hidden="true"></i><span><strong>Số “đã gắn logo” dựa trên lịch sử của công cụ.</strong> Không dùng nhận diện hình ảnh để phát hiện logo có sẵn trong ảnh gốc.</span></p>
     <p><i class="fa-solid fa-pause" aria-hidden="true"></i><span><strong>Có thể tạm dừng an toàn.</strong> Công cụ hoàn tất yêu cầu hiện tại rồi dừng. Giữ trang này mở trong lúc quét hoặc gắn logo.</span></p>
   </div>
