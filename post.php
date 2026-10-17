@@ -210,12 +210,20 @@ if ($isHandbookDetailRoute) {
     require __DIR__ . '/Tem/handbook-article.php';
     $handbookPageHtml = (string) ob_get_clean();
     if ($handbookRelatedHtml !== '') {
-        if (str_contains($handbookPageHtml, '</main>')) {
-            $handbookPageHtml = str_replace('</main>', $handbookRelatedHtml . "\n</main>", $handbookPageHtml);
-        } elseif (str_contains($handbookPageHtml, '</body>')) {
-            $handbookPageHtml = str_replace('</body>', $handbookRelatedHtml . "\n</body>", $handbookPageHtml);
-        } else {
-            $handbookPageHtml .= $handbookRelatedHtml;
+        $replaced = 0;
+        $handbookPageHtml = (string) preg_replace(
+            '~(<[a-z0-9]+\b[^>]*\bclass="[^"]*\bhb-article-content\b[^"]*"[^>]*>)~i',
+            $handbookRelatedHtml . "\n$1",
+            $handbookPageHtml,
+            1,
+            $replaced
+        );
+        if ($replaced === 0) {
+            if (str_contains($handbookPageHtml, '</header>')) {
+                $handbookPageHtml = preg_replace('~</header>~i', "</header>\n" . $handbookRelatedHtml, $handbookPageHtml, 1) ?? $handbookPageHtml;
+            } elseif (str_contains($handbookPageHtml, '</main>')) {
+                $handbookPageHtml = str_replace('</main>', $handbookRelatedHtml . "\n</main>", $handbookPageHtml);
+            }
         }
     }
     echo $handbookPageHtml;
