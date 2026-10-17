@@ -92,9 +92,11 @@ foreach ($replacements as $index => $item) {
 
         // 2. Lưu file tạm rồi đóng logo
         $dir = __DIR__ . '/../../uploads/library/facilities/' . $facilityId;
-        if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
             throw new RuntimeException('Không tạo được thư mục lưu ảnh.');
         }
+        // Đảm bảo web server đọc được (fix quyền 0750 cũ)
+        @chmod($dir, 0755);
         $tmpPath = $dir . '/.tmp-' . $hash;
         if (file_put_contents($tmpPath, $data, LOCK_EX) !== strlen($data)) {
             throw new RuntimeException('Không lưu được file ảnh tạm.');
@@ -105,6 +107,8 @@ foreach ($replacements as $index => $item) {
         } finally {
             @unlink($tmpPath);
         }
+        // Đảm bảo web server đọc được file ảnh
+        @chmod($finalPath, 0644);
         $publicUrl = '/uploads/library/facilities/' . $facilityId . '/image-' . $hash . '.jpg';
 
         // 3. Cập nhật DB: image_url + gallery_json
