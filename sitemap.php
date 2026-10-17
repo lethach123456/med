@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/medical_handbook.php';
 
 const MEDREVIEW_SITEMAP_PAGE_SIZE = 10000;
 
@@ -27,12 +28,99 @@ function medreview_sitemap_table_exists(PDO $pdo, string $table): bool
     if (!in_array($table, $allowed, true)) {
         return false;
     }
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        $stmt = $pdo->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :table LIMIT 1");
+        $stmt->execute([':table' => $table]);
+        return (bool) $stmt->fetchColumn();
+    }
     $stmt = $pdo->prepare(
         'SELECT 1 FROM INFORMATION_SCHEMA.TABLES
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1'
     );
     $stmt->execute([':table' => $table]);
     return (bool) $stmt->fetchColumn();
+}
+
+function medreview_sitemap_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $rows = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
+            $cols = array_column($rows, 'name');
+            return $cache[$key] = in_array($column, $cols, true);
+        }
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column LIMIT 1'
+        );
+        $stmt->execute([':table' => $table, ':column' => $column]);
+        return $cache[$key] = (bool) $stmt->fetchColumn();
+    } catch (Throwable) {
+        return $cache[$key] = false;
+    }
+}
+
+function medreview_sitemap_handbook_where(PDO $pdo, string $lang): string
+{
+    $lang = $lang === 'en' ? 'en' : 'vi';
+    $hasLangCol = medreview_sitemap_column_exists($pdo, 'posts', 'language');
+    $langCondition = $hasLangCol
+        ? "COALESCE(NULLIF(LOWER(TRIM(p.language)), ''), 'vi') = '{$lang}'"
+        : ($lang === 'en' ? "c.slug = 'blog-en'" : "c.slug = 'blog'");
+    return "p.status = 'published'
+        AND c.slug IN ('blog', 'blog-en')
+        AND {$langCondition}
+        AND LENGTH(TRIM(COALESCE(p.content, ''))) > 0
+        AND LENGTH(TRIM(COALESCE(p.slug, ''))) > 0";
+}
+
+function medreview_sitemap_handbook_count(PDO $pdo, string $lang): int
+{
+    if (!medreview_sitemap_table_exists($pdo, 'posts') || !medreview_sitemap_table_exists($pdo, 'categories')) {
+        return 0;
+    }
+    $where = medreview_sitemap_handbook_where($pdo, $lang);
+    return (int) $pdo->query(
+        "SELECT COUNT(*) FROM posts p INNER JOIN categories c ON c.id = p.category_id WHERE {$where}"
+    )->fetchColumn();
+}
+
+/** @return list<array{path:string,updated_at:string}> */
+function medreview_sitemap_handbook_items(PDO $pdo, string $lang, int $page): array
+{
+    if (!medreview_sitemap_table_exists($pdo, 'posts') || !medreview_sitemap_table_exists($pdo, 'categories')) {
+        return [];
+    }
+    $lang = $lang === 'en' ? 'en' : 'vi';
+    $where = medreview_sitemap_handbook_where($pdo, $lang);
+    $stmt = $pdo->prepare(
+        "SELECT p.slug, p.updated_at
+         FROM posts p
+         INNER JOIN categories c ON c.id = p.category_id
+         WHERE {$where}
+         ORDER BY p.id ASC
+         LIMIT :limit OFFSET :offset"
+    );
+    $stmt->bindValue(':limit', MEDREVIEW_SITEMAP_PAGE_SIZE, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', ($page - 1) * MEDREVIEW_SITEMAP_PAGE_SIZE, PDO::PARAM_INT);
+    $stmt->execute();
+    $items = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $slug = trim((string) ($row['slug'] ?? ''));
+        if ($slug === '') {
+            continue;
+        }
+        $items[] = [
+            'path' => handbook_view_path($lang, $slug),
+            'updated_at' => (string) ($row['updated_at'] ?? ''),
+        ];
+    }
+    return $items;
 }
 
 function medreview_sitemap_lastmod($value): string
@@ -155,6 +243,9 @@ if (preg_match('/^(vi|en)(?:-(.+))?$/', $map, $localized)) {
     $language = $localized[1];
     $map = $localized[2] ?? 'index';
 }
+if ($map === 'cam-nang' || $map === 'cam_nang' || $map === 'guides') {
+    $map = 'handbook';
+}
 $rootIndex = $map === 'index' && !in_array(strtolower(trim((string) ($_GET['map'] ?? 'index'))), ['vi', 'en'], true);
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $origin = site_canonical_origin();
@@ -201,6 +292,10 @@ try {
                 $count = medreview_sitemap_source_count($pdo, $source);
                 if ($count > 0) $parts[$name] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }
+            $handbookCount = medreview_sitemap_handbook_count($pdo, $lang);
+            if ($handbookCount > 0) {
+                $parts['handbook'] = (int) ceil($handbookCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
+            }
             if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
                 $categories = $lang === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
                 $count = (int) $pdo->query("SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
@@ -232,6 +327,10 @@ try {
                 $entries[$name] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }
         }
+        $handbookCount = medreview_sitemap_handbook_count($pdo, $language);
+        if ($handbookCount > 0) {
+            $entries['handbook'] = (int) ceil($handbookCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
+        }
         if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
             $articleCount = (int) $pdo->query(
                 "SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
@@ -259,6 +358,8 @@ try {
         foreach (medreview_sitemap_static_paths($language) as $path) {
             $items[] = ['path' => $path, 'updated_at' => ''];
         }
+    } elseif ($map === 'handbook') {
+        $items = medreview_sitemap_handbook_items($pdo, $language, $page);
     } elseif ($map === 'articles') {
         $pdo = db();
         if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {

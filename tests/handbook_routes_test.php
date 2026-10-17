@@ -32,6 +32,14 @@ foreach (['RewriteRule ^cam-nang/?$ cam-nang.php', 'RewriteRule ^en/cam-nang/?$ 
 foreach (['/cam-nang', '/en/cam-nang'] as $path) {
     $assert(str_contains((string) file_get_contents($root . '/sitemap.php'), "'" . $path . "'"), 'Listing included in localized sitemap');
 }
+$sitemapSource = (string) file_get_contents($root . '/sitemap.php');
+$assert(
+    str_contains($sitemapSource, 'medreview_sitemap_handbook_count')
+    && str_contains($sitemapSource, 'medreview_sitemap_handbook_items')
+    && str_contains($sitemapSource, "\$parts['handbook']")
+    && str_contains($sitemapSource, "\$entries['handbook']"),
+    'Handbook articles have dedicated localized sitemap entries'
+);
 
 // Execute the real post controller query block against an isolated SQLite fixture.
 // Do not include the rest of the page or connect to runtime MySQL.
