@@ -88,6 +88,7 @@ function medical_image_brand_add_source(array &$state, array $source, ?array $re
             'status' => 'pending', 'output_url' => null, 'error' => '', 'created_at' => gmdate('c'), 'updated_at' => gmdate('c')];
     }
     $job =& $state['jobs'][$key];
+    $job['active'] = true;
     if ($job['status'] === 'done') {
         // In-place images are still found under their original URL on every
         // scan. Only changed bytes (not another DB occurrence) need branding.
@@ -131,70 +132,146 @@ function medical_image_brand_scan_start(?string $directory = null): array
     }, true, $directory);
 }
 
-/** Keyset DB scan; directory walking is bounded and never follows symlinks. */
-function medical_image_brand_scan_step(PDO $pdo, ?string $directory = null): array
+/**
+ * Build the database-backed photo inventory in one streaming pass per entity
+ * table and persist it before the bounded filesystem walk begins.
+ */
+function medical_image_brand_scan_snapshot_start(PDO $pdo, ?string $directory = null): array
 {
-    $snapshot = medical_image_brand_store(static fn(array $state): array => $state['scan'], false, $directory);
+    unset($GLOBALS['medical_image_brand_excluded_urls']);
+    medical_image_brand_source_load_exclusions($pdo);
+    $excludedUrls = array_keys($GLOBALS['medical_image_brand_excluded_urls'] ?? []);
+    // operation.lock serializes all writers. Build the next inventory without
+    // state.lock so status requests can keep reading the last saved snapshot.
+    $next = medical_image_brand_store(static fn(array $state): array => $state, false, $directory);
+    $legacySources = [];
+    foreach ($next['jobs'] as $key => &$job) {
+        $source = medical_image_brand_source_identity((string) ($job['url'] ?? ''));
+        if ($source !== null && $source['key'] === $key) {
+            $outputs = array_merge([(string) ($job['output_url'] ?? '')],
+                $job['replace_output_urls'] ?? [], $job['legacy_output_urls'] ?? []);
+            foreach ($outputs as $url) {
+                $output = is_string($url) ? medical_image_brand_source_normalize($url) : null;
+                if ($output !== null && preg_match('~^/uploads/library/medreview-branded/' . substr($key, 0, 24)
+                    . '-[a-f0-9]{16}\.(?:jpg|png|webp)$~D', $output['url'])) $legacySources[$output['url']] = $source;
+            }
+        }
+        // Keep render hashes/history even for retired sources. If the same
+        // bytes return in a later scan they must never receive a second logo.
+        $job['active'] = false; $job['refs'] = []; $job['types'] = []; $job['library'] = false;
+        if ($job['status'] === 'processing') { $job['status'] = 'pending'; $job['error'] = ''; }
+        unset($job['processing_at']);
+    }
+    unset($job);
+    $resolve = static function (string $url) use ($legacySources, &$next): ?array {
+        $output = medical_image_brand_source_normalize($url);
+        $source = $output !== null ? ($legacySources[$output['url']] ?? null) : null;
+        if ($source !== null) {
+            $job =& $next['jobs'][$source['key']];
+            $job['replace_output_urls'] = array_values(array_unique(array_merge($job['replace_output_urls'] ?? [], [$output['url']])));
+            if ($job['status'] === 'done') $job['status'] = 'pending';
+        }
+        return $source;
+    };
+    $scan = ['phase' => 'library', 'after_id' => 0, 'scanned' => 0, 'steps' => 0,
+        'directories' => ['co-so-y-te', 'bac-si', 'co-so-y-te-ai'], 'directory' => null, 'after_file' => '',
+        'excluded_urls' => $excludedUrls, 'snapshot_version' => 2, 'snapshot_at' => gmdate('c'), 'updated_at' => gmdate('c')];
+    foreach (['facility', 'doctor'] as $type) {
+        $scan['scanned'] += medical_image_brand_source_snapshot($pdo, $type, static function (array $row) use (&$next, $type): void {
+            foreach ($row['sources'] as $source) medical_image_brand_add_source($next, $source,
+                ['type' => $type, 'id' => (int) $row['id'], 'name' => (string) $row['name']]);
+        }, $resolve);
+        $scan['steps']++;
+    }
+    $next['scan'] = $scan;
+    return medical_image_brand_store(static function (array &$state) use ($next): array {
+        $state = $next;
+        return $state['scan'];
+    }, true, $directory);
+}
+
+function medical_image_brand_scan_ready(array $scan): bool
+{
+    return ($scan['phase'] ?? '') === 'complete' && ($scan['snapshot_version'] ?? 0) === 2
+        && is_string($scan['snapshot_at'] ?? null) && is_array($scan['excluded_urls'] ?? null);
+}
+
+/** Keyset DB scan; directory walking is bounded and never follows symlinks. */
+function medical_image_brand_scan_step(?PDO $pdo = null, ?string $directory = null): array
+{
+    $next = medical_image_brand_store(static fn(array $state): array => $state, false, $directory);
+    $snapshot = $next['scan'];
     $phase = $snapshot['phase'];
     if (in_array($phase, ['idle', 'complete'], true)) return $snapshot;
     if (in_array($phase, ['facility', 'doctor'], true)) {
+        if ($pdo === null) throw new RuntimeException('Danh sách quét cũ chưa có snapshot JSON. Hãy bắt đầu quét lại.');
         $page = medical_image_brand_source_page($pdo, $phase, (int) $snapshot['after_id'], 25);
-        return medical_image_brand_store(static function (array &$state) use ($page, $phase): array {
-            foreach ($page['rows'] as $row) {
-                foreach ($row['sources'] as $source) medical_image_brand_add_source($state, $source,
-                    ['type' => $phase, 'id' => (int) $row['id'], 'name' => (string) $row['name']]);
-            }
-            $state['scan']['scanned'] += $page['scanned'];
-            $state['scan']['steps'] = (int) ($state['scan']['steps'] ?? 0) + 1;
-            $state['scan']['after_id'] = $page['next_id'];
-            if (!$page['has_more']) { $state['scan']['phase'] = $phase === 'facility' ? 'doctor' : 'library'; $state['scan']['after_id'] = 0; }
-            $state['scan']['updated_at'] = gmdate('c');
+        foreach ($page['rows'] as $row) {
+            foreach ($row['sources'] as $source) medical_image_brand_add_source($next, $source,
+                ['type' => $phase, 'id' => (int) $row['id'], 'name' => (string) $row['name']]);
+        }
+        $next['scan']['scanned'] += $page['scanned'];
+        $next['scan']['steps'] = (int) ($next['scan']['steps'] ?? 0) + 1;
+        $next['scan']['after_id'] = $page['next_id'];
+        if (!$page['has_more']) { $next['scan']['phase'] = $phase === 'facility' ? 'doctor' : 'library'; $next['scan']['after_id'] = 0; }
+        $next['scan']['updated_at'] = gmdate('c');
+        return medical_image_brand_store(static function (array &$state) use ($next): array {
+            $state = $next;
             return $state['scan'];
         }, true, $directory);
     }
-    medical_image_brand_source_load_exclusions($pdo);
+    if (isset($snapshot['excluded_urls']) && is_array($snapshot['excluded_urls'])) {
+        medical_image_brand_source_exclude_urls($snapshot['excluded_urls']);
+    } elseif ($pdo !== null) {
+        // Compatibility for scans started by an older application version.
+        medical_image_brand_source_load_exclusions($pdo);
+    } else {
+        throw new RuntimeException('Snapshot quét cũ thiếu cấu hình loại trừ ảnh. Hãy bắt đầu quét lại.');
+    }
     $library = realpath(__DIR__ . '/uploads/library');
-    return medical_image_brand_store(static function (array &$state) use ($library): array {
-        $scan =& $state['scan'];
-        for ($budget = 0; $budget < 200;) {
-            if ($scan['directory'] === null) {
-                $scan['directory'] = array_shift($scan['directories']);
-                $scan['after_file'] = '';
-                if ($scan['directory'] === null) { $scan['phase'] = 'complete'; break; }
-            }
-            $relative = $scan['directory'];
-            $path = is_string($library) ? $library . '/' . $relative : '';
-            $real = $path !== '' ? realpath($path) : false;
-            if (!$real || !str_starts_with($real, $library . '/') || !is_dir($real) || is_link($path)) { $scan['directory'] = null; continue; }
-            $names = scandir($real);
-            if ($names === false) throw new RuntimeException('Không đọc được thư mục ảnh: ' . $relative);
-            $exhausted = true;
-            foreach ($names as $name) {
-                if ($name === '.' || $name === '..' || strcmp($name, $scan['after_file']) <= 0) continue;
-                $scan['after_file'] = $name;
-                $budget++;
-                $entry = $real . '/' . $name;
-                if (!is_link($entry)) {
-                    if (is_dir($entry)) $scan['directories'][] = $relative . '/' . $name;
-                    elseif (is_file($entry) && !str_starts_with($name, '.') && !str_starts_with($name, 'source-') && preg_match('/\.(?:jpe?g|png|webp)$/iD', $name)) {
-                        $source = medical_image_brand_source_identity('/uploads/library/' . $relative . '/' . $name);
-                        if ($source !== null) medical_image_brand_add_source($state, $source, null, true,
-                            str_starts_with($relative, 'bac-si') ? 'doctor' : 'facility');
-                    }
-                }
-                if ($budget >= 200) { $exhausted = false; break; }
-            }
-            if ($exhausted) $scan['directory'] = null;
+    $scan =& $next['scan'];
+    for ($budget = 0; $budget < 200;) {
+        if ($scan['directory'] === null) {
+            $scan['directory'] = array_shift($scan['directories']);
+            $scan['after_file'] = '';
+            if ($scan['directory'] === null) { $scan['phase'] = 'complete'; break; }
         }
-        $scan['updated_at'] = gmdate('c');
-        $scan['steps'] = (int) ($scan['steps'] ?? 0) + 1;
-        return $scan;
+        $relative = $scan['directory'];
+        $path = is_string($library) ? $library . '/' . $relative : '';
+        $real = $path !== '' ? realpath($path) : false;
+        if (!$real || !str_starts_with($real, $library . '/') || !is_dir($real) || is_link($path)) { $scan['directory'] = null; continue; }
+        $names = scandir($real);
+        if ($names === false) throw new RuntimeException('Không đọc được thư mục ảnh: ' . $relative);
+        $exhausted = true;
+        foreach ($names as $name) {
+            if ($name === '.' || $name === '..' || strcmp($name, $scan['after_file']) <= 0) continue;
+            $scan['after_file'] = $name;
+            $budget++;
+            $entry = $real . '/' . $name;
+            if (!is_link($entry)) {
+                if (is_dir($entry)) $scan['directories'][] = $relative . '/' . $name;
+                elseif (is_file($entry) && !str_starts_with($name, '.') && !str_starts_with($name, 'source-') && preg_match('/\.(?:jpe?g|png|webp)$/iD', $name)) {
+                    $source = medical_image_brand_source_identity('/uploads/library/' . $relative . '/' . $name);
+                    if ($source !== null) medical_image_brand_add_source($next, $source, null, true,
+                        str_starts_with($relative, 'bac-si') ? 'doctor' : 'facility');
+                }
+            }
+            if ($budget >= 200) { $exhausted = false; break; }
+        }
+        if ($exhausted) $scan['directory'] = null;
+    }
+    $scan['updated_at'] = gmdate('c');
+    $scan['steps'] = (int) ($scan['steps'] ?? 0) + 1;
+    unset($scan);
+    return medical_image_brand_store(static function (array &$state) use ($next): array {
+        $state = $next;
+        return $state['scan'];
     }, true, $directory);
 }
 
 function medical_image_brand_matches(array $job, string $type): bool
 {
-    return $type === 'all' || !empty($job['types'][$type]);
+    return ($job['active'] ?? true) !== false && ($type === 'all' || !empty($job['types'][$type]));
 }
 
 function medical_image_brand_status(string $type = 'all', string $status = 'all', int $page = 1, ?string $directory = null): array
@@ -215,7 +292,8 @@ function medical_image_brand_status(string $type = 'all', string $status = 'all'
         $items = array_map(static fn(array $job): array => array_intersect_key($job, array_flip([
             'key', 'url', 'refs', 'library', 'status', 'output_url', 'error', 'updated_at']))
             + ['cache_revision' => substr((string) ($job['output_hash'] ?? ''), 0, 20)], $items);
-        return ['ok' => true, 'summary' => $summary, 'scan' => array_intersect_key($state['scan'], array_flip(['phase', 'scanned', 'steps', 'updated_at'])),
+        return ['ok' => true, 'summary' => $summary, 'scan' => array_intersect_key($state['scan'], array_flip(['phase', 'scanned', 'steps', 'updated_at']))
+                + ['ready' => medical_image_brand_scan_ready($state['scan'])],
             'items' => $items, 'page' => $page, 'pages' => $pages];
     }, false, $directory);
 }
@@ -242,6 +320,9 @@ function medical_image_brand_output_path(string $url): ?string
 /** One image per HTTP request keeps GD memory use and hosting latency bounded. */
 function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $directory = null, ?callable $prepare = null, ?callable $apply = null): array
 {
+    $scan = medical_image_brand_store(static fn(array $state): array => $state['scan'], false, $directory);
+    if (is_array($scan['excluded_urls'] ?? null)) medical_image_brand_source_exclude_urls($scan['excluded_urls']);
+    else medical_image_brand_source_load_exclusions($pdo); // Compatibility for isolated legacy callers.
     $job = medical_image_brand_store(static function (array &$state) use ($type): ?array {
         foreach ($state['jobs'] as &$candidate) {
             if ($candidate['status'] === 'processing' && (int) ($candidate['processing_at'] ?? 0) < time() - 300) $candidate['status'] = 'pending';
@@ -253,7 +334,6 @@ function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $direct
     }, true, $directory);
     if ($job === null) return ['processed' => 0, 'message' => 'Không còn ảnh chờ gắn logo trong nhóm này.'];
     try {
-        medical_image_brand_source_load_exclusions($pdo);
         $replacedOutputs = is_array($job['replace_output_urls'] ?? null) ? $job['replace_output_urls'] : [];
         $journal = static function (array $prepared) use ($job, $directory, &$replacedOutputs): void {
             if (is_string($job['output_url'] ?? null) && $job['output_url'] !== $prepared['output_url']) $replacedOutputs[] = $job['output_url'];
@@ -261,30 +341,37 @@ function medical_image_brand_run(PDO $pdo, string $type = 'all', ?string $direct
             medical_image_brand_store(static function (array &$state) use ($job, $prepared, $replacedOutputs): void {
                 // Write expected output hash BEFORE atomic replacement. After
                 // a lost response, matching bytes are reused, never branded twice.
-                $state['jobs'][$job['key']] = array_replace($state['jobs'][$job['key']], $prepared, ['replace_output_urls' => $replacedOutputs]);
+                $row =& $state['jobs'][$job['key']];
+                $row = array_replace($row, $prepared, ['replace_output_urls' => $replacedOutputs,
+                    'legacy_output_urls' => array_values(array_unique(array_merge($row['legacy_output_urls'] ?? [], $replacedOutputs)))]);
             }, true, $directory);
         };
         $prepared = $prepare === null ? medical_image_brand_prepare($job, $journal) : $prepare($job);
         $journal($prepared);
-        if ($pdo->inTransaction()) throw new LogicException('Lượt gắn logo cần transaction riêng.');
-        $pdo->beginTransaction();
-        try {
-            if ($apply !== null) $changes = $apply($pdo, $job['refs'], $job['key'], $prepared['output_url']);
-            else {
-                $changes = ['updated' => 0, 'skipped' => 0];
-                foreach ($replacedOutputs ?: [null] as $previousOutput) {
-                    $batch = medical_image_brand_apply($pdo, $job['refs'], $job['key'], $prepared['output_url'], $previousOutput);
-                    $changes['updated'] += $batch['updated']; $changes['skipped'] += $batch['skipped'];
+        $changes = ['updated' => 0, 'skipped' => 0];
+        // Current in-place jobs keep the same URL, so they need no profile DB
+        // read or write. Retain the transaction only for injected legacy
+        // callbacks and repair of exact URLs created by the retired copy mode.
+        if ($apply !== null || ($replacedOutputs !== [] && $job['refs'] !== [])) {
+            if ($pdo->inTransaction()) throw new LogicException('Lượt gắn logo cần transaction riêng.');
+            $pdo->beginTransaction();
+            try {
+                if ($apply !== null) $changes = $apply($pdo, $job['refs'], $job['key'], $prepared['output_url']);
+                else {
+                    foreach ($replacedOutputs as $previousOutput) {
+                        $batch = medical_image_brand_apply($pdo, $job['refs'], $job['key'], $prepared['output_url'], $previousOutput);
+                        $changes['updated'] += $batch['updated']; $changes['skipped'] += $batch['skipped'];
+                    }
                 }
-            }
-            $pdo->commit();
-        } catch (Throwable $error) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $error; }
+                $pdo->commit();
+            } catch (Throwable $error) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $error; }
+        }
         medical_image_brand_store(static function (array &$state) use ($job, $changes): void {
             $row =& $state['jobs'][$job['key']];
             $row['status'] = 'done'; $row['error'] = ''; $row['updated_at'] = gmdate('c'); $row['changes'] = $changes;
             unset($row['replace_output_urls']);
         }, true, $directory);
-        if (($changes['updated'] ?? 0) > 0 || ($prepared['mode'] ?? '') === 'in_place') {
+        if (($changes['updated'] ?? 0) > 0) {
             require_once __DIR__ . '/medical_search_cache.php';
             try { medical_search_cache_invalidate(); }
             catch (Throwable $cacheError) { error_log('Image branding cache invalidation failed.'); }

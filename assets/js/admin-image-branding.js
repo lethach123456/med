@@ -50,7 +50,7 @@
     const canRun = caps.gd === true && caps.logo === true && caps.writable === true;
     [el.type, el.status, el.refresh].forEach((control) => { control.disabled = busy; });
     el.scan.disabled = busy || !ready || caps.writable === false;
-    el.run.disabled = busy || !ready || !canRun || count(summary.pending) === 0;
+    el.run.disabled = busy || !ready || !canRun || state.data?.scan?.ready === false || count(summary.pending) === 0;
     el.retry.disabled = busy || !ready || caps.writable === false || count(summary.failed) === 0;
     el.pause.hidden = !['scan', 'run'].includes(state.busy);
     el.pause.disabled = state.pauseRequested;
@@ -223,7 +223,9 @@
     setFeedback('Đang tải trạng thái đã lưu; không quét hay thay đổi ảnh.');
     try {
       const data = await request();
-      setFeedback(count(data.summary?.total) ? `Đã tải ${fmt(data.summary.total)} ảnh trong phạm vi đã chọn. ${fmt(data.summary.done)} ảnh có logo, ${fmt(data.summary.pending)} ảnh đang chờ, ${fmt(data.summary.failed)} ảnh cần thử lại.` : 'Chưa có ảnh được thống kê trong phạm vi này. Bắt đầu bằng bước “Quét danh sách ảnh”.');
+      setFeedback(data.scan?.ready === false && count(data.summary?.total)
+        ? 'Bấm “Quét danh sách ảnh” để cập nhật danh sách nguồn trước khi gắn logo. Lịch sử ảnh đã xử lý vẫn được giữ lại.'
+        : count(data.summary?.total) ? `Đã tải ${fmt(data.summary.total)} ảnh trong phạm vi đã chọn. ${fmt(data.summary.done)} ảnh có logo, ${fmt(data.summary.pending)} ảnh đang chờ, ${fmt(data.summary.failed)} ảnh cần thử lại.` : 'Chưa có ảnh được thống kê trong phạm vi này. Bắt đầu bằng bước “Quét danh sách ảnh”.');
     } catch (error) {
       reportError(error);
       if (!state.data) emptyRows('Không thể tải danh sách', 'Kiểm tra kết nối hoặc phiên đăng nhập, sau đó bấm “Làm mới”.');

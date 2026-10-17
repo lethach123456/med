@@ -102,9 +102,9 @@ try {
     $assert($normalDone['mode'] === 'in_place' && $normalDone['output_url'] === $normalUrl && medical_image_brand_output_path($normalUrl) === realpath($normalPath), 'Original URL, filename and directory retained');
     $assert($normalDone['source_hash'] === $normalBefore['hash'] && $normalAfter['hash'] !== $normalBefore['hash'], 'Source bytes replaced, initial hash journalled');
     $assert($normalDone['output_hash'] === $normalAfter['hash'] && $normalDone['width'] === 640 && $normalDone['height'] === 420, 'Metadata matches overwritten image');
-    $assert($normalDone['changes'] === ['updated' => 0, 'skipped' => 2], 'Already-correct DB image URLs require no updates');
+    $assert($normalDone['changes'] === ['updated' => 0, 'skipped' => 0], 'Same-URL branding bypasses profile DB reads and updates');
     $rowsMatch($normalRows, $normalUrl, $normalUrl, 'Normal overwrite');
-    $assert(is_file($cacheDir . '/medical-search-index-v1.invalidated'), 'In-place overwrite invalidates isolated cache even when URLs unchanged');
+    $assert(!is_file($cacheDir . '/medical-search-index-v1.invalidated'), 'Same-URL branding keeps search cache fresh to avoid indirect database rebuilds');
     $assert((glob($outputDir . '/' . substr($normalSource['key'], 0, 24) . '-*') ?: []) === [], 'Normal job creates no old-style copies');
     $assert(!is_dir($stateFor('normal') . '/originals'), 'Normal job creates no original backup directory');
     $scanStart('normal'); $addJob('normal', $normalSource, 11, 22);
@@ -154,6 +154,7 @@ try {
     $assert(medical_image_brand_retry_failed('all', $stateFor('legacy')) === 1, 'Legacy failure requeues');
     $result = $run('legacy'); $legacyDone = $jobFor('legacy', $legacySourceUrl);
     $assert(empty($result['failed']) && $legacyDone['status'] === 'done' && $legacyDone['changes'] === ['updated' => 2, 'skipped' => 0], 'Legacy retry restores both exact old image references');
+    $assert(is_file($cacheDir . '/medical-search-index-v1.invalidated'), 'Actual legacy URL changes still invalidate the search index');
     $assert($snapshot($legacySourcePath) === $legacyPrepared, 'Legacy retry never re-encodes already-overwritten original');
     $assert(!isset($legacyDone['replace_output_urls']), 'Prior URL journal clears only after successful transaction');
     $rowsMatch($legacyRows, $legacyUrl, $legacySourceUrl, 'Legacy migration committed');

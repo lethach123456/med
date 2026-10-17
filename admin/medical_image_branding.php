@@ -26,7 +26,7 @@ require __DIR__ . '/_layout_start.php';
     <div class="branding-hero-copy">
       <span class="branding-eyebrow"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> CÔNG CỤ ẢNH HÀNG LOẠT</span>
       <h1>Dấu ấn MedReview,<br>đồng bộ trên từng ảnh.</h1>
-      <p>Gắn logo chữ <strong>MedReview</strong> vào góc trên bên phải của ảnh cơ sở y tế và bác sĩ. Quét danh sách trước, kiểm tra số lượng rồi bắt đầu xử lý.</p>
+      <p>Gắn logo chữ <strong>MedReview</strong> vào góc trên bên phải của ảnh cơ sở y tế và bác sĩ. Quét danh sách trước, kiểm tra số lượng rồi bắt đầu xử lý. Lịch sử được lưu để tiếp tục sau.</p>
       <div class="branding-safety"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Ghi đè ảnh tại chỗ · Không giữ bản gốc</div>
     </div>
     <figure class="branding-preview">

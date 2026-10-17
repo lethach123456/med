@@ -182,12 +182,16 @@ function medical_image_brand_source_patch(array $row, string $type, callable $ma
     return $patch;
 }
 
-/** @return list<array{key:string,url:string,local_path:?string}> */
-function medical_image_brand_sources_from_row(array $row, string $type): array
+/**
+ * @param null|callable(string):?array{key:string,url:string,local_path:?string} $resolve Exact legacy-output resolver from the saved inventory.
+ * @return list<array{key:string,url:string,local_path:?string}>
+ */
+function medical_image_brand_sources_from_row(array $row, string $type, ?callable $resolve = null): array
 {
     $sources = [];
-    medical_image_brand_source_patch($row, $type, static function (string $url) use (&$sources): string {
+    medical_image_brand_source_patch($row, $type, static function (string $url) use (&$sources, $resolve): string {
         $source = medical_image_brand_source_identity($url);
+        if ($source === null && $resolve !== null) $source = $resolve($url);
         if ($source !== null) $sources[$source['key']] = $source;
         return $url;
     });
@@ -236,6 +240,44 @@ function medical_image_brand_source_page(PDO $pdo, string $type, int $afterId = 
         $rows[] = ['id' => $nextId, 'type' => $type, 'name' => (string) ($row['name'] ?? ''), 'sources' => medical_image_brand_sources_from_row($row, $type)];
     }
     return ['rows' => $rows, 'next_id' => $nextId, 'has_more' => $more, 'scanned' => count($rows)];
+}
+
+/**
+ * Read an entity table once during an explicit inventory scan, streaming rows
+ * to the caller so only compact photo references are retained in the JSON
+ * snapshot. Per-image branding never needs to re-read these tables.
+ */
+function medical_image_brand_source_snapshot(PDO $pdo, string $type, callable $consume, ?callable $resolve = null): int
+{
+    if (!in_array($type, ['facility', 'doctor'], true)) throw new InvalidArgumentException('Unsupported entity type.');
+    $table = $type === 'facility' ? 'medical_facilities' : 'medical_doctors';
+    $columns = medical_image_brand_source_columns($pdo, $table);
+    if (!isset($columns['id'])) return 0;
+    $select = array_keys(array_intersect_key(['id' => true, 'name' => true] + medical_image_brand_source_fields($type), $columns));
+    $mysql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+    $buffered = $mysql ? $pdo->getAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY) : null;
+    $stmt = null;
+    try {
+        // PDO MySQL otherwise buffers the complete entity table before fetch()
+        // begins. Only this data SELECT needs streaming; schema reads above are
+        // finished first, and the consumer must not query the same connection.
+        if ($mysql) $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+        $stmt = $pdo->query('SELECT ' . implode(', ', $select) . ' FROM ' . $table . ' ORDER BY id ASC');
+        $count = 0;
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            if (!isset($row['id']) || !is_numeric($row['id'])) continue;
+            $consume(['id' => (int) $row['id'], 'type' => $type, 'name' => (string) ($row['name'] ?? ''),
+                'sources' => medical_image_brand_sources_from_row($row, $type, $resolve)]);
+            $count++;
+        }
+        return $count;
+    } finally {
+        try {
+            if ($stmt instanceof PDOStatement) $stmt->closeCursor();
+        } finally {
+            if ($mysql) $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, $buffered);
+        }
+    }
 }
 
 /**

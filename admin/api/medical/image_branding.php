@@ -33,9 +33,13 @@ try {
             json_response(['ok' => false, 'message' => 'Chế độ mới ghi đè ảnh gốc, không lưu bản sao. Tải lại trang và xác nhận ghi đè trước khi chạy.'], 422);
         }
         $result = medical_image_brand_operation(static function () use ($action, $type): array {
-            if ($action === 'scan_start') return ['scan' => medical_image_brand_scan_start(), 'message' => 'Bắt đầu quét ảnh. Hồ sơ và ảnh gốc chưa bị thay đổi.'];
-            if ($action === 'scan_step') return ['scan' => medical_image_brand_scan_step(db())];
+            if ($action === 'scan_start') return ['scan' => medical_image_brand_scan_snapshot_start(db()), 'message' => 'Đã lưu snapshot DB vào JSON; tiếp tục quét file thư viện. Hồ sơ và ảnh gốc chưa bị thay đổi.'];
+            if ($action === 'scan_step') return ['scan' => medical_image_brand_scan_step()];
             if ($action === 'retry_failed') return ['message' => 'Đã đưa ' . medical_image_brand_retry_failed($type) . ' ảnh lỗi trở lại hàng chờ.'];
+            $scan = medical_image_brand_store(static fn(array $state): array => $state['scan']);
+            if (!medical_image_brand_scan_ready($scan)) {
+                throw new InvalidArgumentException('Hãy quét lại danh sách ảnh để lưu snapshot JSON trước khi gắn logo.');
+            }
             return medical_image_brand_run(db(), $type);
         });
         $message = $result['message'] ?? null;
@@ -50,6 +54,9 @@ try {
     json_response($result);
 } catch (Throwable $error) {
     error_log('Admin image branding (' . get_class($error) . '): ' . $error->getMessage());
-    json_response(['ok' => false, 'message' => $error->getCode() === 409 ? $error->getMessage()
-        : 'Không hoàn tất thao tác gắn logo. Có thể ảnh đã được ghi đè; làm mới để kiểm tra trạng thái trước khi tiếp tục. Kiểm tra quyền ghi storage/uploads và log máy chủ.'], $error->getCode() === 409 ? 409 : 500);
+    $clientError = $error instanceof InvalidArgumentException;
+    $statusCode = $error->getCode() === 409 ? 409 : ($clientError ? 422 : 500);
+    $message = ($statusCode === 409 || $clientError) ? $error->getMessage()
+        : 'Không hoàn tất thao tác gắn logo. Có thể ảnh đã được ghi đè; làm mới để kiểm tra trạng thái trước khi tiếp tục. Kiểm tra quyền ghi storage/uploads và log máy chủ.';
+    json_response(['ok' => false, 'message' => $message], $statusCode);
 }

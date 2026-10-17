@@ -51,6 +51,19 @@ async function setup(handler, confirmResult = true) {
     assert.equal(confirmations.length, 0, 'read-only loading and filtering never prompt for an overwrite');
   }
   {
+    const { get, calls } = await setup(call => {
+      if (call.action === 'scan_start') return payload({ scan: { phase: 'library', scanned: 2, steps: 2, ready: false } });
+      if (call.action === 'scan_step') return payload({ scan: { phase: 'complete', scanned: 2, steps: 3, ready: true } });
+      return payload({ scan: { phase: 'complete', scanned: 6, steps: 3, ready: false } });
+    });
+    assert.equal(get('brandingRun').disabled, true, 'an older snapshot cannot start an overwrite');
+    assert.match(get('brandingFeedback').textContent, /Quét danh sách ảnh/);
+    assert.equal(get('brandingScan').disabled, false, 'a stale inventory can still be refreshed');
+    await get('brandingScan').fire('click');
+    assert.equal(get('brandingRun').disabled, false, 'a completed current snapshot enables branding');
+    assert.deepEqual(calls.map(call => call.action), ['GET', 'scan_start', 'scan_step']);
+  }
+  {
     let steps = 0;
     const { get, calls } = await setup(call => {
       if (call.action === 'scan_start') return payload({ scan: { phase: 'facility', scanned: 0, steps: 0 } });

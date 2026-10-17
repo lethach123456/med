@@ -86,6 +86,83 @@ $assert($page['scanned'] === 1 && $page['next_id'] === 1 && $page['has_more'] &&
 $page2 = medical_image_brand_source_page($pdo, 'facility', $page['next_id'], 1);
 $assert($page2['next_id'] === 3 && !$page2['has_more'], 'Keyset cursor crosses gaps and ends correctly.');
 $assert(medical_image_brand_source_page($pdo, 'doctor')['scanned'] === 1, 'Minimal installed schema works without migrations.');
+$snapshotRows = [];
+$assert(medical_image_brand_source_snapshot($pdo, 'facility', static function (array $row) use (&$snapshotRows): void {
+    $snapshotRows[] = $row;
+}) === 2 && array_column($snapshotRows, 'id') === [1, 3] && count($snapshotRows[0]['sources']) === 2,
+    'Snapshot streams installed facility fields in ID order.');
+$legacySnapshotUrl = '/uploads/library/medreview-branded/' . str_repeat('9', 24) . '-' . str_repeat('8', 16) . '.jpg';
+$legacyResolver = static fn(string $candidate): ?array => $candidate === $legacySnapshotUrl ? $identity : null;
+$assert(medical_image_brand_sources_from_row(['image_url' => $legacySnapshotUrl], 'doctor') === []
+    && medical_image_brand_sources_from_row(['image_url' => $legacySnapshotUrl], 'doctor', $legacyResolver) === [$identity],
+    'Only an explicit inventory resolver can recover a known legacy output source.');
+$pdo->prepare('UPDATE medical_doctors SET image_url=? WHERE id=1')->execute([$legacySnapshotUrl]);
+$doctorSnapshot = [];
+medical_image_brand_source_snapshot($pdo, 'doctor', static function (array $row) use (&$doctorSnapshot): void { $doctorSnapshot[] = $row; }, $legacyResolver);
+$assert($doctorSnapshot[0]['sources'] === [$identity], 'Snapshot passes the legacy resolver through installed source fields.');
+$pdo->prepare('UPDATE medical_doctors SET image_url=? WHERE id=1')->execute([$url]);
+
+// A PDO double exercises MySQL cursor lifecycle without connecting to a server.
+class ImageBrandSnapshotStatement extends PDOStatement
+{
+    public bool $closed = false;
+    private int $offset = 0;
+    public function __construct(private array $rows) {}
+    public function execute(?array $params = null): bool { return true; }
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array
+    {
+        return $mode === PDO::FETCH_COLUMN ? array_map(static fn(array $row): mixed => reset($row), $this->rows) : $this->rows;
+    }
+    public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed
+    {
+        return $this->rows[$this->offset++] ?? false;
+    }
+    public function closeCursor(): bool { $this->closed = true; return true; }
+}
+class ImageBrandSnapshotPDO extends PDO
+{
+    public bool $buffered = true;
+    public bool $failQuery = false;
+    public ?ImageBrandSnapshotStatement $snapshotStatement = null;
+    public function __construct(private array $rows) {}
+    public function getAttribute(int $attribute): mixed
+    {
+        return $attribute === PDO::ATTR_DRIVER_NAME ? 'mysql' : $this->buffered;
+    }
+    public function setAttribute(int $attribute, mixed $value): bool { $this->buffered = (bool) $value; return true; }
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        return new ImageBrandSnapshotStatement([['COLUMN_NAME' => 'id'], ['COLUMN_NAME' => 'name'], ['COLUMN_NAME' => 'image_url']]);
+    }
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
+    {
+        if ($this->buffered) throw new RuntimeException('Snapshot SELECT must use unbuffered MySQL reads.');
+        if ($this->failQuery) throw new RuntimeException('Snapshot query fixture failure.');
+        return $this->snapshotStatement = new ImageBrandSnapshotStatement($this->rows);
+    }
+}
+if (defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY')) {
+    $mysqlSnapshot = new ImageBrandSnapshotPDO([['id' => 1, 'name' => 'Fixture', 'image_url' => $url]]);
+    $assert(medical_image_brand_source_snapshot($mysqlSnapshot, 'facility', static function (array $row) use ($mysqlSnapshot, $assert): void {
+        $assert(!$mysqlSnapshot->buffered && $row['id'] === 1, 'MySQL consumer runs while table rows are unbuffered.');
+    }) === 1 && $mysqlSnapshot->buffered && $mysqlSnapshot->snapshotStatement->closed,
+        'Successful MySQL snapshot closes its cursor and restores buffered reads.');
+    $callbackFailed = false;
+    try {
+        medical_image_brand_source_snapshot($mysqlSnapshot, 'facility', static function (array $row): void { throw new RuntimeException('Consumer fixture failure.'); });
+    } catch (RuntimeException $error) { $callbackFailed = $error->getMessage() === 'Consumer fixture failure.'; }
+    $assert($callbackFailed && $mysqlSnapshot->buffered && $mysqlSnapshot->snapshotStatement->closed,
+        'Consumer failure still closes the MySQL cursor and restores the previous buffered setting.');
+    $mysqlSnapshot->buffered = false;
+    medical_image_brand_source_snapshot($mysqlSnapshot, 'facility', static function (array $row): void {});
+    $assert(!$mysqlSnapshot->buffered && $mysqlSnapshot->snapshotStatement->closed, 'An originally unbuffered PDO remains unbuffered after a snapshot.');
+    $mysqlSnapshot->buffered = true;
+    $mysqlSnapshot->failQuery = true;
+    $queryFailed = false;
+    try { medical_image_brand_source_snapshot($mysqlSnapshot, 'facility', static function (array $row): void {}); }
+    catch (RuntimeException $error) { $queryFailed = $error->getMessage() === 'Snapshot query fixture failure.'; }
+    $assert($queryFailed && $mysqlSnapshot->buffered, 'Query failure also restores the original MySQL buffered setting.');
+}
 $requiredTransaction = false;
 try { medical_image_brand_apply($pdo, [['type' => 'facility', 'id' => 1]], $identity['key'], $output); } catch (LogicException) { $requiredTransaction = true; }
 $assert($requiredTransaction, 'Apply requires caller transaction.');
