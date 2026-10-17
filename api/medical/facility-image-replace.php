@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 /**
  * API thay ảnh hỏng cho cơ sở y tế + đóng logo MedReview đồng thời.
+ * Xác thực bằng header X-Medical-Api-Key (giống các API bài viết).
  *
  * POST JSON:
  * {
@@ -18,27 +19,18 @@ declare(strict_types=1);
  * Luồng xử lý mỗi ảnh: tải về -> kiểm tra ảnh thật -> đóng wordmark
  * MedReview -> lưu vào uploads/library/facilities/{id}/ -> cập nhật DB.
  */
-require_once __DIR__ . '/../../_bootstrap.php';
-require_once __DIR__ . '/../../../medical_image_branding.php';
+require_once __DIR__ . '/_auth.php';
+require_once __DIR__ . '/../../medical_image_branding.php';
 
-admin_require_admin_json();
+medical_api_auth();
 header('Cache-Control: private, no-store, max-age=0');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     header('Allow: POST');
     json_response(['ok' => false, 'message' => 'Chỉ hỗ trợ POST.'], 405);
 }
-admin_require_csrf_json();
 
-$raw = file_get_contents('php://input', false, null, 0, 1048576);
-try {
-    $body = json_decode((string) $raw, true, 8, JSON_THROW_ON_ERROR);
-} catch (JsonException) {
-    json_response(['ok' => false, 'message' => 'Body cần JSON hợp lệ.'], 422);
-}
-if (!is_array($body)) {
-    json_response(['ok' => false, 'message' => 'Body cần một JSON object.'], 422);
-}
+$body = read_json_body();
 $replacements = $body['replacements'] ?? null;
 if ($replacements === null && isset($body['facility_id'], $body['image_url'])) {
     $replacements = [$body];
@@ -47,7 +39,7 @@ if (!is_array($replacements) || $replacements === [] || count($replacements) > 5
     json_response(['ok' => false, 'message' => 'Cần mảng replacements (1-50 phần tử).'], 422);
 }
 
-function image_replace_download(string $url): string
+function facility_image_replace_download(string $url): string
 {
     $url = trim($url);
     if (!preg_match('~^https?://~i', $url)) {
@@ -94,11 +86,11 @@ foreach ($replacements as $index => $item) {
         }
 
         // 1. Tải ảnh mới
-        $data = image_replace_download($newUrl);
+        $data = facility_image_replace_download($newUrl);
         $hash = substr(hash('sha256', $data), 0, 16);
 
         // 2. Lưu file tạm rồi đóng logo
-        $dir = __DIR__ . '/../../../uploads/library/facilities/' . $facilityId;
+        $dir = __DIR__ . '/../../uploads/library/facilities/' . $facilityId;
         if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
             throw new RuntimeException('Không tạo được thư mục lưu ảnh.');
         }
@@ -122,27 +114,18 @@ foreach ($replacements as $index => $item) {
                 $gallery = array_values($decoded);
             }
         }
-        $entry = ['url' => $publicUrl, 'caption' => '', 'source' => 'MedReview'];
         if ($galleryIndex < count($gallery)) {
             $old = is_array($gallery[$galleryIndex]) ? $gallery[$galleryIndex] : [];
-            $entry = array_merge($old, ['url' => $publicUrl]);
-            $gallery[$galleryIndex] = $entry;
+            $gallery[$galleryIndex] = array_merge($old, ['url' => $publicUrl]);
         } else {
-            $gallery[] = $entry;
+            $gallery[] = ['url' => $publicUrl, 'caption' => '', 'source' => 'MedReview'];
         }
-        $newCover = ($galleryIndex === 0) ? $publicUrl : (string) ($facility['image_url'] ?? '');
-        // Nếu ảnh bìa hiện tại chính là URL hỏng đang thay thì cập nhật luôn
-        if ($galleryIndex !== 0 && $newCover !== '' && count($gallery) > 0) {
-            $newCover = (string) ($facility['image_url'] ?? '');
-        }
+        $coverValue = ($galleryIndex === 0) ? $publicUrl : (string) ($facility['image_url'] ?? '');
 
         $update = $pdo->prepare('UPDATE medical_facilities
             SET image_url = :cover, gallery_json = :gallery,
                 image_scan_status = :scan, updated_at = NOW()
             WHERE id = :id');
-        // Khi thay gallery_index = 0 thì cover = ảnh mới; nếu không, giữ cover cũ
-        // trừ khi cover cũ trùng URL hỏng vừa thay.
-        $coverValue = ($galleryIndex === 0) ? $publicUrl : (string) ($facility['image_url'] ?? '');
         $update->execute([
             ':cover' => $coverValue,
             ':gallery' => json_encode($gallery, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -157,7 +140,7 @@ foreach ($replacements as $index => $item) {
         $result['message'] = 'Đã thay ảnh và đóng logo.';
     } catch (Throwable $error) {
         $result['message'] = $error->getMessage();
-        error_log('Admin image replace: ' . get_class($error) . ': ' . $error->getMessage());
+        error_log('Facility image replace: ' . get_class($error) . ': ' . $error->getMessage());
     }
     $results[] = $result;
 }
