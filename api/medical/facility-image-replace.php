@@ -73,6 +73,7 @@ foreach ($replacements as $index => $item) {
         $facilityId = (int) ($item['facility_id'] ?? 0);
         $newUrl = trim((string) ($item['image_url'] ?? ''));
         $galleryIndex = (int) ($item['gallery_index'] ?? 0);
+        $caption = trim((string) ($item['caption'] ?? ''));
         if ($facilityId < 1 || $newUrl === '' || $galleryIndex < 0) {
             throw new InvalidArgumentException('Thiếu facility_id / image_url hợp lệ.');
         }
@@ -116,9 +117,13 @@ foreach ($replacements as $index => $item) {
         }
         if ($galleryIndex < count($gallery)) {
             $old = is_array($gallery[$galleryIndex]) ? $gallery[$galleryIndex] : [];
-            $gallery[$galleryIndex] = array_merge($old, ['url' => $publicUrl]);
+            $merged = array_merge($old, ['url' => $publicUrl]);
+            if ($caption !== '') {
+                $merged['caption'] = $caption;
+            }
+            $gallery[$galleryIndex] = $merged;
         } else {
-            $gallery[] = ['url' => $publicUrl, 'caption' => '', 'source' => 'MedReview'];
+            $gallery[] = ['url' => $publicUrl, 'caption' => $caption, 'source' => 'MedReview'];
         }
         $coverValue = ($galleryIndex === 0) ? $publicUrl : (string) ($facility['image_url'] ?? '');
 
