@@ -101,7 +101,7 @@ foreach ($replacements as $index => $item) {
         }
         $finalPath = $dir . '/image-' . $hash . '.jpg';
         try {
-            $rendered = medical_image_brand_render($tmpPath, $finalPath, []);
+            $rendered = medical_image_brand_render($tmpPath, $finalPath, ['format' => 'jpeg']);
         } finally {
             @unlink($tmpPath);
         }
