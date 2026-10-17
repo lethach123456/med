@@ -140,9 +140,6 @@ foreach ($replacements as $index => $item) {
 
         $result['ok'] = true;
         $result['public_url'] = $publicUrl;
-        $result['debug_realpath'] = realpath($finalPath);
-        $result['debug_exists'] = is_file($finalPath);
-        $result['debug_dir'] = realpath($dir);
         $result['width'] = $rendered['width'] ?? null;
         $result['height'] = $rendered['height'] ?? null;
         $result['message'] = 'Đã thay ảnh và đóng logo.';
