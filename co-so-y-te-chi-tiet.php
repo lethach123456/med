@@ -901,6 +901,72 @@ if ($seoImage === '') {
   $seoImage = trim((string) ($facility['image_url'] ?? ''));
 }
 $seoImageAbsolute = site_absolute_media_url($seoImage);
+
+// SEO y tế: map category sang MedicalSpecialty của schema.org (chỉ map các chuyên khoa y rõ ràng).
+$facilityMedicalSpecialty = null;
+$facilityCategoryNorm = mb_strtolower(trim((string) ($facility['category'] ?? '')), 'UTF-8');
+if (str_contains($facilityCategoryNorm, 'nha khoa') || str_contains($facilityCategoryNorm, 'răng hàm mặt')) {
+  $facilityMedicalSpecialty = 'Dentistry';
+}
+
+// SEO y tế: parse hours_text (VD "T2–CN: 07:30–19:30", "T2–T7: 08:00–19:00; CN: 08:00–16:00")
+// sang định dạng openingHours của schema.org ("Mo-Su 07:30-19:30"). Không parse được thì bỏ qua.
+$facilityOpeningHours = [];
+$facilityHoursRaw = trim((string) ($facility['hours_text'] ?? ''));
+if ($facilityHoursRaw !== '') {
+  $dayMap = ['T2' => 'Mo', 'T3' => 'Tu', 'T4' => 'We', 'T5' => 'Th', 'T6' => 'Fr', 'T7' => 'Sa', 'CN' => 'Su',
+    'MON' => 'Mo', 'TUE' => 'Tu', 'WED' => 'We', 'THU' => 'Th', 'FRI' => 'Fr', 'SAT' => 'Sa', 'SUN' => 'Su'];
+  $dayOrder = ['Mo' => 1, 'Tu' => 2, 'We' => 3, 'Th' => 4, 'Fr' => 5, 'Sa' => 6, 'Su' => 7];
+  foreach (preg_split('/\s*;\s*/u', $facilityHoursRaw) as $segment) {
+    $segment = trim((string) preg_replace('/\s*\(.*?\)\s*/u', ' ', $segment));
+    if (!preg_match('/^(.+?)\s*:\s*(\d{1,2}:\d{2})\s*[–\-]\s*(\d{1,2}:\d{2})/u', $segment, $m)) {
+      continue;
+    }
+    $daysPart = mb_strtoupper(trim($m[1]), 'UTF-8');
+    if (preg_match('/ĐÓNG CỬA|CLOSED|NGHỈ/u', $daysPart)) {
+      continue;
+    }
+    $days = [];
+    foreach (preg_split('/\s*,\s*/u', $daysPart) as $token) {
+      if (preg_match('/^([A-Z0-9]+)\s*[–\-]\s*([A-Z0-9]+)$/u', trim($token), $dm)
+        && isset($dayMap[$dm[1]], $dayMap[$dm[2]])) {
+        $from = $dayOrder[$dayMap[$dm[1]]];
+        $to = $dayOrder[$dayMap[$dm[2]]];
+        for ($d = $from; $d <= $to; $d++) {
+          $days[] = array_search($d, $dayOrder, true);
+        }
+      } elseif (isset($dayMap[trim($token)])) {
+        $days[] = $dayMap[trim($token)];
+      }
+    }
+    $days = array_values(array_unique($days));
+    if ($days === []) {
+      continue;
+    }
+    usort($days, static fn($a, $b) => $dayOrder[$a] <=> $dayOrder[$b]);
+    $open = sprintf('%02d:%02d', (int) $m[2], (int) substr($m[2], strpos($m[2], ':') + 1));
+    $close = sprintf('%02d:%02d', (int) $m[3], (int) substr($m[3], strpos($m[3], ':') + 1));
+    // Gộp ngày liên tiếp thành khoảng Mo-Fr, ngày rời rạc giữ nguyên dạng Mo,We,Fr.
+    $groups = [];
+    $start = $prev = $days[0];
+    foreach (array_slice($days, 1) as $d) {
+      if ($dayOrder[$d] === $dayOrder[$prev] + 1) {
+        $prev = $d;
+        continue;
+      }
+      $groups[] = [$start, $prev];
+      $start = $prev = $d;
+    }
+    $groups[] = [$start, $prev];
+    $dayStr = implode(',', array_map(
+      static fn($g) => $g[0] === $g[1] ? $g[0] : $g[0] . '-' . $g[1],
+      $groups
+    ));
+    $facilityOpeningHours[] = $dayStr . ' ' . $open . '-' . $close;
+  }
+  $facilityOpeningHours = array_values(array_unique($facilityOpeningHours));
+}
+
 $facilitySchema = [
   '@context' => 'https://schema.org',
   '@type' => 'MedicalClinic',
@@ -922,6 +988,51 @@ if ($facilityTelephone !== '') {
 if ($seoImageAbsolute !== '') {
   $facilitySchema['image'] = $seoImageAbsolute;
 }
+// SEO y tế: tọa độ cho local SEO (DB có latitude/longitude).
+$facilityLat = (float) ($facility['latitude'] ?? 0);
+$facilityLng = (float) ($facility['longitude'] ?? 0);
+if ($facilityLat !== 0.0 && $facilityLng !== 0.0) {
+  $facilitySchema['geo'] = [
+    '@type' => 'GeoCoordinates',
+    'latitude' => $facilityLat,
+    'longitude' => $facilityLng,
+  ];
+}
+// SEO y tế: chuyên khoa (VD Dentistry) giúp Google phân loại đúng.
+if ($facilityMedicalSpecialty !== null) {
+  $facilitySchema['medicalSpecialty'] = $facilityMedicalSpecialty;
+}
+// SEO y tế: giờ mở cửa dạng chuẩn schema.org.
+if ($facilityOpeningHours !== []) {
+  $facilitySchema['openingHours'] = $facilityOpeningHours;
+}
+// SEO: BreadcrumbList khớp với breadcrumb hiển thị trên trang.
+$facilityBreadcrumbName = $facilityLanguage === 'en' ? 'Home' : 'Trang chủ';
+$facilityCategoryCrumb = $facilityLanguage === 'en' ? 'Healthcare facilities' : (string) ($facility['category'] ?? '');
+$facilityBreadcrumbSchema = [
+  '@context' => 'https://schema.org',
+  '@type' => 'BreadcrumbList',
+  'itemListElement' => [
+    [
+      '@type' => 'ListItem',
+      'position' => 1,
+      'name' => $facilityBreadcrumbName,
+      'item' => site_absolute_url(site_localized_path('/', $facilityLanguage)),
+    ],
+    [
+      '@type' => 'ListItem',
+      'position' => 2,
+      'name' => $facilityCategoryCrumb,
+      'item' => site_absolute_url(site_localized_path(medical_public_facility_path(), $facilityLanguage)),
+    ],
+    [
+      '@type' => 'ListItem',
+      'position' => 3,
+      'name' => (string) ($facility['name'] ?? ''),
+      'item' => $canonicalUrl,
+    ],
+  ],
+];
 $facilityReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
 $facilityReviewSummaryCount = max(0, (int) ($facilityReviewSummary['count'] ?? $facility['reviews_count'] ?? $facilityReviewCount));
 $formatFacilityCount = static fn(int $count): string => number_format($count, 0, $facilityLanguage === 'en' ? '.' : ',', $facilityLanguage === 'en' ? ',' : '.');
@@ -963,6 +1074,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
     <meta property="og:url" content="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($seoImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($seoImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if (!$facilityNotFound): ?><?php echo site_json_ld($facilitySchema); ?><?php endif; ?>
+    <?php if (!$facilityNotFound): ?><?php echo site_json_ld($facilityBreadcrumbSchema); ?><?php endif; ?>
     <meta name="twitter:card" content="<?php echo $seoImage !== '' ? 'summary_large_image' : 'summary'; ?>">
     <meta name="twitter:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
