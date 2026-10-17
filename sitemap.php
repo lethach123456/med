@@ -198,14 +198,14 @@ function medreview_sitemap_sources(): array
     return [
         'facilities' => [
             'table' => 'medical_facilities',
-            'count' => "SELECT COUNT(*) FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, language_code, updated_at FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            'count' => "SELECT COUNT(*) FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0",
+            'rows' => "SELECT slug, language_code, updated_at FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0 ORDER BY id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => medical_public_entity_path('facility', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'doctors' => [
             'table' => 'medical_doctors',
-            'count' => "SELECT COUNT(*) FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, language_code, updated_at FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            'count' => "SELECT COUNT(*) FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0",
+            'rows' => "SELECT slug, language_code, updated_at FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0 ORDER BY id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => medical_public_entity_path('doctor', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'reviews' => [
@@ -299,7 +299,7 @@ try {
             if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
                 $categories = $lang === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
                 $count = (int) $pdo->query("SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
-                    WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>'' AND c.slug IN ({$categories})")->fetchColumn();
+                    WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>'' AND LENGTH(TRIM(COALESCE(p.content,'')))>0 AND c.slug IN ({$categories})")->fetchColumn();
                 if ($count > 0) $parts['articles'] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }
             foreach ($parts as $name => $partCount) {
@@ -335,6 +335,7 @@ try {
             $articleCount = (int) $pdo->query(
                 "SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
                  WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
+                   AND LENGTH(TRIM(COALESCE(p.content,'')))>0
                    AND c.slug IN ({$articleCategories})"
             )->fetchColumn();
             if ($articleCount > 0) {
@@ -367,6 +368,7 @@ try {
                 "SELECT p.slug, p.updated_at, c.slug AS category_slug
                  FROM posts p JOIN categories c ON c.id=p.category_id
                  WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
+                   AND LENGTH(TRIM(COALESCE(p.content,'')))>0
                    AND c.slug IN ({$articleCategories})
                  ORDER BY p.id ASC LIMIT :limit OFFSET :offset"
             );
