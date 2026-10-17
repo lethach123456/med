@@ -236,3 +236,201 @@ function handbook_view_pagination(string $locale, array $filters, array $paging)
     if ($page < $pages) $html .= $link($page + 1, $copy['next'], '<i class="ph ph-arrow-right" aria-hidden="true"></i>', 'next');
     return $html . '</div></nav>';
 }
+
+/**
+ * Safely read AI-populated suggested facilities, doctors, and sources from posts.ai_content_json
+ * and enrich linked facility/doctor IDs with their live public routes when available.
+ *
+ * @return array{facilities:list<array<string,mixed>>,doctors:list<array<string,mixed>>,sources:list<array<string,mixed>>}
+ */
+function handbook_article_ai_metadata(PDO $pdo, int $postId, string $locale = 'vi'): array
+{
+    $empty = ['facilities' => [], 'doctors' => [], 'sources' => []];
+    if ($postId < 1) return $empty;
+    $locale = handbook_view_locale($locale);
+    try {
+        $stmt = $pdo->prepare('SELECT ai_content_json FROM posts WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $postId]);
+        $raw = $stmt->fetchColumn();
+    } catch (Throwable) {
+        return $empty;
+    }
+    if (!is_string($raw) || trim($raw) === '') return $empty;
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) return $empty;
+
+    $facilities = is_array($decoded['suggested_facilities_json'] ?? null) ? array_values($decoded['suggested_facilities_json']) : [];
+    $doctors = is_array($decoded['suggested_doctors_json'] ?? null) ? array_values($decoded['suggested_doctors_json']) : [];
+    $sources = is_array($decoded['sources_json'] ?? null) ? array_values($decoded['sources_json']) : [];
+
+    $facilityIds = [];
+    foreach ($facilities as $item) {
+        if (is_array($item) && isset($item['facility_id']) && (int) $item['facility_id'] > 0) {
+            $facilityIds[(int) $item['facility_id']] = (int) $item['facility_id'];
+        }
+    }
+    $facilityMap = [];
+    if ($facilityIds !== []) {
+        try {
+            $in = implode(',', array_fill(0, count($facilityIds), '?'));
+            $fStmt = $pdo->prepare("SELECT id, slug, name, category, city, address_text, phone_text, image_url, status, verified FROM medical_facilities WHERE id IN ({$in})");
+            $fStmt->execute(array_values($facilityIds));
+            foreach ($fStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $fRow) {
+                $facilityMap[(int) $fRow['id']] = $fRow;
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    $normalizedFacilities = [];
+    foreach ($facilities as $item) {
+        if (!is_array($item)) continue;
+        $fid = isset($item['facility_id']) ? (int) $item['facility_id'] : 0;
+        $live = $fid > 0 ? ($facilityMap[$fid] ?? null) : null;
+        $slug = trim((string) ($live['slug'] ?? $item['slug'] ?? ''));
+        $status = (string) ($live['status'] ?? 'published');
+        $publicUrl = ($slug !== '' && $status === 'published' && function_exists('medical_public_entity_path'))
+            ? medical_public_entity_path('facility', $slug, $locale)
+            : ($slug !== '' ? ($locale === 'en' ? '/en/co-so-y-te/' : '/co-so-y-te/') . rawurlencode($slug) : '');
+        $normalizedFacilities[] = [
+            'facility_id' => $fid > 0 ? $fid : null,
+            'name' => trim((string) ($live['name'] ?? $item['name'] ?? '')),
+            'category' => trim((string) ($live['category'] ?? $item['category'] ?? '')),
+            'address' => trim((string) ($live['address_text'] ?? $item['address'] ?? '')),
+            'city' => trim((string) ($live['city'] ?? $item['city'] ?? '')),
+            'phone' => trim((string) ($live['phone_text'] ?? $item['phone'] ?? '')),
+            'website' => handbook_view_image_url((string) ($item['website'] ?? '')),
+            'evidence_url' => handbook_view_image_url((string) ($item['evidence_url'] ?? '')),
+            'public_url' => $publicUrl,
+            'resolution' => (string) ($item['resolution'] ?? ''),
+        ];
+    }
+
+    $doctorIds = [];
+    foreach ($doctors as $item) {
+        if (is_array($item) && isset($item['doctor_id']) && (int) $item['doctor_id'] > 0) {
+            $doctorIds[(int) $item['doctor_id']] = (int) $item['doctor_id'];
+        }
+    }
+    $doctorMap = [];
+    if ($doctorIds !== []) {
+        try {
+            $in = implode(',', array_fill(0, count($doctorIds), '?'));
+            $dStmt = $pdo->prepare("SELECT id, slug, name, specialty_text, facility_name, address_text, city, image_url, status, verified FROM medical_doctors WHERE id IN ({$in})");
+            $dStmt->execute(array_values($doctorIds));
+            foreach ($dStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $dRow) {
+                $doctorMap[(int) $dRow['id']] = $dRow;
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    $normalizedDoctors = [];
+    foreach ($doctors as $item) {
+        if (!is_array($item)) continue;
+        $did = isset($item['doctor_id']) ? (int) $item['doctor_id'] : 0;
+        $live = $did > 0 ? ($doctorMap[$did] ?? null) : null;
+        $slug = trim((string) ($live['slug'] ?? $item['slug'] ?? ''));
+        $status = (string) ($live['status'] ?? 'published');
+        $publicUrl = ($slug !== '' && $status === 'published' && function_exists('medical_public_entity_path'))
+            ? medical_public_entity_path('doctor', $slug, $locale)
+            : ($slug !== '' ? ($locale === 'en' ? '/en/bac-si/' : '/bac-si/') . rawurlencode($slug) : '');
+        $normalizedDoctors[] = [
+            'doctor_id' => $did > 0 ? $did : null,
+            'name' => trim((string) ($live['name'] ?? $item['name'] ?? '')),
+            'specialty' => trim((string) ($live['specialty_text'] ?? $item['specialty'] ?? '')),
+            'facility_name' => trim((string) ($live['facility_name'] ?? $item['facility_name'] ?? '')),
+            'address' => trim((string) ($live['address_text'] ?? $item['address'] ?? '')),
+            'city' => trim((string) ($live['city'] ?? $item['city'] ?? '')),
+            'website' => handbook_view_image_url((string) ($item['website'] ?? '')),
+            'evidence_url' => handbook_view_image_url((string) ($item['evidence_url'] ?? '')),
+            'public_url' => $publicUrl,
+            'resolution' => (string) ($item['resolution'] ?? ''),
+        ];
+    }
+
+    return [
+        'facilities' => array_values(array_filter($normalizedFacilities, static fn(array $r): bool => $r['name'] !== '')),
+        'doctors' => array_values(array_filter($normalizedDoctors, static fn(array $r): bool => $r['name'] !== '')),
+        'sources' => $sources,
+    ];
+}
+
+function handbook_view_related_section(array $related, string $locale = 'vi'): string
+{
+    $facilities = is_array($related['facilities'] ?? null) ? $related['facilities'] : [];
+    $doctors = is_array($related['doctors'] ?? null) ? $related['doctors'] : [];
+    if ($facilities === [] && $doctors === []) return '';
+
+    $e = 'handbook_view_escape';
+    $isEn = handbook_view_locale($locale) === 'en';
+    $heading = $isEn ? 'Related healthcare facilities & specialists' : 'Cơ sở y tế & Bác sĩ liên quan';
+    $sub = $isEn
+        ? 'Referenced facilities and doctors related to this topic on MedReview.'
+        : 'Danh sách cơ sở y tế và bác sĩ chuyên khoa liên quan trực tiếp đến chủ đề bài viết.';
+    $facTitle = $isEn ? 'Healthcare Facilities' : 'Cơ sở y tế gợi ý';
+    $docTitle = $isEn ? 'Specialists & Doctors' : 'Bác sĩ chuyên khoa gợi ý';
+    $viewProfileLabel = $isEn ? 'View profile' : 'Xem hồ sơ MedReview';
+    $viewSourceLabel = $isEn ? 'Official page' : 'Nguồn tham khảo';
+
+    $html = '<section class="hb-related-entities" aria-labelledby="hbRelatedHeading" style="max-width:1120px;margin:2rem auto;padding:0 16px;">';
+    $html .= '<div style="border:1px solid #dbe5f3;border-radius:16px;background:#f8fbff;padding:1.5rem;">';
+    $html .= '<h2 id="hbRelatedHeading" style="margin:0 0 .35rem;font-size:1.3rem;font-weight:800;color:#142d50;">' . $e($heading) . '</h2>';
+    $html .= '<p style="margin:0 0 1.2rem;font-size:.9rem;color:#526581;">' . $e($sub) . '</p>';
+    $html .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.25rem;">';
+
+    if ($facilities !== []) {
+        $html .= '<div><h3 style="margin:0 0 .75rem;font-size:1.02rem;font-weight:750;color:#1e40af;">' . $e($facTitle) . ' (' . count($facilities) . ')</h3>';
+        $html .= '<div style="display:grid;gap:.75rem;">';
+        foreach ($facilities as $fac) {
+            $link = $fac['public_url'] !== '' ? $fac['public_url'] : ($fac['website'] !== '' ? $fac['website'] : $fac['evidence_url']);
+            $metaParts = array_values(array_filter([$fac['category'], $fac['city'], $fac['phone']]));
+            $html .= '<article style="border:1px solid #e2eaf5;border-radius:12px;background:#fff;padding:.95rem 1rem;">';
+            $html .= '<div style="font-weight:750;font-size:.96rem;color:#142d50;">'
+                . ($link !== '' ? '<a href="' . $e($link) . '" style="color:#1e40af;text-decoration:none;">' . $e($fac['name']) . '</a>' : $e($fac['name']))
+                . '</div>';
+            if ($metaParts !== []) {
+                $html .= '<div style="margin-top:.25rem;font-size:.8rem;color:#475569;font-weight:600;">' . $e(implode(' · ', $metaParts)) . '</div>';
+            }
+            if ($fac['address'] !== '') {
+                $html .= '<div style="margin-top:.25rem;font-size:.82rem;color:#64748b;">' . $e($fac['address']) . '</div>';
+            }
+            if ($fac['public_url'] !== '') {
+                $html .= '<div style="margin-top:.5rem;"><a href="' . $e($fac['public_url']) . '" style="font-size:.8rem;font-weight:700;color:#2563eb;text-decoration:none;">' . $e($viewProfileLabel) . ' →</a></div>';
+            } elseif ($link !== '') {
+                $html .= '<div style="margin-top:.5rem;"><a href="' . $e($link) . '" target="_blank" rel="noopener noreferrer" style="font-size:.8rem;font-weight:600;color:#475569;text-decoration:none;">' . $e($viewSourceLabel) . ' ↗</a></div>';
+            }
+            $html .= '</article>';
+        }
+        $html .= '</div></div>';
+    }
+
+    if ($doctors !== []) {
+        $html .= '<div><h3 style="margin:0 0 .75rem;font-size:1.02rem;font-weight:750;color:#1e40af;">' . $e($docTitle) . ' (' . count($doctors) . ')</h3>';
+        $html .= '<div style="display:grid;gap:.75rem;">';
+        foreach ($doctors as $doc) {
+            $link = $doc['public_url'] !== '' ? $doc['public_url'] : ($doc['website'] !== '' ? $doc['website'] : $doc['evidence_url']);
+            $metaParts = array_values(array_filter([$doc['specialty'], $doc['facility_name'], $doc['city']]));
+            $html .= '<article style="border:1px solid #e2eaf5;border-radius:12px;background:#fff;padding:.95rem 1rem;">';
+            $html .= '<div style="font-weight:750;font-size:.96rem;color:#142d50;">'
+                . ($link !== '' ? '<a href="' . $e($link) . '" style="color:#1e40af;text-decoration:none;">' . $e($doc['name']) . '</a>' : $e($doc['name']))
+                . '</div>';
+            if ($metaParts !== []) {
+                $html .= '<div style="margin-top:.25rem;font-size:.8rem;color:#475569;font-weight:600;">' . $e(implode(' · ', $metaParts)) . '</div>';
+            }
+            if ($doc['address'] !== '') {
+                $html .= '<div style="margin-top:.25rem;font-size:.82rem;color:#64748b;">' . $e($doc['address']) . '</div>';
+            }
+            if ($doc['public_url'] !== '') {
+                $html .= '<div style="margin-top:.5rem;"><a href="' . $e($doc['public_url']) . '" style="font-size:.8rem;font-weight:700;color:#2563eb;text-decoration:none;">' . $e($viewProfileLabel) . ' →</a></div>';
+            } elseif ($link !== '') {
+                $html .= '<div style="margin-top:.5rem;"><a href="' . $e($link) . '" target="_blank" rel="noopener noreferrer" style="font-size:.8rem;font-weight:600;color:#475569;text-decoration:none;">' . $e($viewSourceLabel) . ' ↗</a></div>';
+            }
+            $html .= '</article>';
+        }
+        $html .= '</div></div>';
+    }
+
+    $html .= '</div></div></section>';
+    return $html;
+}

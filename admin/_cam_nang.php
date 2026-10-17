@@ -184,3 +184,137 @@ function admin_handbook_language_field(array $values, int $id): string
     if($id>0)return '<input type="hidden" name="language" value="'.$language.'"><div class="small text-secondary">Ngôn ngữ: <strong>'.($language==='en'?'English':'Tiếng Việt').'</strong></div>';
     return '<label class="form-label" for="handbook-article-language">Ngôn ngữ</label><select id="handbook-article-language" name="language" class="form-select" data-handbook-language="1"><option value="vi"'.($language==='vi'?' selected':'').'>Tiếng Việt</option><option value="en"'.($language==='en'?' selected':'').'>English</option></select>';
 }
+
+/**
+ * Render an inspection card in Admin for posts.ai_content_json
+ * (suggested_facilities_json, suggested_doctors_json, sources_json).
+ */
+function admin_handbook_ai_metadata_panel(?array $row): string
+{
+    if (!is_array($row)) return '';
+    $raw = trim((string) ($row['ai_content_json'] ?? ''));
+    $decoded = $raw !== '' ? json_decode($raw, true) : null;
+    $facilities = is_array($decoded['suggested_facilities_json'] ?? null) ? $decoded['suggested_facilities_json'] : [];
+    $doctors = is_array($decoded['suggested_doctors_json'] ?? null) ? $decoded['suggested_doctors_json'] : [];
+    $sources = is_array($decoded['sources_json'] ?? null) ? $decoded['sources_json'] : [];
+    $escape = static fn (mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $locale = (($row['language'] ?? 'vi') === 'en') ? 'en' : 'vi';
+
+    ob_start();
+    ?>
+    <div class="card border rounded-4 bg-white mt-3" id="handbook-ai-metadata-panel">
+      <div class="card-body p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+          <div class="fw-semibold">
+            <i class="fa-solid fa-hospital-user text-primary me-2" aria-hidden="true"></i>JSON Cơ sở y tế &amp; Bác sĩ đi kèm bài Cẩm nang
+          </div>
+          <div class="d-flex flex-wrap gap-1">
+            <span class="badge <?php echo count($facilities) > 0 ? 'text-bg-primary' : 'text-bg-secondary'; ?>"><?php echo count($facilities); ?> cơ sở y tế</span>
+            <span class="badge <?php echo count($doctors) > 0 ? 'text-bg-info' : 'text-bg-secondary'; ?>"><?php echo count($doctors); ?> bác sĩ</span>
+            <span class="badge text-bg-light text-dark border"><?php echo count($sources); ?> nguồn y khoa</span>
+          </div>
+        </div>
+
+        <?php if (!is_array($decoded)): ?>
+          <div class="small text-secondary">Bài viết này chưa có dữ liệu <code>ai_content_json</code> (hoặc được tạo thủ công, chưa qua API AI Cẩm nang).</div>
+        <?php else: ?>
+          <div class="row g-3 mt-1">
+            <div class="col-12 col-lg-6">
+              <div class="small fw-bold text-secondary mb-2">CƠ SỞ Y TẾ GỢI Ý (<code>suggested_facilities_json</code>: <?php echo count($facilities); ?>)</div>
+              <?php if ($facilities === []): ?>
+                <div class="small text-muted fst-italic border rounded-3 p-2 bg-light">Mảng <code>suggested_facilities_json</code> đang trống (<code>[]</code>).</div>
+              <?php else: ?>
+                <div class="d-grid gap-2">
+                  <?php foreach ($facilities as $fac): if (!is_array($fac)) continue;
+                    $fid = (int) ($fac['facility_id'] ?? 0);
+                    $fSlug = trim((string) ($fac['slug'] ?? ''));
+                    $res = (string) ($fac['resolution'] ?? '');
+                    $badgeClass = $res === 'matched' ? 'text-bg-success' : ($res === 'created' ? 'text-bg-warning' : 'text-bg-secondary');
+                    $badgeText = $res === 'matched' ? 'Đã khớp #' . $fid : ($res === 'created' ? 'Tạo mới #' . $fid : 'Chưa khớp (' . ($fac['resolution_reason'] ?? 'unresolved') . ')');
+                  ?>
+                    <div class="border rounded-3 p-2 bg-light">
+                      <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="fw-semibold small"><?php echo $escape($fac['name'] ?? '—'); ?></div>
+                        <span class="badge <?php echo $badgeClass; ?>"><?php echo $escape($badgeText); ?></span>
+                      </div>
+                      <div class="small text-secondary mt-1">
+                        <?php echo $escape(implode(' · ', array_filter([(string) ($fac['category'] ?? ''), (string) ($fac['city'] ?? ''), (string) ($fac['phone'] ?? '')]))); ?>
+                      </div>
+                      <?php if (!empty($fac['address'])): ?>
+                        <div class="small text-muted"><?php echo $escape($fac['address']); ?></div>
+                      <?php endif; ?>
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <?php if ($fid > 0): ?>
+                          <a class="btn btn-xs btn-outline-primary py-0 px-2 small" href="/admin/medical_facility_edit.php?id=<?php echo $fid; ?>" target="_blank" rel="noopener">Mở Admin #<?php echo $fid; ?></a>
+                        <?php endif; ?>
+                        <?php if ($fSlug !== ''): ?>
+                          <a class="btn btn-xs btn-outline-secondary py-0 px-2 small" href="<?php echo $escape(($locale === 'en' ? '/en/co-so-y-te/' : '/co-so-y-te/') . rawurlencode($fSlug)); ?>" target="_blank" rel="noopener">Xem trang</a>
+                        <?php endif; ?>
+                        <?php if (!empty($fac['evidence_url'])): ?>
+                          <a class="btn btn-xs btn-outline-dark py-0 px-2 small" href="<?php echo $escape($fac['evidence_url']); ?>" target="_blank" rel="noopener noreferrer">Nguồn</a>
+                        <?php endif; ?>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="small fw-bold text-secondary mb-2">BÁC SĨ GỢI Ý (<code>suggested_doctors_json</code>: <?php echo count($doctors); ?>)</div>
+              <?php if ($doctors === []): ?>
+                <div class="small text-muted fst-italic border rounded-3 p-2 bg-light">Mảng <code>suggested_doctors_json</code> đang trống (<code>[]</code>).</div>
+              <?php else: ?>
+                <div class="d-grid gap-2">
+                  <?php foreach ($doctors as $doc): if (!is_array($doc)) continue;
+                    $did = (int) ($doc['doctor_id'] ?? 0);
+                    $dSlug = trim((string) ($doc['slug'] ?? ''));
+                    $res = (string) ($doc['resolution'] ?? '');
+                    $badgeClass = $res === 'matched' ? 'text-bg-success' : ($res === 'created' ? 'text-bg-warning' : 'text-bg-secondary');
+                    $badgeText = $res === 'matched' ? 'Đã khớp #' . $did : ($res === 'created' ? 'Tạo mới #' . $did : 'Chưa khớp (' . ($doc['resolution_reason'] ?? 'unresolved') . ')');
+                  ?>
+                    <div class="border rounded-3 p-2 bg-light">
+                      <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="fw-semibold small"><?php echo $escape($doc['name'] ?? '—'); ?></div>
+                        <span class="badge <?php echo $badgeClass; ?>"><?php echo $escape($badgeText); ?></span>
+                      </div>
+                      <div class="small text-secondary mt-1">
+                        <?php echo $escape(implode(' · ', array_filter([(string) ($doc['specialty'] ?? ''), (string) ($doc['facility_name'] ?? ''), (string) ($doc['city'] ?? '')]))); ?>
+                      </div>
+                      <?php if (!empty($doc['address'])): ?>
+                        <div class="small text-muted"><?php echo $escape($doc['address']); ?></div>
+                      <?php endif; ?>
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <?php if ($did > 0): ?>
+                          <a class="btn btn-xs btn-outline-primary py-0 px-2 small" href="/admin/medical_doctor_edit.php?id=<?php echo $did; ?>" target="_blank" rel="noopener">Mở Admin #<?php echo $did; ?></a>
+                        <?php endif; ?>
+                        <?php if ($dSlug !== ''): ?>
+                          <a class="btn btn-xs btn-outline-secondary py-0 px-2 small" href="<?php echo $escape(($locale === 'en' ? '/en/bac-si/' : '/bac-si/') . rawurlencode($dSlug)); ?>" target="_blank" rel="noopener">Xem trang</a>
+                        <?php endif; ?>
+                        <?php if (!empty($doc['evidence_url'])): ?>
+                          <a class="btn btn-xs btn-outline-dark py-0 px-2 small" href="<?php echo $escape($doc['evidence_url']); ?>" target="_blank" rel="noopener noreferrer">Nguồn</a>
+                        <?php endif; ?>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <details class="mt-3">
+            <summary class="small text-primary fw-semibold" style="cursor:pointer;">Xem toàn bộ JSON gốc (<code>posts.ai_content_json</code>)</summary>
+            <pre class="small bg-light border rounded-3 p-2 mt-2 mb-0" style="max-height:320px;overflow:auto;white-space:pre-wrap;"><?php echo $escape(json_encode([
+                'suggested_facilities_json' => $facilities,
+                'suggested_doctors_json' => $doctors,
+                'sources_json' => $sources,
+                'images' => $decoded['images'] ?? [],
+                'processed_at' => $decoded['processed_at'] ?? null,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?></pre>
+          </details>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}

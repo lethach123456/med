@@ -204,7 +204,21 @@ if ($isHandbookDetailRoute) {
     require_once __DIR__ . '/medical_handbook.php';
     require_once __DIR__ . '/medical_public_assets.php';
     require_once __DIR__ . '/medical_media_variants.php';
+    $handbookRelated = isset($post['id']) ? handbook_article_ai_metadata($pdo, (int) $post['id'], $handbookLocale) : ['facilities' => [], 'doctors' => [], 'sources' => []];
+    $handbookRelatedHtml = handbook_view_related_section($handbookRelated, $handbookLocale);
+    ob_start();
     require __DIR__ . '/Tem/handbook-article.php';
+    $handbookPageHtml = (string) ob_get_clean();
+    if ($handbookRelatedHtml !== '') {
+        if (str_contains($handbookPageHtml, '</main>')) {
+            $handbookPageHtml = str_replace('</main>', $handbookRelatedHtml . "\n</main>", $handbookPageHtml);
+        } elseif (str_contains($handbookPageHtml, '</body>')) {
+            $handbookPageHtml = str_replace('</body>', $handbookRelatedHtml . "\n</body>", $handbookPageHtml);
+        } else {
+            $handbookPageHtml .= $handbookRelatedHtml;
+        }
+    }
+    echo $handbookPageHtml;
     exit;
 }
 $suggestedFacilities = array_slice(medical_directory_facility_rows(true), 0, 3);

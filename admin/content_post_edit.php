@@ -560,6 +560,9 @@ require __DIR__ . '/_layout_start.php';
                 <textarea name="content" class="d-none" data-ckeditor-source><?php echo htmlspecialchars((string) $values['content'], ENT_QUOTES, 'UTF-8'); ?></textarea>
               </div>
             <?php endif; ?>
+            <?php if ($isHandbook && $isEdit && isset($row) && is_array($row)): ?>
+              <?php echo admin_handbook_ai_metadata_panel($row); ?>
+            <?php endif; ?>
           </div>
 
           <div class="col-12 col-xl-4">
