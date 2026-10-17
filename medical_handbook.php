@@ -360,6 +360,103 @@ function handbook_article_ai_metadata(PDO $pdo, int $postId, string $locale = 'v
     ];
 }
 
+function handbook_slugify_anchor(string $text, int $index = 1): string
+{
+    $text = mb_strtolower(trim($text), 'UTF-8');
+    $map = [
+        'à'=>'a','á'=>'a','ạ'=>'a','ả'=>'a','ã'=>'a','â'=>'a','ầ'=>'a','ấ'=>'a','ậ'=>'a','ẩ'=>'a','ẫ'=>'a','ă'=>'a','ằ'=>'a','ắ'=>'a','ặ'=>'a','ẳ'=>'a','ẵ'=>'a',
+        'è'=>'e','é'=>'e','ẹ'=>'e','ẻ'=>'e','ẽ'=>'e','ê'=>'e','ề'=>'e','ế'=>'e','ệ'=>'e','ể'=>'e','ễ'=>'e',
+        'ì'=>'i','í'=>'i','ị'=>'i','ỉ'=>'i','ĩ'=>'i',
+        'ò'=>'o','ó'=>'o','ọ'=>'o','ỏ'=>'o','õ'=>'o','ô'=>'o','ồ'=>'o','ố'=>'o','ộ'=>'o','ổ'=>'o','ỗ'=>'o','ơ'=>'o','ờ'=>'o','ớ'=>'o','ợ'=>'o','ở'=>'o','ỡ'=>'o',
+        'ù'=>'u','ú'=>'u','ụ'=>'u','ủ'=>'u','ũ'=>'u','ư'=>'u','ừ'=>'u','ứ'=>'u','ự'=>'u','ử'=>'u','ữ'=>'u',
+        'ỳ'=>'y','ý'=>'y','ỵ'=>'y','ỷ'=>'y','ỹ'=>'y','đ'=>'d',
+    ];
+    $ascii = strtr($text, $map);
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $ascii) ?? '';
+    $slug = trim($slug, '-');
+    return $slug !== '' ? 'muc-' . $index . '-' . mb_substr($slug, 0, 56, 'UTF-8') : 'muc-' . $index;
+}
+
+/**
+ * Injects anchor IDs into <h2> and <h3> tags inside article HTML and builds the Table of Contents (Mục lục),
+ * including links to "Danh sách bác sĩ gợi ý" and "Danh sách cơ sở y tế gợi ý" when present.
+ *
+ * @return array{html:string,toc_html:string}
+ */
+function handbook_prepare_content_with_toc(string $html, array $related, string $locale = 'vi'): array
+{
+    $e = 'handbook_view_escape';
+    $isEn = handbook_view_locale($locale) === 'en';
+    $facilities = is_array($related['facilities'] ?? null) ? $related['facilities'] : [];
+    $doctors = is_array($related['doctors'] ?? null) ? $related['doctors'] : [];
+
+    $tocItems = [];
+    if ($doctors !== []) {
+        $tocItems[] = [
+            'id' => 'danh-sach-bac-si-goi-y',
+            'label' => $isEn ? 'Recommended Specialists & Doctors' : 'Danh sách bác sĩ gợi ý',
+            'sub' => false,
+            'highlight' => true,
+            'icon' => 'ph-stethoscope',
+        ];
+    }
+    if ($facilities !== []) {
+        $tocItems[] = [
+            'id' => 'danh-sach-co-so-y-te-goi-y',
+            'label' => $isEn ? 'Recommended Healthcare Facilities' : 'Danh sách cơ sở y tế gợi ý',
+            'sub' => false,
+            'highlight' => true,
+            'icon' => 'ph-buildings',
+        ];
+    }
+
+    $headingIndex = 0;
+    $updatedHtml = (string) preg_replace_callback(
+        '~<(h[23])\b([^>]*)>(.*?)</\1>~is',
+        static function (array $m) use (&$tocItems, &$headingIndex): string {
+            $tag = strtolower($m[1]);
+            $attrs = $m[2];
+            $inner = $m[3];
+            $plain = handbook_view_plain_text($inner);
+            if ($plain === '') return $m[0];
+            $headingIndex++;
+            if (preg_match('~\bid\s*=\s*(["\'])([^"\']+)\1~i', $attrs, $idMatch)) {
+                $anchorId = trim($idMatch[2]);
+            } else {
+                $anchorId = handbook_slugify_anchor($plain, $headingIndex);
+                $attrs .= ' id="' . handbook_view_escape($anchorId) . '"';
+            }
+            $tocItems[] = [
+                'id' => $anchorId,
+                'label' => $plain,
+                'sub' => $tag === 'h3',
+                'highlight' => false,
+                'icon' => $tag === 'h3' ? 'ph-caret-right' : 'ph-hash',
+            ];
+            return '<' . $tag . $attrs . '>' . $inner . '</' . $tag . '>';
+        },
+        $html
+    );
+
+    if ($tocItems === []) {
+        return ['html' => $updatedHtml, 'toc_html' => ''];
+    }
+
+    $tocTitle = $isEn ? 'Table of Contents' : 'Mục lục bài viết';
+    $tocHtml = '<nav class="hb-toc" aria-label="' . $e($tocTitle) . '">';
+    $tocHtml .= '<h2 class="hb-toc-title"><i class="ph ph-list-bullets" aria-hidden="true"></i><span>' . $e($tocTitle) . '</span></h2>';
+    $tocHtml .= '<ul class="hb-toc-list">';
+    foreach ($tocItems as $item) {
+        $cls = 'hb-toc-item';
+        if (!empty($item['sub'])) $cls .= ' hb-toc-item--sub';
+        if (!empty($item['highlight'])) $cls .= ' hb-toc-item--highlight';
+        $tocHtml .= '<li class="' . $cls . '"><a href="#' . $e($item['id']) . '"><i class="ph ' . $e($item['icon']) . '" aria-hidden="true"></i><span>' . $e($item['label']) . '</span></a></li>';
+    }
+    $tocHtml .= '</ul></nav>';
+
+    return ['html' => $updatedHtml, 'toc_html' => $tocHtml];
+}
+
 function handbook_view_related_section(array $related, string $locale = 'vi'): string
 {
     $facilities = is_array($related['facilities'] ?? null) ? $related['facilities'] : [];
@@ -369,142 +466,98 @@ function handbook_view_related_section(array $related, string $locale = 'vi'): s
     $e = 'handbook_view_escape';
     $isEn = handbook_view_locale($locale) === 'en';
     $facTitle = $isEn ? 'Recommended Healthcare Facilities' : 'Danh sách cơ sở y tế gợi ý';
-    $facSub = $isEn ? 'Facilities referenced for this health topic' : 'Các cơ sở y tế phù hợp được đối chiếu theo chủ đề bài viết';
     $docTitle = $isEn ? 'Recommended Specialists & Doctors' : 'Danh sách bác sĩ gợi ý';
-    $docSub = $isEn ? 'Specialists and doctors referenced for this topic' : 'Các bác sĩ chuyên khoa phù hợp được đối chiếu theo chủ đề bài viết';
-    $viewProfileLabel = $isEn ? 'View profile' : 'Xem hồ sơ';
-    $viewSourceLabel = $isEn ? 'Official source' : 'Nguồn tham khảo';
 
     $html = '<aside class="hb-suggest-wrap" aria-label="' . $e($isEn ? 'Recommended facilities and doctors' : 'Danh sách cơ sở y tế và bác sĩ gợi ý') . '">';
 
     if ($doctors !== []) {
-        $html .= '<div class="hb-suggest-group hb-suggest-group--doctor">';
+        $html .= '<section class="hb-suggest-group hb-suggest-group--doctor" id="danh-sach-bac-si-goi-y">';
         $html .= '<div class="hb-suggest-group-head">';
-        $html .= '<div class="hb-suggest-title-wrap">';
-        $html .= '<span class="hb-suggest-head-icon" aria-hidden="true"><i class="ph ph-stethoscope"></i></span>';
-        $html .= '<div><h2 class="hb-suggest-group-title">' . $e($docTitle) . '</h2><p class="hb-suggest-group-sub">' . $e($docSub) . '</p></div>';
-        $html .= '</div>';
+        $html .= '<h2 class="hb-suggest-group-title"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>' . $e($docTitle) . '</span></h2>';
         $html .= '<span class="hb-suggest-count">' . count($doctors) . ' ' . $e($isEn ? 'doctors' : 'bác sĩ') . '</span>';
         $html .= '</div>';
-        $html .= '<div class="hb-suggest-grid">';
+        $html .= '<ul class="hb-suggest-list">';
         foreach ($doctors as $doc) {
             $primaryUrl = (string) ($doc['public_url'] ?? '');
             $extUrl = (string) (($doc['website'] ?? '') !== '' ? $doc['website'] : ($doc['evidence_url'] ?? ''));
             $titleHref = $primaryUrl !== '' ? $primaryUrl : $extUrl;
-            $img = (string) ($doc['image_url'] ?? '');
             $verified = !empty($doc['verified']);
-            $specialty = (string) ($doc['specialty'] ?? '');
-            $facilityName = (string) ($doc['facility_name'] ?? '');
+            $specialty = trim((string) ($doc['specialty'] ?? ''));
+            if ($specialty === '') $specialty = $isEn ? 'Specialist' : 'Bác sĩ chuyên khoa';
+
+            $facilityName = trim((string) ($doc['facility_name'] ?? ''));
             $locationText = trim((string) ($doc['address'] ?? ''));
             if ($locationText === '') $locationText = trim((string) ($doc['city'] ?? ''));
             elseif (!empty($doc['city']) && !str_contains(mb_strtolower($locationText, 'UTF-8'), mb_strtolower((string) $doc['city'], 'UTF-8'))) {
                 $locationText .= ', ' . $doc['city'];
             }
+            $placeDisplay = $facilityName !== '' && $locationText !== ''
+                ? $facilityName . ' — ' . $locationText
+                : ($facilityName !== '' ? $facilityName : $locationText);
 
-            $html .= '<article class="hb-suggest-card">';
-            $html .= '<div class="hb-suggest-card-top">';
-            $html .= '<div class="hb-suggest-avatar" aria-hidden="true">'
-                . ($img !== '' ? '<img src="' . $e($img) . '" alt="" width="44" height="44" loading="lazy" decoding="async">' : '<i class="ph ph-user-circle"></i>')
-                . '</div>';
-            $html .= '<div class="hb-suggest-identity">';
-            $html .= '<h3 class="hb-suggest-name">'
-                . ($titleHref !== '' ? '<a href="' . $e($titleHref) . '"' . ($primaryUrl === '' ? ' target="_blank" rel="noopener noreferrer"' : '') . '>' . $e($doc['name']) . '</a>' : $e($doc['name']))
-                . ($verified ? '<span class="hb-suggest-verified" title="' . $e($isEn ? 'Verified profile' : 'Hồ sơ đã xác thực') . '"><i class="ph ph-seal-check" aria-hidden="true"></i></span>' : '')
-                . '</h3>';
-            if ($specialty !== '') {
-                $html .= '<div class="hb-suggest-tags"><span class="hb-suggest-tag"><i class="ph ph-first-aid" aria-hidden="true"></i>' . $e($specialty) . '</span></div>';
+            $html .= '<li class="hb-suggest-row">';
+            $html .= '<div class="hb-suggest-row-main">';
+            if ($titleHref !== '') {
+                $html .= '<a class="hb-suggest-name" href="' . $e($titleHref) . '"' . ($primaryUrl === '' ? ' target="_blank" rel="noopener noreferrer"' : '') . '>'
+                    . '<span>' . $e($doc['name']) . '</span>'
+                    . ($verified ? '<i class="ph ph-seal-check" title="' . $e($isEn ? 'Verified profile' : 'Hồ sơ đã xác thực') . '" aria-hidden="true"></i>' : '')
+                    . '</a>';
+            } else {
+                $html .= '<span class="hb-suggest-name"><span>' . $e($doc['name']) . '</span>'
+                    . ($verified ? '<i class="ph ph-seal-check" title="' . $e($isEn ? 'Verified profile' : 'Hồ sơ đã xác thực') . '" aria-hidden="true"></i>' : '')
+                    . '</span>';
             }
-            $html .= '</div></div>';
-
-            if ($facilityName !== '' || $locationText !== '') {
-                $html .= '<ul class="hb-suggest-meta">';
-                if ($facilityName !== '') {
-                    $html .= '<li><i class="ph ph-buildings" aria-hidden="true"></i><span>' . $e($facilityName) . '</span></li>';
-                }
-                if ($locationText !== '') {
-                    $html .= '<li><i class="ph ph-map-pin" aria-hidden="true"></i><span>' . $e($locationText) . '</span></li>';
-                }
-                $html .= '</ul>';
+            if ($placeDisplay !== '') {
+                $html .= '<span class="hb-suggest-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>' . $e($placeDisplay) . '</span></span>';
             }
-
-            if ($primaryUrl !== '' || $extUrl !== '') {
-                $html .= '<div class="hb-suggest-footer">';
-                if ($primaryUrl !== '') {
-                    $html .= '<a class="hb-suggest-link is-primary" href="' . $e($primaryUrl) . '"><i class="ph ph-arrow-up-right" aria-hidden="true"></i><span>' . $e($viewProfileLabel) . '</span></a>';
-                }
-                if ($extUrl !== '') {
-                    $html .= '<a class="hb-suggest-link is-secondary" href="' . $e($extUrl) . '" target="_blank" rel="noopener noreferrer"><i class="ph ph-globe" aria-hidden="true"></i><span>' . $e($viewSourceLabel) . '</span></a>';
-                }
-                $html .= '</div>';
-            }
-            $html .= '</article>';
+            $html .= '</div>';
+            $html .= '<span class="hb-suggest-tag">' . $e($specialty) . '</span>';
+            $html .= '</li>';
         }
-        $html .= '</div></div>';
+        $html .= '</ul></section>';
     }
 
     if ($facilities !== []) {
-        $html .= '<div class="hb-suggest-group hb-suggest-group--facility">';
+        $html .= '<section class="hb-suggest-group hb-suggest-group--facility" id="danh-sach-co-so-y-te-goi-y">';
         $html .= '<div class="hb-suggest-group-head">';
-        $html .= '<div class="hb-suggest-title-wrap">';
-        $html .= '<span class="hb-suggest-head-icon" aria-hidden="true"><i class="ph ph-buildings"></i></span>';
-        $html .= '<div><h2 class="hb-suggest-group-title">' . $e($facTitle) . '</h2><p class="hb-suggest-group-sub">' . $e($facSub) . '</p></div>';
-        $html .= '</div>';
+        $html .= '<h2 class="hb-suggest-group-title"><i class="ph ph-buildings" aria-hidden="true"></i><span>' . $e($facTitle) . '</span></h2>';
         $html .= '<span class="hb-suggest-count">' . count($facilities) . ' ' . $e($isEn ? 'facilities' : 'cơ sở') . '</span>';
         $html .= '</div>';
-        $html .= '<div class="hb-suggest-grid">';
+        $html .= '<ul class="hb-suggest-list">';
         foreach ($facilities as $fac) {
             $primaryUrl = (string) ($fac['public_url'] ?? '');
             $extUrl = (string) (($fac['website'] ?? '') !== '' ? $fac['website'] : ($fac['evidence_url'] ?? ''));
             $titleHref = $primaryUrl !== '' ? $primaryUrl : $extUrl;
-            $img = (string) ($fac['image_url'] ?? '');
             $verified = !empty($fac['verified']);
-            $category = (string) ($fac['category'] ?? '');
-            $phone = (string) ($fac['phone'] ?? '');
+            $category = trim((string) ($fac['category'] ?? ''));
+            if ($category === '') $category = $isEn ? 'Medical facility' : 'Cơ sở y tế';
+
             $locationText = trim((string) ($fac['address'] ?? ''));
             if ($locationText === '') $locationText = trim((string) ($fac['city'] ?? ''));
             elseif (!empty($fac['city']) && !str_contains(mb_strtolower($locationText, 'UTF-8'), mb_strtolower((string) $fac['city'], 'UTF-8'))) {
                 $locationText .= ', ' . $fac['city'];
             }
 
-            $html .= '<article class="hb-suggest-card">';
-            $html .= '<div class="hb-suggest-card-top">';
-            $html .= '<div class="hb-suggest-avatar" aria-hidden="true">'
-                . ($img !== '' ? '<img src="' . $e($img) . '" alt="" width="44" height="44" loading="lazy" decoding="async">' : '<i class="ph ph-buildings"></i>')
-                . '</div>';
-            $html .= '<div class="hb-suggest-identity">';
-            $html .= '<h3 class="hb-suggest-name">'
-                . ($titleHref !== '' ? '<a href="' . $e($titleHref) . '"' . ($primaryUrl === '' ? ' target="_blank" rel="noopener noreferrer"' : '') . '>' . $e($fac['name']) . '</a>' : $e($fac['name']))
-                . ($verified ? '<span class="hb-suggest-verified" title="' . $e($isEn ? 'Verified facility' : 'Cơ sở đã xác thực') . '"><i class="ph ph-seal-check" aria-hidden="true"></i></span>' : '')
-                . '</h3>';
-            if ($category !== '') {
-                $html .= '<div class="hb-suggest-tags"><span class="hb-suggest-tag"><i class="ph ph-first-aid" aria-hidden="true"></i>' . $e($category) . '</span></div>';
+            $html .= '<li class="hb-suggest-row">';
+            $html .= '<div class="hb-suggest-row-main">';
+            if ($titleHref !== '') {
+                $html .= '<a class="hb-suggest-name" href="' . $e($titleHref) . '"' . ($primaryUrl === '' ? ' target="_blank" rel="noopener noreferrer"' : '') . '>'
+                    . '<span>' . $e($fac['name']) . '</span>'
+                    . ($verified ? '<i class="ph ph-seal-check" title="' . $e($isEn ? 'Verified facility' : 'Cơ sở đã xác thực') . '" aria-hidden="true"></i>' : '')
+                    . '</a>';
+            } else {
+                $html .= '<span class="hb-suggest-name"><span>' . $e($fac['name']) . '</span>'
+                    . ($verified ? '<i class="ph ph-seal-check" title="' . $e($isEn ? 'Verified facility' : 'Cơ sở đã xác thực') . '" aria-hidden="true"></i>' : '')
+                    . '</span>';
             }
-            $html .= '</div></div>';
-
-            if ($locationText !== '' || $phone !== '') {
-                $html .= '<ul class="hb-suggest-meta">';
-                if ($locationText !== '') {
-                    $html .= '<li><i class="ph ph-map-pin" aria-hidden="true"></i><span>' . $e($locationText) . '</span></li>';
-                }
-                if ($phone !== '') {
-                    $html .= '<li><i class="ph ph-phone" aria-hidden="true"></i><span>' . $e($phone) . '</span></li>';
-                }
-                $html .= '</ul>';
+            if ($locationText !== '') {
+                $html .= '<span class="hb-suggest-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>' . $e($locationText) . '</span></span>';
             }
-
-            if ($primaryUrl !== '' || $extUrl !== '') {
-                $html .= '<div class="hb-suggest-footer">';
-                if ($primaryUrl !== '') {
-                    $html .= '<a class="hb-suggest-link is-primary" href="' . $e($primaryUrl) . '"><i class="ph ph-arrow-up-right" aria-hidden="true"></i><span>' . $e($viewProfileLabel) . '</span></a>';
-                }
-                if ($extUrl !== '') {
-                    $html .= '<a class="hb-suggest-link is-secondary" href="' . $e($extUrl) . '" target="_blank" rel="noopener noreferrer"><i class="ph ph-globe" aria-hidden="true"></i><span>' . $e($viewSourceLabel) . '</span></a>';
-                }
-                $html .= '</div>';
-            }
-            $html .= '</article>';
+            $html .= '</div>';
+            $html .= '<span class="hb-suggest-tag">' . $e($category) . '</span>';
+            $html .= '</li>';
         }
-        $html .= '</div></div>';
+        $html .= '</ul></section>';
     }
 
     $html .= '</aside>';

@@ -205,24 +205,27 @@ if ($isHandbookDetailRoute) {
     require_once __DIR__ . '/medical_public_assets.php';
     require_once __DIR__ . '/medical_media_variants.php';
     $handbookRelated = isset($post['id']) ? handbook_article_ai_metadata($pdo, (int) $post['id'], $handbookLocale) : ['facilities' => [], 'doctors' => [], 'sources' => []];
-    $handbookRelatedHtml = handbook_view_related_section($handbookRelated, $handbookLocale);
+    $handbookPrepared = handbook_prepare_content_with_toc((string) ($post['content'] ?? ''), $handbookRelated, $handbookLocale);
+    $post['content'] = $handbookPrepared['html'];
+    $content = $handbookPrepared['html'];
+    $handbookLeadHtml = $handbookPrepared['toc_html'] . handbook_view_related_section($handbookRelated, $handbookLocale);
     ob_start();
     require __DIR__ . '/Tem/handbook-article.php';
     $handbookPageHtml = (string) ob_get_clean();
-    if ($handbookRelatedHtml !== '') {
+    if ($handbookLeadHtml !== '') {
         $replaced = 0;
         $handbookPageHtml = (string) preg_replace(
             '~(<[a-z0-9]+\b[^>]*\bclass="[^"]*\bhb-article-content\b[^"]*"[^>]*>)~i',
-            $handbookRelatedHtml . "\n$1",
+            $handbookLeadHtml . "\n$1",
             $handbookPageHtml,
             1,
             $replaced
         );
         if ($replaced === 0) {
             if (str_contains($handbookPageHtml, '</header>')) {
-                $handbookPageHtml = preg_replace('~</header>~i', "</header>\n" . $handbookRelatedHtml, $handbookPageHtml, 1) ?? $handbookPageHtml;
+                $handbookPageHtml = preg_replace('~</header>~i', "</header>\n" . $handbookLeadHtml, $handbookPageHtml, 1) ?? $handbookPageHtml;
             } elseif (str_contains($handbookPageHtml, '</main>')) {
-                $handbookPageHtml = str_replace('</main>', $handbookRelatedHtml . "\n</main>", $handbookPageHtml);
+                $handbookPageHtml = str_replace('</main>', $handbookLeadHtml . "\n</main>", $handbookPageHtml);
             }
         }
     }
