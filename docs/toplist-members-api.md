@@ -40,7 +40,17 @@ Ví dụ nhập bài mới, liên kết bác sĩ sẵn có (thay ID mẫu bằng
 
 Nếu chưa có ID, dùng `doctor_id: 0`, `name`, `specialty_text` và ít nhất `city` hoặc `facility_name`. Có thể thêm `title_text`, `address`, `phone`, `website`, `image_url`, `facility_slug`. Thông tin nhận diện phải thực, không dữ liệu mẫu.
 Hồ sơ mới chỉ là hồ sơ tối thiểu, chưa xác thực; nội dung chuyên sâu tiếp tục qua API viết bác sĩ. API không nhận rating/verified từ AI, không ghi đè hồ sơ được liên kết bằng ID.
-Tên trùng nhau được đối chiếu chuyên khoa + thành phố + nơi công tác; nếu có nhiều bản trùng thì cần ID chính xác. Nhập đầy đủ lỗi sẽ rollback cả bài lẫn hồ sơ mới.
+
+### Nhận diện bác sĩ đã có, không tạo trùng
+
+Khi `doctor_id` bằng 0, server tìm trong hồ sơ bác sĩ cùng ngôn ngữ **trước khi tạo mới**:
+
+- Chuẩn hoá dấu, hoa/thường, học hàm/học vị trong tên; đối chiếu tên cùng chuyên khoa, thành phố, nơi công tác và địa chỉ. Không dùng riêng tên hoặc một tỷ lệ giống tên để tự gộp hai người.
+- Nếu có một hồ sơ phù hợp và không có ứng viên gần giống gây nhầm lẫn, dùng lại ID đó, không sửa nội dung, ảnh, đánh giá hoặc trạng thái xác thực của bác sĩ cũ.
+- Nếu nhiều ứng viên, thiếu thông tin phân biệt hoặc có thông tin mâu thuẫn: trả HTTP 422 kèm ID ứng viên trong thông báo, yêu cầu đối chiếu và gửi `doctor_id` đúng. Không tạo mới để lách lỗi. Hồ sơ nháp cũng được kiểm tra; không tạo bản thứ hai chỉ vì hồ sơ cũ chưa xuất bản.
+- Chỉ tạo hồ sơ tối thiểu khi không có ứng viên trùng/gần giống và đủ dữ liệu bắt buộc. Trong một payload, các cách ghi khác nhau được nhận diện về cùng ID và chỉ xuất hiện một lần trong thứ hạng.
+
+API nhận danh sách, nhập JSON Toplist trong admin và nút thêm nhanh bác sĩ dùng chung logic. Các luồng này lấy khóa chung trước transaction để tránh hai bài Toplist đồng thời cùng tạo một bác sĩ; dữ liệu đối chiếu được đọc một lần cho mỗi danh sách. Từng bài lỗi sẽ rollback cả liên kết lẫn hồ sơ mới. Không tự xoá/gộp những bản trùng đã tồn tại; trường hợp đó cần chọn ID đúng.
 
 ## API tiện ích
 

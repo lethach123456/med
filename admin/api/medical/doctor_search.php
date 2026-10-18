@@ -9,12 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payload = read_json_body();
     if (!hash_equals(admin_csrf_token(), (string) ($payload['_csrf'] ?? ''))) json_response(['ok' => false, 'message' => 'Phiên biểu mẫu hết hạn.'], 403);
     try {
-        $pdo->beginTransaction();
-        $result = toplist_directory_resolve_member($pdo, 'doctor', $payload);
-        $stmt = $pdo->prepare('SELECT id,name,specialty_text,facility_name,city,address_text,image_url,rating,reviews_count FROM medical_doctors WHERE id=:id');
-        $stmt->execute([':id' => $result['id']]); $item = $stmt->fetch(PDO::FETCH_ASSOC);
-        $pdo->commit(); medical_search_cache_invalidate();
-        json_response(['ok' => true, 'item' => $item, 'created' => $result['created']]);
+        $saved = toplist_directory_with_member_lock($pdo, static function () use ($pdo, $payload): array {
+            $pdo->beginTransaction();
+            $result = toplist_directory_resolve_member($pdo, 'doctor', $payload);
+            $stmt = $pdo->prepare('SELECT id,name,specialty_text,facility_name,city,address_text,image_url,rating,reviews_count FROM medical_doctors WHERE id=:id');
+            $stmt->execute([':id' => $result['id']]); $item = $stmt->fetch(PDO::FETCH_ASSOC);
+            $pdo->commit();
+            return ['item' => $item, 'created' => $result['created']];
+        });
+        medical_search_cache_invalidate();
+        json_response(['ok' => true] + $saved);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         json_response(['ok' => false, 'message' => $e instanceof InvalidArgumentException ? $e->getMessage() : 'Không thể lưu hồ sơ bác sĩ.'], $e instanceof InvalidArgumentException ? 422 : 500);
