@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../_bootstrap.php';
 require_once __DIR__ . '/../../../medical_directory.php';
+require_once __DIR__ . '/../../../toplist_directory.php';
 
 admin_require_login();
 $pdo = db();
@@ -10,18 +11,26 @@ $pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payload = read_json_body();
     if (!hash_equals(admin_csrf_token(), (string) ($payload['_csrf'] ?? ''))) json_response(['ok' => false, 'message' => 'Phiên biểu mẫu hết hạn.'], 403);
-    $name = trim((string) ($payload['name'] ?? ''));
-    $address = trim((string) ($payload['address_text'] ?? ''));
-    $category = trim((string) ($payload['category'] ?? 'Cơ sở y tế')) ?: 'Cơ sở y tế';
-    if ($name === '' || $address === '') {
+    $name = $payload['name'] ?? null;
+    $address = $payload['address_text'] ?? $payload['address'] ?? null;
+    if (!is_string($name) || !is_string($address) || trim($name) === '' || trim($address) === '') {
         json_response(['ok' => false, 'message' => 'Vui lòng nhập tên và địa chỉ cơ sở.'], 422);
     }
-    $slug = unique_slug($pdo, 'medical_facilities', $name . '-' . $address);
-    $stmt = $pdo->prepare("INSERT INTO medical_facilities (slug, name, category, address_text, city, status) VALUES (:slug, :name, :category, :address, '', 'published')");
-    $stmt->execute([':slug' => $slug, ':name' => $name, ':category' => $category, ':address' => $address]);
-    medical_search_cache_invalidate();
-    $facility = ['id' => (int) $pdo->lastInsertId(), 'name' => $name, 'city' => '', 'address_text' => $address, 'image_url' => '', 'rating' => '0.0', 'reviews_count' => 0];
-    json_response(['ok' => true, 'item' => $facility]);
+    try {
+        $saved = toplist_directory_with_member_lock($pdo, static function () use ($pdo, $payload): array {
+            $pdo->beginTransaction();
+            $result = toplist_directory_resolve_member($pdo, 'facility', $payload);
+            $stmt = $pdo->prepare('SELECT id,name,city,address_text,image_url,rating,reviews_count FROM medical_facilities WHERE id=:id');
+            $stmt->execute([':id' => $result['id']]); $facility = $stmt->fetch(PDO::FETCH_ASSOC);
+            $pdo->commit();
+            return ['item' => $facility, 'created' => $result['created']];
+        });
+        medical_search_cache_invalidate();
+        json_response(['ok' => true] + $saved);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_response(['ok' => false, 'message' => $e instanceof InvalidArgumentException ? $e->getMessage() : 'Không thể lưu hồ sơ cơ sở y tế.'], $e instanceof InvalidArgumentException ? 422 : 500);
+    }
 }
 
 $term = trim((string) ($_GET['q'] ?? ''));

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/medical_doctor_identity.php';
+require_once __DIR__ . '/medical_facility_identity.php';
 
 /** Toplist seed entry points acquire this before starting their transaction. */
 function toplist_directory_with_member_lock(PDO $pdo, callable $save): mixed
@@ -211,7 +212,7 @@ function toplist_directory_unique_slug(PDO $pdo, string $table, string $value): 
 }
 
 /** Link an existing profile without editing it, or create a minimal unverified Vietnamese profile. */
-function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, string $locale = 'vi', ?array &$doctorCandidates = null): array
+function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, string $locale = 'vi', ?array &$doctorCandidates = null, ?array &$facilityCandidates = null): array
 {
     $config = toplist_directory_member_config($type);
     $oppositeKey = $type === 'doctor' ? 'facility_id' : 'doctor_id';
@@ -227,12 +228,28 @@ function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, s
     };
     $name = $text('name', 160, ['ten']);
     if ((int) $id > 0) {
-        $lookup = $pdo->prepare("SELECT id,name FROM {$config['table']} WHERE id=:id AND status='published' AND language_code=:locale");
+        $lookup = $pdo->prepare("SELECT id,name,city,address_text FROM {$config['table']} WHERE id=:id AND status='published' AND language_code=:locale");
         $lookup->execute([':id' => $id, ':locale' => $locale]); $row = $lookup->fetch(PDO::FETCH_ASSOC);
         $sameName = $row && ($name === '' || ($type === 'doctor'
             ? medical_doctor_identity_name($name) === medical_doctor_identity_name((string) $row['name'])
-            : mb_strtolower($name) === mb_strtolower(trim($row['name']))));
+            : medical_facility_identity_name($name, (string) $row['city']) === medical_facility_identity_name((string) $row['name'], (string) $row['city'])));
         if (!$sameName) throw new InvalidArgumentException('ID/tên/ngôn ngữ ' . $config['label'] . ' không khớp hồ sơ đã xuất bản.');
+        if ($type === 'facility') {
+            $givenAddress = $text('address_text', 255, ['address', 'dia_chi']);
+            $givenCity = $text('city', 120, ['province', 'tinh_thanh']);
+            $givenIdentity = medical_facility_identity_address($givenAddress, $givenCity);
+            $savedIdentity = medical_facility_identity_address((string) $row['address_text'], (string) $row['city']);
+            $givenCityKey = medical_doctor_facility_city_key($givenCity) ?: $givenIdentity['locality'];
+            $savedCityKey = medical_doctor_facility_city_key((string) $row['city']) ?: $savedIdentity['locality'];
+            $addressMismatch = $givenIdentity['complete'] && $savedIdentity['complete'] && medical_facility_identity_match(
+                ['name' => $row['name'], 'address_text' => $givenAddress, 'city' => $givenCity], [$row]
+            )['status'] !== 'matched';
+            if ($givenIdentity['city_conflict'] || $addressMismatch
+                || ($givenCityKey !== '' && $savedCityKey !== '' && $givenCityKey !== $savedCityKey)
+                || ($givenIdentity['house'] !== '' && $savedIdentity['house'] !== '' && $givenIdentity['house'] !== $savedIdentity['house'])) {
+                throw new InvalidArgumentException('facility_id không khớp địa chỉ/chi nhánh đã cung cấp; cần đối chiếu ID chính xác.');
+            }
+        }
         return ['id' => (int) $id, 'created' => false];
     }
     if ($locale !== 'vi') throw new InvalidArgumentException('Toplist tiếng Anh chỉ liên kết ID hồ sơ tiếng Anh đã xuất bản; không tạo hồ sơ dịch giả.');
@@ -275,24 +292,21 @@ function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, s
     } else {
         $fields['category'] = $text('category', 120, ['group', 'nhom']) ?: 'Cơ sở y tế';
         $fields['price_text'] = $text('price_text', 120, ['price']);
-        // Preserve the old facility API's name+city/address/website matching, but reject ambiguous identities.
-        $lookup = $pdo->prepare("SELECT id FROM medical_facilities WHERE name=:name AND city=:city AND language_code='vi' LIMIT 2");
-        $lookup->execute([':name' => $name, ':city' => $city]);
-        $matchesByCity = $city === '' ? [] : $lookup->fetchAll(PDO::FETCH_COLUMN);
-        if ($matchesByCity !== []) {
-            if (count($matchesByCity) > 1) throw new InvalidArgumentException('Có nhiều cơ sở cùng tên trong thành phố; hãy chỉ định facility_id.');
-            return toplist_directory_resolve_member($pdo, 'facility', ['facility_id' => (int) $matchesByCity[0], 'name' => $name], $locale);
+        if ($facilityCandidates === null) {
+            $lookup = $pdo->prepare('SELECT id,name,address_text,city,phone_text,website_url,status FROM medical_facilities WHERE language_code=:locale');
+            $lookup->execute([':locale' => $locale]);
+            $facilityCandidates = $lookup->fetchAll(PDO::FETCH_ASSOC);
         }
-        $clue = $address !== '' ? 'address_text' : 'website_url';
-        $lookup = $pdo->prepare("SELECT id FROM medical_facilities WHERE name=:name AND COALESCE({$clue},'')=:clue AND language_code='vi' LIMIT 2");
-        $lookup->execute([':name' => $name, ':clue' => $address !== '' ? $address : $website]);
-    }
-    $matches = $type === 'doctor' ? [] : $lookup->fetchAll(PDO::FETCH_COLUMN);
-    if (count($matches) > 1) throw new InvalidArgumentException('Có nhiều hồ sơ trùng thông tin; hãy chỉ định ID chính xác.');
-    if ($matches !== []) {
-        $status = $pdo->prepare("SELECT status FROM {$config['table']} WHERE id=:id"); $status->execute([':id' => $matches[0]]);
-        if ($status->fetchColumn() !== 'published') throw new InvalidArgumentException('Hồ sơ đã có nhưng chưa xuất bản; không tạo bản trùng.');
-        return ['id' => (int) $matches[0], 'created' => false];
+        $identity = medical_facility_identity_match($fields, $facilityCandidates);
+        if ($identity['reason'] === 'city_address_conflict') throw new InvalidArgumentException('Thành phố và địa chỉ cơ sở không khớp; cần kiểm tra lại, không tạo hồ sơ mới.');
+        if ($identity['status'] === 'ambiguous') throw new InvalidArgumentException('Cơ sở "' . $name . '" có hồ sơ gần giống hoặc thiếu thông tin phân biệt chi nhánh (ID: ' . implode(', ', $identity['candidate_ids']) . '); cần đối chiếu và gửi facility_id chính xác, không tạo bản mới.');
+        if ($identity['status'] === 'matched') {
+            $matched = null;
+            foreach ($facilityCandidates as $candidate) if ((int) $candidate['id'] === $identity['id']) { $matched = $candidate; break; }
+            if (($matched['status'] ?? '') !== 'published') throw new InvalidArgumentException('Cơ sở đã có hồ sơ ID ' . $identity['id'] . ' nhưng chưa xuất bản; không tạo bản trùng.');
+            return ['id' => $identity['id'], 'created' => false];
+        }
+        if (!medical_facility_identity_address($address, $city)['complete']) throw new InvalidArgumentException('Cơ sở mới cần địa chỉ đầy đủ gồm số nhà, đường và tỉnh/thành phố để phân biệt chi nhánh.');
     }
     $fields['slug'] = toplist_directory_unique_slug($pdo, $config['table'], $name . '-' . ($type === 'doctor' ? $fields['specialty_text'] . '-' . $city : $address));
     $fields['status'] = 'published';
@@ -301,6 +315,7 @@ function toplist_directory_resolve_member(PDO $pdo, string $type, array $item, s
     $pdo->prepare("INSERT INTO {$config['table']} (`" . implode('`,`', $keys) . "`) VALUES (:" . implode(',:', $keys) . ')')->execute($fields);
     $createdId = (int) $pdo->lastInsertId();
     if ($type === 'doctor' && $doctorCandidates !== null) $doctorCandidates[] = ['id' => $createdId] + $fields;
+    if ($type === 'facility' && $facilityCandidates !== null) $facilityCandidates[] = ['id' => $createdId] + $fields;
     return ['id' => $createdId, 'created' => true];
 }
 
@@ -311,7 +326,7 @@ function toplist_directory_import_members(PDO $pdo, int $toplistId, string $type
     $stmt = $pdo->prepare('SELECT language_code,entity_type FROM medical_toplists WHERE id=:id FOR UPDATE');
     $stmt->execute([':id' => $toplistId]); $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) throw new InvalidArgumentException('Không tìm thấy Toplist.');
-    $ranked = []; $created = []; $createdByType = ['facility' => [], 'doctor' => []]; $doctorCandidates = null;
+    $ranked = []; $created = []; $createdByType = ['facility' => [], 'doctor' => []]; $doctorCandidates = null; $facilityCandidates = null;
     foreach ($items as $index => $item) {
         if (!is_array($item) || array_is_list($item)) throw new InvalidArgumentException('Mục #' . ($index + 1) . ' phải là object.');
         $rank = $item['rank_order'] ?? $item['rank'] ?? $index + 1;
@@ -321,7 +336,7 @@ function toplist_directory_import_members(PDO $pdo, int $toplistId, string $type
         toplist_directory_member_config($memberType);
         if (isset($item['type']) && $item['type'] !== $memberType) throw new InvalidArgumentException('type không khớp loại Toplist.');
         if (isset($item['member_type']) && $item['member_type'] !== $memberType) throw new InvalidArgumentException('member_type không khớp type của hồ sơ.');
-        $resolved = toplist_directory_resolve_member($pdo, $memberType, $item, $row['language_code'], $doctorCandidates);
+        $resolved = toplist_directory_resolve_member($pdo, $memberType, $item, $row['language_code'], $doctorCandidates, $facilityCandidates);
         $ranked[] = ['type' => $memberType, 'id' => $resolved['id'], 'rank' => (int) $rank, 'index' => $index];
         if ($resolved['created']) {
             $created[] = $type === 'mixed' ? ['type' => $memberType, 'id' => $resolved['id']] : $resolved['id'];
@@ -428,6 +443,7 @@ function toplist_directory_research_prompt(string $template, array $toplist, boo
         'entity_label' => $type === 'mixed' ? 'cơ sở y tế và bác sĩ trong cùng danh sách' : ($doctor ? 'bác sĩ' : 'cơ sở y tế'), 'member_key' => $key, 'output_template' => $output,
     ]);
     return $rendered . "\n\nMEDREVIEW_TOPLIST_MEMBERS_CONTRACT_V1:\nGiữ toplist_id, entity_type={$type}; chỉ trả danh sách {$key}, không đổi sang loại khác. Không tạo rating/verified.\n"
+        . ($type !== 'doctor' ? "Cơ sở mới cần name và address đầy đủ số nhà, đường, tỉnh/thành phố; ghi city riêng nếu có. Giữ đúng tên thương hiệu và chi nhánh, không ghép khẩu hiệu/SEO vào name. Chỉ gửi facility_id khi đã xác minh đúng hồ sơ MedReview; chưa biết thì 0, không đoán. Server đối chiếu tên và địa chỉ để dùng lại ID cũ trước khi tạo mới. Cùng thương hiệu, số điện thoại hoặc website không chứng minh là cùng chi nhánh; phải đối chiếu số nhà, đường và tỉnh/thành. Thông tin gần giống hoặc thiếu địa chỉ cần kiểm tra, không đổi cách viết để tạo thêm bản trùng.\n" : '')
         . ($type !== 'facility' ? "Bác sĩ mới cần name, specialty_text và city hoặc facility_name; ưu tiên ghi đầy đủ nơi công tác, địa chỉ và tên thật đã kiểm tra để server nhận diện hồ sơ cũ. name chỉ ghi họ tên thật; học hàm/học vị để trong title_text, không ghép chuyên khoa hoặc nơi làm việc vào name. Khác học hàm/học vị hoặc cách viết chuyên khoa/nơi khám không có nghĩa là người mới. Chỉ gửi doctor_id khi xác minh đúng ID MedReview; chưa biết thì 0, không đoán. Server đối chiếu hồ sơ cũ trước khi tạo; nhiều hồ sơ gần giống hoặc thông tin mâu thuẫn sẽ yêu cầu ID để kiểm tra và không tạo bản trùng. Không dùng giờ mở cửa cơ sở làm lịch bác sĩ.\n" : '')
         . ($type === 'mixed' ? "Mỗi member bắt buộc type=facility hoặc type=doctor và khóa facility_id hoặc doctor_id tương ứng. Hai loại có thể cùng xuất hiện; ID cùng số khác type là hai hồ sơ khác nhau.\n" : '')
         . "rank_order nguyên dương bắt đầu từ 1, dùng chung thứ tự cho toàn bộ danh sách, không đánh số lại theo từng loại. Các URL phải HTTP(S) thô, không Markdown. ID hồ sơ đã có phải đúng người/cơ sở và cùng ngôn ngữ của bài.\n"

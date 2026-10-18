@@ -52,6 +52,18 @@ Khi `doctor_id` bằng 0, server tìm trong hồ sơ bác sĩ cùng ngôn ngữ 
 
 API nhận danh sách, nhập JSON Toplist trong admin và nút thêm nhanh bác sĩ dùng chung logic. Các luồng này lấy khóa chung trước transaction để tránh hai bài Toplist đồng thời cùng tạo một bác sĩ; dữ liệu đối chiếu được đọc một lần cho mỗi danh sách. Từng bài lỗi sẽ rollback cả liên kết lẫn hồ sơ mới. Không tự xoá/gộp những bản trùng đã tồn tại; trường hợp đó cần chọn ID đúng.
 
+### Nhận diện cơ sở y tế đã có, không tạo trùng
+
+Khi `facility_id` bằng 0 hoặc không có, server đối chiếu tên cơ sở cùng địa chỉ vật lý, số nhà, đường và tỉnh/thành; cho phép khác dấu, hoa/thường, tiền tố loại cơ sở và cách ghi phường/quận. Không dùng riêng tên hoặc tên + thành phố để gộp các chi nhánh. Số nhà, đường hoặc địa phương khác nhau không được bỏ qua chỉ vì tỷ lệ giống tên cao.
+
+- Một cơ sở phù hợp, không có ứng viên gây nhầm lẫn: dùng lại `facility_id` cũ, không ghi đè tên, địa chỉ, nội dung, ảnh, đánh giá hay trạng thái xác thực.
+- Nhiều ứng viên, thông tin gần giống nhưng thiếu bằng chứng phân biệt hoặc mâu thuẫn: trả HTTP 422 kèm ID ứng viên, yêu cầu đối chiếu và gửi ID đúng; không tạo cơ sở mới. Hồ sơ nháp cũng được kiểm tra và chặn tạo bản trùng, không tự xuất bản hồ sơ cũ.
+- Chỉ tạo hồ sơ tối thiểu khi không có ứng viên trùng/gần giống và địa chỉ đủ số nhà, đường, tỉnh/thành (có thể truyền thành phố riêng trong `city`). Các cách ghi cùng một cơ sở trong một payload chỉ tạo/liên kết một lần.
+
+Tên thương hiệu và đường được đối chiếu riêng ở ngưỡng 90%; số nhà (kể cả `/` và `-`), đường số và tỉnh/thành phải phù hợp. Website/số điện thoại không thay thế bằng chứng địa chỉ. Nếu gửi sẵn `facility_id` nhưng địa chỉ đầy đủ hoặc thành phố mâu thuẫn với chi nhánh đó, API cũng từ chối thay vì liên kết nhầm. Prompt cơ sở/hỗn hợp luôn kèm quy tắc này, kể cả khi admin dùng mẫu prompt tuỳ chỉnh.
+
+API nhận danh sách, nhập JSON Toplist và nút thêm nhanh cơ sở trong admin dùng chung resolver và khóa trước transaction. Danh sách ứng viên cùng ngôn ngữ được đọc theo lô một lần cho mỗi danh sách, không truy vấn toàn bộ cơ sở cho từng mục; hồ sơ mới được thêm vào danh sách đối chiếu trong bộ nhớ để những mục sau dùng lại. Nút thêm nhanh giữ `item` như cũ và bổ sung `created` để phân biệt dùng hồ sơ có sẵn với tạo mới. Từng bài lỗi rollback cả liên kết lẫn hồ sơ mới; các hồ sơ trùng đã tồn tại không bị tự xoá/gộp.
+
 ## API tiện ích
 
 Giữ header `X-Medical-Api-Key` hiện tại. Không cache các endpoint này.
