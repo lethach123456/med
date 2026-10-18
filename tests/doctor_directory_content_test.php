@@ -131,7 +131,7 @@ foreach ($localeFixtures as $locale => $fixture) {
     $rating = medical_search_cache_doctor_directory_search($localized, ['min_rating' => 4]);
     $assert($rating['paging']['total'] === 3, 'Rating filter does not expose high-rated blank seeds ' . $locale);
     $global = medical_search_cache_search($localized, 'Seedtoken', 24);
-    $assert(count($global['groups']['doctors']) === count($blankContent) + 1, 'Global autocomplete retains its pre-existing broad scope ' . $locale);
+    $assert($global['groups']['doctors'] === [], 'Global autocomplete hides unpublished-content seeds too ' . $locale);
 }
 $assert($index === $original, 'Search/filter operations leave original global snapshot unchanged');
 

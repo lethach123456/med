@@ -180,6 +180,10 @@ $navItems = $isEnglish
     }
     function closeResults(){
       if (!searchResults) return;
+      if (searchShell && searchShell.dataset.medicalSearchReady === 'true') {
+        searchShell.dispatchEvent(new Event('medical-search:close'));
+        return;
+      }
       if (searchResults.hidden || !searchResults.childElementCount) {
         searchResults.hidden = true;
         searchResults.innerHTML = '';
@@ -287,7 +291,7 @@ $navItems = $isEnglish
         }, 0);
       });
       searchInput.addEventListener('keydown', function(event){
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229) {
           event.preventDefault();
           closeSearch();
         }
@@ -311,7 +315,7 @@ $navItems = $isEnglish
       closeDetails();
     });
     document.addEventListener('keydown', function(event){
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return;
       closeSearch();
       closeDetails();
     });

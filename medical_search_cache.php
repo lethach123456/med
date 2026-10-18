@@ -329,6 +329,7 @@ function medical_search_cache_doctors(PDO $pdo): array
             (string) ($row['specialty_text'] ?? ''),
             (string) ($row['city'] ?? ''),
             (string) ($row['facility_name'] ?? ''),
+            (string) ($row['address_text'] ?? ''),
             (string) ($row['slug'] ?? ''),
             (string) ($row['subtitle'] ?? ''),
         ], $specialties, medical_search_cache_json_strings($row['tags_json'] ?? ''), medical_search_cache_json_strings($row['bio_json'] ?? ''));
@@ -344,6 +345,7 @@ function medical_search_cache_doctors(PDO $pdo): array
             'specialty_text' => trim((string) ($row['specialty_text'] ?? '')),
             'city' => trim((string) ($row['city'] ?? '')),
             'facility_name' => trim((string) ($row['facility_name'] ?? '')),
+            'address' => trim((string) ($row['address_text'] ?? '')),
             'image_url' => $image,
             'verified' => (bool) ((int) ($row['verified'] ?? 0)),
             'rating' => (float) ($row['rating'] ?? 0),
@@ -413,6 +415,12 @@ function medical_search_cache_toplists(PDO $pdo): array
             'name_key' => medical_search_cache_normalize((string) ($row['title'] ?? '')),
             'category_key' => '',
             'city_key' => '',
+            // Search linked identities without treating every word in the
+            // article's HTML, citations or URLs as a relevant suggestion.
+            'linked_search_text' => medical_search_cache_normalize(implode(' ', [
+                (string) ($row['facility_search_text'] ?? ''),
+                (string) ($row['doctor_search_text'] ?? ''),
+            ])),
             'search_text' => medical_search_cache_normalize(implode(' ', $searchable)),
         ];
     }
@@ -561,70 +569,245 @@ function medical_search_cache_detect_city(array $cities, string $queryKey): arra
     return ['key' => '', 'label' => ''];
 }
 
-/** @return array{score:int,service_text:string}|null */
-function medical_search_cache_match(array $item, array $terms, string $queryKey, string $cityKey, string $type): ?array
+/** Search city labels and common abbreviations using the same location identity. */
+function medical_search_cache_city_identity(string $value): string
 {
-    $haystack = (string) ($item['search_text'] ?? '');
-    if ($haystack === '') {
-        return null;
+    $key = medical_search_cache_normalize($value);
+    $key = preg_replace('/^(?:tp|thanh pho|tinh)\s+/', '', $key) ?? $key;
+    return match ($key) {
+        'hn', 'hanoi', 'ha noi', 'hanoi city' => 'ha noi',
+        'hcm', 'hcmc', 'tphcm', 'tp hcm', 'ho chi minh', 'ho chi minh city',
+        'saigon', 'sai gon', 'saigon city' => 'ho chi minh',
+        'danang', 'da nang', 'danang city', 'da nang city' => 'da nang',
+        'thua thien hue', 'hue', 'hue city' => 'hue',
+        default => $key,
+    };
+}
+
+/** @return array<string,array{label:string,aliases:array<int,string>}> */
+function medical_search_cache_city_aliases(array $cities): array
+{
+    $known = [];
+    foreach ($cities as $city) {
+        $label = trim((string) ($city['label'] ?? ''));
+        $key = medical_search_cache_city_identity((string) ($city['key'] ?? $label));
+        if ($key === '') continue;
+        if (!isset($known[$key])) $known[$key] = ['label' => $label, 'aliases' => []];
+        $known[$key]['aliases'][] = medical_search_cache_normalize($label);
+        $known[$key]['aliases'][] = medical_search_cache_normalize((string) ($city['key'] ?? ''));
+        $known[$key]['aliases'][] = $key;
     }
-    if ($cityKey !== '') {
-        $itemCity = (string) ($item['city_key'] ?? '');
-        if ($type === 'toplists') {
-            if (!str_contains($haystack, $cityKey)) {
-                return null;
+    $common = [
+        'ha noi' => ['ha noi', 'hanoi', 'hn'],
+        'ho chi minh' => ['ho chi minh', 'ho chi minh city', 'tp ho chi minh', 'thanh pho ho chi minh', 'tp hcm', 'tphcm', 'hcm', 'hcmc', 'sai gon', 'saigon'],
+        'da nang' => ['da nang', 'danang'],
+        'hue' => ['hue', 'thua thien hue'],
+    ];
+    foreach ($known as $key => &$city) {
+        $city['aliases'] = array_values(array_unique(array_filter(array_merge(
+            $city['aliases'], $common[$key] ?? [], ['tp ' . $key, 'thanh pho ' . $key, 'tinh ' . $key]
+        ), static fn(string $alias): bool => $alias !== '')));
+        usort($city['aliases'], static fn(string $a, string $b): int => strlen($b) <=> strlen($a));
+    }
+    unset($city);
+    return $known;
+}
+
+/** @return array{key:string,label:string,alias:string,offset:int,explicit:bool} */
+function medical_search_cache_query_city(array $aliases, string $query): array
+{
+    $best = ['key' => '', 'label' => '', 'alias' => '', 'offset' => -1, 'explicit' => false];
+    foreach ($aliases as $key => $city) {
+        foreach ($city['aliases'] as $alias) {
+            if (!preg_match_all('/(?<![a-z0-9])' . preg_quote($alias, '/') . '(?![a-z0-9])/', $query, $matches, PREG_OFFSET_CAPTURE)) continue;
+            foreach ($matches[0] as [$text, $offset]) {
+                $before = substr($query, 0, $offset);
+                $explicit = preg_match('/(?:^|\s)(?:tai|o|in|near)\s*$/', $before) === 1;
+                // A final location is normally the destination; an explicit
+                // "tại/ở/in" takes priority over a brand containing a city.
+                $end = $offset + strlen($text);
+                $bestEnd = $best['offset'] + strlen($best['alias']);
+                if (($explicit && !$best['explicit']) || ($explicit === $best['explicit'] && (
+                    $end > $bestEnd || ($end === $bestEnd && strlen($text) > strlen($best['alias']))
+                ))) {
+                    $best = ['key' => (string) $key, 'label' => (string) $city['label'], 'alias' => $text, 'offset' => $offset, 'explicit' => $explicit];
+                }
             }
-        } elseif ($itemCity !== $cityKey) {
-            return null;
         }
     }
-    foreach ($terms as $term) {
-        if (!str_contains($haystack, $term)) {
-            return null;
-        }
-    }
+    return $best;
+}
 
-    $nameKey = (string) ($item['name_key'] ?? '');
-    $categoryKey = (string) ($item['category_key'] ?? '');
-    $score = 0;
-    if ($queryKey !== '' && $nameKey === $queryKey) {
-        $score += 10000;
-    } elseif ($queryKey !== '' && str_contains($nameKey, $queryKey)) {
-        $score += 2500;
-    }
-    foreach ($terms as $term) {
-        if (str_contains($nameKey, $term)) {
-            $score += 420;
-        }
-        if ($categoryKey !== '' && str_contains($categoryKey, $term)) {
-            $score += 220;
-        }
-        if (str_contains((string) ($item['city_key'] ?? ''), $term)) {
-            $score += 90;
-        }
-    }
+/** Match whole words; only the last typed word may be an unfinished prefix. */
+function medical_search_cache_word_match(string $field, string $term, bool $prefix = false): bool
+{
+    if ($field === '' || $term === '') return false;
+    return preg_match('/(?:^|\s)' . preg_quote($term, '/') . ($prefix ? '[a-z0-9]*' : '') . '(?=\s|$)/', $field) === 1;
+}
 
-    $matchedService = '';
-    foreach ((array) ($item['services'] ?? []) as $service) {
-        $service = trim((string) $service);
-        $serviceKey = medical_search_cache_normalize($service);
-        if ($service === '' || $serviceKey === '') {
-            continue;
-        }
-        foreach ($terms as $term) {
-            if (str_contains($serviceKey, $term)) {
-                $matchedService = $service;
-                $score += 170;
+/** Build autocomplete intent without dropping Vietnamese names such as Phú/Gia/Uy. */
+function medical_search_cache_query_plan(array $index, string $query): array
+{
+    $queryKey = medical_search_cache_normalize($query);
+    $commandPattern = '/^(?:tim(?:\s+kiem)?|search for|find)\s+(?=nha khoa|bac si|bs|dr|doctor|phong kham|benh vien|co so y te|spa|eye)/';
+    $doctorPattern = '/(?:^|\s)(?:(?:pgs|gs|ts|ths)(?:\s+(?:ts|ths))?\s+)?(?:bac si|bs|b s|dr|doctor|doctors)(?:\s+(?:ckii|cki|ck1|ck2))?(?=\s|$)/';
+    $withoutCommand = preg_replace($commandPattern, '', $queryKey) ?? $queryKey;
+    $facilityIntent = preg_match('/^(?:nha khoa|phong kham|benh vien|co so y te|spa|dental clinic|clinic|hospital)(?=\s|$)/', $withoutCommand) === 1;
+    $identity = $facilityIntent ? $withoutCommand : trim(preg_replace($doctorPattern, ' ', $withoutCommand) ?? $withoutCommand);
+    $identity = preg_replace('/\s+/', ' ', $identity) ?? $identity;
+    $doctorIntent = !$facilityIntent && ($identity !== $withoutCommand || preg_match('/(?:^|\s)(?:ophthalmologist|eye doctor)(?=\s|$)/', $queryKey) === 1);
+    $toplistIntent = preg_match('/(?:^|\s)(?:top(?:list)?|xep hang|danh sach)(?=\s|$)/', $queryKey) === 1;
+    $eyeIntent = preg_match('/(?:^|\s)(?:kham mat|nhan khoa|(?:chuyen )?khoa mat|phau thuat mat|bac si mat|bs mat|ophthalmology|ophthalmologist|eye doctor|eye clinic|eye care)(?=\s|$)/', $queryKey) === 1;
+    $dentalIntent = preg_match('/(?:^|\s)(?:nha khoa|rang ham mat|dental|dentistry|dentists?)(?=\s|$)/', $queryKey) === 1;
+    $exactName = false;
+    foreach (['facilities', 'doctors', 'toplists'] as $type) {
+        foreach ((array) ($index[$type] ?? []) as $item) {
+            if (!is_array($item) || ($type !== 'toplists' && empty($item['has_content']))) continue;
+            $name = (string) ($item['name_key'] ?? medical_search_cache_normalize((string) ($item['name'] ?? $item['title'] ?? '')));
+            if ($name !== '' && ($name === $queryKey || ($identity !== '' && $name === $identity))) {
+                $exactName = true;
                 break 2;
             }
         }
     }
-    if ($matchedService === '' && !empty($item['services'][0])) {
-        $matchedService = (string) $item['services'][0];
+    $cityAliases = medical_search_cache_city_aliases((array) ($index['cities'] ?? []));
+    $city = medical_search_cache_query_city($cityAliases, $queryKey);
+    $semantic = $queryKey;
+    if ($city['key'] !== '') {
+        $before = substr($semantic, 0, $city['offset']);
+        $before = preg_replace('/(?:^|\s)(?:tai|o|in|near)\s*$/', ' ', $before) ?? $before;
+        $semantic = $before . ' ' . substr($semantic, $city['offset'] + strlen($city['alias']));
     }
+    if (!$exactName) $semantic = preg_replace($commandPattern, '', $semantic) ?? $semantic;
+    if (!$facilityIntent) $semantic = preg_replace($doctorPattern, ' ', $semantic) ?? $semantic;
+    if ($toplistIntent) {
+        $semantic = preg_replace('/(?:^|\s)(?:top(?:list)?(?:\s+\d+)?|xep hang|danh sach)(?=\s|$)/', ' ', $semantic) ?? $semantic;
+    }
+    if ($eyeIntent) {
+        // "Mắt" and "mặt" share an accent-free key. Recognise the actual
+        // ophthalmology intent before matching general dentistry services.
+        $semantic = preg_replace('/(?:^|\s)(?:phong kham mat|benh vien mat|kham mat|nhan khoa|(?:chuyen )?khoa mat|phau thuat mat|ophthalmology|ophthalmologist|eye doctor|eye clinic|eye care|eye|mat)(?=\s|$)/', ' ', $semantic) ?? $semantic;
+    }
+    if (!$exactName) {
+        $semantic = preg_replace('/(?:^|\s)(?:uy tin|tot nhat|noi tieng|gia re|gan day|cho toi)(?=\s|$)/', ' ', $semantic) ?? $semantic;
+    }
+    $semantic = trim(preg_replace('/\s+/', ' ', $semantic) ?? $semantic);
+    $terms = array_values(array_unique(array_filter(explode(' ', $semantic), static fn(string $term): bool => $term !== '')));
+    $last = $semantic !== '' ? substr($semantic, (int) strrpos(' ' . $semantic, ' ')) : '';
+    $rawLast = $queryKey !== '' ? substr($queryKey, (int) strrpos(' ' . $queryKey, ' ')) : '';
+    $personName = '';
+    if ((count($terms) >= 3 || ($doctorIntent && count($terms) >= 2))
+        && !preg_match('/^\s*(?:đường|street)\b/ui', $query)
+        && preg_match('/^(?:nguyen|tran|le|pham|hoang|huynh|phan|bui|dang|do|ngo|duong|vu|vo|truong|dinh|luong|trinh|ha|ho|mai|cao|ta|dao|luu|lam|chu|to|ton)\s/', $semantic)) {
+        $personName = $semantic;
+    }
+    return [
+        'query' => $queryKey, 'identity' => $identity, 'semantic' => $semantic, 'terms' => $terms,
+        'prefix_term' => $last !== '' && $last === $rawLast ? $last : '',
+        'intent' => $toplistIntent ? 'toplists' : ($doctorIntent ? 'doctors' : ''),
+        'specialty' => $dentalIntent ? 'dentistry' : ($eyeIntent ? 'ophthalmology' : ''), 'person_name' => $personName,
+        'city' => $city, 'city_aliases' => $cityAliases,
+    ];
+}
 
-    $score += (int) round(((float) ($item['rating'] ?? 0)) * 12);
-    $score += min(90, (int) floor(log10(max(1, (int) ($item['reviews_count'] ?? 0))) * 25));
+/** @return array{score:int,service_text:string}|null */
+function medical_search_cache_match(array $item, array $terms, string $queryKey, string $cityKey, string $type, array $plan = []): ?array
+{
+    if ($type !== 'toplists' && empty($item['has_content'])) return null;
+    $nameKey = (string) ($item['name_key'] ?? medical_search_cache_normalize((string) ($item['name'] ?? $item['title'] ?? '')));
+    if ($nameKey === '') return null;
+    $identity = (string) ($plan['identity'] ?? $queryKey);
+    $exactName = $nameKey === $queryKey || ($identity !== '' && $nameKey === $identity);
+    if (($plan['intent'] ?? '') === 'doctors' && !$exactName && (
+        $type === 'facilities' || ($type === 'toplists' && ($item['entity_type'] ?? '') === 'facility')
+    )) return null;
+    if ($cityKey !== '') {
+        $itemCity = $type === 'toplists'
+            ? medical_search_cache_query_city((array) ($plan['city_aliases'] ?? []), $nameKey)['key']
+            : medical_search_cache_city_identity((string) ($item['city_key'] ?? $item['city'] ?? ''));
+        if ($itemCity !== $cityKey && !($exactName && empty($plan['city']['explicit']))) return null;
+    }
+    if ($terms === [] && ($plan['specialty'] ?? '') === '' && ($plan['intent'] ?? '') !== '' && $type !== $plan['intent']) return null;
+    $categoryKey = (string) ($item['category_key'] ?? '');
+    $serviceNames = array_values(array_filter((array) ($item['services'] ?? []), 'is_string'));
+    $serviceKeys = array_map('medical_search_cache_normalize', $serviceNames);
+    $fields = [
+        'name' => $nameKey,
+        'category' => $categoryKey,
+        'services' => implode(' ', $serviceKeys),
+        'address' => medical_search_cache_normalize((string) ($item['address'] ?? '')),
+        'facility' => medical_search_cache_normalize((string) ($item['facility_name'] ?? '')),
+        'subtitle' => medical_search_cache_normalize(strip_tags((string) ($item['subtitle'] ?? $item['excerpt'] ?? ''))),
+        'city' => (string) ($item['city_key'] ?? ''),
+    ];
+    if ($type === 'toplists') $fields['linked'] = (string) ($item['linked_search_text'] ?? '');
+    $prefixTerm = (string) ($plan['prefix_term'] ?? '');
+    $personName = (string) ($plan['person_name'] ?? '');
+    if ($personName !== '' && !$exactName) {
+        $identityFields = [$fields['name'], $fields['facility'], (string) ($fields['linked'] ?? '')];
+        // A street can also be a person's full name. Require its complete
+        // phrase in one address field, rather than combining scattered words.
+        if (($plan['intent'] ?? '') !== 'doctors') $identityFields[] = $fields['address'];
+        if (!array_filter($identityFields, static fn(string $field): bool => medical_search_cache_word_match($field, $personName, $prefixTerm !== ''))) return null;
+    }
+    $specialtyScore = 0;
+    if (!$exactName && ($plan['specialty'] ?? '') === 'dentistry') {
+        $dentalPattern = '/(?:^|\s)(?:nha khoa|rang ham mat|dental|dentistry|dentists?|odontolog[a-z]*)(?=\s|$)/';
+        $identityDental = preg_match($dentalPattern, $fields['name'] . ' ' . $fields['category']) === 1;
+        $serviceDental = array_filter($serviceKeys, static fn(string $key): bool => preg_match($dentalPattern, $key) === 1) !== [];
+        // Do not assemble "nha khoa" from an address's "tòa nhà" and
+        // the unrelated specialty "nhãn khoa" in a different field.
+        if (!$identityDental && !$serviceDental) return null;
+        $specialtyScore = $identityDental ? 1800 : 500;
+    }
+    if (!$exactName && ($plan['specialty'] ?? '') === 'ophthalmology') {
+        $eyePattern = '/(?:^|\s)(?:nhan khoa|(?:chuyen )?khoa mat|bac si mat|kham mat|benh vien mat|phong kham mat|trung tam mat|benh mat|dieu tri mat|phau thuat mat|mat tre em|vong mac|glocom|phaco|can thi|khuc xa|ophthalmolog[a-z]*|eye(?: care| clinic| doctor)?)(?=\s|$)/';
+        $identityEye = preg_match($eyePattern, $fields['name'] . ' ' . $fields['category']) === 1
+            || $fields['category'] === 'mat';
+        $serviceEye = preg_match($eyePattern, $fields['services']) === 1;
+        if (!$identityEye && !$serviceEye) return null;
+        $specialtyScore = $identityEye ? 1800 : 500;
+    }
+    $weights = ['name' => 1200, 'category' => 400, 'services' => 350, 'facility' => 250, 'subtitle' => 150, 'address' => 80, 'city' => 30, 'linked' => 100];
+    $score = ($exactName ? 100000 : 0) + $specialtyScore;
+    foreach ($terms as $term) {
+        $best = 0;
+        foreach ($fields as $field => $text) {
+            if (medical_search_cache_word_match($text, $term)) {
+                $best = max($best, $weights[$field]);
+            } elseif ($term === $prefixTerm && medical_search_cache_word_match($text, $term, true)) {
+                $best = max($best, (int) ($weights[$field] / 2));
+            }
+        }
+        if ($best === 0 && !$exactName) return null;
+        $score += $best;
+    }
+    $semantic = (string) ($plan['semantic'] ?? implode(' ', $terms));
+    if ($semantic !== '') {
+        if ($nameKey === $semantic) $score += 20000;
+        elseif (medical_search_cache_word_match($nameKey, $semantic)) $score += 10000;
+        if (medical_search_cache_word_match($categoryKey, $semantic)) $score += 1200;
+        foreach ($serviceKeys as $serviceKey) {
+            if (medical_search_cache_word_match($serviceKey, $semantic)) {
+                // A complete service phrase is more relevant than words
+                // scattered across other services, regardless of rating.
+                $score += 1200;
+                break;
+            }
+        }
+    }
+    $matchedService = '';
+    $bestService = 0;
+    foreach ($serviceNames as $position => $service) {
+        $serviceScore = 0;
+        foreach ($terms as $term) {
+            if (medical_search_cache_word_match($serviceKeys[$position], $term)) $serviceScore += 2;
+            elseif ($term === $prefixTerm && medical_search_cache_word_match($serviceKeys[$position], $term, true)) $serviceScore++;
+        }
+        if ($semantic !== '' && medical_search_cache_word_match($serviceKeys[$position], $semantic)) $serviceScore += count($terms) * 2;
+        if ($serviceScore > $bestService) { $bestService = $serviceScore; $matchedService = $service; }
+    }
+    if ($matchedService === '' && $serviceNames !== []) $matchedService = $serviceNames[0];
     return ['score' => $score, 'service_text' => $matchedService];
 }
 
@@ -673,21 +856,24 @@ function medical_search_cache_public_item(string $type, array $item, string $ser
  */
 function medical_search_cache_search(array $index, string $query, int $limit): array
 {
-    $queryKey = medical_search_cache_normalize($query);
-    $terms = medical_search_cache_terms($query);
     $groups = ['facilities' => [], 'doctors' => [], 'toplists' => []];
-    if ($terms === []) {
-        return ['groups' => $groups, 'meta' => ['city' => '']];
+    $totals = array_fill_keys(array_keys($groups), 0);
+    $groupScores = array_fill_keys(array_keys($groups), -1);
+    $plan = medical_search_cache_query_plan($index, $query);
+    $queryKey = $plan['query'];
+    $terms = $plan['terms'];
+    $city = $plan['city'];
+    if ($queryKey === '' || ($terms === [] && $city['key'] === '' && $plan['intent'] === '' && $plan['specialty'] === '')) {
+        return ['groups' => $groups, 'meta' => ['city' => '', 'totals' => $totals, 'group_order' => array_keys($groups)]];
     }
-    $city = medical_search_cache_detect_city((array) ($index['cities'] ?? []), $queryKey);
-
+    $limit = min(24, max(1, $limit));
     foreach (array_keys($groups) as $type) {
         $matches = [];
         foreach ((array) ($index[$type] ?? []) as $item) {
             if (!is_array($item)) {
                 continue;
             }
-            $match = medical_search_cache_match($item, $terms, $queryKey, $city['key'], $type);
+            $match = medical_search_cache_match($item, $terms, $queryKey, $city['key'], $type, $plan);
             if ($match === null) {
                 continue;
             }
@@ -702,14 +888,26 @@ function medical_search_cache_search(array $index, string $query, int $limit): a
             if ($rating !== 0) {
                 return $rating;
             }
-            return ((int) ($right['item']['reviews_count'] ?? 0)) <=> ((int) ($left['item']['reviews_count'] ?? 0));
+            $reviews = ((int) ($right['item']['reviews_count'] ?? 0)) <=> ((int) ($left['item']['reviews_count'] ?? 0));
+            if ($reviews !== 0) return $reviews;
+            return ((int) ($left['item']['id'] ?? 0)) <=> ((int) ($right['item']['id'] ?? 0));
         });
+        $totals[$type] = count($matches);
+        $groupScores[$type] = $matches !== [] ? $matches[0]['score'] : -1;
         foreach (array_slice($matches, 0, $limit) as $match) {
             $groups[$type][] = medical_search_cache_public_item($type, $match['item'], $match['service_text']);
         }
     }
 
-    return ['groups' => $groups, 'meta' => ['city' => $city['label']]];
+    $order = array_keys($groups);
+    $baseOrder = array_flip($order);
+    usort($order, static function (string $left, string $right) use ($plan, $groupScores, $baseOrder): int {
+        $leftIntent = $left === $plan['intent'] && $groupScores[$left] >= 0;
+        $rightIntent = $right === $plan['intent'] && $groupScores[$right] >= 0;
+        if ($leftIntent !== $rightIntent) return $rightIntent <=> $leftIntent;
+        return ($groupScores[$right] <=> $groupScores[$left]) ?: ($baseOrder[$left] <=> $baseOrder[$right]);
+    });
+    return ['groups' => $groups, 'meta' => ['city' => $city['label'], 'totals' => $totals, 'group_order' => $order, 'intent' => $plan['intent']]];
 }
 
 /** @return array<string,mixed> */

@@ -17,13 +17,15 @@ function medical_public_search_response(array $payload, int $statusCode = 200): 
     exit;
 }
 
-$query = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 120, 'UTF-8');
+$queryInput = is_string($_GET['q'] ?? null) ? $_GET['q'] : '';
+$query = mb_substr(trim(preg_replace('/\s+/u', ' ', $queryInput) ?? ''), 0, 120, 'UTF-8');
 if (mb_strlen($query, 'UTF-8') < 2) {
     medical_public_search_response([
         'ok' => true,
         'query' => $query,
         'min_length' => 2,
         'groups' => ['facilities' => [], 'doctors' => [], 'toplists' => []],
+        'meta' => ['group_order' => ['facilities', 'doctors', 'toplists'], 'totals' => ['facilities' => 0, 'doctors' => 0, 'toplists' => 0]],
     ]);
 }
 
@@ -32,7 +34,8 @@ try {
     // Fresh requests read one local JSON file only. On expiry, one request
     // rebuilds the file; other concurrent requests retain the old index.
     $cache = medical_search_cache_index();
-    $locale = site_normalize_locale((string) ($_GET['locale'] ?? $_GET['lang'] ?? 'vi'));
+    $localeInput = $_GET['locale'] ?? $_GET['lang'] ?? 'vi';
+    $locale = site_normalize_locale(is_string($localeInput) ? $localeInput : 'vi');
     $localizedIndex = medical_search_cache_filter_locale($cache['index'], $locale);
     $results = medical_search_cache_search($localizedIndex, $query, $limit);
     $index = $cache['index'];
@@ -42,6 +45,7 @@ try {
         'query' => $query,
         'min_length' => 2,
         'groups' => $results['groups'],
+        'meta' => $results['meta'],
         // Kept lightweight but useful when testing the rollout. Frontend does
         // not depend on it, so it can be removed later without a breaking API.
         'cache' => [

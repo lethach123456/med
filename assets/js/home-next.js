@@ -13,7 +13,7 @@
     // A response can arrive after keyboard focus has left the search. Never
     // reopen a full-page backdrop for that stale interaction.
     if (shell?.classList.contains('is-open') && !shell.contains(document.activeElement)) {
-      input?.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      shell.dispatchEvent(new Event('medical-search:close'));
       shell.dataset.homeSearchAutoScrolled = 'false';
     }
     backdrop.hidden = !shell?.classList.contains('is-open');
@@ -21,17 +21,10 @@
   if (shell) new MutationObserver(sync).observe(shell, {attributes:true,attributeFilter:['class']});
   const commitSearch = value => {
     if (!input) return;
-    input.value = value.trim() ? value.trim() + ' ' : '';
+    input.value = value.trim();
     input.focus({preventScroll:true});
     input.dispatchEvent(new Event('input',{bubbles:true}));
   };
-  shell?.querySelector('.send-button')?.addEventListener('click',event => { event.preventDefault();commitSearch(input?.value || ''); });
-  shell?.querySelector('form')?.addEventListener('submit',event => {
-    // Enter without an active result commits the query in-place, like Send.
-    // The shared search still handles Enter on an already selected result.
-    event.preventDefault();
-    commitSearch(input?.value || '');
-  });
   input?.addEventListener('keydown',event => {
     if (event.key === 'Escape') shell.dataset.homeSearchAutoScrolled = 'false';
   });
@@ -41,13 +34,13 @@
     clearTimeout(closeTimer);
     closeTimer = setTimeout(() => {
       if (shell.contains(document.activeElement)) return;
-      input?.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      shell.dispatchEvent(new Event('medical-search:close'));
       shell.dataset.homeSearchAutoScrolled = 'false';
       sync();
     },100);
   });
   backdrop.addEventListener('click',() => {
-    input?.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    shell?.dispatchEvent(new Event('medical-search:close'));
     input?.blur();
     sync();
   });

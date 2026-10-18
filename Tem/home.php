@@ -462,7 +462,7 @@ $featuredFacilities = array_values($featuredFacilities);
   home.querySelectorAll('[data-home-query]').forEach(button => button.addEventListener('click', () => {
     if (!input) return;
     const quickQuery = (button.dataset.homeQuery || '').trim();
-    input.value = quickQuery ? `${quickQuery} ` : '';
+    input.value = quickQuery;
     input.focus({preventScroll:true});
     input.dispatchEvent(new Event('input', {bubbles:true}));
   }));
@@ -504,7 +504,7 @@ $featuredFacilities = array_values($featuredFacilities);
     document.body.append(backdrop);
     let overlayTimer;
     const closeSearch = () => {
-      input?.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+      searchPanel.dispatchEvent(new Event('medical-search:close'));
       searchPanel.dataset.homeSearchAutoScrolled = 'false';
     };
     const sync = () => {
@@ -512,15 +512,6 @@ $featuredFacilities = array_values($featuredFacilities);
       backdrop.hidden = !searchPanel.classList.contains('is-open');
     };
     new MutationObserver(sync).observe(searchPanel, {attributes:true, attributeFilter:['class']});
-    searchPanel.querySelector('.send-button')?.addEventListener('click', event => {
-      event.preventDefault();
-      input?.focus({preventScroll:true});
-      if (input) {
-        const committedQuery = input.value.trimEnd();
-        input.value = committedQuery ? `${committedQuery} ` : '';
-        input.dispatchEvent(new Event('input', {bubbles:true}));
-      }
-    });
     searchPanel.addEventListener('focusout', () => {
       clearTimeout(overlayTimer);
       overlayTimer = setTimeout(() => {
