@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/db.php';
 require_once dirname(__DIR__) . '/contact_form.php';
 $contactLocale = ($contactLocale ?? 'vi') === 'en' ? 'en' : 'vi';
+site_language_response_header($contactLocale);
 $contactEnglish = $contactLocale === 'en';
 $contactPageKey = $contactEnglish ? 'contact-en' : 'contact';
 $GLOBALS['site_page_key'] = $contactPageKey;
@@ -122,6 +123,7 @@ $contactScriptVersion = (string) filemtime(dirname(__DIR__) . '/assets/js/contac
 <html lang="<?php echo $contactEscape($contactLocale); ?>">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php echo site_language_metadata_tags($contactLocale, ['vi', 'en']); ?>
     <?php echo site_favicon_tags(); ?>
     <title><?php echo $contactEscape($contactTitle); ?></title>
     <meta name="description" content="<?php echo $contactEscape($contactDescription); ?>">

@@ -6,6 +6,7 @@ require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/medical_toplist_directory_view.php';
 medical_redirect_legacy_path('/toplist.php', medical_public_toplist_path());
 $locale = site_page_locale('toplist');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $pdo = db();
 $hasToplistLanguage = medreview_translation_schema_ready($pdo, 'medical_toplists');
@@ -72,6 +73,7 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
 <head>
   <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <?= site_language_metadata_tags($locale, $toplistPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
   <title><?= toplist_view_escape($seoTitle) ?></title>
   <meta name="description" content="<?= toplist_view_escape($seoDescription) ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= toplist_view_escape($seoKeywords) ?>"><?php endif; ?>

@@ -1,15 +1,20 @@
 <?php
 declare(strict_types=1);
 
-$notFoundTitle = trim((string) ($notFoundTitle ?? 'Không tìm thấy trang'));
-$notFoundDescription = trim((string) ($notFoundDescription ?? 'Trang bạn tìm hiện không tồn tại hoặc đã được chuyển đi.'));
+$notFoundLocale = site_normalize_locale((string) ($notFoundLocale ?? $GLOBALS['site_forced_locale'] ?? site_locale_from_path() ?? 'vi'));
+$notFoundEnglish = $notFoundLocale === 'en';
+$GLOBALS['site_forced_locale'] = $notFoundLocale;
+site_language_response_header($notFoundLocale);
+$notFoundTitle = trim((string) ($notFoundTitle ?? ($notFoundEnglish ? 'Page not found' : 'Không tìm thấy trang')));
+$notFoundDescription = trim((string) ($notFoundDescription ?? ($notFoundEnglish ? 'This page does not exist or has been moved.' : 'Trang bạn tìm hiện không tồn tại hoặc đã được chuyển đi.')));
 $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 ?>
 <!doctype html>
-<html lang="vi">
+<html lang="<?= $escapeNotFound($notFoundLocale) ?>">
 <head>
   <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
+  <?= site_language_metadata_tags($notFoundLocale) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,follow">
   <title><?php echo $escapeNotFound($notFoundTitle); ?> | MedReview</title>
@@ -150,19 +155,19 @@ $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, 
       <div class="public-404__copy">
         <span class="public-404__eyebrow">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.25 14.4 5l3-.15.9 2.85 2.45 1.75-.9 2.85.9 2.85-2.45 1.75-.9 2.85-3-.15L12 21.5l-2.4-1.9-3 .15-.9-2.85-2.45-1.75.9-2.85-.9-2.85L5.7 7.9l.9-2.85 3 .15L12 3.25Z" fill="currentColor"/><path d="m9 12.1 2 2 4.25-4.3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          MedReview · Trang không khả dụng
+          <?= $notFoundEnglish ? 'MedReview · Page unavailable' : 'MedReview · Trang không khả dụng' ?>
         </span>
         <p class="public-404__number" aria-hidden="true">404</p>
         <h1 id="public-404-title"><?php echo $escapeNotFound($notFoundTitle); ?></h1>
         <p class="public-404__description"><?php echo $escapeNotFound($notFoundDescription); ?></p>
-        <nav class="public-404__actions" aria-label="Liên kết gợi ý">
-          <a href="/">
+        <nav class="public-404__actions" aria-label="<?= $notFoundEnglish ? 'Suggested links' : 'Liên kết gợi ý' ?>">
+          <a href="<?= $escapeNotFound(site_localized_path('/', $notFoundLocale)) ?>">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m3.5 10.6 8.5-7 8.5 7v9.1a1.3 1.3 0 0 1-1.3 1.3h-14a1.3 1.3 0 0 1-1.3-1.3v-9.1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 21v-7h6v7" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-            Về trang chủ
+            <?= $notFoundEnglish ? 'Back to home' : 'Về trang chủ' ?>
           </a>
-          <a href="/co-so-y-te">
+          <a href="<?= $escapeNotFound(site_localized_path('/co-so-y-te', $notFoundLocale)) ?>">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.5 10.1c0 5.15-8.5 11-8.5 11s-8.5-5.85-8.5-11a8.5 8.5 0 1 1 17 0Z" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.7v6.8m-3.4-3.4h6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            Tìm cơ sở y tế
+            <?= $notFoundEnglish ? 'Find healthcare facilities' : 'Tìm cơ sở y tế' ?>
           </a>
         </nav>
       </div>

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+$GLOBALS['site_forced_locale'] = 'vi';
+site_language_response_header('vi');
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 $pdo = db();
 require_once __DIR__ . '/front_admin.php';
@@ -119,6 +121,7 @@ function money_vnd_text(?int $value, ?string $text): string {
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags('vi'); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = !$isDetail ? front_editor_page_seo('products', [

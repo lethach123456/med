@@ -1248,6 +1248,33 @@ function site_page_locale(?string $pageKey = null): string
     return site_detect_locale($pageKey);
 }
 
+/** Declare the response audience before HTML/JSON output, never from a raw header. */
+function site_language_response_header(string $locale): void
+{
+    if (!headers_sent()) header('Content-Language: ' . site_normalize_locale($locale));
+}
+
+/**
+ * Read-only metadata for the actual page/content language. HTML's lang remains
+ * the document-language declaration; the obsolete http-equiv version is not used.
+ * Alternate locales are opt-in: callers must already know a real counterpart.
+ */
+function site_language_metadata_tags(string $locale, array $alternateLanguages = []): string
+{
+    $locale = site_normalize_locale($locale);
+    $ogLocales = ['vi' => 'vi_VN', 'en' => 'en_US'];
+    $tags = ['<meta property="og:locale" content="' . $ogLocales[$locale] . '">'];
+    $seen = [$locale => true];
+    foreach ($alternateLanguages as $alternate) {
+        if (!is_string($alternate)) continue;
+        $alternate = site_normalize_locale($alternate, '');
+        if (!isset($ogLocales[$alternate]) || isset($seen[$alternate])) continue;
+        $seen[$alternate] = true;
+        $tags[] = '<meta property="og:locale:alternate" content="' . $ogLocales[$alternate] . '">';
+    }
+    return implode("\n", $tags);
+}
+
 function site_language_pair_map(): array
 {
     return [

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+$GLOBALS['site_forced_locale'] = 'vi';
+site_language_response_header('vi');
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 if (!isset($_GET['slug']) || trim((string) ($_GET['slug'] ?? '')) === '') {
   front_editor_page_maybe_redirect('blog');
@@ -76,6 +78,7 @@ try {
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags('vi'); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = front_editor_page_seo('blog', [

@@ -6,6 +6,7 @@ $handbookImage = handbook_view_image_url($featured);
 <html lang="<?= handbook_view_escape($handbookLocale) ?>">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <?= site_language_metadata_tags($handbookLocale, array_keys($handbookArticleAlternates ?? [])) ?>
   <?= site_favicon_tags() ?>
   <title><?= handbook_view_escape($seoTitle) ?></title>
   <meta name="description" content="<?= handbook_view_escape($seoDescription) ?>">

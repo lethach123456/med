@@ -5,6 +5,7 @@ require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/medical_review_view.php';
 if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $locale = site_page_locale('reviews');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $reviewBasePath = $isEnglish ? '/en/review' : '/review';
 $reviewContactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');

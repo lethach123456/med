@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+$GLOBALS['site_forced_locale'] = 'en';
+site_language_response_header('en');
 require_once __DIR__ . '/front_admin.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 front_editor_page_maybe_redirect('services-en');
@@ -52,6 +54,7 @@ try {
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags('en'); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php
       $seo = front_editor_page_seo('services-en', [

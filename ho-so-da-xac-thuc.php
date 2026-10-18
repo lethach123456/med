@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 $GLOBALS['site_page_key'] = 'verification';
 $locale = site_page_locale('verification');
+site_language_response_header($locale);
 $en = $locale === 'en';
 $t = static fn (string $vi, string $english): string => $en ? $english : $vi;
 $esc = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
@@ -29,6 +30,7 @@ $faq = [
 <html lang="<?php echo $en ? 'en' : 'vi'; ?>">
 <head>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo $esc($title . ' | MedReview'); ?></title>
     <meta name="description" content="<?php echo $esc($description); ?>">

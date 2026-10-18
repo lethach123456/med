@@ -7,6 +7,8 @@ if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $GLOBALS['site_page_key'] = 'reviews';
 $GLOBALS['site_language_links'] = ['current' => site_page_locale('reviews'), 'vi' => '/review', 'en' => '/en/review'];
 $locale = site_page_locale('reviews');
+$notFoundLocale = $locale;
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $reviewBasePath = $isEnglish ? '/en/review' : '/review';
 $reviewContactPath = front_editor_page_public_path($isEnglish ? 'contact-en' : 'contact');

@@ -10,12 +10,14 @@ $slug = trim((string) ($_GET['slug'] ?? ''));
 $doctor = medical_directory_doctor_row_by_slug($slug, true);
 if (!$doctor) {
     http_response_code(404);
-    $notFoundTitle = 'Không tìm thấy hồ sơ bác sĩ';
-    $notFoundDescription = 'Hồ sơ bác sĩ không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+    $notFoundLocale = site_page_locale('doctors');
+    $notFoundTitle = $notFoundLocale === 'en' ? 'Doctor profile not found' : 'Không tìm thấy hồ sơ bác sĩ';
+    $notFoundDescription = $notFoundLocale === 'en' ? 'This doctor profile does not exist or is no longer published.' : 'Hồ sơ bác sĩ không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
     require __DIR__ . '/Tem/public-404.php';
     exit;
 }
 $doctorLanguage = ($doctor['language_code'] ?? 'vi') === 'en' ? 'en' : 'vi';
+site_language_response_header($doctorLanguage);
 $doctorLanguageLinks = medical_directory_translation_switch_links(db(), 'doctor', $doctor);
 $GLOBALS['site_forced_locale'] = $doctorLanguage;
 $GLOBALS['site_language_links'] = $doctorLanguageLinks;
@@ -76,6 +78,7 @@ $escape = static fn(mixed $value): string => htmlspecialchars(medical_doctor_pro
 <html lang="<?= $escape($doctorLanguage) ?>">
 <head>
   <meta charset="utf-8">
+  <?= site_language_metadata_tags($doctorLanguage, !empty($doctorLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $escape($title) ?></title>
   <meta name="description" content="<?= $escape($description) ?>">

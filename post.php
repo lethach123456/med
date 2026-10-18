@@ -100,10 +100,15 @@ $isEnglishPost = $postCategorySlug === 'blog-en'
     || $postCategorySlug === 'dich-vu-en'
     || $routeContext === 'news'
     || preg_match('~^/news/[^/]+/?$~', $requestPath) === 1;
+$postRecordLanguage = strtolower(trim((string) ($post['language'] ?? '')));
+if (in_array($postRecordLanguage, ['vi', 'en'], true)) $isEnglishPost = $postRecordLanguage === 'en';
 if ($isHandbookDetailRoute) $isEnglishPost = $handbookLocale === 'en';
 $htmlLang = $isEnglishPost ? 'en' : 'vi';
+$GLOBALS['site_forced_locale'] = $htmlLang;
+site_language_response_header($htmlLang);
 if (!$post) {
     http_response_code(404);
+    $notFoundLocale = $htmlLang;
     $notFoundTitle = $isEnglishPost ? 'Page not found' : 'Không tìm thấy trang';
     $notFoundDescription = $isEnglishPost
         ? 'The page you are looking for may have been moved or no longer exists.'
@@ -244,6 +249,7 @@ if (!$post) {
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags($htmlLang); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo $safeTitle; ?></title>
     <?php if (!$isIndexableArticle): ?><meta name="robots" content="noindex,follow"><?php else: ?>

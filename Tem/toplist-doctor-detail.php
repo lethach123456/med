@@ -16,6 +16,7 @@ foreach ($tdMembers as $index=>$member) {
 <html lang="<?= $tdEscape($toplistLanguage) ?>">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <?= site_language_metadata_tags($toplistLanguage, !empty($toplistLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []) ?>
   <title><?= $tdEscape($title) ?> | MedReview</title>
   <meta name="description" content="<?= $tdEscape($description) ?>">
   <link rel="canonical" href="<?= $tdEscape($canonicalUrl) ?>">

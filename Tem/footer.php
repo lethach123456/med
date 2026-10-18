@@ -5,7 +5,8 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../medical_public_assets.php';
 require_once __DIR__ . '/../medical_media_variants.php';
 
-$locale = site_page_locale();
+$forcedLocale = trim((string) ($GLOBALS['site_forced_locale'] ?? ''));
+$locale = in_array($forcedLocale, ['vi', 'en'], true) ? $forcedLocale : site_page_locale();
 $isEnglish = $locale === 'en';
 $hotline = site_hotline('0901 234 567');
 $email = site_email('hello@medreview.vn');

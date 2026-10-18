@@ -5,6 +5,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 $locale = site_page_locale('doctors');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 
 $seo = front_editor_page_seo('bac-si', [
@@ -88,6 +89,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
 <head>
     <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
+  <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?php echo $escape($title); ?></title>
   <meta name="description" content="<?php echo $escape($description); ?>">

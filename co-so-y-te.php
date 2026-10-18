@@ -7,6 +7,7 @@ if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 medical_redirect_legacy_path('/co-so-y-te.php', medical_public_facility_path());
 $locale = site_page_locale('facilities');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 
 $seo = front_editor_page_seo('co-so-y-te', [
@@ -218,6 +219,7 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
 <html lang="<?= $isEnglish ? 'en' : 'vi' ?>">
 <head>
   <meta charset="utf-8">
+  <?= site_language_metadata_tags($locale, ['vi', 'en']) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <?= site_favicon_tags() ?>
   <title><?= facility_directory_escape($title) ?></title>

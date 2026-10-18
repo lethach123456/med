@@ -8,6 +8,7 @@ require_once __DIR__ . '/medical_home_next_view.php';
 $GLOBALS['site_page_key'] = 'home';
 if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $locale = site_page_locale('home');
+site_language_response_header($locale);
 $GLOBALS['site_language_links'] = ['current'=>$locale, 'vi'=>'/homepage-new.php?lang=vi', 'en'=>'/homepage-new.php?lang=en'];
 $homeNextData = medical_home_next_empty();
 try { $homeNextData = medical_home_next_data(db(), $locale); } catch (Throwable $error) { /* Keep the public preview usable without a DB connection. */ }
@@ -20,6 +21,7 @@ header('X-Robots-Tag: noindex, follow');
 <html lang="<?= home_next_escape($locale) ?>">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <?= site_language_metadata_tags($locale) ?>
   <?= site_favicon_tags() ?>
   <title><?= home_next_escape($homeNextCopy['pageTitle']) ?></title>
   <meta name="description" content="<?= home_next_escape($homeNextCopy['heroCopy']) ?>">

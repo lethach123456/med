@@ -1,5 +1,6 @@
 <?php echo site_favicon_tags(); ?>
 <meta charset="utf-8">
+<?= site_language_metadata_tags($locale, !empty($reviewDirectoryScript) ? ['vi', 'en'] : []) ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= review_view_escape($title) ?></title>
 <meta name="description" content="<?= review_view_escape($description) ?>">

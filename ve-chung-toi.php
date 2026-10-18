@@ -4,6 +4,7 @@ require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/front_admin.php';
 if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $locale = site_page_locale('about');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $aboutEscape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $aboutCopy = $isEnglish ? [
@@ -130,6 +131,7 @@ $aboutScriptVersion = (string) filemtime(__DIR__ . '/assets/js/about-medreview.j
 <html lang="<?php echo $aboutEscape($locale); ?>">
 <head>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php echo site_favicon_tags(); ?>
     <title><?php echo $aboutEscape($aboutTitle); ?></title>

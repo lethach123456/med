@@ -14,6 +14,7 @@ $description = $seo['description'];
 $canonicalPath = (string) ($seo['canonical_path'] ?? '/');
 $seoKeywords = (string) ($seo['keywords'] ?? '');
 $locale = site_page_locale('home');
+site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $homeHeroOriginal = '/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg';
 $homeHeroResponsive = medical_media_responsive_image($homeHeroOriginal, [640, 960, 1280, 1800], 1280);
@@ -56,6 +57,7 @@ $homeSchema = [
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">

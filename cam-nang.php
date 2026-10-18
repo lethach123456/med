@@ -7,6 +7,7 @@ require_once __DIR__ . '/medical_media_variants.php';
 
 $GLOBALS['site_page_key'] = 'handbook';
 $locale = site_page_locale('handbook');
+site_language_response_header($locale);
 $GLOBALS['site_forced_locale'] = $locale;
 $GLOBALS['site_language_links'] = ['vi' => handbook_view_path('vi'), 'en' => handbook_view_path('en'), 'current' => $locale];
 $handbookCopy = handbook_view_copy($locale);
@@ -28,6 +29,7 @@ $handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
 <html lang="<?= handbook_view_escape($locale) ?>">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <?= site_language_metadata_tags($locale, !$handbookNoindex && $handbookPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
   <?= site_favicon_tags() ?>
   <title><?= handbook_view_escape($handbookTitle) ?></title>
   <meta name="description" content="<?= handbook_view_escape($handbookCopy['seoDescription']) ?>">

@@ -703,12 +703,14 @@ if (!$facilityNotFound && parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PH
 }
 if ($facilityNotFound) {
   http_response_code(404);
-  $notFoundTitle = 'Không tìm thấy hồ sơ cơ sở y tế';
-  $notFoundDescription = 'Hồ sơ này không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
+  $notFoundLocale = site_page_locale('facilities');
+  $notFoundTitle = $notFoundLocale === 'en' ? 'Healthcare facility not found' : 'Không tìm thấy hồ sơ cơ sở y tế';
+  $notFoundDescription = $notFoundLocale === 'en' ? 'This facility profile does not exist or is no longer published.' : 'Hồ sơ này không tồn tại, đã bị ẩn hoặc không còn được xuất bản.';
   require __DIR__ . '/Tem/public-404.php';
   exit;
 }
 $facilityLanguage = strtolower((string) ($dbFacility['language_code'] ?? 'vi')) === 'en' ? 'en' : 'vi';
+site_language_response_header($facilityLanguage);
 $facilityLanguageLinks = medical_directory_translation_switch_links(db(), 'facility', $dbFacility);
 $tr = static fn(string $vi, string $en): string => $facilityLanguage === 'en' ? $en : $vi;
 $localizeCountLabel = static function (string $label, string $viSuffix, string $enSuffix) use ($facilityLanguage): string {
@@ -1061,6 +1063,7 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
   <head>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
+    <?php echo site_language_metadata_tags($facilityLanguage, !empty($facilityLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
