@@ -40,6 +40,7 @@ function facility_page_list_values(?string $value): array
 
 function facility_page_item_from_row(array $row): array
 {
+    $ratingSummary = medical_facility_rating_summary($row);
     $gallery = medical_directory_gallery_urls((string) ($row['gallery_json'] ?? ''));
     $image = trim((string) ($row['image_url'] ?? ''));
     if ($image === '' && $gallery !== []) $image = (string) $gallery[0];
@@ -54,8 +55,10 @@ function facility_page_item_from_row(array $row): array
         'subtitle' => trim((string) ($row['subtitle'] ?? '')),
         'address' => trim((string) ($row['address_text'] ?? '')),
         'hours' => trim((string) ($row['hours_text'] ?? '')),
-        'rating' => number_format((float) ($row['rating'] ?? 0), 1, '.', ''),
-        'reviews_count' => (int) ($row['reviews_count'] ?? 0),
+        'rating' => number_format($ratingSummary['rating'], 1, '.', ''),
+        'reviews_count' => $ratingSummary['reviews_count'],
+        'rating_basis' => $ratingSummary['basis'],
+        'rating_sources' => $ratingSummary['sources'],
         'followers_count' => (int) ($row['followers_count'] ?? 0),
         'verified' => (bool) ((int) ($row['verified'] ?? 0)),
         'price' => trim((string) ($row['price_text'] ?? '')),
@@ -139,7 +142,7 @@ function facility_page_query(PDO $pdo, array $filters, int $page = 1, int $limit
     $page = min(max(1, $page), $pages);
     $offset = ($page - 1) * $limit;
     $stmt = $pdo->prepare(
-        "SELECT slug, name, category, city, subtitle, verified, rating, reviews_count, followers_count,
+        "SELECT slug, name, category, city, subtitle, verified, rating, reviews_count, aggregate_ratings_json, review_summary_json, followers_count,
                 hours_text, address_text, price_text, image_url, images_label, featured_services_json, services_json, gallery_json
          FROM medical_facilities WHERE {$whereSql}
          ORDER BY {$orderBy} LIMIT :limit OFFSET :offset"

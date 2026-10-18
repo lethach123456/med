@@ -9,6 +9,7 @@ declare(strict_types=1);
  * the source database remain the single place where content is edited.
  */
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/medical_facility_ratings.php';
 
 /** Ignore markup and invisible whitespace when deciding whether a profile is written. */
 function medical_search_cache_has_written_content(string $content): bool
@@ -167,7 +168,7 @@ function medical_search_cache_is_fresh(array $index): bool
 {
     $generatedAt = (int) ($index['generated_at'] ?? 0);
     $expiresAt = (int) ($index['expires_at'] ?? 0);
-    if ($generatedAt <= 0 || $expiresAt < time()) {
+    if ($generatedAt <= 0 || $expiresAt < time() || (int) ($index['facility_ratings_version'] ?? 0) !== 1) {
         return false;
     }
     $invalidatedAt = @filemtime(medical_search_cache_invalidation_path());
@@ -233,7 +234,8 @@ function medical_search_cache_facilities(PDO $pdo): array
     $languageSelect = $hasTranslationColumns ? 'language_code' : "'vi' AS language_code";
     $rows = $pdo->query(
         "SELECT id, slug, {$languageSelect}, name, subtitle, content, category, city, address_text, image_url, gallery_json,
-                verified, rating, reviews_count, followers_count, price_text, hours_text, images_label,
+                verified, rating, reviews_count, aggregate_ratings_json, review_summary_json,
+                followers_count, price_text, hours_text, images_label,
                 featured_services_json, services_json, tags_json, highlights_json, display_order, updated_at
          FROM medical_facilities
          WHERE status = 'published'"
@@ -241,6 +243,7 @@ function medical_search_cache_facilities(PDO $pdo): array
 
     $items = [];
     foreach ($rows as $row) {
+        $ratingSummary = medical_facility_rating_summary($row);
         $services = array_values(array_unique(array_merge(
             medical_search_cache_json_strings($row['featured_services_json'] ?? ''),
             medical_search_cache_json_strings($row['services_json'] ?? '')
@@ -272,8 +275,10 @@ function medical_search_cache_facilities(PDO $pdo): array
             'address' => trim((string) ($row['address_text'] ?? '')),
             'image_url' => $image,
             'verified' => (bool) ((int) ($row['verified'] ?? 0)),
-            'rating' => (float) ($row['rating'] ?? 0),
-            'reviews_count' => (int) ($row['reviews_count'] ?? 0),
+            'rating' => $ratingSummary['rating'],
+            'reviews_count' => $ratingSummary['reviews_count'],
+            'rating_basis' => $ratingSummary['basis'],
+            'rating_sources' => $ratingSummary['sources'],
             'followers_count' => (int) ($row['followers_count'] ?? 0),
             'price' => trim((string) ($row['price_text'] ?? '')),
             'hours' => trim((string) ($row['hours_text'] ?? '')),
@@ -476,6 +481,7 @@ function medical_search_cache_rebuild(PDO $pdo): array
 
     return [
         'schema' => 3,
+        'facility_ratings_version' => 1,
         'generated_at' => $generatedAt,
         'expires_at' => $generatedAt + medical_search_cache_ttl(),
         'facilities' => $facilities,
@@ -841,6 +847,8 @@ function medical_search_cache_public_item(string $type, array $item, string $ser
         'service_text' => $serviceText,
     ];
     if ($type === 'facilities') {
+        $public['rating_basis'] = (string) ($item['rating_basis'] ?? 'legacy');
+        $public['rating_sources'] = (array) ($item['rating_sources'] ?? []);
         $public['category'] = (string) ($item['category'] ?? '');
         $public['subtitle'] = (string) ($item['subtitle'] ?? '');
     } else {
@@ -926,6 +934,8 @@ function medical_search_cache_directory_item(array $item): array
         'hours' => (string) ($item['hours'] ?? ''),
         'rating' => number_format((float) ($item['rating'] ?? 0), 1, '.', ''),
         'reviews_count' => (int) ($item['reviews_count'] ?? 0),
+        'rating_basis' => (string) ($item['rating_basis'] ?? 'legacy'),
+        'rating_sources' => (array) ($item['rating_sources'] ?? []),
         'followers_count' => (int) ($item['followers_count'] ?? 0),
         'verified' => (bool) ($item['verified'] ?? false),
         'price' => (string) ($item['price'] ?? ''),

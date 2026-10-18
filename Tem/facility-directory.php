@@ -21,7 +21,7 @@ $filterFields = [
         <span class="fd-note-accent" aria-hidden="true"><i class="ph ph-map-pin-line"></i></span>
         <div class="fd-note-icon" aria-hidden="true"><i class="ph ph-heartbeat"></i></div>
         <p><?= $isEnglish ? 'A clearer view.<br>A more informed choice.' : 'Thêm thông tin.<br><strong>Thêm an tâm.</strong>' ?></p>
-        <div class="fd-stats"><div><strong><?= facility_directory_number($directoryStats['facilities'], $locale) ?></strong><span><?= $isEnglish ? 'facility profiles' : 'hồ sơ cơ sở' ?></span></div><div><strong><?= facility_directory_number($directoryStats['reviews'], $locale) ?></strong><span><?= $isEnglish ? 'reviews' : 'đánh giá' ?></span></div></div>
+        <div class="fd-stats"><div><strong><?= facility_directory_number($directoryStats['facilities'], $locale) ?></strong><span><?= $isEnglish ? 'facility profiles' : 'hồ sơ cơ sở' ?></span></div><div><strong><?= facility_directory_number($directoryStats['reviews'], $locale) ?></strong><span><?= $isEnglish ? 'recorded ratings' : 'lượt đánh giá đã ghi nhận' ?></span></div></div>
       </div>
     </header>
     <section class="fd-search-area" aria-label="<?= $isEnglish ? 'Search facilities' : 'Tìm cơ sở y tế' ?>">

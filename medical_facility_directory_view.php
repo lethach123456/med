@@ -20,6 +20,17 @@ function facility_directory_number(int $value, string $locale): string
     return number_format(max(0, $value), 0, '.', $locale === 'en' ? ',' : '.');
 }
 
+function facility_directory_rating_label(array $item, string $locale): string
+{
+    $en = $locale === 'en';
+    if (($item['rating_basis'] ?? '') === 'external_aggregates') {
+        $sources = (array) ($item['rating_sources'] ?? []);
+        return count($sources) === 1 ? (string) ($sources[0]['source'] ?? '') : ($en ? 'Combined sources' : 'Nguồn tổng hợp');
+    }
+    return ($item['rating_basis'] ?? '') === 'imported_reviews'
+        ? ($en ? 'Stored reviews' : 'Review đã lưu') : ($en ? 'Profile rating' : 'Điểm hồ sơ');
+}
+
 function facility_directory_card(array $item, string $locale = 'vi'): string
 {
     $en = $locale === 'en';
@@ -30,6 +41,8 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
     $image = facility_directory_safe_url((string) ($item['image'] ?? ''));
     $rating = max(0.0, min(5.0, (float) ($item['rating'] ?? 0)));
     $reviews = facility_directory_number((int) ($item['reviews_count'] ?? 0), $locale);
+    $hasRating = $rating > 0 && (float) ($item['rating'] ?? 0) <= 5 && (int) ($item['reviews_count'] ?? 0) > 0;
+    $ratingLabel = facility_directory_rating_label($item, $locale);
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? [])), static fn(string $s): bool => trim($s) !== ''));
     $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
     ob_start(); ?>
@@ -50,7 +63,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
           <?php if ($showServiceDisclosure): ?><button class="fd-service-more" type="button" data-service-tags-more data-extra-count="<?= max(0, count($services) - 3) ?>" aria-expanded="false" aria-label="<?= $en ? 'Show full services' : 'Xem đầy đủ dịch vụ' ?>"><?= count($services) > 3 ? '+' . (count($services) - 3) : ($en ? 'Details' : 'Xem đủ') ?><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
         </div><?php endif; ?>
         <div class="fd-card-footer">
-          <div class="fd-rating"><?php if ($rating > 0): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>)</span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
+          <div class="fd-rating" title="<?= $e($ratingLabel) ?>"><?php if ($hasRating): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>) <small class="fd-rating-source">· <?= $e($ratingLabel) ?></small></span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
           <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
         </div>
         <?php if (!empty($item['price'])): ?><p class="fd-price"><?= $en ? 'Reference price: ' : 'Giá tham khảo: ' ?><?= $e($item['price']) ?></p><?php endif; ?>

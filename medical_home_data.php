@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_facility_ratings.php';
 
 /** Read-only homepage selection. Never fall back to another language. */
 function medical_home_data(PDO $pdo, string $locale): array
@@ -8,7 +9,7 @@ function medical_home_data(PDO $pdo, string $locale): array
     $count = $pdo->prepare("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published' AND language_code = :locale");
     $count->execute([':locale' => $locale]);
     $facilities = $pdo->prepare(
-        "SELECT id, slug, language_code, name, category, city, subtitle, verified, rating, reviews_count, address_text,
+        "SELECT id, slug, language_code, name, category, city, subtitle, verified, rating, reviews_count, aggregate_ratings_json, review_summary_json, address_text,
                 image_url, gallery_json, tags_json, featured_services_json
          FROM medical_facilities
          WHERE status = 'published' AND language_code = :locale
@@ -26,7 +27,12 @@ function medical_home_data(PDO $pdo, string $locale): array
          LIMIT 3"
     );
     $toplists->execute([':locale' => $locale]);
-    return ['facilities' => $facilities->fetchAll(PDO::FETCH_ASSOC),
+    $facilityRows = array_map(static function (array $row): array {
+        $summary = medical_facility_rating_summary($row);
+        return array_replace($row, ['rating' => $summary['rating'], 'reviews_count' => $summary['reviews_count'],
+            'rating_basis' => $summary['basis'], 'rating_sources' => $summary['sources']]);
+    }, $facilities->fetchAll(PDO::FETCH_ASSOC));
+    return ['facilities' => $facilityRows,
         'toplists' => $toplists->fetchAll(PDO::FETCH_ASSOC),
         'stats' => ['facilities' => (int) $count->fetchColumn()]];
 }

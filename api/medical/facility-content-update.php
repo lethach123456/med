@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../../medical_search_cache.php';
+require_once __DIR__ . '/../../medical_facility_ratings.php';
 // The worker module is optional during deployment.  Article updates must keep
 // working even if the background image worker has not been installed yet.
 $medicalMediaWorker = __DIR__ . '/../../medical_media_worker.php';
@@ -103,37 +104,83 @@ function medical_api_content_gallery_items(mixed $value): array
     return array_values($itemsByUrl);
 }
 
-/** @return array{rating:float,reviews_count:int}|null */
-function medical_api_content_rating_summary(mixed $aggregateRatings, mixed $reviews): ?array
+/** Decode an array transported either directly or as JSON, without double encoding it. */
+function medical_api_content_rating_list(mixed $value, string $field): array
 {
-    if (is_string($aggregateRatings)) {
-        $decoded = json_decode($aggregateRatings, true);
-        $aggregateRatings = is_array($decoded) ? $decoded : [];
+    if ($value === null || $value === '') return [];
+    if (is_string($value)) {
+        $value = json_decode($value, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new InvalidArgumentException($field . ' phải là danh sách hoặc chuỗi JSON hợp lệ.');
+        }
     }
-    $weightedScore = 0.0;
-    $weightedCount = 0;
-    foreach (is_array($aggregateRatings) ? $aggregateRatings : [] as $row) {
-        if (!is_array($row) || !is_numeric($row['score'] ?? null) || !is_numeric($row['count'] ?? null)) continue;
-        $score = (float) $row['score'];
-        $count = max(0, (int) $row['count']);
-        if ($score <= 0 || $count <= 0) continue;
-        $weightedScore += min(5.0, $score) * $count;
-        $weightedCount += $count;
+    if (!is_array($value) || !array_is_list($value)) {
+        throw new InvalidArgumentException($field . ' phải là danh sách.');
     }
-    if ($weightedCount > 0) {
-        return ['rating' => round($weightedScore / $weightedCount, 1), 'reviews_count' => $weightedCount];
-    }
+    return $value;
+}
 
+/** Normalize rating aliases once, before the receiver makes any database writes. */
+function medical_api_content_normalize_rating_payload(array $item): array
+{
+    foreach ([
+        'aggregate_ratings_json' => ['aggregate_ratings_json', 'aggregate_ratings'],
+        'reviews' => ['reviews', 'reviews_list', 'reviews_json', 'reviews_list_json', 'reivew', 'review'],
+    ] as $canonical => $aliases) {
+        $selected = null;
+        foreach ($aliases as $alias) {
+            if (!array_key_exists($alias, $item)) continue;
+            $rows = medical_api_content_rating_list($item[$alias], $alias);
+            if ($canonical === 'aggregate_ratings_json') {
+                foreach ($rows as $index => $row) {
+                    if (!is_array($row) || !is_numeric($row['score'] ?? null) || !is_numeric($row['count'] ?? null)
+                        || medical_facility_rating_normalize_aggregates([$row]) === []) {
+                        throw new InvalidArgumentException($alias . '[' . $index . '] cần nguồn, score lớn hơn 0 đến 5 và count nguyên dương hợp lệ.');
+                    }
+                }
+                $rows = medical_facility_rating_normalize_aggregates($rows);
+            } else {
+                // An invalid sample must never be clamped into a fabricated five-star review.
+                $rows = array_values(array_filter($rows, static function (mixed $row): bool {
+                    return is_array($row) && is_numeric($row['rating'] ?? null)
+                        && is_finite((float) $row['rating']) && (float) $row['rating'] > 0 && (float) $row['rating'] <= 5;
+                }));
+            }
+            if ($rows !== [] && $selected !== null && $selected !== [] && $selected != $rows) {
+                throw new InvalidArgumentException('Các trường ' . $canonical . ' gửi dữ liệu mâu thuẫn.');
+            }
+            if ($selected === null || $rows !== []) $selected = $rows;
+            unset($item[$alias]);
+        }
+        if ($selected !== null) $item[$canonical] = $selected;
+    }
+    return $item;
+}
+
+/** @return array{rating:float,reviews_count:int,basis:string}|null */
+function medical_api_content_rating_summary(mixed $aggregateRatings, mixed $reviews, array $existing = []): ?array
+{
     $sum = 0.0;
     $count = 0;
-    foreach (is_array($reviews) ? $reviews : [] as $review) {
+    foreach (medical_api_content_rating_list($reviews, 'reviews') as $review) {
         if (!is_array($review) || !is_numeric($review['rating'] ?? null)) continue;
         $score = (float) $review['rating'];
-        if ($score <= 0) continue;
-        $sum += min(5.0, $score);
+        if (!is_finite($score) || $score <= 0 || $score > 5) continue;
+        $sum += $score;
         $count++;
     }
-    return $count > 0 ? ['rating' => round($sum / $count, 1), 'reviews_count' => $count] : null;
+    $aggregates = medical_facility_rating_normalize_aggregates($aggregateRatings);
+    // Empty/default rating fields from an article must not erase an existing external total.
+    if ($aggregates === []) $aggregates = medical_facility_rating_normalize_aggregates($existing['aggregate_ratings_json'] ?? null);
+    $summary = medical_facility_rating_summary(
+        array_replace($existing, ['aggregate_ratings_json' => $aggregates]),
+        $count > 0 ? ['rating' => round($sum / $count, 1), 'reviews_count' => $count] : null
+    );
+    if (($summary['basis'] ?? 'none') === 'none') return null;
+    if ($summary['reviews_count'] > 2147483647) {
+        throw new InvalidArgumentException('Tổng lượt đánh giá vượt giới hạn lưu trữ.');
+    }
+    return ['rating' => $summary['rating'], 'reviews_count' => $summary['reviews_count'], 'basis' => $summary['basis']];
 }
 
 function medical_api_content_bool(mixed $value): int
@@ -168,6 +215,16 @@ if (isset($body['items']) && is_array($body['items'])) {
 } else {
     $items = [$body];
 }
+try {
+    foreach ($items as $index => $item) {
+        if (!is_array($item)) continue;
+        $items[$index] = medical_api_content_normalize_rating_payload($item);
+        // Validate the derived total before any item in this batch is persisted.
+        medical_api_content_rating_summary($items[$index]['aggregate_ratings_json'] ?? [], $items[$index]['reviews'] ?? []);
+    }
+} catch (InvalidArgumentException $error) {
+    json_response(['ok' => false, 'message' => '[index ' . (string) $index . '] ' . $error->getMessage()], 422);
+}
 // Schema is installed by explicit maintenance, never by an article receiver.
 $pdo = db();
 try {
@@ -190,7 +247,7 @@ $processedItems = [];
 try { foreach ($items as $item) {
     if (!is_array($item)) continue; $id = (int) ($item['id'] ?? 0); $slug = trim((string) ($item['slug'] ?? ''));
     if ($id <= 0 && $slug === '') { $errors[] = 'Thiếu id hoặc slug.'; continue; }
-    $where = $id > 0 ? 'id = :lookup_id' : 'slug = :lookup_slug'; $lookup = $pdo->prepare("SELECT id, slug, name, image_url, ai_writer_claim_json FROM medical_facilities WHERE {$where} LIMIT 1"); $lookup->execute($id > 0 ? [':lookup_id'=>$id] : [':lookup_slug'=>$slug]); $facilityRow = $lookup->fetch(PDO::FETCH_ASSOC) ?: []; $facilityId = (int) ($facilityRow['id'] ?? 0);
+    $where = $id > 0 ? 'id = :lookup_id' : 'slug = :lookup_slug'; $lookup = $pdo->prepare("SELECT id, slug, name, image_url, ai_writer_claim_json, aggregate_ratings_json, rating, reviews_count, review_summary_json FROM medical_facilities WHERE {$where} LIMIT 1"); $lookup->execute($id > 0 ? [':lookup_id'=>$id] : [':lookup_slug'=>$slug]); $facilityRow = $lookup->fetch(PDO::FETCH_ASSOC) ?: []; $facilityId = (int) ($facilityRow['id'] ?? 0);
     if ($facilityId <= 0) { $errors[] = 'Không tìm thấy cơ sở: ' . ($slug ?: $id); continue; }
     $claimToken = trim((string) ($item['writer_claim_token'] ?? ''));
     $currentClaim = medical_api_content_writer_claim($facilityRow['ai_writer_claim_json'] ?? null);
@@ -226,7 +283,13 @@ try { foreach ($items as $item) {
     // URLs remain the source URLs until the independent media worker has
     // downloaded and replaced them with locally owned files.
     $normalizedItem = $item;
-    unset($normalizedItem['writer_claim_token'], $normalizedItem['writer_claim'], $normalizedItem['writer_claimed']);
+    if (array_key_exists('aggregate_ratings_json', $item) && $item['aggregate_ratings_json'] === []) {
+        $existingAggregates = medical_facility_rating_normalize_aggregates($facilityRow['aggregate_ratings_json'] ?? null);
+        if ($existingAggregates !== []) {
+            $item['aggregate_ratings_json'] = $normalizedItem['aggregate_ratings_json'] = $existingAggregates;
+        }
+    }
+    unset($normalizedItem['writer_claim_token'], $normalizedItem['writer_claim'], $normalizedItem['writer_claimed'], $normalizedItem['rating_summary']);
     $set = ['full_json' => ':full_json'];
     $params = [':id' => $facilityId];
     foreach ($fields as $input => $column) {
@@ -257,7 +320,7 @@ try { foreach ($items as $item) {
         'equipment_mentioned' => 'equipment_mentioned_json', 'equipment_mentioned_json' => 'equipment_mentioned_json',
         'doctors' => 'doctors_json', 'doctors_json' => 'doctors_json',
         'video_urls' => 'video_urls_json', 'video_urls_json' => 'video_urls_json',
-        'aggregate_ratings' => 'aggregate_ratings_json', 'aggregate_ratings_json' => 'aggregate_ratings_json',
+        'aggregate_ratings_json' => 'aggregate_ratings_json',
     ];
     foreach ($jsonFields as $input => $column) {
         if (!array_key_exists($input, $item)) continue;
@@ -288,13 +351,21 @@ try { foreach ($items as $item) {
 
     $ratingSummary = medical_api_content_rating_summary(
         $item['aggregate_ratings'] ?? $item['aggregate_ratings_json'] ?? [],
-        $item['reviews'] ?? $item['reviews_list'] ?? []
+        $item['reviews'] ?? $item['reviews_list'] ?? [],
+        $facilityRow
     );
     if ($ratingSummary !== null) {
         $set['rating'] = ':rating';
         $set['reviews_count'] = ':reviews_count';
         $params[':rating'] = $ratingSummary['rating'];
         $params[':reviews_count'] = $ratingSummary['reviews_count'];
+        // Provenance lets future review edits distinguish imported samples from
+        // an external/legacy total, without inventing a second review count.
+        $reviewMetadata = json_decode((string) ($facilityRow['review_summary_json'] ?? ''), true);
+        if (!is_array($reviewMetadata)) $reviewMetadata = [];
+        $reviewMetadata['basis'] = $ratingSummary['basis'];
+        $set['review_summary_json'] = ':review_summary_json';
+        $params[':review_summary_json'] = medical_api_json($reviewMetadata);
     }
 
     // Save gallery URLs immediately.  The old flow downloaded and compressed
@@ -429,7 +500,6 @@ try { foreach ($items as $item) {
     }
     $imagesQueued += $queuedForEntity;
     $galleryImagesQueued += count($gallerySources);
-    $processedItems[] = $normalizedItem;
     $reviewItems = $item['reviews'] ?? $item['reviews_list'] ?? $item['reivew'] ?? $item['review'] ?? [];
     if (is_array($reviewItems)) {
         $reviewStmt = $pdo->prepare("INSERT INTO medical_reviews (slug, facility_slug, facility_id, facility_name, title, verified, rating, author_text, location_text, review_date_text, price_text, excerpt, likes_count, comments_count, service_text, method_text, duration_text, condition_text, source_text, status, display_order) VALUES (:slug,:facility_slug,:facility_id,:facility_name,:title,:verified,:rating,:author,:location,:date,:price,:excerpt,:likes,:comments,:service,:method,:duration,:condition,:source,'published',:display_order)");
@@ -454,10 +524,20 @@ try { foreach ($items as $item) {
             $reviewExistsStmt->execute([':facility_id'=>$facilityId, ':author'=>$author, ':rating'=>$rating, ':excerpt'=>$excerpt, ':source'=>$source]);
             if ($reviewExistsStmt->fetchColumn()) continue;
             $reviewSlug = medical_api_unique_slug($pdo, $title . '-' . ($facilityRow['slug'] ?? $facilityId) . '-' . $reviewIndex);
-            $reviewStmt->execute([':slug'=>$reviewSlug, ':facility_slug'=>(string)($facilityRow['slug'] ?? ''), ':facility_id'=>$facilityId, ':facility_name'=>(string)($facilityRow['name'] ?? ''), ':title'=>$title, ':verified'=>(int)($review['verified'] ?? 1), ':rating'=>$rating, ':author'=>$author, ':location'=>(string)($review['location_text'] ?? $review['location'] ?? ''), ':date'=>(string)($review['review_date_text'] ?? $review['date'] ?? ''), ':price'=>(string)($review['price_text'] ?? $review['price'] ?? ''), ':excerpt'=>$excerpt, ':likes'=>(int)($review['likes_count'] ?? $review['likes'] ?? 0), ':comments'=>(int)($review['comments_count'] ?? $review['comments'] ?? 0), ':service'=>(string)($review['service_text'] ?? $review['service'] ?? ''), ':method'=>(string)($review['method_text'] ?? $review['method'] ?? ''), ':duration'=>(string)($review['duration_text'] ?? $review['duration'] ?? ''), ':condition'=>(string)($review['condition_text'] ?? $review['condition'] ?? ''), ':source'=>$source, ':display_order'=>(int)$reviewIndex]);
+            $reviewStmt->execute([':slug'=>$reviewSlug, ':facility_slug'=>(string)($facilityRow['slug'] ?? ''), ':facility_id'=>$facilityId, ':facility_name'=>(string)($facilityRow['name'] ?? ''), ':title'=>$title, ':verified'=>0, ':rating'=>$rating, ':author'=>$author, ':location'=>(string)($review['location_text'] ?? $review['location'] ?? ''), ':date'=>(string)($review['review_date_text'] ?? $review['date'] ?? ''), ':price'=>(string)($review['price_text'] ?? $review['price'] ?? ''), ':excerpt'=>$excerpt, ':likes'=>(int)($review['likes_count'] ?? $review['likes'] ?? 0), ':comments'=>(int)($review['comments_count'] ?? $review['comments'] ?? 0), ':service'=>(string)($review['service_text'] ?? $review['service'] ?? ''), ':method'=>(string)($review['method_text'] ?? $review['method'] ?? ''), ':duration'=>(string)($review['duration_text'] ?? $review['duration'] ?? ''), ':condition'=>(string)($review['condition_text'] ?? $review['condition'] ?? ''), ':source'=>$source, ':display_order'=>(int)$reviewIndex]);
             $reviewsCreated++;
         }
     }
+    if (($ratingSummary['basis'] ?? '') === 'imported_reviews') {
+        // Samples can append to reviews already stored for the facility. The
+        // fallback total must count the saved, deduplicated collection.
+        $savedRatingSummary = medical_directory_refresh_facility_aggregates($pdo, (string) ($facilityRow['slug'] ?? ''), false);
+        if (is_array($savedRatingSummary)) {
+            $ratingSummary = array_intersect_key($savedRatingSummary, array_flip(['rating', 'reviews_count', 'basis']));
+        }
+    }
+    if ($ratingSummary !== null) $normalizedItem['rating_summary'] = $ratingSummary;
+    $processedItems[] = $normalizedItem;
 } } catch (Throwable $e) {
     // A later item can fail after earlier facilities have already been
     // persisted. Mark the snapshot stale before returning that partial

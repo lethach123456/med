@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_facility_ratings.php';
 
 /**
  * Read-only homepage data. Dependencies are supplied by the calling page;
@@ -50,6 +51,7 @@ function medical_home_next_image(array $row, ?callable $resolveMedia = null): st
 
 function medical_home_next_facility_row(array $row, ?callable $resolveMedia = null): array
 {
+    $ratingSummary = medical_facility_rating_summary($row);
     return [
         'id' => max(0, (int) ($row['id'] ?? 0)),
         'slug' => medical_home_next_text($row['slug'] ?? ''),
@@ -58,8 +60,8 @@ function medical_home_next_facility_row(array $row, ?callable $resolveMedia = nu
         'city' => medical_home_next_text($row['city'] ?? ''),
         'subtitle' => medical_home_next_text($row['subtitle'] ?? ''),
         'verified' => (int) ($row['verified'] ?? 0) === 1,
-        'rating' => max(0.0, (float) ($row['rating'] ?? 0)),
-        'reviews_count' => max(0, (int) ($row['reviews_count'] ?? 0)),
+        'rating' => $ratingSummary['rating'],
+        'reviews_count' => $ratingSummary['reviews_count'],
         'address_text' => medical_home_next_text($row['address_text'] ?? ''),
         'image_url' => medical_home_next_image($row, $resolveMedia),
         'gallery_json' => is_string($row['gallery_json'] ?? null) ? $row['gallery_json'] : '[]',
@@ -130,7 +132,7 @@ function medical_home_next_data(PDO $pdo, string $locale): array
 
     try {
         $statement = $pdo->prepare(
-            "SELECT id, slug, name, category, city, subtitle, verified, rating, reviews_count,
+            "SELECT id, slug, name, category, city, subtitle, verified, rating, reviews_count, aggregate_ratings_json, review_summary_json,
                     address_text, image_url, gallery_json
              FROM medical_facilities WHERE status = 'published' AND language_code = :locale
              ORDER BY rating DESC, reviews_count DESC, updated_at DESC, id DESC LIMIT 6"

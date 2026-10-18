@@ -25,6 +25,9 @@ $facility = medical_home_next_facility_row(['id' => '7', 'slug' => ' real-clinic
 $assert($facility['id'] === 7 && $facility['slug'] === 'real-clinic' && $facility['name'] === 'Cơ sở <A>', 'Normalize identifiers without rendering or inventing text');
 $assert($facility['verified'] === true && $facility['rating'] === 4.3 && $facility['reviews_count'] === 17, 'Published verification and review values retain correct types');
 $assert($facility['image_url'] === 'https://example.test/uploads/a.webp' && $facility['gallery_json'] === $gallery, 'Facility normalized image and original gallery');
+$canonicalFacility = medical_home_next_facility_row(['rating' => 5, 'reviews_count' => 3,
+    'aggregate_ratings_json' => '[{"source":"Google Maps","score":4.8,"count":1000}]']);
+$assert($canonicalFacility['rating'] === 4.8 && $canonicalFacility['reviews_count'] === 1000, 'Homepage preview keeps the same canonical source totals as directory and detail');
 $doctor = medical_home_next_doctor_row(['id' => 11, 'specialty_text' => 'Mắt', 'title_text' => 'BS. CKII', 'reviews_count' => -2, 'verified' => 0]);
 $assert($doctor['specialty_text'] === 'Mắt' && $doctor['title_text'] === 'BS. CKII' && !$doctor['verified'], 'Doctor schema uses actual specialty/title fields');
 $assert($doctor['reviews_count'] === 0 && $doctor['image_url'] === '' && $doctor['rating'] === 0.0, 'Missing doctor values do not invent reviews or portrait');

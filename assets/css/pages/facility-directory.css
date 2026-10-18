@@ -159,6 +159,7 @@ body.fd-page{margin:0;background:#fff}
 .fd-rating strong{font-size:16px;font-weight:700;color:var(--fd-ink)}
 .fd-rating strong span{font-size:12px;color:var(--fd-muted);font-weight:400;margin-left:2px}
 .fd-review-count{font-size:13px;color:var(--fd-muted)}
+.fd-rating-source{font-size:11px;font-weight:400;white-space:normal}
 .fd-unrated{font-size:13px;color:var(--fd-muted)}
 .fd-profile-link{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;min-height:34px;color:var(--fd-blue)!important;font-size:14px;font-weight:650;white-space:nowrap}
 .fd-profile-link i{font-size:19px;transition:transform .2s ease}

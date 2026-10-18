@@ -761,11 +761,6 @@ if (is_array($dbFacility) && $dbFacility !== []) {
   if (trim((string) ($facility['content'] ?? '')) !== '') {
     $facility['intro'] = [(string) $facility['content']];
   }
-  // Đồng bộ điểm và số lượt đánh giá từ dữ liệu review thực tế.
-  if (is_array($facility['review_summary'] ?? null)) {
-    $facility['rating'] = (string) ($facility['review_summary']['rating'] ?? $facility['rating'] ?? '0.0');
-    $facility['reviews'] = (string) ($facility['review_summary']['reviews'] ?? $facility['reviews'] ?? '0 đánh giá');
-  }
 $relatedFacilities = array_map('facility_detail_normalize', $relatedFacilities);
 $facilityPriceTableHtml = facility_detail_compact_price_html((string) ($facility['price_table_html'] ?? ''));
 
@@ -833,7 +828,7 @@ foreach ((array) ($facility['doctors'] ?? []) as $doctor) {
 }
 
 $facilityRatingSources = [];
-foreach ((array) ($facility['aggregate_ratings'] ?? []) as $ratingSource) {
+foreach ((array) ($facility['rating_sources'] ?? []) as $ratingSource) {
   if (!is_array($ratingSource) || trim((string) ($ratingSource['source'] ?? '')) === '') {
     continue;
   }
@@ -842,6 +837,8 @@ foreach ((array) ($facility['aggregate_ratings'] ?? []) as $ratingSource) {
     'score' => is_numeric($ratingSource['score'] ?? null) ? number_format((float) $ratingSource['score'], 1, '.', '') : '',
     'count' => is_numeric($ratingSource['count'] ?? null) ? (int) $ratingSource['count'] : 0,
     'recommend_percent' => is_numeric($ratingSource['recommend_percent'] ?? null) ? (int) $ratingSource['recommend_percent'] : 0,
+    'url' => facility_detail_safe_url((string) ($ratingSource['url'] ?? '')),
+    'checked_at' => (string) ($ratingSource['checked_at'] ?? ''),
   ];
 }
 
@@ -1033,23 +1030,28 @@ $facilityBreadcrumbSchema = [
     ],
   ],
 ];
-$facilityReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
-$facilityReviewSummaryCount = max(0, (int) ($facilityReviewSummary['count'] ?? $facility['reviews_count'] ?? $facilityReviewCount));
+$facilityAggregateReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
+$facilityReviewSummaryCount = max(0, (int) ($facilityReviewSummary['count'] ?? 0));
 $formatFacilityCount = static fn(int $count): string => number_format($count, 0, $facilityLanguage === 'en' ? '.' : ',', $facilityLanguage === 'en' ? ',' : '.');
 $facilityReviewCountLabel = $formatFacilityCount($facilityReviewSummaryCount) . ' ' . ($facilityReviewSummaryCount === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews'));
 $facilityTopReviewsLabel = $localizeCountLabel((string) ($facility['reviews'] ?? ''), 'đánh giá', 'reviews');
+$facilityMainRatingCaption = match ((string) ($facility['rating_basis'] ?? 'legacy')) {
+  'external_aggregates' => count($facilityRatingSources) === 1 ? $facilityRatingSources[0]['source'] : $tr('Tổng hợp từ các nguồn', 'Combined external sources'),
+  'imported_reviews' => $tr('Từ review đã lưu', 'From stored reviews'),
+  default => $tr('Điểm lưu trong hồ sơ', 'Rating recorded in this profile'),
+};
 $facilityFollowersLabel = $localizeCountLabel((string) ($facility['followers'] ?? ''), 'lượt quan tâm', 'followers');
 $facilityGalleryCount = count((array) ($facility['gallery'] ?? []));
 $facilityGalleryLabel = $facilityLanguage === 'en'
   ? $formatFacilityCount($facilityGalleryCount) . ' ' . ($facilityGalleryCount === 1 ? 'photo' : 'photos')
   : (string) ($facility['images_label'] ?: '25+ ảnh');
-if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
+if ($facilityAggregateReviewCount > 0 && $facilityRatingValue > 0) {
   $facilitySchema['aggregateRating'] = [
     '@type' => 'AggregateRating',
     'ratingValue' => $facilityRatingValue,
     'bestRating' => 5,
     'worstRating' => 1,
-    'reviewCount' => $facilityReviewCount,
+    'reviewCount' => $facilityAggregateReviewCount,
   ];
 }
 ?>
@@ -2413,9 +2415,11 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               </div>
 
               <div class="rating-line rating-pill">
+                <?php if ($facilityAggregateReviewCount > 0 && $facilityRatingValue > 0): ?>
                 <span class="rating-main"><?php echo htmlspecialchars($facility['rating'], ENT_QUOTES, 'UTF-8'); ?></span>
                 <span class="stars rating-stars-text" aria-label="<?php echo htmlspecialchars($facility['rating'] . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilityRatingStars; ?></span>
-                <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facilityFollowersLabel, ENT_QUOTES, 'UTF-8'); ?>)</span>
+                <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facilityMainRatingCaption, ENT_QUOTES, 'UTF-8'); ?>)</span>
+                <?php else: ?><span class="rating-meta"><?php echo htmlspecialchars($tr('Chưa có dữ liệu đánh giá', 'No rating data yet'), ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
               </div>
 
               <div class="tag-row">
@@ -2576,7 +2580,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
                   <div class="facility-info-card-head"><span class="facility-info-icon"><i data-lucide="star"></i></span><div><h3><?php echo htmlspecialchars($tr('Điểm theo nguồn đánh giá', 'Ratings by source'), ENT_QUOTES, 'UTF-8'); ?></h3><p><?php echo htmlspecialchars($tr('Các nguồn được ghi nhận trong hồ sơ', 'Sources listed in this profile'), ENT_QUOTES, 'UTF-8'); ?></p></div></div>
                   <div class="facility-source-grid">
                     <?php foreach ($facilityRatingSources as $source): ?>
-                      <div class="facility-source-item"><strong><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?></strong><?php if ($source['score'] !== ''): ?><b><?php echo htmlspecialchars($source['score'], ENT_QUOTES, 'UTF-8'); ?><small>/5</small></b><?php endif; ?><span><?php echo $source['count'] > 0 ? $formatFacilityCount($source['count']) . ' ' . ($source['count'] === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews')) : ($source['recommend_percent'] > 0 ? $source['recommend_percent'] . '% ' . $tr('đề xuất', 'recommend') : $tr('Đang cập nhật', 'Updating')); ?></span></div>
+                      <div class="facility-source-item"><strong><?php if ($source['url'] !== ''): ?><a href="<?php echo htmlspecialchars($source['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow"><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?></a><?php else: ?><?php echo htmlspecialchars($source['source'], ENT_QUOTES, 'UTF-8'); ?><?php endif; ?></strong><?php if ($source['score'] !== ''): ?><b><?php echo htmlspecialchars($source['score'], ENT_QUOTES, 'UTF-8'); ?><small>/5</small></b><?php endif; ?><span><?php echo $formatFacilityCount($source['count']) . ' ' . ($source['count'] === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews')); ?></span><?php if ($source['checked_at'] !== ''): ?><small><?php echo htmlspecialchars($tr('Ghi nhận: ', 'Observed: ') . substr($source['checked_at'], 0, 10), ENT_QUOTES, 'UTF-8'); ?></small><?php endif; ?></div>
                     <?php endforeach; ?>
                   </div>
                 </article>
@@ -2602,14 +2606,14 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
         <section class="panel section" id="danh-gia">
           <div class="section-head">
             <div>
-              <h2><?php echo htmlspecialchars($tr('Đánh giá thực tế từ khách hàng', 'Patient reviews'), ENT_QUOTES, 'UTF-8'); ?></h2>
-              <p style="margin:6px 0 0;color:#64748b;font-size:14px;"><?php echo $facilityReviewCount > 0 ? htmlspecialchars($tr('Dựa trên ', 'Based on ') . $facilityReviewCountLabel . $tr(' đã công bố', ' published'), ENT_QUOTES, 'UTF-8') : htmlspecialchars($tr('Chưa có đánh giá được công bố.', 'No published reviews yet.'), ENT_QUOTES, 'UTF-8'); ?></p>
+              <h2><?php echo htmlspecialchars($tr('Review đang có trên MedReview', 'Reviews stored on MedReview'), ENT_QUOTES, 'UTF-8'); ?></h2>
+              <p style="margin:6px 0 0;color:#64748b;font-size:14px;"><?php echo $facilityReviewCount > 0 ? htmlspecialchars($tr('Dựa trên ', 'Based on ') . $facilityReviewCountLabel . $tr(' đang lưu. Đây có thể chỉ là một phần đánh giá từ nguồn ngoài.', ' stored here. These may be a sample of external reviews.'), ENT_QUOTES, 'UTF-8') : htmlspecialchars($tr('Chưa có review được công bố trên MedReview.', 'No reviews published on MedReview yet.'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
           </div>
 
           <div class="review-shell">
             <div class="summary-box">
-              <h3><?php echo htmlspecialchars($tr('Đánh giá thực tế', 'Review summary'), ENT_QUOTES, 'UTF-8'); ?></h3>
+              <h3><?php echo htmlspecialchars($tr('Điểm các review đã lưu', 'Stored review average'), ENT_QUOTES, 'UTF-8'); ?></h3>
               <p><?php echo $facilityReviewCount > 0 ? htmlspecialchars($tr('Tổng hợp từ ', 'Based on ') . $facilityReviewCountLabel, ENT_QUOTES, 'UTF-8') : htmlspecialchars($tr('Chưa có dữ liệu điểm đánh giá', 'No rating data yet'), ENT_QUOTES, 'UTF-8'); ?></p>
               <div class="summary-score"><strong><?php echo htmlspecialchars((string) ($facilityReviewSummary['rating'] ?? '0.0'), ENT_QUOTES, 'UTF-8'); ?></strong><small>/5</small></div>
               <div class="stars summary-stars" aria-label="<?php echo htmlspecialchars((string) ($facilityReviewSummary['rating'] ?? '0.0') . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilitySummaryStars; ?></div>
@@ -2626,7 +2630,7 @@ if ($facilityReviewCount > 0 && $facilityRatingValue > 0) {
               <?php if ($facilityReviewCount > 0): ?>
                 <div class="summary-verified">
                   <strong><?php echo $facilityVerifiedReviewPercent; ?>%</strong>
-                  <span><?php echo htmlspecialchars($tr('Đánh giá xác thực', 'Verified reviews'), ENT_QUOTES, 'UTF-8'); ?></span>
+                  <span><?php echo htmlspecialchars($tr('Review có nhãn xác thực', 'Reviews marked as verified'), ENT_QUOTES, 'UTF-8'); ?></span>
                   <small><?php echo $facilityVerifiedReviewCount; ?>/<?php echo $facilityReviewCount; ?> <?php echo htmlspecialchars($tr('đánh giá có nhãn xác thực.', 'reviews are marked as verified.'), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
               <?php endif; ?>

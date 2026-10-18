@@ -38,4 +38,8 @@ $empty=medical_home_data(new HomeLocalePDO([$records[0]],[$records[0]]),'en');
 $assert($empty['facilities']===[] && $empty['toplists']===[] && $empty['stats']['facilities']===0);
 $source=file_get_contents(dirname(__DIR__).'/Tem/home.php');
 $assert(str_contains($source,'medical_home_data($pdo, $locale)') && str_contains($source,'Toplists in English will appear here soon.'));
+$sourceRecord = array_replace($records[0], ['rating' => 5, 'reviews_count' => 3,
+    'aggregate_ratings_json' => '[{"source":"Google Maps","score":4.8,"count":1000}]']);
+$canonical = medical_home_data(new HomeLocalePDO([$sourceRecord], []), 'vi')['facilities'][0];
+$assert($canonical['rating'] === 4.8 && $canonical['reviews_count'] === 1000);
 echo "Homepage language data: {$checks} checks passed. Mocked DB only.\n";

@@ -3132,9 +3132,10 @@ function medical_directory_seed_defaults(PDO $pdo): void
 
 function medical_directory_facility_from_row(array $row): array
 {
-    $reviewsCount = (int) ($row['reviews_count'] ?? 0);
+    $ratingSummary = medical_facility_rating_summary($row);
+    $reviewsCount = $ratingSummary['reviews_count'];
     $followersCount = (int) ($row['followers_count'] ?? 0);
-    $rating = number_format((float) ($row['rating'] ?? 0), 1, '.', '');
+    $rating = number_format($ratingSummary['rating'], 1, '.', '');
     $defaultBase = medical_directory_default_facility_base();
     $summary = [
         'rating' => $rating,
@@ -3198,6 +3199,8 @@ function medical_directory_facility_from_row(array $row): array
         'rating' => $rating,
         'reviews' => medical_directory_format_int($reviewsCount) . ' đánh giá',
         'reviews_count' => $reviewsCount,
+        'rating_basis' => $ratingSummary['basis'],
+        'rating_sources' => $ratingSummary['sources'],
         'followers' => medical_directory_format_int($followersCount) . ' lượt quan tâm',
         'followers_count' => $followersCount,
         'services' => medical_directory_json_decode((string) (($row['services_json'] ?? '') !== '' ? $row['services_json'] : ($row['featured_services_json'] ?? '')), []),
@@ -3419,7 +3422,7 @@ function medical_directory_facility_review_summary_from_reviews(array $reviews):
 {
     // Editorial information entries use rating 0 and must never be presented as customer reviews.
     $ratedReviews = array_values(array_filter($reviews, static function (array $review): bool {
-        return (float) ($review['rating'] ?? 0) > 0;
+        return medical_facility_rating_score($review['rating'] ?? null) !== null;
     }));
     $count = count($ratedReviews);
     if ($count === 0) {
@@ -3519,14 +3522,14 @@ function medical_directory_facility_reviews_list_from_reviews(array $reviews, in
     return $items;
 }
 
-function medical_directory_facility_with_linked_reviews(array $facility, bool $publishedOnly = true): array
+function medical_directory_facility_with_linked_reviews(array $facility, bool $publishedOnly = true, ?PDO $pdo = null): array
 {
     $facilityId = (int) ($facility['id'] ?? 0);
     $slug = trim((string) ($facility['slug'] ?? ''));
     if ($facilityId <= 0 && $slug === '') {
         return $facility;
     }
-    $pdo = db();
+    $pdo ??= db();
     if (medical_directory_table_exists($pdo, 'medical_reviews')) {
         $sql = 'SELECT * FROM medical_reviews WHERE (facility_id = :facility_id OR (facility_id IS NULL AND facility_slug = :facility_slug))';
         if ($publishedOnly) $sql .= " AND status = 'published'";
@@ -3538,6 +3541,12 @@ function medical_directory_facility_with_linked_reviews(array $facility, bool $p
         $reviews = medical_directory_reviews_for_facility_slug($slug, $publishedOnly);
     }
     $facility['review_summary'] = medical_directory_facility_review_summary_from_reviews($reviews);
+    $ratingSummary = medical_facility_rating_summary($facility, $facility['review_summary']);
+    $facility['rating'] = number_format($ratingSummary['rating'], 1, '.', '');
+    $facility['reviews_count'] = $ratingSummary['reviews_count'];
+    $facility['reviews'] = medical_directory_format_int($ratingSummary['reviews_count']) . ' đánh giá';
+    $facility['rating_basis'] = $ratingSummary['basis'];
+    $facility['rating_sources'] = $ratingSummary['sources'];
     $facility['reviews_list'] = medical_directory_facility_reviews_list_from_reviews($reviews, 3);
     return $facility;
 }
@@ -3694,33 +3703,45 @@ function medical_directory_doctor_row_by_slug(string $slug, bool $publishedOnly 
     return null;
 }
 
-function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilitySlug, bool $invalidateCache = true): void
+function medical_directory_refresh_facility_aggregates(PDO $pdo, string $facilitySlug, bool $invalidateCache = true): ?array
 {
     $facilitySlug = trim($facilitySlug);
     if ($facilitySlug === '') {
-        return;
+        return null;
     }
     if (!medical_directory_table_exists($pdo, 'medical_facilities') || !medical_directory_table_exists($pdo, 'medical_reviews')) {
-        return;
+        return null;
     }
 
-    $stmt = $pdo->prepare("SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM medical_reviews WHERE facility_slug = :slug AND status = 'published' AND rating > 0");
+    $stmt = $pdo->prepare('SELECT id, rating, reviews_count, aggregate_ratings_json, review_summary_json FROM medical_facilities WHERE slug = :slug LIMIT 1');
     $stmt->execute([':slug' => $facilitySlug]);
-    $row = $stmt->fetch();
+    $facility = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($facility)) return null;
 
-    $count = 0;
-    $avg = 0.0;
-    if (is_array($row)) {
-        $count = (int) ($row['c'] ?? 0);
-        $avg = (float) ($row['avg_rating'] ?? 0);
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM medical_reviews
+        WHERE (facility_id = :facility_id OR (facility_id IS NULL AND facility_slug = :slug))
+          AND status = 'published' AND rating > 0 AND rating <= 5");
+    $stmt->execute([':facility_id' => (int) $facility['id'], ':slug' => $facilitySlug]);
+    $sample = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $summary = medical_facility_rating_summary($facility, [
+        'rating' => (float) ($sample['avg_rating'] ?? 0),
+        'count' => (int) ($sample['c'] ?? 0),
+    ]);
+    // A manually stored/legacy total has no known relation to the imported
+    // sample. Preserve it instead of silently replacing thousands with three.
+    if ($summary['basis'] === 'legacy') {
+        if ($invalidateCache) medical_search_cache_invalidate();
+        return $summary;
     }
-    $rating = number_format($avg, 1, '.', '');
-
-    $stmt = $pdo->prepare("UPDATE medical_facilities SET reviews_count = :reviews_count, rating = :rating WHERE slug = :slug LIMIT 1");
+    $metadata = medical_directory_json_decode((string) ($facility['review_summary_json'] ?? ''));
+    $metadata['basis'] = $summary['basis'];
+    $stmt = $pdo->prepare('UPDATE medical_facilities SET reviews_count = :reviews_count, rating = :rating, review_summary_json = :review_summary_json WHERE id = :id');
     $stmt->execute([
-        ':reviews_count' => $count,
-        ':rating' => $rating,
-        ':slug' => $facilitySlug,
+        ':reviews_count' => $summary['reviews_count'],
+        ':rating' => number_format($summary['rating'], 1, '.', ''),
+        ':review_summary_json' => medical_directory_json_encode($metadata),
+        ':id' => (int) $facility['id'],
     ]);
     if ($invalidateCache) medical_search_cache_invalidate();
+    return $summary;
 }
