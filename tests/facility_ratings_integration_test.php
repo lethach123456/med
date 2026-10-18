@@ -97,12 +97,13 @@ $insertReview->execute([26, 'invalid-rating', 3, 'sample-only-clinic', 8, 'publi
 // Search index and directory must agree before a background aggregate repair.
 $indexed = medical_search_cache_facilities($pdo);
 $byId = array_column($indexed, null, 'id');
-$pair($byId[1], 4.9, 5287, 'Search index selects the same canonical pair as detail mapping');
-$pair($byId[2], 5.0, 11122, 'Search index retains legacy source totals');
+$pair($byId[1], 5.0, 6, 'Search JSON calculates its score/count from the six published stored reviews');
+$pair($byId[2], 3.0, 1, 'Search JSON never uses legacy source totals as local review counts');
 
-// A detail page still exposes real sample statistics without replacing its header totals.
+// Detail uses the same published review population as the JSON snapshot.
 $linked = medical_directory_facility_with_linked_reviews($mapped, true, $pdo);
-$pair($linked, 4.9, 5287, 'Loading six imported reviews cannot overwrite external 5287-review header totals');
+$pair($linked, 5.0, 6, 'Detail header agrees with cached local score/count, not external 5287-review totals');
+$assert(($linked['rating_sources'][0]['count'] ?? 0) === 5287, 'External totals remain available separately on detail');
 $assert((int) ($linked['review_summary']['count'] ?? -1) === 6,
     'Review distribution reports the six stored samples rather than the external total');
 $assert(abs((float) ($linked['review_summary']['rating'] ?? -1) - 5.0) < .0001,
@@ -112,7 +113,7 @@ $assert((int) ($linked['review_summary']['verified_count'] ?? -1) === 2
     'Verification percentage uses the stored sample denominator');
 $assert(count($linked['reviews_list']) === 3, 'Existing review preview limit is retained');
 $repeatSamples = medical_directory_facility_with_linked_reviews($mapped, true, $pdo);
-$pair($repeatSamples, 4.9, 5287, 'Repeated detail loading keeps the canonical totals stable');
+$pair($repeatSamples, 5.0, 6, 'Repeated detail loading keeps local score/count stable');
 $sampleLinked = medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($unrated), true, $pdo);
 $pair($sampleLinked, 4.0, 2, 'A profile without source totals can use published samples as fallback');
 $assert((int) $sampleLinked['review_summary']['count'] === 2,
@@ -132,7 +133,7 @@ $pdo->exec('DELETE FROM medical_reviews WHERE id BETWEEN 1 AND 6');
 medical_directory_refresh_facility_aggregates($pdo, 'canonical-clinic', false);
 $pair($readFacility(1), 4.9, 5287, 'Deleting all imported samples does not erase canonical external totals');
 $emptySamples = medical_directory_facility_with_linked_reviews(medical_directory_facility_from_row($readFacility(1)), true, $pdo);
-$pair($emptySamples, 4.9, 5287, 'Detail keeps external totals when no imported reviews remain');
+$pair($emptySamples, 0.0, 0, 'Detail never falls back to external totals after deleting all stored reviews');
 $assert((int) $emptySamples['review_summary']['count'] === 0
     && (int) $emptySamples['review_summary']['verified_percent'] === 0,
     'Empty imported review section has no sample count or artificial verification percentage');
@@ -157,7 +158,7 @@ foreach (['vi' => 'Chưa có đánh giá', 'en' => 'Not rated yet'] as $locale =
     $assert(str_contains($card, $label) && !str_contains($card, 'ph-fill ph-star'),
         $locale . ' directory card never renders a score with zero reviews');
 }
-$card = facility_directory_card(array_replace($mapped, ['image' => '', 'rating_sources' => $external]));
-$assert(str_contains($card, 'Google Maps') && str_contains($card, '5.287 đánh giá'), 'The directory exposes the source of canonical totals');
+$card = facility_directory_card(array_replace($linked, ['image' => '']));
+$assert(str_contains($card, 'Review trên MedReview') && str_contains($card, '6 đánh giá') && !str_contains($card, '5.287'), 'The directory card displays the same local count without external totals');
 
 echo "Facility rating integration: {$checks} checks passed. Isolated SQLite; no live DB, network or cache writes.\n";

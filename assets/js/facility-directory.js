@@ -164,7 +164,7 @@
     const reviewsCount = Math.max(0, Number(item.reviews_count) || 0);
     const hasRating = rating > 0 && Number(item.rating) <= 5 && reviewsCount > 0;
     const sources = Array.isArray(item.rating_sources) ? item.rating_sources : [];
-    const ratingLabel = item.rating_basis === 'external_aggregates'
+    const ratingLabel = item.rating_basis === 'stored_reviews' ? (en ? 'Reviews on MedReview' : 'Review trên MedReview') : item.rating_basis === 'external_aggregates'
       ? (sources.length === 1 ? String(sources[0]?.source || '') : (en ? 'Combined sources' : 'Nguồn tổng hợp'))
       : (item.rating_basis === 'imported_reviews' ? (en ? 'Stored reviews' : 'Review đã lưu') : (en ? 'Profile rating' : 'Điểm hồ sơ'));
     const services = (Array.isArray(item.services) ? item.services : []).map(String).filter((s) => s.trim());

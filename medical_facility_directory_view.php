@@ -23,6 +23,7 @@ function facility_directory_number(int $value, string $locale): string
 function facility_directory_rating_label(array $item, string $locale): string
 {
     $en = $locale === 'en';
+    if (($item['rating_basis'] ?? '') === 'stored_reviews') return $en ? 'Reviews on MedReview' : 'Review trên MedReview';
     if (($item['rating_basis'] ?? '') === 'external_aggregates') {
         $sources = (array) ($item['rating_sources'] ?? []);
         return count($sources) === 1 ? (string) ($sources[0]['source'] ?? '') : ($en ? 'Combined sources' : 'Nguồn tổng hợp');

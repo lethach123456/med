@@ -147,3 +147,40 @@ function medical_facility_rating_summary(array $row, ?array $reviewSummary = nul
     }
     return ['rating' => 0.0, 'reviews_count' => 0, 'basis' => 'none', 'sources' => []];
 }
+
+/**
+ * Public score/count describe the same published review records on MedReview.
+ * Never substitute a source's total or an unclassified legacy scalar here.
+ * @return array{rating:float,reviews_count:int,basis:string,sources:array}
+ */
+function medical_facility_public_rating_summary(array $row, ?array $reviewSummary = null): array
+{
+    $score = medical_facility_rating_score($reviewSummary !== null
+        ? ($reviewSummary['rating'] ?? null) : ($row['stored_rating'] ?? null));
+    $count = medical_facility_rating_count($reviewSummary !== null
+        ? ($reviewSummary['count'] ?? $reviewSummary['reviews_count'] ?? null) : ($row['stored_reviews_count'] ?? null));
+    if ($score === null || $count === null) {
+        return ['rating' => 0.0, 'reviews_count' => 0, 'basis' => 'none', 'sources' => []];
+    }
+    return ['rating' => round($score, 1), 'reviews_count' => $count, 'basis' => 'stored_reviews', 'sources' => []];
+}
+
+/**
+ * Join this derived table into a facility SELECT when building public data.
+ * Two indexed paths avoid a per-facility query and an OR across the join.
+ * An explicit owner wins; slug matching is only for older, unlinked reviews.
+ */
+function medical_facility_stored_rating_sql(): string
+{
+    return "SELECT stored_reviews.facility_id, AVG(stored_reviews.rating) AS stored_rating,
+                   COUNT(*) AS stored_reviews_count
+            FROM (
+                SELECT facility_id, rating FROM medical_reviews
+                WHERE facility_id IS NOT NULL AND status = 'published' AND rating > 0 AND rating <= 5
+                UNION ALL
+                SELECT f.id AS facility_id, r.rating FROM medical_reviews r
+                JOIN medical_facilities f ON f.slug = r.facility_slug
+                WHERE r.facility_id IS NULL AND r.status = 'published' AND r.rating > 0 AND r.rating <= 5
+            ) stored_reviews
+            GROUP BY stored_reviews.facility_id";
+}

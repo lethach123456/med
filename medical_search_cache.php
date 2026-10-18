@@ -161,6 +161,18 @@ function medical_search_cache_read(): ?array
             return null;
         }
     }
+    // During a deploy/rebuild, an older snapshot must not resurrect source
+    // totals as MedReview reviews, even when the DB is temporarily unavailable.
+    if ((int) ($decoded['facility_ratings_version'] ?? 0) !== 2) {
+        foreach ($decoded['facilities'] as &$facility) {
+            if (!is_array($facility)) continue;
+            $facility['rating'] = 0.0;
+            $facility['reviews_count'] = 0;
+            $facility['rating_basis'] = 'none';
+            $facility['rating_sources'] = [];
+        }
+        unset($facility);
+    }
     return $decoded;
 }
 
@@ -168,7 +180,7 @@ function medical_search_cache_is_fresh(array $index): bool
 {
     $generatedAt = (int) ($index['generated_at'] ?? 0);
     $expiresAt = (int) ($index['expires_at'] ?? 0);
-    if ($generatedAt <= 0 || $expiresAt < time() || (int) ($index['facility_ratings_version'] ?? 0) !== 1) {
+    if ($generatedAt <= 0 || $expiresAt < time() || (int) ($index['facility_ratings_version'] ?? 0) !== 2) {
         return false;
     }
     $invalidatedAt = @filemtime(medical_search_cache_invalidation_path());
@@ -231,19 +243,22 @@ function medical_search_cache_invalidate(): void
 function medical_search_cache_facilities(PDO $pdo): array
 {
     $hasTranslationColumns = medreview_translation_schema_ready($pdo, 'medical_facilities');
-    $languageSelect = $hasTranslationColumns ? 'language_code' : "'vi' AS language_code";
+    $languageSelect = $hasTranslationColumns ? 'f.language_code' : "'vi' AS language_code";
+    $ratingSql = medical_facility_stored_rating_sql();
     $rows = $pdo->query(
-        "SELECT id, slug, {$languageSelect}, name, subtitle, content, category, city, address_text, image_url, gallery_json,
-                verified, rating, reviews_count, aggregate_ratings_json, review_summary_json,
-                followers_count, price_text, hours_text, images_label,
-                featured_services_json, services_json, tags_json, highlights_json, display_order, updated_at
-         FROM medical_facilities
-         WHERE status = 'published'"
+        "SELECT f.id, f.slug, {$languageSelect}, f.name, f.subtitle, f.content, f.category, f.city, f.address_text, f.image_url, f.gallery_json,
+                f.verified, COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
+                COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count,
+                f.followers_count, f.price_text, f.hours_text, f.images_label,
+                f.featured_services_json, f.services_json, f.tags_json, f.highlights_json, f.display_order, f.updated_at
+         FROM medical_facilities f
+         LEFT JOIN ({$ratingSql}) facility_reviews ON facility_reviews.facility_id = f.id
+         WHERE f.status = 'published'"
     )->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $items = [];
     foreach ($rows as $row) {
-        $ratingSummary = medical_facility_rating_summary($row);
+        $ratingSummary = medical_facility_public_rating_summary($row);
         $services = array_values(array_unique(array_merge(
             medical_search_cache_json_strings($row['featured_services_json'] ?? ''),
             medical_search_cache_json_strings($row['services_json'] ?? '')
@@ -481,7 +496,7 @@ function medical_search_cache_rebuild(PDO $pdo): array
 
     return [
         'schema' => 3,
-        'facility_ratings_version' => 1,
+        'facility_ratings_version' => 2,
         'generated_at' => $generatedAt,
         'expires_at' => $generatedAt + medical_search_cache_ttl(),
         'facilities' => $facilities,

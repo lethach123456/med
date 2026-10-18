@@ -51,7 +51,7 @@ function medical_home_next_image(array $row, ?callable $resolveMedia = null): st
 
 function medical_home_next_facility_row(array $row, ?callable $resolveMedia = null): array
 {
-    $ratingSummary = medical_facility_rating_summary($row);
+    $ratingSummary = medical_facility_public_rating_summary($row);
     return [
         'id' => max(0, (int) ($row['id'] ?? 0)),
         'slug' => medical_home_next_text($row['slug'] ?? ''),
@@ -131,11 +131,17 @@ function medical_home_next_data(PDO $pdo, string $locale): array
     }
 
     try {
+        $ratingSql = medical_facility_stored_rating_sql();
         $statement = $pdo->prepare(
-            "SELECT id, slug, name, category, city, subtitle, verified, rating, reviews_count, aggregate_ratings_json, review_summary_json,
-                    address_text, image_url, gallery_json
-             FROM medical_facilities WHERE status = 'published' AND language_code = :locale
-             ORDER BY rating DESC, reviews_count DESC, updated_at DESC, id DESC LIMIT 6"
+            "SELECT f.id, f.slug, f.name, f.category, f.city, f.subtitle, f.verified,
+                    f.rating, f.reviews_count, f.aggregate_ratings_json, f.review_summary_json,
+                    f.address_text, f.image_url, f.gallery_json,
+                    COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
+                    COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count
+             FROM medical_facilities f
+             LEFT JOIN ({$ratingSql}) facility_reviews ON facility_reviews.facility_id = f.id
+             WHERE f.status = 'published' AND f.language_code = :locale
+             ORDER BY stored_rating DESC, stored_reviews_count DESC, f.updated_at DESC, f.id DESC LIMIT 6"
         );
         if ($statement !== false && $statement->execute([':locale' => $locale])) {
             foreach (array_slice($statement->fetchAll(PDO::FETCH_ASSOC), 0, 6) as $row) {

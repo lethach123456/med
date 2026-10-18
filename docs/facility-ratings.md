@@ -1,19 +1,25 @@
 # Facility ratings
 
-`medical_facility_ratings.php` is the shared, read-only calculator used by the public directory/search, homepages, detail mapper and content receiver.
+`medical_facility_ratings.php` separates the public MedReview score from externally reported totals. All calculators are read-only.
 
-## Main profile score
+## Public score and JSON snapshot
+
+The directory, search, homepages and detail header use only published, rated reviews actually saved in `medical_reviews`. The score is their average; the count is the number of the same records. Draft, zero and out-of-range ratings do not count. An explicit facility ID wins; slug matching is only for legacy records with a NULL facility ID.
+
+`medical_facility_stored_rating_sql()` is joined into the bulk facility SELECT. `medical_search_cache_facilities()` writes the resulting score and count into each facility in `storage/cache/medical-search-index-v1.json` with `rating_basis=stored_reviews`. There is no per-card rating query or second client request. Initial HTML, AJAX pagination, sorting and rating filters all read that same snapshot. No stored rated reviews means score/count zero and “Chưa có đánh giá”; external totals are never a fallback.
+
+`facility_ratings_version=2` forces the next access to rebuild the previous snapshot. While another process rebuilds or the DB is unavailable, older snapshots remain usable for directory content but their obsolete facility rating/count fields are cleared on read. Writes are atomic under the existing single rebuild lock. Review saves, deletes and content imports invalidate the snapshot; the normal TTL also refreshes it. No schema migration is required.
+
+The homepage queries use the same grouped SQL and public calculator. Detail calculates from its already-loaded review records and displays external source information separately; its structured data uses the public score and matching local count.
+
+## External totals retained in storage
 
 - Valid `aggregate_ratings_json` entries take priority. Deduplicate a canonical source URL (or source name for old records without a URL), then compute a count-weighted average. Do not add imported review samples to these counts.
 - Scores must be finite and greater than 0, at most 5. Counts are positive integers. A value such as 10/10 is not automatically converted into 5/5.
 - If no valid aggregate exists, preserve a valid legacy `rating`/`reviews_count` pair. Its label is “Điểm hồ sơ”, since its original provenance may be missing.
 - Only profiles without usable totals fall back to their published, rated review samples. Store `basis=imported_reviews` in the existing `review_summary_json` so subsequent review edits can recompute that fallback, including deletion of all samples.
 
-## Stored reviews
-
-`review_summary` describes only published reviews saved in `medical_reviews`. Its average, distribution and verified-label percentage use the same sample count. It never overwrites external profile totals. Records with rating 0 or outside the 0–5 range do not enter that average. Facility ID links take priority; the slug fallback applies only to legacy reviews without an ID.
-
-Detail structured data uses the main score and its matching count. Source links/dates and the stored review section are shown separately. Source URLs record provenance; they are not independent verification of an AI claim.
+`review_summary` describes the stored reviews, including the star distribution and verified-label percentage using that same count. Reading a public score does not overwrite external evidence in the DB. Source URLs record provenance; they are not independent verification of an AI claim.
 
 ## Receiving content
 
@@ -21,4 +27,4 @@ Detail structured data uses the main score and its matching count. Source links/
 
 New AI-imported reviews receive `verified=0`; an external source does not establish a verified MedReview patient. Existing verification labels are not rewritten automatically.
 
-No schema migration is required. `facility_ratings_version=1` makes the next ordinary cache access refresh a pre-fix search snapshot. Existing aggregate JSON can repair previously overwritten totals on reads and subsequent saves. Missing original evidence cannot be reconstructed from a small sample.
+Existing aggregate JSON can repair previously overwritten external scalar totals on subsequent saves. These scalars are not used as the public MedReview review count. Missing original external evidence cannot be reconstructed from a small sample.

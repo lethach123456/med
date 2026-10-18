@@ -3132,7 +3132,10 @@ function medical_directory_seed_defaults(PDO $pdo): void
 
 function medical_directory_facility_from_row(array $row): array
 {
-    $ratingSummary = medical_facility_rating_summary($row);
+    // Raw mapping is also used by the admin form. Public bulk readers supply
+    // the joined stored_* aliases; the detail reader supplies actual reviews.
+    $ratingSummary = array_key_exists('stored_reviews_count', $row)
+        ? medical_facility_public_rating_summary($row) : medical_facility_rating_summary($row);
     $reviewsCount = $ratingSummary['reviews_count'];
     $followersCount = (int) ($row['followers_count'] ?? 0);
     $rating = number_format($ratingSummary['rating'], 1, '.', '');
@@ -3358,18 +3361,22 @@ function medical_directory_facility_rows(bool $publishedOnly = true, string $loc
     medreview_translation_schema_ready($pdo, 'medical_facilities');
     $hasLanguageColumn = medical_directory_column_exists($pdo, 'medical_facilities', 'language_code');
     if (!$hasLanguageColumn && $locale === 'en') return [];
-    $sql = "SELECT * FROM medical_facilities";
+    $ratingSql = medical_facility_stored_rating_sql();
+    $sql = "SELECT f.*, COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
+                   COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count
+            FROM medical_facilities f
+            LEFT JOIN ({$ratingSql}) facility_reviews ON facility_reviews.facility_id = f.id";
     $params = [];
     if ($hasLanguageColumn) {
-        $sql .= ' WHERE language_code = :language_code';
+        $sql .= ' WHERE f.language_code = :language_code';
         $params[':language_code'] = $locale;
     } else {
         $sql .= ' WHERE 1=1';
     }
     if ($publishedOnly) {
-        $sql .= " AND status = 'published'";
+        $sql .= " AND f.status = 'published'";
     }
-    $sql .= ' ORDER BY display_order ASC, id DESC';
+    $sql .= ' ORDER BY f.display_order ASC, f.id DESC';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
@@ -3541,12 +3548,12 @@ function medical_directory_facility_with_linked_reviews(array $facility, bool $p
         $reviews = medical_directory_reviews_for_facility_slug($slug, $publishedOnly);
     }
     $facility['review_summary'] = medical_directory_facility_review_summary_from_reviews($reviews);
-    $ratingSummary = medical_facility_rating_summary($facility, $facility['review_summary']);
+    $ratingSummary = medical_facility_public_rating_summary($facility, $facility['review_summary']);
     $facility['rating'] = number_format($ratingSummary['rating'], 1, '.', '');
     $facility['reviews_count'] = $ratingSummary['reviews_count'];
     $facility['reviews'] = medical_directory_format_int($ratingSummary['reviews_count']) . ' đánh giá';
     $facility['rating_basis'] = $ratingSummary['basis'];
-    $facility['rating_sources'] = $ratingSummary['sources'];
+    $facility['rating_sources'] = medical_facility_rating_normalize_aggregates($facility['aggregate_ratings'] ?? []);
     $facility['reviews_list'] = medical_directory_facility_reviews_list_from_reviews($reviews, 3);
     return $facility;
 }

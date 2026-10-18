@@ -40,7 +40,7 @@ function facility_page_list_values(?string $value): array
 
 function facility_page_item_from_row(array $row): array
 {
-    $ratingSummary = medical_facility_rating_summary($row);
+    $ratingSummary = medical_facility_public_rating_summary($row);
     $gallery = medical_directory_gallery_urls((string) ($row['gallery_json'] ?? ''));
     $image = trim((string) ($row['image_url'] ?? ''));
     if ($image === '' && $gallery !== []) $image = (string) $gallery[0];

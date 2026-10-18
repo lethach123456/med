@@ -1030,12 +1030,13 @@ $facilityBreadcrumbSchema = [
     ],
   ],
 ];
-$facilityAggregateReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
+$facilityPublicReviewCount = max(0, (int) ($facility['reviews_count'] ?? 0));
 $facilityReviewSummaryCount = max(0, (int) ($facilityReviewSummary['count'] ?? 0));
 $formatFacilityCount = static fn(int $count): string => number_format($count, 0, $facilityLanguage === 'en' ? '.' : ',', $facilityLanguage === 'en' ? ',' : '.');
 $facilityReviewCountLabel = $formatFacilityCount($facilityReviewSummaryCount) . ' ' . ($facilityReviewSummaryCount === 1 ? $tr('đánh giá', 'review') : $tr('đánh giá', 'reviews'));
 $facilityTopReviewsLabel = $localizeCountLabel((string) ($facility['reviews'] ?? ''), 'đánh giá', 'reviews');
 $facilityMainRatingCaption = match ((string) ($facility['rating_basis'] ?? 'legacy')) {
+  'stored_reviews' => $tr('Review trên MedReview', 'Reviews on MedReview'),
   'external_aggregates' => count($facilityRatingSources) === 1 ? $facilityRatingSources[0]['source'] : $tr('Tổng hợp từ các nguồn', 'Combined external sources'),
   'imported_reviews' => $tr('Từ review đã lưu', 'From stored reviews'),
   default => $tr('Điểm lưu trong hồ sơ', 'Rating recorded in this profile'),
@@ -1045,13 +1046,13 @@ $facilityGalleryCount = count((array) ($facility['gallery'] ?? []));
 $facilityGalleryLabel = $facilityLanguage === 'en'
   ? $formatFacilityCount($facilityGalleryCount) . ' ' . ($facilityGalleryCount === 1 ? 'photo' : 'photos')
   : (string) ($facility['images_label'] ?: '25+ ảnh');
-if ($facilityAggregateReviewCount > 0 && $facilityRatingValue > 0) {
+if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
   $facilitySchema['aggregateRating'] = [
     '@type' => 'AggregateRating',
     'ratingValue' => $facilityRatingValue,
     'bestRating' => 5,
     'worstRating' => 1,
-    'reviewCount' => $facilityAggregateReviewCount,
+    'reviewCount' => $facilityPublicReviewCount,
   ];
 }
 ?>
@@ -2415,7 +2416,7 @@ if ($facilityAggregateReviewCount > 0 && $facilityRatingValue > 0) {
               </div>
 
               <div class="rating-line rating-pill">
-                <?php if ($facilityAggregateReviewCount > 0 && $facilityRatingValue > 0): ?>
+                <?php if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0): ?>
                 <span class="rating-main"><?php echo htmlspecialchars($facility['rating'], ENT_QUOTES, 'UTF-8'); ?></span>
                 <span class="stars rating-stars-text" aria-label="<?php echo htmlspecialchars($facility['rating'] . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilityRatingStars; ?></span>
                 <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facilityMainRatingCaption, ENT_QUOTES, 'UTF-8'); ?>)</span>

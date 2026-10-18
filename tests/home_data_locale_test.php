@@ -19,9 +19,11 @@ class HomeLocaleStatement extends PDOStatement
 }
 class HomeLocalePDO extends PDO
 {
+    public array $queries = [];
     public function __construct(private array $facilities, private array $toplists) {}
     public function prepare(string $query,array $options=[]): PDOStatement|false
     {
+        $this->queries[] = $query;
         return new HomeLocaleStatement($query,str_contains($query,'FROM medical_toplists t')?$this->toplists:$this->facilities);
     }
 }
@@ -39,7 +41,16 @@ $assert($empty['facilities']===[] && $empty['toplists']===[] && $empty['stats'][
 $source=file_get_contents(dirname(__DIR__).'/Tem/home.php');
 $assert(str_contains($source,'medical_home_data($pdo, $locale)') && str_contains($source,'Toplists in English will appear here soon.'));
 $sourceRecord = array_replace($records[0], ['rating' => 5, 'reviews_count' => 3,
+    'stored_rating' => '4.1', 'stored_reviews_count' => '3',
     'aggregate_ratings_json' => '[{"source":"Google Maps","score":4.8,"count":1000}]']);
-$canonical = medical_home_data(new HomeLocalePDO([$sourceRecord], []), 'vi')['facilities'][0];
-$assert($canonical['rating'] === 4.8 && $canonical['reviews_count'] === 1000);
+$pdo = new HomeLocalePDO([$sourceRecord], []);
+$canonical = medical_home_data($pdo, 'vi')['facilities'][0];
+$assert($canonical['rating'] === 4.1 && $canonical['reviews_count'] === 3);
+$assert(count($pdo->queries) === 3 && str_contains($pdo->queries[1], 'LEFT JOIN (')
+    && str_contains($pdo->queries[1], 'AS stored_rating') && str_contains($pdo->queries[1], 'AS stored_reviews_count')
+    && str_contains($pdo->queries[1], 'ORDER BY stored_rating DESC, stored_reviews_count DESC'));
+$withoutStored = $sourceRecord;
+unset($withoutStored['stored_rating'], $withoutStored['stored_reviews_count']);
+$emptyRating = medical_home_data(new HomeLocalePDO([$withoutStored], []), 'vi')['facilities'][0];
+$assert($emptyRating['rating'] === 0.0 && $emptyRating['reviews_count'] === 0);
 echo "Homepage language data: {$checks} checks passed. Mocked DB only.\n";

@@ -21,13 +21,17 @@ $assert(medical_home_next_image([]) === '', 'No fabricated image for an empty pr
 $assert(medical_home_next_media('javascript:alert(1)') === '' && medical_home_next_media('data:image/svg+xml,test') === '', 'Unsafe media schemes are rejected without dependencies');
 $assert(medical_home_next_media('/uploads/real.webp', static fn (string $url): string => 'javascript:alert(1)') === '', 'Media resolver cannot introduce unsafe schemes');
 
-$facility = medical_home_next_facility_row(['id' => '7', 'slug' => ' real-clinic ', 'name' => ' Cơ sở <A> ', 'verified' => '1', 'rating' => '4.3', 'reviews_count' => '17', 'gallery_json' => $gallery], $resolve);
+$facility = medical_home_next_facility_row(['id' => '7', 'slug' => ' real-clinic ', 'name' => ' Cơ sở <A> ', 'verified' => '1', 'stored_rating' => '4.3', 'stored_reviews_count' => '17', 'gallery_json' => $gallery], $resolve);
 $assert($facility['id'] === 7 && $facility['slug'] === 'real-clinic' && $facility['name'] === 'Cơ sở <A>', 'Normalize identifiers without rendering or inventing text');
 $assert($facility['verified'] === true && $facility['rating'] === 4.3 && $facility['reviews_count'] === 17, 'Published verification and review values retain correct types');
 $assert($facility['image_url'] === 'https://example.test/uploads/a.webp' && $facility['gallery_json'] === $gallery, 'Facility normalized image and original gallery');
 $canonicalFacility = medical_home_next_facility_row(['rating' => 5, 'reviews_count' => 3,
+    'stored_rating' => '4.1', 'stored_reviews_count' => '3',
     'aggregate_ratings_json' => '[{"source":"Google Maps","score":4.8,"count":1000}]']);
-$assert($canonicalFacility['rating'] === 4.8 && $canonicalFacility['reviews_count'] === 1000, 'Homepage preview keeps the same canonical source totals as directory and detail');
+$assert($canonicalFacility['rating'] === 4.1 && $canonicalFacility['reviews_count'] === 3, 'Homepage preview exposes only stored review totals, not external source totals');
+$missingStored = medical_home_next_facility_row(['rating' => 5, 'reviews_count' => 5000,
+    'aggregate_ratings_json' => '[{"source":"Google Maps","score":4.8,"count":1000}]']);
+$assert($missingStored['rating'] === 0.0 && $missingStored['reviews_count'] === 0, 'Missing stored reviews never fall back to legacy or external totals');
 $doctor = medical_home_next_doctor_row(['id' => 11, 'specialty_text' => 'Mắt', 'title_text' => 'BS. CKII', 'reviews_count' => -2, 'verified' => 0]);
 $assert($doctor['specialty_text'] === 'Mắt' && $doctor['title_text'] === 'BS. CKII' && !$doctor['verified'], 'Doctor schema uses actual specialty/title fields');
 $assert($doctor['reviews_count'] === 0 && $doctor['image_url'] === '' && $doctor['rating'] === 0.0, 'Missing doctor values do not invent reviews or portrait');
@@ -84,6 +88,11 @@ $data = medical_home_next_data($pdo, ' EN ');
 $assert($data['stats'] === ['facilities' => 12, 'doctors' => 5, 'toplists' => 4], 'Statistics use database values');
 $assert(count($data['facilities']) === 6 && count($data['doctors']) === 3 && count($data['toplists']) === 3, 'Defensive per-section result limits');
 $assert(count($pdo->executed) === 6, 'Exactly six read-only main queries');
+$facilitySql = $pdo->executed[3]['sql'];
+$assert(str_contains($facilitySql, 'LEFT JOIN (') && str_contains($facilitySql, 'AS stored_rating')
+    && str_contains($facilitySql, 'AS stored_reviews_count')
+    && str_contains($facilitySql, 'ORDER BY stored_rating DESC, stored_reviews_count DESC'),
+    'Stored review scores and counts arrive in the facility query without per-row requests');
 foreach ($pdo->executed as $query) {
     $assert(str_starts_with(ltrim($query['sql']), 'SELECT ') && !preg_match('/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|TRUNCATE|DROP|REPLACE)\b/i', $query['sql']), 'Only SELECT statements execute');
     $assert(str_contains($query['sql'], "status = 'published'") && str_contains($query['sql'], 'language_code = :locale') && $query['params'] === [':locale' => 'en'], 'Every section and statistic filters published locale');
