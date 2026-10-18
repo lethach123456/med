@@ -33,6 +33,25 @@ $assert(medical_doctor_match_facility(array_replace($location, ['address_text' =
 $assert(medical_doctor_match_facility(array_replace($location, ['address_text' => '95/1 Nguyễn Lương Bằng, Hải Phòng']), [array_replace($facility, ['address_text' => '95-1 Nguyễn Lương Bằng, Hải Phòng'])]) === null, 'House slash cannot normalize into range dash');
 $ordered = ['facility_name' => 'Phòng khám Đa khoa Thu Cúc TCI Hải Phòng', 'address_text' => $facility['address_text']];
 $assert(medical_doctor_match_facility($ordered, [array_replace($facility, ['name' => 'Phòng khám Đa khoa TCI Thu Cúc Hải Phòng'])])['id'] === 7, 'Brand token order does not create duplicates');
+foreach (['Dana Dental', 'My Smile'] as $brand) {
+    $brandedFacility = array_replace($facility, ['name' => 'Nha Khoa ' . $brand]);
+    $bareBrand = array_replace($location, ['facility_name' => $brand]);
+    $assert(medical_doctor_match_facility($bareBrand, [$brandedFacility])['id'] === 7,
+        'Bare distinctive brand matches the same clinic with a generic prefix');
+    $assert(medical_doctor_match_facility(array_replace($bareBrand, ['facility_name' => 'Nha Khoa ' . $brand]),
+        [array_replace($brandedFacility, ['name' => $brand])])['id'] === 7,
+        'Generic-prefixed suggestion matches the same bare-brand clinic');
+    $assert(medical_doctor_match_facility(array_replace($bareBrand, ['address_text' => '96 Nguyễn Lương Bằng, Hải Phòng']),
+        [$brandedFacility]) === null, 'Prefix tolerance never merges different house numbers');
+    $assert(medical_doctor_match_facility($bareBrand, [$brandedFacility, array_replace($brandedFacility, ['id' => 8])]) === null,
+        'Equivalent prefixed brand candidates remain ambiguous');
+}
+$assert(medical_doctor_match_facility(array_replace($location, ['facility_name' => 'Dana Dental']),
+    [array_replace($facility, ['name' => 'Nha Khoa My Smile'])]) === null,
+    'Different distinctive brands never match solely through clinic prefixes');
+$assert(medical_doctor_facility_name_similarity('Nha Khoa A', 'Nha Khoa B') === 0.0
+    && medical_doctor_facility_name_similarity('Dana Dental 1', 'Nha Khoa Dana Dental 2') === 0.0,
+    'Distinctive single-letter and numeric branch markers must agree');
 $ambiguous = false;
 $assert(medical_doctor_match_facility(array_replace($location, ['facility_name' => 'Phòng khám ABCD']), [array_replace($facility, ['name' => 'Phòng khám ABCE'])], $ambiguous) === null, 'Different distinctive brand cannot match on shared generic clinic prefix');
 $assert($ambiguous, 'Near distinctive brands need review instead of creating another seed');
@@ -159,6 +178,17 @@ $assert($fields['facility_name'] === 'Clinic A' && $fields['facility_slug'] === 
 $wrongId = ['locations_json' => json_encode([array_replace($location, ['facility_id' => 7, 'address_text' => '96 Nguyễn Lương Bằng, Hải Phòng'])])];
 try { medical_doctor_link_workplaces($admin, 27, $wrongId, []); $assert(false, 'Explicit wrong branch must reject'); }
 catch (InvalidArgumentException $e) { $assert(str_contains($e->getMessage(), 'address_text'), 'Explicit wrong branch ID rejects with address field'); }
+$prefixed = new DoctorLinkTestPDO([array_replace($facility, ['name' => 'Nha Khoa Dana Dental'])]);
+$fields = ['locations_json' => json_encode([array_replace($location,
+    ['facility_id' => 7, 'facility_name' => 'Dana Dental'])])];
+medical_doctor_link_workplaces($prefixed, 29, $fields, []);
+$assert($prefixed->links[0]['facility_id'] === 7 && count($prefixed->facilities) === 1
+    && $fields['facility_name'] === 'Nha Khoa Dana Dental',
+    'Explicit linked ID accepts a bare brand and retains canonical clinic name');
+$wrongId = ['locations_json' => json_encode([array_replace($location,
+    ['facility_id' => 7, 'facility_name' => 'Dana Dental', 'address_text' => '96 Nguyễn Lương Bằng, Hải Phòng'])])];
+try { medical_doctor_link_workplaces($prefixed, 30, $wrongId, []); $assert(false, 'Bare-brand wrong branch must reject'); }
+catch (InvalidArgumentException $e) { $assert(str_contains($e->getMessage(), 'address_text'), 'Prefix tolerance preserves explicit-ID branch validation'); }
 $wrongLocale = new DoctorLinkTestPDO([array_replace($facility, ['language_code' => 'en'])]);
 $wrongId = ['locations_json' => json_encode([array_replace($location, ['facility_id' => 7])])];
 try { medical_doctor_link_workplaces($wrongLocale, 28, $wrongId, []); $assert(false, 'VI doctor cannot use EN facility ID'); }

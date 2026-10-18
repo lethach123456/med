@@ -751,6 +751,19 @@ function medical_doctor_facility_token_similarity(string $left, string $right): 
         medical_doctor_facility_text_similarity(implode(' ', $a), implode(' ', $b)));
 }
 
+/** Compare the distinctive clinic name without requiring optional generic prefixes. */
+function medical_doctor_facility_name_similarity(string $left, string $right): float
+{
+    $a = medical_doctor_facility_match_text($left);
+    $b = medical_doctor_facility_match_text($right);
+    if ($a === '' || $b === '') return 0.0;
+    preg_match_all('/\b(?:[a-z]|\d+[a-z]?)\b/', $a, $aMarkers);
+    preg_match_all('/\b(?:[a-z]|\d+[a-z]?)\b/', $b, $bMarkers);
+    if ($aMarkers[0] !== $bMarkers[0]) return 0.0;
+    return medical_doctor_facility_token_similarity(
+        medical_doctor_facility_brand_key($a), medical_doctor_facility_brand_key($b));
+}
+
 function medical_doctor_facility_city_key(string $city): string
 {
     $key = medical_doctor_facility_match_text($city, true);
@@ -788,7 +801,7 @@ function medical_doctor_facility_text_similarity(string $left, string $right): f
     return 1.0 - levenshtein($left, $right) / max(strlen($left), strlen($right));
 }
 
-/** Require BOTH name/address >=90%, protect branch numbers and reject close runners-up. */
+/** Require BOTH distinctive name/address >=90%, protect branches and reject close runners-up. */
 function medical_doctor_match_facility(array $location, array $facilities, ?bool &$ambiguous = null): ?array
 {
     $ambiguous = false;
@@ -814,14 +827,14 @@ function medical_doctor_match_facility(array $location, array $facilities, ?bool
         $candidateName = medical_doctor_facility_match_text((string) ($facility['name'] ?? ''));
         preg_match_all('/\b(?:[a-z]|\d+[a-z]?)\b/', $candidateName, $candidateMarkers);
         if ($nameMarkers[0] !== $candidateMarkers[0]) continue;
-        $nameScore = medical_doctor_facility_token_similarity($name, $candidateName);
-        $brandScore = medical_doctor_facility_token_similarity(medical_doctor_facility_brand_key($name), medical_doctor_facility_brand_key($candidateName));
+        $fullNameScore = medical_doctor_facility_token_similarity($name, $candidateName);
+        $nameScore = medical_doctor_facility_name_similarity($name, $candidateName);
         $addressScore = medical_doctor_facility_text_similarity($address, $candidateAddress);
         // Near matches need review, not another duplicate seed. Do not collapse
         // truly different house numbers/regions, filtered above, into this bucket.
-        if ($nameScore >= 0.8 && $brandScore >= 0.6 && $addressScore >= 0.8
-            && ($nameScore < 0.9 || $brandScore < 0.9 || $addressScore < 0.9)) $ambiguous = true;
-        if ($nameScore < 0.9 || $brandScore < 0.9 || $addressScore < 0.9) continue;
+        if (max($nameScore, $fullNameScore) >= 0.8 && $nameScore >= 0.6 && $addressScore >= 0.8
+            && ($nameScore < 0.9 || $addressScore < 0.9)) $ambiguous = true;
+        if ($nameScore < 0.9 || $addressScore < 0.9) continue;
         $matches[(int) $facility['id']] = ['facility' => $facility, 'score' => ($nameScore + $addressScore) / 2];
     }
     uasort($matches, static fn(array $a, array $b): int => $b['score'] <=> $a['score']);
@@ -910,8 +923,7 @@ function medical_doctor_sync_locations(PDO $pdo, int $doctorId, array $locations
             if (!$facility) throw new InvalidArgumentException('facility_id không tồn tại; dùng null cho cơ sở chưa có trong hệ thống.');
             if ($locale === 'vi') {
                 if (($facility['language_code'] ?? 'vi') !== 'vi') throw new InvalidArgumentException('facility_id không thuộc ngôn ngữ hồ sơ.');
-                if (medical_doctor_facility_token_similarity(medical_doctor_facility_match_text($name), medical_doctor_facility_match_text($facility['name'])) < 0.9
-                    || medical_doctor_facility_token_similarity(medical_doctor_facility_brand_key($name), medical_doctor_facility_brand_key($facility['name'])) < 0.9) {
+                if (medical_doctor_facility_name_similarity($name, $facility['name']) < 0.9) {
                     throw new InvalidArgumentException('facility_id và facility_name không khớp cơ sở trong hệ thống.');
                 }
                 if (is_string($location['address_text'] ?? null) && trim($location['address_text']) !== ''

@@ -274,6 +274,62 @@ try{
     rmdir($mediaRoot);
 }
 
+// Exercise the actual receipt/metadata path, not just the standalone matcher.
+$pdo->exec('CREATE TABLE medical_facilities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, language_code TEXT, name TEXT,
+    address_text TEXT, city TEXT, category TEXT, phone_text TEXT, website_url TEXT,
+    full_json TEXT, status TEXT, verified INTEGER, content TEXT)');
+$pdo->exec('CREATE TABLE medical_doctors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, language_code TEXT, name TEXT,
+    specialty_text TEXT, facility_name TEXT, address_text TEXT, city TEXT, website_url TEXT,
+    full_json TEXT, status TEXT, verified INTEGER, content TEXT)');
+$pdo->exec("INSERT INTO medical_facilities(id,slug,language_code,name,address_text,city,website_url,phone_text,status,verified,content)
+    VALUES (59,'dana-original','vi','Dana Dental - Nha Khoa Đà Nẵng','129 Nguyễn Hoàng, Hải Châu, Đà Nẵng','Đà Nẵng','https://nhakhoadana.com/','0788588588','published',1,'<p>Written profile</p>'),
+    (58,'smile-original','vi','Nha Khoa My Smile','85 Điện Biên Phủ, Thanh Khê, Đà Nẵng','Đà Nẵng','https://mysmileclinic.vn/','0888884418','published',1,'<p>Written profile</p>'),
+    (94,'smile-duplicate','vi','Nha Khoa My Smile','85 Điện Biên Phủ, Chính Gián, Thanh Khê, Đà Nẵng','Đà Nẵng','https://mysmileclinic.vn/','0888 884 418','published',0,'<p>Another written profile</p>')");
+$pdo->exec("INSERT INTO medical_doctors(id,slug,language_code,name,specialty_text,facility_name,address_text,city,status,verified,content)
+    VALUES (42,'doctor-original','vi','BS. Trần Minh An','Răng Hàm Mặt','Nha Khoa My Smile',
+    '85 Điện Biên Phủ, Thanh Khê, Đà Nẵng','Đà Nẵng','published',0,'<p>Written doctor profile</p>')");
+foreach ([501,502] as $testId) $insert->execute([$testId,1,'Suggested identities','suggestions-'.$testId,'vi','draft','',
+    '','','','','2026-10-15 00:00:00','2026-10-15 00:00:00']);
+$identityClaim = handbook_api_lease($pdo, $claimFor(501, 'identity-job'), $now);
+$identityBody = $payload(501, $identityClaim, 'identity-job');
+$identityBody['suggested_facilities_json'] = [
+    ['name'=>'Dana Dental','address'=>'129 Nguyễn Hoàng, Phường Hải Châu, Đà Nẵng','city'=>'Đà Nẵng',
+        'website'=>'https://nhakhoadana.com/','evidence_url'=>'https://nhakhoadana.com/gioi-thieu/'],
+    ['name'=>'My Smile','address'=>'85 Điện Biên Phủ, Chính Gián, Đà Nẵng','city'=>'Đà Nẵng',
+        'website'=>'https://mysmileclinic.vn/','evidence_url'=>'https://mysmileclinic.vn/gioi-thieu/'],
+];
+$identityBody['suggested_doctors_json'] = [['name'=>'BS.CKII. Trần Minh An','specialty'=>'Răng Hàm Mặt',
+    'facility_name'=>'My Smile','address'=>'85 Điện Biên Phủ, Chính Gián, Đà Nẵng','city'=>'Đà Nẵng',
+    'evidence_url'=>'https://mysmileclinic.vn/bac-si/']];
+$identityResult = handbook_api_save($pdo, $identityBody, $prepare, $cleanup, $now + 1);
+$identityMetadata = json_decode(handbook_api_row($pdo, 501)['ai_content_json'], true);
+$assert($identityResult['status'] === 'published'
+    && array_column($identityResult['suggested_facilities_json'], 'facility_id') === [59,58],
+    'Article receipt returns existing canonical facility IDs, not new records');
+$assert(array_column($identityMetadata['suggested_facilities_json'], 'facility_id') === [59,58]
+    && array_column($identityMetadata['suggested_facilities_json'], 'resolution') === ['matched','matched'],
+    'Stored article JSON keeps the canonical facility links for the public renderer');
+$assert($identityResult['suggested_doctors_json'][0]['doctor_id'] === 42
+    && $identityMetadata['suggested_doctors_json'][0]['doctor_id'] === 42,
+    'Doctor title and workplace variants retain the existing doctor ID in response and article');
+$assert((int) $pdo->query('SELECT COUNT(*) FROM medical_facilities')->fetchColumn() === 3
+    && (int) $pdo->query('SELECT COUNT(*) FROM medical_doctors')->fetchColumn() === 1,
+    'Successful article receipt inserts no duplicate suggested facilities or doctors');
+$identityRetry = handbook_api_save($pdo, $identityBody, $prepare, $cleanup, $now + 1000);
+$assert($identityRetry['idempotent'] && handbook_api_json($identityRetry['suggested_facilities_json']) === handbook_api_json($identityResult['suggested_facilities_json']),
+    'Lost receipt acknowledgement returns the same canonical links on retry');
+
+$rollbackIdentityClaim = handbook_api_lease($pdo, $claimFor(502, 'rollback-identity-job'), $now);
+$rollbackIdentityBody = $payload(502, $rollbackIdentityClaim, 'rollback-identity-job');
+$rollbackIdentityBody['suggested_facilities_json'] = [['name'=>'Nha khoa Mới','address'=>'25 Trần Phú, Đà Nẵng',
+    'city'=>'Đà Nẵng','evidence_url'=>'https://newclinic.example.org/about']];
+$pdo->exec("CREATE TRIGGER fail_identity_article BEFORE UPDATE OF content ON posts WHEN NEW.id=502 BEGIN SELECT RAISE(FAIL,'identity fixture rollback'); END");
+try { handbook_api_save($pdo, $rollbackIdentityBody, $prepare, $cleanup, $now + 1); $assert(false, 'Article save should fail'); }
+catch (PDOException) { $assert((int) $pdo->query('SELECT COUNT(*) FROM medical_facilities')->fetchColumn() === 3
+    && handbook_api_row($pdo, 502)['status'] === 'draft', 'A failed article write rolls back suggested-profile creation too'); }
+
 // Security contract checks for thin HTTP wrappers; no web server, DB credentials or live media needed.
 $helperSource = (string) file_get_contents(dirname(__DIR__) . '/api/medical/_handbook.php');
 $assert(str_contains($helperSource, "require_once __DIR__ . '/_auth.php'") && str_contains($helperSource, 'medical_api_auth();'), 'Both new endpoints use the existing API-key authentication.');
