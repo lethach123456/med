@@ -6,6 +6,9 @@ RewriteRule ^ - [L]
 
 RewriteRule ^builder/([0-9]+)/?$ builder/builder.php?id=$1 [QSA,L]
 
+# AI resource discovery: both URLs serve the same static, public catalog.
+RewriteRule ^\.well-known/ai-catalog\.json$ ai-catalog.json [L]
+
 # Dynamic XML sitemaps include only published, canonical public routes.
 RewriteRule ^sitemap\.xml$ sitemap.php?map=index [QSA,L]
 RewriteRule ^sitemap-(vi|en)\.xml$ sitemap.php?map=$1 [QSA,L]

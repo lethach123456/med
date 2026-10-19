@@ -1,0 +1,46 @@
+# MedReview.vn
+
+> MedReview là nền tảng thông tin và đánh giá y tế tại Việt Nam, gồm hồ sơ cơ sở y tế, hồ sơ bác sĩ, trải nghiệm cộng đồng, Toplist và Cẩm nang. Website có nội dung tiếng Việt và tiếng Anh.
+
+Thông tin trên MedReview mang tính tham khảo, không thay thế tư vấn, chẩn đoán hoặc điều trị y tế. Dịch vụ, chi phí, lịch khám và thông tin liên hệ cần được xác nhận trực tiếp với cơ sở hoặc bác sĩ.
+
+Nhãn hồ sơ đã xác thực là trạng thái hồ sơ do quản trị đánh dấu; không phải chứng nhận y khoa, bằng chứng về giấy phép hay cam kết chất lượng và kết quả điều trị. Nhãn không có nghĩa mọi chi tiết hoặc đánh giá đều đã được kiểm chứng. Điểm và số lượt đánh giá cần được đọc cùng nguồn và ngữ cảnh trên từng hồ sơ.
+
+Các trang tiếng Việt dùng đường dẫn không có tiền tố ngôn ngữ. Các danh mục tiếng Anh dùng /en/. Không phải hồ sơ nào cũng có bản dịch; hãy dùng ngôn ngữ, liên kết canonical và hreflang được công bố trên từng trang. Liên hệ tiếng Anh nằm tại /contact-us.
+
+Trên trình duyệt hỗ trợ WebMCP, các trang có thanh tìm kiếm chung đăng ký công cụ chỉ đọc search_medreview_directory. Schema đầu vào gồm q (chuỗi 2–120 ký tự, bắt buộc), category (all/facilities/doctors/toplists), locale (vi/en) và limit (số nguyên 1–6). Công cụ dùng tìm kiếm công khai hiện có, chỉ trả thông tin và liên kết hồ sơ; không đặt lịch, không chẩn đoán và không sửa dữ liệu. Không gửi thông tin định danh bệnh nhân hoặc hồ sơ bệnh án trong từ khóa. WebMCP là API thử nghiệm; việc sử dụng phụ thuộc khả năng hỗ trợ và quyền của trình duyệt.
+
+## Nội dung tiếng Việt
+
+- [Trang chủ](https://medreview.vn/): Điểm bắt đầu khám phá MedReview.
+- [Cơ sở y tế](https://medreview.vn/co-so-y-te): Tìm cơ sở theo tên, địa điểm và dịch vụ; mở hồ sơ để xem thông tin chi tiết.
+- [Bác sĩ](https://medreview.vn/bac-si): Tìm hồ sơ theo tên, chuyên khoa và địa điểm.
+- [Review](https://medreview.vn/review): Các bài chia sẻ và trải nghiệm được xuất bản.
+- [Toplist](https://medreview.vn/toplist): Danh sách tham khảo về cơ sở y tế và bác sĩ.
+- [Cẩm nang](https://medreview.vn/cam-nang): Bài viết thông tin sức khỏe và hướng dẫn theo chủ đề.
+
+## English content
+
+- [Home](https://medreview.vn/en): English-language entry point.
+- [Healthcare facilities](https://medreview.vn/en/co-so-y-te): Browse English-language facility profiles.
+- [Doctors](https://medreview.vn/en/bac-si): Browse English-language doctor profiles.
+- [Reviews](https://medreview.vn/en/review): Published experiences and review articles in English.
+- [Toplists](https://medreview.vn/en/toplist): Curated reference lists in English.
+- [Health guides](https://medreview.vn/en/cam-nang): Informational articles in English.
+
+## Về MedReview và phạm vi thông tin
+
+- [Về chúng tôi](https://medreview.vn/ve-chung-toi): Câu chuyện, giá trị và cách MedReview hoạt động.
+- [Hồ sơ đã xác thực](https://medreview.vn/ho-so-da-xac-thuc): Ý nghĩa, yếu tố đối chiếu và giới hạn của nhãn xác thực.
+- [Liên hệ và góp ý](https://medreview.vn/lien-he): Báo thông tin cần sửa hoặc đề nghị cập nhật hồ sơ.
+- [About MedReview](https://medreview.vn/en/ve-chung-toi): Our story, values and approach.
+- [Verified facility profiles](https://medreview.vn/en/ho-so-da-xac-thuc): What the profile label means and its limitations.
+- [Contact](https://medreview.vn/contact-us): Feedback and profile corrections in English.
+
+## Optional
+
+- [AI Catalog](https://medreview.vn/ai-catalog.json): Tài liệu khám phá nội dung và công cụ WebMCP chỉ đọc; không chứa API quản trị hoặc khóa truy cập.
+- [Sitemap index](https://medreview.vn/sitemap.xml): Sơ đồ các đường dẫn công khai được xuất bản.
+- [Vietnamese sitemap](https://medreview.vn/sitemap-vi.xml): Các nhóm nội dung tiếng Việt.
+- [English sitemap](https://medreview.vn/sitemap-en.xml): English-language content groups.
+- [Robots.txt](https://medreview.vn/robots.txt): Quy tắc truy cập dành cho trình thu thập dữ liệu; llms.txt không thay thế các quy tắc này.

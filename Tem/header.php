@@ -111,7 +111,7 @@ $navItems = $isEnglish
           <div class="medical-search-results" data-medical-search-results hidden></div>
         </div>
         <details class="mobile-language" data-mobile-language>
-          <summary aria-label="<?php echo $isEnglish ? 'Choose language' : 'Chọn ngôn ngữ'; ?>" aria-expanded="false" aria-controls="medical-mobile-language-panel"><i class="ph ph-globe" aria-hidden="true"></i><span class="lang-code"><?php echo $isEnglish ? 'EN' : 'VI'; ?></span><i class="ph ph-caret-down language-chevron" aria-hidden="true"></i></summary>
+          <summary aria-label="<?php echo $isEnglish ? 'EN — Choose language' : 'VI — Chọn ngôn ngữ'; ?>" aria-expanded="false" aria-controls="medical-mobile-language-panel"><i class="ph ph-globe" aria-hidden="true"></i><span class="lang-code"><?php echo $isEnglish ? 'EN' : 'VI'; ?></span><i class="ph ph-caret-down language-chevron" aria-hidden="true"></i></summary>
           <span class="mobile-language-panel" id="medical-mobile-language-panel">
             <a href="<?php echo htmlspecialchars((string) ($langLinks['vi'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>" lang="vi" class="<?php echo (($langLinks['current'] ?? 'vi') === 'vi') ? 'is-active' : ''; ?>">Tiếng Việt<?php if (($langLinks['current'] ?? 'vi') === 'vi'): ?><i class="ph ph-check" aria-hidden="true"></i><?php endif; ?></a>
             <a href="<?php echo htmlspecialchars((string) ($langLinks['en'] ?? '/services'), ENT_QUOTES, 'UTF-8'); ?>" lang="en" class="<?php echo (($langLinks['current'] ?? 'vi') === 'en') ? 'is-active' : ''; ?>">English<?php if (($langLinks['current'] ?? 'vi') === 'en'): ?><i class="ph ph-check" aria-hidden="true"></i><?php endif; ?></a>
@@ -425,3 +425,4 @@ $navItems = $isEnglish
 </script>
 <?php $medicalGlobalSearchScript = __DIR__ . '/../assets/js/medical-global-search.js'; ?>
 <script src="/assets/js/medical-global-search.js?v=<?= file_exists($medicalGlobalSearchScript) ? (int) filemtime($medicalGlobalSearchScript) : 1 ?>" defer></script>
+<script src="<?= htmlspecialchars(medical_public_asset_url('/assets/js/medical-webmcp.js'), ENT_QUOTES, 'UTF-8') ?>" defer></script>

@@ -34,6 +34,14 @@ body.site-home:not(.site-home-next) .hc-home.motion-ready .reveal:not(.visible){
 body.site-home:not(.site-home-next) .hc-home .reveal:focus-within{opacity:1!important;transform:none!important}
 body.site-home:not(.site-home-next) .hc-home .medical-search-scroll-cue .ph{animation-iteration-count:3}
 body.site-home:not(.site-home-next) .home-search-backdrop{transition:none;animation:fade 240ms ease-out}
+/* Native list semantics and readable supporting text, without changing the layout. */
+body.site-home:not(.site-home-next) .hc-home .approach-steps{list-style:none;margin:0;padding:0}
+body.site-home:not(.site-home-next) main.med-home.hc-home .specialty small,
+body.site-home:not(.site-home-next) main.med-home.hc-home .city-filters button,
+body.site-home:not(.site-home-next) main.med-home.hc-home .toolbar-note,
+body.site-home:not(.site-home-next) main.med-home.hc-home .snapshot-note,
+body.site-home:not(.site-home-next) main.med-home.hc-home .rail-count{color:#55677e}
+body.site-home:not(.site-home-next) main.med-home.hc-home .city-filters button[aria-pressed=true]{color:#2455d6}
 
 @media(min-width:761px) and (prefers-reduced-motion:no-preference){
   /* One restrained demonstration, not perpetual competing decorations. */

@@ -1,0 +1,28 @@
+{
+    "specVersion": "1.0",
+    "host": {
+        "displayName": "MedReview.vn",
+        "documentationUrl": "https://medreview.vn/llms.txt"
+    },
+    "entries": [
+        {
+            "identifier": "urn:air:medreview.vn:documentation:website-guide",
+            "displayName": "MedReview public website guide",
+            "type": "text/plain",
+            "url": "https://medreview.vn/llms.txt",
+            "description": "Public navigation guide to MedReview's Vietnamese and English healthcare facility profiles, doctor profiles, reviews, Toplists and health guides. Describes the read-only search_medreview_directory browser WebMCP tool available in supported browsers, profile-verification limitations and sitemap links. Not medical advice or a server MCP endpoint.",
+            "tags": [
+                "healthcare",
+                "vietnam",
+                "documentation",
+                "vietnamese",
+                "english"
+            ],
+            "representativeQueries": [
+                "MedReview có những danh mục nội dung nào?",
+                "Where can I browse Vietnamese and English facility and doctor profiles?",
+                "Nhãn hồ sơ đã xác thực trên MedReview có ý nghĩa và giới hạn gì?"
+            ]
+        }
+    ]
+}
