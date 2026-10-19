@@ -274,14 +274,21 @@ if (!function_exists('medical_media_project_root')) {
     }
 
     /**
-     * Re-encodes an imported image as a progressive JPEG no larger than 100 KB.
-     * A source that cannot reach that limit is rejected instead of leaking a
+     * Re-encodes an imported image as a size-bounded progressive JPEG.
+     * A source that cannot reach the limit is rejected instead of leaking a
      * large original file into the public media library.
      *
+     * $targetBytes defaults to <100 KiB; doctor portrait replacement uses
+     * 149999 so its final branded image is strictly below 150 decimal KB.
      * @return array{ok:bool,url?:string,width?:int,height?:int,size?:int,error?:string}
      */
-    function medical_media_store_compressed_jpeg(string $bytes, string $folder): array
+    function medical_media_store_compressed_jpeg(string $bytes, string $folder, int $targetBytes = 102399): array
     {
+        // Callers can choose a stricter/larger bounded policy without changing
+        // the existing worker/facility default (<100 KiB).
+        if ($targetBytes < 1024 || $targetBytes > 204799) {
+            return ['ok' => false, 'error' => 'Giới hạn dung lượng ảnh phải từ 1 KiB đến dưới 200 KiB.'];
+        }
         $imageInfo = @getimagesizefromstring($bytes);
         if (!is_array($imageInfo)) return ['ok' => false, 'error' => 'Dữ liệu tải về không phải ảnh hợp lệ.'];
         $width = (int) ($imageInfo[0] ?? 0);
@@ -304,7 +311,7 @@ if (!function_exists('medical_media_project_root')) {
         // gallery image. 1,280px is still sharp in the gallery/lightbox and
         // makes the promised <100 KB result practical for a full batch.
         $maxSide = 1280;
-        $targetSize = (100 * 1024) - 1; // Strictly below 100 KB.
+        $targetSize = $targetBytes;
         $minSide = 256;
         $qualitySteps = [80, 68, 56, 44, 34];
         $ratio = min(1, $maxSide / max($width, $height));
@@ -352,7 +359,7 @@ if (!function_exists('medical_media_project_root')) {
             $targetHeight = max(1, (int) round($targetHeight * $scale));
         }
         imagedestroy($source);
-        if ($saved === '') return ['ok' => false, 'error' => 'Không thể nén ảnh xuống dưới 100 KB.'];
+        if ($saved === '') return ['ok' => false, 'error' => 'Không thể nén ảnh xuống giới hạn dung lượng yêu cầu.'];
 
         $destination = medical_media_create_folder($folder);
         if ($destination === null) return ['ok' => false, 'error' => 'Không tạo được folder ảnh.'];
@@ -361,23 +368,38 @@ if (!function_exists('medical_media_project_root')) {
         $target = $destination['path'] . '/' . $filename;
         clearstatcache(true, $target);
         // Replacing a same-source legacy file is important: its previous
-        // compression settings may have allowed it to exceed the new 100 KB
-        // limit. Files already below the limit are safely reused.
-        if (!is_file($target) || (int) (filesize($target) ?: 0) > $targetSize) {
+        // compression settings may have allowed it to exceed the selected
+        // limit. Reuse only a valid JPEG with the expected dimensions.
+        $existingInfo = is_file($target) ? @getimagesize($target) : false;
+        $existingSize = is_file($target) ? (int) (filesize($target) ?: 0) : 0;
+        $reusable = $existingSize > 0 && $existingSize <= $targetSize && is_array($existingInfo)
+            && ($existingInfo[2] ?? 0) === IMAGETYPE_JPEG
+            && (int) $existingInfo[0] === $savedWidth && (int) $existingInfo[1] === $savedHeight;
+        if ($reusable) {
+            $existingImage = @imagecreatefromjpeg($target);
+            $reusable = $existingImage instanceof GdImage;
+            if ($existingImage instanceof GdImage) imagedestroy($existingImage);
+        }
+        if (!$reusable) {
             $temp = $target . '.tmp-' . bin2hex(random_bytes(4));
-            if (@file_put_contents($temp, $saved, LOCK_EX) === false || !@rename($temp, $target)) {
+            if (@file_put_contents($temp, $saved, LOCK_EX) !== strlen($saved) || !@rename($temp, $target)) {
                 @unlink($temp);
                 return ['ok' => false, 'error' => 'Không lưu được ảnh đã nén.'];
             }
             @chmod($target, 0644);
         }
         clearstatcache(true, $target);
+        $finalSize = (int) (filesize($target) ?: 0);
+        $finalInfo = @getimagesize($target);
+        if ($finalSize < 1 || $finalSize > $targetSize || !is_array($finalInfo) || ($finalInfo[2] ?? 0) !== IMAGETYPE_JPEG) {
+            return ['ok' => false, 'error' => 'File ảnh đã lưu không đạt giới hạn dung lượng/định dạng yêu cầu.'];
+        }
         return [
             'ok' => true,
             'url' => $destination['url'] . '/' . $filename,
-            'width' => $savedWidth,
-            'height' => $savedHeight,
-            'size' => (int) (filesize($target) ?: strlen($saved)),
+            'width' => (int) $finalInfo[0],
+            'height' => (int) $finalInfo[1],
+            'size' => $finalSize,
         ];
     }
 

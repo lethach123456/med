@@ -4,6 +4,24 @@ This is the doctor-writing workflow, separate from facility writing and VI→EN 
 Base URL in production: `https://medreview.vn`. Every request requires the existing
 `X-Medical-Api-Key` header. Never send that key or writer tokens to an AI chat.
 
+## Replace a doctor's portrait
+
+`POST /api/medical/doctor-image-replace.php` accepts
+`{"replacements":[{"doctor_id":12,"image_url":"https://example.org/portrait.jpg"}]}`
+(1–50 replacements), or one object with `doctor_id` and `image_url`.
+Each image is downloaded, raster-validated, branded with the MedReview wordmark,
+then compressed synchronously to JPEG **strictly below 150,000 bytes**, with a
+maximum long edge of 1280px and the original aspect ratio retained. No worker is
+required. PNG/JPEG/WebP inputs must be at least 200×200, at most 12 MiB and 12 MP.
+Only the final verified image is published in `uploads/library/doctors/{id}/`.
+On processing failure the doctor's previous image URL stays unchanged; temporary
+source/branded files are removed. Existing portrait files are not deleted.
+
+Successful entries keep `public_url`, `width`, `height` and additionally return
+`size_bytes` (actual final file size) and `original_size_bytes`. The doctor search
+cache is invalidated after successful updates. This does not change the separate
+`doctor-content-update.php` image queue or its worker's existing <100 KiB policy.
+
 ## Database
 
 `medical_doctors` has 50 additive research columns:
