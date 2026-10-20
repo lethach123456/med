@@ -28,7 +28,8 @@ check(page.includes('/assets/css/pages/facility-profile-disclosure.css?v=') && p
 check(!page.includes('<details class="facility-info-disclosure">'), 'Profile is readable by default, not hidden in a closed details element');
 check(page.indexOf('data-facility-profile-content') < page.indexOf('data-facility-read-more'), 'Read-more control follows the readable content');
 const stylesheetLinks = [...page.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)].map(match => match[0]);
-check(stylesheetLinks.at(-2)?.includes('/assets/css/pages/facility-detail-polish.css?v='), 'Polish follows the original layout and profile disclosure stylesheet');
+check(stylesheetLinks.at(-3)?.includes('/assets/css/pages/facility-detail-polish.css?v='), 'Polish follows the original layout and profile disclosure stylesheet');
+check(stylesheetLinks.at(-2)?.includes('/assets/css/pages/facility-hero-gallery.css?v='), 'Count-aware gallery is isolated after polish without changing the original layout file');
 check(stylesheetLinks.at(-1)?.includes('/assets/css/pages/facility-detail-nav.css?v='), 'Mobile reading tabs load last without changing desktop styles');
 const motionStart = page.indexOf('<style id="facility-detail-motion-polish">');
 const motionEnd = page.indexOf('</style>', motionStart);

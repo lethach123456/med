@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_directory.php';
+require_once __DIR__ . '/medical_facility_gallery_view.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 $incomingFacilitySlug = trim((string) ($_GET['slug'] ?? ''));
@@ -1044,10 +1045,11 @@ $facilityMainRatingCaption = match ((string) ($facility['rating_basis'] ?? 'lega
   default => $tr('Điểm lưu trong hồ sơ', 'Rating recorded in this profile'),
 };
 $facilityFollowersLabel = $localizeCountLabel((string) ($facility['followers'] ?? ''), 'lượt quan tâm', 'followers');
-$facilityGalleryCount = count((array) ($facility['gallery'] ?? []));
+$facilityHeroGallery = facility_hero_gallery_view_model((array) ($facility['gallery'] ?? []), (string) ($facility['hero_image'] ?? ''));
+$facilityGalleryCount = $facilityHeroGallery['count'];
 $facilityGalleryLabel = $facilityLanguage === 'en'
   ? $formatFacilityCount($facilityGalleryCount) . ' ' . ($facilityGalleryCount === 1 ? 'photo' : 'photos')
-  : (string) ($facility['images_label'] ?: '25+ ảnh');
+  : $formatFacilityCount($facilityGalleryCount) . ' ảnh';
 if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
   $facilitySchema['aggregateRating'] = [
     '@type' => 'AggregateRating',
@@ -2385,6 +2387,7 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
     </style>
     <link rel="stylesheet" href="/assets/css/pages/facility-profile-disclosure.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-profile-disclosure.css'); ?>">
     <link rel="stylesheet" href="/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>">
+    <link rel="stylesheet" href="/assets/css/pages/facility-hero-gallery.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-hero-gallery.css'); ?>">
     <link rel="stylesheet" href="/assets/css/pages/facility-detail-nav.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-nav.css'); ?>">
   </head>
   <body>
@@ -2431,20 +2434,46 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
 
             </div>
           </div>
-            <div class="hero-gallery">
-              <?php $heroGalleryIndex = array_search((string) $facility['hero_image'], (array) $facility['gallery'], true); $heroGalleryCount = count((array) $facility['gallery']); ?>
-              <button class="hero-image gallery-trigger" type="button" data-hero-gallery-carousel data-gallery-index="<?php echo (int) ($heroGalleryIndex === false ? 0 : $heroGalleryIndex); ?>" aria-roledescription="<?php echo htmlspecialchars($tr('Bộ sưu tập ảnh', 'Photo gallery'), ENT_QUOTES, 'UTF-8'); ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1) . $tr(' trong bộ sưu tập của ', ' in the gallery for ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?>">
-                <img src="<?php echo htmlspecialchars($facility['hero_image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="eager" fetchpriority="high" decoding="async">
-                <span class="view-all"><i data-lucide="images"></i><span class="hero-gallery-count" data-hero-gallery-counter><?php echo (int) (($heroGalleryIndex === false ? 0 : $heroGalleryIndex) + 1); ?> / <?php echo $heroGalleryCount; ?></span><span class="hero-gallery-label"><?php echo htmlspecialchars($tr('Xem tất cả ', 'View all ') . $facilityGalleryLabel, ENT_QUOTES, 'UTF-8'); ?></span><span class="hero-swipe-hint"><?php echo htmlspecialchars($tr('Vuốt để xem', 'Swipe to browse'), ENT_QUOTES, 'UTF-8'); ?></span></span>
-              </button>
-              <div class="thumb-strip">
-                <?php foreach (array_slice($facility['gallery'], 0, 8, true) as $imageIndex => $image): ?>
-                  <button class="thumb gallery-trigger" type="button" data-gallery-index="<?php echo (int) $imageIndex; ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . (int) ($imageIndex + 1) . $tr(' trong bộ sưu tập', ' in the gallery'), ENT_QUOTES, 'UTF-8'); ?>">
-                    <img src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($tr('Ảnh ', 'Photo ') . (int) ($imageIndex + 1) . $tr(' của ', ' of ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy" decoding="async">
+            <!-- Facility hero gallery start -->
+            <div class="hero-gallery" data-gallery-layout="<?php echo $facilityHeroGallery['layout']; ?>" data-gallery-count="<?php echo $facilityGalleryCount; ?>" role="group" aria-label="<?php echo htmlspecialchars($tr('Hình ảnh của ', 'Photos of ') . $facility['name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>">
+              <?php if ($facilityGalleryCount === 0): ?>
+                <div class="hero-gallery-empty">
+                  <i data-lucide="image-off" aria-hidden="true"></i>
+                  <strong><?php echo $tr('Chưa có ảnh cơ sở', 'No facility photos yet'); ?></strong>
+                  <p><?php echo $tr('Hình ảnh sẽ được cập nhật khi có dữ liệu.', 'Photos will be added when available.'); ?></p>
+                </div>
+              <?php else:
+                $heroGalleryIndex = $facilityHeroGallery['hero_index'];
+                $heroGalleryImage = $facilityHeroGallery['hero_image'];
+                $heroGalleryAlt = (string) (($facility['gallery_metadata'][$heroGalleryImage]['alt'] ?? '') ?: ($facility['gallery_metadata'][$heroGalleryImage]['caption'] ?? '') ?: $facility['name']);
+              ?>
+                <div class="hero-gallery-main">
+                  <button class="hero-image gallery-trigger" type="button" data-hero-gallery-carousel data-gallery-index="<?php echo $heroGalleryIndex; ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . ($heroGalleryIndex + 1) . $tr(' trong bộ sưu tập của ', ' in the gallery for ') . $facility['name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>">
+                    <img src="<?php echo htmlspecialchars($heroGalleryImage, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($heroGalleryAlt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" loading="eager" fetchpriority="high" decoding="async">
+                    <span class="view-all"><i data-lucide="images" aria-hidden="true"></i><span class="hero-gallery-count" data-hero-gallery-counter><?php echo ($heroGalleryIndex + 1) . ' / ' . $facilityGalleryCount; ?></span><span class="hero-gallery-label"><?php echo htmlspecialchars(($facilityGalleryCount > 1 ? $tr('Xem tất cả ', 'View all ') . $facilityGalleryLabel : $tr('Xem ảnh', 'View photo')), ENT_QUOTES, 'UTF-8'); ?></span><?php if ($facilityGalleryCount > 1): ?><span class="hero-swipe-hint"><?php echo $tr('Vuốt để xem', 'Swipe to browse'); ?></span><?php endif; ?></span>
                   </button>
-                <?php endforeach; ?>
-              </div>
+                  <?php if ($facilityGalleryCount > 1): ?>
+                    <button class="hero-gallery-nav" type="button" data-hero-gallery-prev aria-label="<?php echo $tr('Ảnh trước', 'Previous photo'); ?>"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+                    <button class="hero-gallery-nav" type="button" data-hero-gallery-next aria-label="<?php echo $tr('Ảnh tiếp theo', 'Next photo'); ?>"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+                  <?php endif; ?>
+                </div>
+                <?php if ($facilityHeroGallery['thumbnails'] !== []): ?>
+                  <div class="thumb-strip">
+                    <?php foreach ($facilityHeroGallery['thumbnails'] as $imageIndex => $image):
+                      $imageAlt = (string) (($facility['gallery_metadata'][$image]['alt'] ?? '') ?: ($facility['gallery_metadata'][$image]['caption'] ?? '') ?: ($tr('Ảnh ', 'Photo ') . ($imageIndex + 1) . $tr(' của ', ' of ') . $facility['name']));
+                      $showMore = $facilityHeroGallery['remaining'] > 0 && $imageIndex === array_key_last($facilityHeroGallery['thumbnails']);
+                    ?>
+                      <button class="thumb gallery-trigger" type="button" data-gallery-index="<?php echo $imageIndex; ?>" aria-label="<?php echo htmlspecialchars($tr('Xem ảnh ', 'View photo ') . ($imageIndex + 1) . ': ' . $imageAlt . ($showMore ? $tr('; còn ', '; plus ') . $facilityHeroGallery['remaining'] . $tr(' ảnh khác', $facilityHeroGallery['remaining'] === 1 ? ' more photo' : ' more photos') : ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>">
+                        <img src="<?php echo htmlspecialchars($image, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($imageAlt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" loading="lazy" decoding="async">
+                        <?php if ($showMore): ?><span class="thumb-more" aria-hidden="true">+<?php echo $formatFacilityCount($facilityHeroGallery['remaining']); ?> <?php echo $tr('ảnh', $facilityHeroGallery['remaining'] === 1 ? 'photo' : 'photos'); ?></span><?php endif; ?>
+                      </button>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+                <span class="hero-gallery-status" data-hero-gallery-status role="status" aria-live="polite" aria-atomic="true"></span>
+              <?php endif; ?>
             </div>
+            <!-- Facility hero gallery end -->
 
         </div>
 
@@ -2744,7 +2773,7 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
         </div>
         <div class="gallery-lightbox__stage" id="facilityGalleryStage">
           <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__prev" type="button" data-gallery-lightbox-prev aria-label="<?php echo htmlspecialchars($tr('Ảnh trước', 'Previous photo'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Ảnh trước (mũi tên trái)', 'Previous photo (left arrow)'), ENT_QUOTES, 'UTF-8'); ?>">&#8249;</button>
-          <img class="gallery-lightbox__image" id="facilityGalleryImage" src="" alt="">
+          <img class="gallery-lightbox__image" id="facilityGalleryImage" alt="">
           <button class="gallery-lightbox__control gallery-lightbox__nav gallery-lightbox__next" type="button" data-gallery-lightbox-next aria-label="<?php echo htmlspecialchars($tr('Ảnh tiếp theo', 'Next photo'), ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($tr('Ảnh tiếp theo (mũi tên phải)', 'Next photo (right arrow)'), ENT_QUOTES, 'UTF-8'); ?>">&#8250;</button>
           <p class="gallery-lightbox__status" id="facilityGalleryStatus" aria-live="polite"></p>
         </div>
@@ -2758,7 +2787,7 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
         window.lucide.createIcons();
       }
       (function () {
-        const gallerySources = <?php echo json_encode(array_values((array) $facility['gallery']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]'; ?>;
+        const gallerySources = <?php echo json_encode($facilityHeroGallery['images'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]'; ?>;
         const galleryMetadata = <?php echo json_encode($facility['gallery_metadata'] ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '{}'; ?>;
         const uiText = <?php echo json_encode([
           'loadingPhoto' => $tr('Đang tải ảnh…', 'Loading photo…'),
@@ -2785,6 +2814,9 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
         const heroGalleryTrigger = document.querySelector('[data-hero-gallery-carousel]');
         const heroGalleryImage = heroGalleryTrigger?.querySelector('img');
         const heroGalleryCounter = heroGalleryTrigger?.querySelector('[data-hero-gallery-counter]');
+        const heroGalleryPrevious = document.querySelector('[data-hero-gallery-prev]');
+        const heroGalleryNext = document.querySelector('[data-hero-gallery-next]');
+        const heroGalleryStatus = document.querySelector('[data-hero-gallery-status]');
         const galleryThumbs = Array.from(document.querySelectorAll('.thumb.gallery-trigger[data-gallery-index]'));
         const lightbox = document.getElementById('facilityGalleryLightbox');
         const lightboxImage = document.getElementById('facilityGalleryImage');
@@ -2803,47 +2835,73 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
         let heroSwipeStart = null;
         let heroSwipeSuppressClick = false;
         let heroImageRequest = 0;
+        let heroGalleryRequestedIndex = heroGalleryIndex;
 
         const galleryReady = lightbox && lightboxImage && lightboxCounter && lightboxStatus && gallerySources.length > 0;
         const galleryIsOpen = () => galleryReady && lightbox.classList.contains('is-open');
         const normalizeGalleryIndex = (index) => ((index % gallerySources.length) + gallerySources.length) % gallerySources.length;
 
+        // Facility hero gallery functions.
+        function updateHeroGalleryUI(shouldRevealThumb = false) {
+          if (!heroGalleryTrigger || !heroGalleryImage || gallerySources.length === 0) return;
+          const metadata = galleryMetadata[gallerySources[heroGalleryIndex]] || {};
+          heroGalleryImage.alt = metadata.alt || metadata.caption || (metadata.angle ? `${metadata.angle} — ${galleryName}` : `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoOf}${galleryName}`);
+          heroGalleryTrigger.dataset.galleryIndex = String(heroGalleryIndex);
+          heroGalleryTrigger.setAttribute('aria-label', `${uiText.viewPhoto}${heroGalleryIndex + 1}${uiText.photoInCollection}${galleryName}`);
+          if (heroGalleryCounter) heroGalleryCounter.textContent = `${heroGalleryIndex + 1} / ${gallerySources.length}`;
+          galleryThumbs.forEach((thumb) => {
+            const isActive = Number(thumb.dataset.galleryIndex || 0) === heroGalleryIndex;
+            thumb.classList.toggle('is-active', isActive);
+            thumb.setAttribute('aria-current', isActive ? 'true' : 'false');
+          });
+        }
+
         function syncHeroGallery(index, shouldRevealThumb = false) {
           if (!heroGalleryTrigger || !heroGalleryImage || gallerySources.length === 0) return;
-          heroGalleryIndex = normalizeGalleryIndex(index);
+          const nextIndex = normalizeGalleryIndex(index);
+          heroGalleryRequestedIndex = nextIndex;
           const requestId = ++heroImageRequest;
-          const source = gallerySources[heroGalleryIndex];
+          if (heroGalleryStatus) heroGalleryStatus.textContent = '';
+          // Returning to the displayed cover cancels a pending change without
+          // downloading the same photo or flashing the already-visible image.
+          if (nextIndex === heroGalleryIndex) {
+            heroGalleryTrigger.classList.remove('is-changing');
+            heroGalleryTrigger.setAttribute('aria-busy', 'false');
+            updateHeroGalleryUI(shouldRevealThumb);
+            return;
+          }
+          const source = gallerySources[nextIndex];
           const preload = new Image();
           heroGalleryTrigger.classList.add('is-changing');
-          preload.onload = () => {
+          heroGalleryTrigger.setAttribute('aria-busy', 'true');
+          preload.onload = async () => {
+            try { await preload.decode(); } catch (_) {}
             if (requestId !== heroImageRequest) return;
+            heroGalleryIndex = nextIndex;
             heroGalleryImage.src = source;
-            heroGalleryImage.alt = `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoOf}${galleryName}`;
-            heroGalleryTrigger.dataset.galleryIndex = String(heroGalleryIndex);
-            heroGalleryTrigger.setAttribute('aria-label', `${uiText.viewPhoto}${heroGalleryIndex + 1}${uiText.photoInCollection}${galleryName}`);
-            if (heroGalleryCounter) heroGalleryCounter.textContent = `${heroGalleryIndex + 1} / ${gallerySources.length}`;
-            galleryThumbs.forEach((thumb) => {
-              const isActive = Number(thumb.dataset.galleryIndex || 0) === heroGalleryIndex;
-              thumb.classList.toggle('is-active', isActive);
-              thumb.setAttribute('aria-current', isActive ? 'true' : 'false');
-              if (isActive && shouldRevealThumb && window.matchMedia('(max-width: 767px)').matches) {
-                thumb.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
-              }
-            });
+            heroGalleryTrigger.setAttribute('aria-busy', 'false');
+            if (heroGalleryStatus) heroGalleryStatus.textContent = `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoInGallery}${gallerySources.length}`;
+            updateHeroGalleryUI(shouldRevealThumb);
             window.setTimeout(() => {
               if (requestId === heroImageRequest) heroGalleryTrigger.classList.remove('is-changing');
-            }, 180);
+            }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
           };
           preload.onerror = () => {
-            if (requestId === heroImageRequest) heroGalleryTrigger.classList.remove('is-changing');
+            if (requestId !== heroImageRequest) return;
+            heroGalleryTrigger.classList.remove('is-changing');
+            heroGalleryTrigger.setAttribute('aria-busy', 'false');
+            if (heroGalleryStatus) heroGalleryStatus.textContent = uiText.photoLoadFailed;
           };
           preload.src = source;
         }
 
         function moveHeroGallery(direction) {
           if (gallerySources.length < 2) return;
-          syncHeroGallery(heroGalleryIndex + direction, true);
+          // Rapid input can advance beyond a pending/failed photo, while the
+          // committed image, counter and lightbox target stay unchanged.
+          syncHeroGallery(heroGalleryRequestedIndex + direction, true);
         }
+        // End facility hero gallery functions.
 
         function updateGalleryControls() {
           if (!galleryReady) return;
@@ -2968,8 +3026,33 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
           }
         }
 
+        // Facility hero gallery navigation.
+        [heroGalleryPrevious, heroGalleryNext].forEach((control) => {
+          if (control) control.disabled = gallerySources.length < 2;
+        });
+        if (heroGalleryTrigger && heroGalleryImage && gallerySources.length > 0) {
+          heroGalleryIndex = normalizeGalleryIndex(heroGalleryIndex);
+          heroGalleryRequestedIndex = heroGalleryIndex;
+          updateHeroGalleryUI();
+          heroGalleryPrevious?.addEventListener('click', () => moveHeroGallery(-1));
+          heroGalleryNext?.addEventListener('click', () => moveHeroGallery(1));
+          [heroGalleryTrigger, heroGalleryPrevious, heroGalleryNext].forEach((control) => {
+            control?.addEventListener('keydown', (event) => {
+              if (galleryIsOpen() || gallerySources.length < 2 || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+              event.preventDefault();
+              moveHeroGallery(event.key === 'ArrowLeft' ? -1 : 1);
+            });
+          });
+          heroGalleryImage.addEventListener('error', () => {
+            if (heroGalleryStatus) heroGalleryStatus.textContent = uiText.photoLoadFailed;
+          });
+          if (heroGalleryImage.complete && heroGalleryImage.naturalWidth === 0 && heroGalleryStatus) {
+            heroGalleryStatus.textContent = uiText.photoLoadFailed;
+          }
+        }
+        // End facility hero gallery navigation.
+
         if (galleryReady) {
-          syncHeroGallery(heroGalleryIndex, false);
           galleryTriggers.forEach((trigger) => {
             trigger.addEventListener('click', (event) => {
               if (trigger === heroGalleryTrigger && heroSwipeSuppressClick) {
