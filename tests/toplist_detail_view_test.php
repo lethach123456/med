@@ -77,7 +77,7 @@ $badNames=toplist_detail_test_render([array_replace($rows[0],['name'=>'<script>e
 $assert(!str_contains($badNames,'<script>evil') && !str_contains($badNames,'<script>bad()') && str_contains($badNames,'\\u003C'), 'Identity and embedded gallery JSON are escaped');
 $css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/toplist-doctors.css');
 $js=(string)file_get_contents(dirname(__DIR__).'/assets/js/toplist-doctor-detail.js');
-$assert(str_contains($css,'1320px') && str_contains($css,'calc(100% - 16px)') && str_contains($css,'max-width:none!important'), 'Shared desktop width, narrow mobile gutters and full-width paragraphs');
+$assert(str_contains($css,'1320px') && str_contains($css,'calc(100% - 16px)') && str_contains($css,'max-width:72ch') && !str_contains($css,'max-width:none!important'), 'Shared desktop width, narrow mobile gutters and a readable prose measure');
 $assert(str_contains($css,'background:transparent') && str_contains($css,'backdrop-filter:blur(24px)'), 'Lightbox is just the image over a blurred page');
 $assert(str_contains($css,':focus-visible') && str_contains($css,'prefers-reduced-motion:reduce') && str_contains($js,'current !== token'), 'Focus, reduced motion and stale image loading safety');
 echo "Toplist detail: {$checks} checks passed. No database or network used.\n";

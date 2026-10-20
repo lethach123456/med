@@ -35,6 +35,7 @@ foreach ($tdMembers as $index=>$member) {
   <script src="/assets/js/toplist-doctor-detail.js?v=<?= filemtime(__DIR__ . '/../assets/js/toplist-doctor-detail.js') ?>" defer></script>
 </head>
 <body class="doctor-toplist-page">
+<a class="td-skip-link" href="#td-main"><?= $tdEscape($tdLabels['skip']) ?></a>
 <?php include __DIR__ . '/header.php'; ?>
 <?php require __DIR__ . '/toplist-doctor-detail-content.php'; ?>
 <?php include __DIR__ . '/footer.php'; ?>

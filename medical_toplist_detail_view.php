@@ -7,6 +7,11 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
     $labels = $locale === 'en' ? [
         'home'=>'Home', 'article'=>'Doctor Toplist', 'count'=>'doctors', 'list'=>'Doctors in this list',
         'updated'=>'Updated', 'intro'=>'About this list', 'compare'=>'Quick comparison', 'toc'=>'Contents',
+        'jumpList'=>'Explore the doctors', 'guide'=>'In this article', 'overview'=>'Profiles in this list',
+        'overviewCopy'=>'Review the available profile information and confirm details directly with the provider.',
+        'comparisonToggle'=>'View comparison', 'morePhotos'=>'more photos',
+        'sideNoteTitle'=>'Before choosing', 'sideNote'=>'This list is for reference. Confirm specialties, fees and availability directly before choosing a provider.',
+        'skip'=>'Skip to article',
         'compareCopy'=>'Compare specialties, practice locations and available consultation fees before opening each profile.',
         'name'=>'Doctor', 'specialty'=>'Specialty', 'workplace'=>'Practice location', 'city'=>'City', 'category'=>'Provider type',
         'price'=>'Reference fee', 'rating'=>'Reviews', 'noReviews'=>'No reviews yet', 'reviews'=>'reviews',
@@ -20,6 +25,11 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
     ] : [
         'home'=>'Trang chủ', 'article'=>'Toplist bác sĩ', 'count'=>'bác sĩ', 'list'=>'Bác sĩ trong danh sách',
         'updated'=>'Cập nhật', 'intro'=>'Giới thiệu danh sách', 'compare'=>'So sánh nhanh', 'toc'=>'Mục lục',
+        'jumpList'=>'Xem danh sách bác sĩ', 'guide'=>'Trong bài viết này', 'overview'=>'Hồ sơ trong danh sách',
+        'overviewCopy'=>'Xem thông tin trong từng hồ sơ và đối chiếu trực tiếp với nơi khám trước khi lựa chọn.',
+        'comparisonToggle'=>'Xem thông tin so sánh', 'morePhotos'=>'ảnh khác',
+        'sideNoteTitle'=>'Lưu ý khi tham khảo', 'sideNote'=>'Danh sách mang tính tham khảo. Hãy xác nhận chuyên môn, chi phí và lịch khám trực tiếp trước khi lựa chọn.',
+        'skip'=>'Đến nội dung bài viết',
         'compareCopy'=>'Đối chiếu chuyên khoa, nơi công tác và chi phí tham khảo trước khi xem hồ sơ chi tiết.',
         'name'=>'Bác sĩ', 'specialty'=>'Chuyên khoa', 'workplace'=>'Nơi công tác', 'city'=>'Thành phố', 'category'=>'Nhóm cơ sở',
         'price'=>'Chi phí tham khảo', 'rating'=>'Đánh giá', 'noReviews'=>'Chưa có đánh giá', 'reviews'=>'đánh giá',
@@ -36,6 +46,7 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
         $labels['count'] = $locale === 'en' ? 'providers' : 'hồ sơ';
         $labels['name'] = $locale === 'en' ? 'Provider' : 'Hồ sơ';
         $labels['list'] = $locale === 'en' ? 'Facilities & doctors in this list' : 'Cơ sở y tế & bác sĩ trong danh sách';
+        $labels['jumpList'] = $locale === 'en' ? 'Explore the list' : 'Xem danh sách';
         $labels['empty'] = $locale === 'en' ? 'Provider profiles are being added to this list.' : 'Danh sách đang được bổ sung cơ sở y tế và bác sĩ.';
     }
     return $labels;
@@ -164,6 +175,12 @@ function medical_toplist_detail_icon(string $name): string
         'person' => '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
         'check' => '<path d="m5 12 4 4L19 6"/>', 'photo' => '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 18 6-6 4 4 4-5 4 5"/>',
         'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
+        'chevron' => '<path d="m6 9 6 6 6-6"/>',
+        'building' => '<path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 21v-4h6v4M9 7h.01M15 7h.01M9 11h.01M15 11h.01"/>',
+        'pin' => '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+        'phone' => '<path d="m5 3 4 1 1 5-3 2a16 16 0 0 0 6 6l2-3 5 1 1 4a2 2 0 0 1-2 2A18 18 0 0 1 3 5a2 2 0 0 1 2-2Z"/>',
+        'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a18 18 0 0 1 0 18 18 18 0 0 1 0-18Z"/>',
+        'specialty' => '<path d="M5 3v5a5 5 0 0 0 10 0V3M3 3h4M13 3h4M10 13v3a5 5 0 0 0 10 0v-1"/><circle cx="20" cy="12" r="3"/>',
     ];
     return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' . ($paths[$name] ?? $paths['info']) . '</svg>';
 }
