@@ -128,6 +128,7 @@ $contactScriptVersion = (string) filemtime(dirname(__DIR__) . '/assets/js/contac
     <title><?php echo $contactEscape($contactTitle); ?></title>
     <meta name="description" content="<?php echo $contactEscape($contactDescription); ?>">
     <link rel="canonical" href="<?php echo $contactEscape(site_absolute_url($contactPath)); ?>">
+    <?php echo site_social_meta_tags(['title' => $contactTitle, 'description' => $contactDescription, 'url' => $contactPath, 'type' => 'website']); ?>
     <link rel="alternate" hreflang="vi" href="<?php echo $contactEscape(site_absolute_url(front_editor_page_public_path('contact'))); ?>">
     <link rel="alternate" hreflang="en" href="<?php echo $contactEscape(site_absolute_url(front_editor_page_public_path('contact-en'))); ?>">
     <link rel="alternate" hreflang="x-default" href="<?php echo $contactEscape(site_absolute_url(front_editor_page_public_path('contact'))); ?>">

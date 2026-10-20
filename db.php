@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/site_social_metadata.php';
+
 /**
  * Loads machine-specific database details when present.
  *

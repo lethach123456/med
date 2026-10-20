@@ -1074,17 +1074,14 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
       <link rel="alternate" hreflang="vi" href="<?php echo htmlspecialchars(site_absolute_url((string) $facilityLanguageLinks['vi']), ENT_QUOTES, 'UTF-8'); ?>">
       <link rel="alternate" hreflang="en" href="<?php echo htmlspecialchars(site_absolute_url((string) $facilityLanguageLinks['en']), ENT_QUOTES, 'UTF-8'); ?>">
     <?php endif; ?>
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:url" content="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($seoImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($seoImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php if (!$facilityNotFound): ?><?php echo site_social_meta_tags([
+      'title' => $title, 'description' => $description, 'url' => $canonicalUrl, 'type' => 'website',
+      'image' => $seoImage,
+      'image_alt' => (string) (($facility['gallery_metadata'][$seoImage]['alt'] ?? '')
+        ?: ($facility['gallery_metadata'][$seoImage]['caption'] ?? '') ?: $facility['name']),
+    ]); ?><?php endif; ?>
     <?php if (!$facilityNotFound): ?><?php echo site_json_ld($facilitySchema); ?><?php endif; ?>
     <?php if (!$facilityNotFound): ?><?php echo site_json_ld($facilityBreadcrumbSchema); ?><?php endif; ?>
-    <meta name="twitter:card" content="<?php echo $seoImage !== '' ? 'summary_large_image' : 'summary'; ?>">
-    <meta name="twitter:title" content="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="twitter:description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($seoImageAbsolute !== ''): ?><meta name="twitter:image" content="<?php echo htmlspecialchars($seoImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

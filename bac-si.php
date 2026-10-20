@@ -95,6 +95,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <meta name="description" content="<?php echo $escape($description); ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
+  <?php echo site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']); ?>
   <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">
   <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/bac-si.php', 'en'))); ?>">
   <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">

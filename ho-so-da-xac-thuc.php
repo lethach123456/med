@@ -35,6 +35,7 @@ $faq = [
     <title><?php echo $esc($title . ' | MedReview'); ?></title>
     <meta name="description" content="<?php echo $esc($description); ?>">
     <link rel="canonical" href="<?php echo $esc(site_absolute_url($path)); ?>">
+    <?php echo site_social_meta_tags(['title' => $title . ' | MedReview', 'description' => $description, 'url' => $path, 'type' => 'website']); ?>
     <link rel="alternate" hreflang="vi" href="<?php echo $esc(site_absolute_url('/ho-so-da-xac-thuc')); ?>">
     <link rel="alternate" hreflang="en" href="<?php echo $esc(site_absolute_url('/en/ho-so-da-xac-thuc')); ?>">
     <link rel="alternate" hreflang="x-default" href="<?php echo $esc(site_absolute_url('/ho-so-da-xac-thuc')); ?>">

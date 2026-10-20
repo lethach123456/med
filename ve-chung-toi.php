@@ -137,6 +137,7 @@ $aboutScriptVersion = (string) filemtime(__DIR__ . '/assets/js/about-medreview.j
     <title><?php echo $aboutEscape($aboutTitle); ?></title>
     <meta name="description" content="<?php echo $aboutEscape($aboutDescription); ?>">
     <link rel="canonical" href="<?php echo $aboutEscape(site_absolute_url($aboutCanonicalPath)); ?>">
+    <?php echo site_social_meta_tags(['title' => $aboutTitle, 'description' => $aboutDescription, 'url' => $aboutCanonicalPath, 'type' => 'website']); ?>
     <link rel="alternate" hreflang="vi" href="<?php echo $aboutEscape(site_absolute_url('/ve-chung-toi.php')); ?>">
     <link rel="alternate" hreflang="en" href="<?php echo $aboutEscape(site_absolute_url(site_localized_path('/ve-chung-toi.php', 'en'))); ?>">
     <link rel="alternate" hreflang="x-default" href="<?php echo $aboutEscape(site_absolute_url('/ve-chung-toi.php')); ?>">

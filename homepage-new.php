@@ -27,6 +27,7 @@ header('X-Robots-Tag: noindex, follow');
   <meta name="description" content="<?= home_next_escape($homeNextCopy['heroCopy']) ?>">
   <meta name="robots" content="noindex,follow">
   <link rel="canonical" href="<?= home_next_escape(site_absolute_url(site_localized_path('/', $locale))) ?>">
+  <?= site_social_meta_tags(['title' => $homeNextCopy['pageTitle'], 'description' => $homeNextCopy['heroCopy'], 'url' => site_localized_path('/', $locale), 'type' => 'website', 'image' => $heroImage, 'image_alt' => $homeNextCopy['pageTitle']]) ?>
   <link rel="preload" as="image" href="<?= home_next_escape($heroImage) ?>" fetchpriority="high">
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <script src="/assets/js/home-next.js?v=<?= home_next_escape($homeNextJsVersion) ?>" defer></script>

@@ -78,6 +78,7 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
   <meta name="description" content="<?= toplist_view_escape($seoDescription) ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= toplist_view_escape($seoKeywords) ?>"><?php endif; ?>
   <link rel="canonical" href="<?= toplist_view_escape(site_absolute_url($seoCanonical)) ?>">
+  <?= site_social_meta_tags(['title' => $seoTitle, 'description' => $seoDescription, 'url' => $seoCanonical, 'type' => 'website']) ?>
   <?php if ($toplistPaging['page'] === 1): // Translations can have different counts; do not invent an equivalent page N. ?>
   <link rel="alternate" hreflang="vi" href="<?= toplist_view_escape(site_absolute_url(medical_public_toplist_path())) ?>">
   <link rel="alternate" hreflang="en" href="<?= toplist_view_escape(site_absolute_url(site_localized_path(medical_public_toplist_path(), 'en'))) ?>">

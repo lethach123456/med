@@ -35,6 +35,7 @@ $handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
   <meta name="description" content="<?= handbook_view_escape($handbookCopy['seoDescription']) ?>">
   <?php if ($handbookNoindex): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
   <link rel="canonical" href="<?= handbook_view_escape(site_absolute_url($handbookCanonical)) ?>">
+  <?= site_social_meta_tags(['title' => $handbookTitle, 'description' => $handbookCopy['seoDescription'], 'url' => $handbookCanonical, 'type' => 'website']) ?>
   <?php if (!$handbookNoindex && $handbookPaging['page'] === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?= handbook_view_escape(site_absolute_url(handbook_view_path('vi'))) ?>">
   <link rel="alternate" hreflang="en" href="<?= handbook_view_escape(site_absolute_url(handbook_view_path('en'))) ?>">

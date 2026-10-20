@@ -154,7 +154,7 @@ function money_vnd_text(?int $value, ?string $text): string {
     <?php if ($pageDescription !== ''): ?><meta name="description" content="<?php echo htmlspecialchars($pageDescription, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if ($canonicalPath !== ''): ?><link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <?php if ($isDetail && $detail): ?><meta property="og:type" content="product"><meta property="og:title" content="<?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($pageDescription, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:url" content="<?php echo htmlspecialchars(site_absolute_url($canonicalPath), ENT_QUOTES, 'UTF-8'); ?>"><?php if ($detailImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($detailImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?><?php endif; ?>
+    <?php if ((!$isDetail || $detail) && $canonicalPath !== ''): ?><?php echo site_social_meta_tags(['title' => $pageTitle, 'description' => $pageDescription, 'url' => $canonicalPath, 'type' => 'website', 'image' => $detailImageAbsolute, 'image_alt' => $isDetail ? (string) ($detail['name'] ?? '') : $pageTitle]); ?><?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

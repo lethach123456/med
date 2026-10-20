@@ -139,14 +139,10 @@ if ($isIndexableArticle) {
     }
 }
 $articleSchema = [];
+$articleModified = '';
 if ($isIndexableArticle) {
     $articleCanonicalUrl = site_absolute_url($articleCanonicalPath);
-    $articleModified = '';
-    try {
-        $articleModified = (new DateTimeImmutable((string) ($post['updated_at'] ?? '')))->format(DATE_ATOM);
-    } catch (Throwable $e) {
-        $articleModified = '';
-    }
+    $articleModified = site_social_datetime($post['updated_at'] ?? '');
     $articleSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'Article',
@@ -255,8 +251,11 @@ if (!$post) {
     <?php if (!$isIndexableArticle): ?><meta name="robots" content="noindex,follow"><?php else: ?>
     <meta name="description" content="<?php echo htmlspecialchars($seoDescription, ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($articleCanonicalPath), ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:type" content="article"><meta property="og:title" content="<?php echo htmlspecialchars($seoTitle, ENT_QUOTES, 'UTF-8'); ?>"><meta property="og:description" content="<?php echo htmlspecialchars($seoDescription, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($featuredImageAbsolute !== ''): ?><meta property="og:image" content="<?php echo htmlspecialchars($featuredImageAbsolute, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php echo site_social_meta_tags([
+        'title' => $seoTitle, 'description' => $seoDescription, 'url' => $articleCanonicalPath, 'type' => 'article',
+        'image' => $featured, 'image_alt' => $title,
+        'modified_time' => $articleModified, 'section' => $categoryName,
+    ]); ?>
     <?php echo site_json_ld($articleSchema); ?>
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">

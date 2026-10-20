@@ -6,6 +6,13 @@
 <meta name="description" content="<?= review_view_escape($description) ?>">
 <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= review_view_escape($seoKeywords) ?>"><?php endif; ?>
 <link rel="canonical" href="<?= review_view_escape(site_absolute_url($canonicalPath)) ?>">
+<?= site_social_meta_tags([
+    'title' => $title, 'description' => $description, 'url' => $canonicalPath,
+    'type' => !empty($reviewDirectoryScript) ? 'website' : 'article',
+    'image' => !empty($reviewDirectoryScript) ? '' : (string) ($review['media'][0]['url'] ?? ''),
+    'image_alt' => !empty($reviewDirectoryScript) ? '' : (string) ($review['media'][0]['alt'] ?? $review['title'] ?? ''),
+    'section' => !empty($reviewDirectoryScript) ? '' : ($locale === 'en' ? 'Healthcare experiences' : 'Trải nghiệm y tế'),
+]) ?>
 <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
 <link rel="stylesheet" href="/assets/css/pages/review-common.css?v=<?= filemtime(__DIR__ . '/../assets/css/pages/review-common.css') ?>">
 <link rel="stylesheet" href="/assets/css/pages/<?= review_view_escape($reviewStylesheet) ?>?v=<?= filemtime(__DIR__ . '/../assets/css/pages/' . $reviewStylesheet) ?>">

@@ -23,9 +23,12 @@ foreach ($tdMembers as $index=>$member) {
   <?php if (!empty($toplistLanguageLinks['has_counterpart'])): foreach (['vi','en'] as $language): ?>
     <link rel="alternate" hreflang="<?= $language ?>" href="<?= $tdEscape(site_absolute_url($toplistLanguageLinks[$language])) ?>">
   <?php endforeach; endif; ?>
-  <meta property="og:type" content="article"><meta property="og:title" content="<?= $tdEscape($title) ?>">
-  <meta property="og:description" content="<?= $tdEscape($description) ?>"><meta property="og:url" content="<?= $tdEscape($canonicalUrl) ?>">
-  <?php if ($heroImage !== ''): ?><meta property="og:image" content="<?= $tdEscape($heroImage) ?>"><?php endif; ?>
+  <?= site_social_meta_tags([
+      'title' => $title, 'description' => $description, 'url' => $canonicalUrl, 'type' => 'article',
+      'image' => $heroImage, 'image_alt' => $heroImageAlt,
+      'modified_time' => (string) ($toplist['updated_at'] ?? ''),
+      'section' => 'Toplist',
+  ]) ?>
   <?= site_favicon_tags() ?><?= site_json_ld($toplistSchema) ?><?= site_json_ld($tdSchema) ?>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">
   <link rel="stylesheet" href="/assets/css/pages/toplist-doctors.css?v=<?= filemtime(__DIR__ . '/../assets/css/pages/toplist-doctors.css') ?>">

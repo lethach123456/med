@@ -88,12 +88,10 @@ $escape = static fn(mixed $value): string => htmlspecialchars(medical_doctor_pro
   <link rel="alternate" hreflang="en" href="<?= $escape(site_absolute_url($doctorLanguageLinks['en'])) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= $escape(site_absolute_url($doctorLanguageLinks['vi'])) ?>">
   <?php endif; ?>
-  <meta property="og:type" content="profile">
-  <meta property="og:title" content="<?= $escape($title) ?>">
-  <meta property="og:description" content="<?= $escape($description) ?>">
-  <meta property="og:url" content="<?= $escape($canonical) ?>">
-  <?php if ($imageAbsolute !== ''): ?><meta property="og:image" content="<?= $escape($imageAbsolute) ?>"><?php endif; ?>
-  <meta name="twitter:card" content="<?= $imageAbsolute !== '' ? 'summary_large_image' : 'summary' ?>">
+  <?= site_social_meta_tags([
+      'title' => $title, 'description' => $description, 'url' => $canonical, 'type' => 'profile',
+      'image' => $profile['image_url'], 'image_alt' => (string) $doctor['name'],
+  ]) ?>
   <?= site_favicon_tags() ?><?= site_json_ld($schema) ?><?= site_json_ld($breadcrumbSchema) ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
