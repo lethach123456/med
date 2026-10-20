@@ -278,8 +278,8 @@ if (!function_exists('medical_media_project_root')) {
      * A source that cannot reach the limit is rejected instead of leaking a
      * large original file into the public media library.
      *
-     * $targetBytes defaults to <100 KiB; doctor portrait replacement uses
-     * 149999 so its final branded image is strictly below 150 decimal KB.
+     * $targetBytes defaults to <100 KiB; facility/doctor replacements use
+     * 149999 so their final branded images are strictly below 150 decimal KB.
      * @return array{ok:bool,url?:string,width?:int,height?:int,size?:int,error?:string}
      */
     function medical_media_store_compressed_jpeg(string $bytes, string $folder, int $targetBytes = 102399): array

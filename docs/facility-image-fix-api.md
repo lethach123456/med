@@ -21,6 +21,25 @@ Request sẽ lâu hơn trước tùy số ảnh và tốc độ nguồn; tiện 
 
 ## Các cổng
 
+### Thay trực tiếp một ảnh cơ sở
+
+`POST /api/medical/facility-image-replace.php` nhận một object
+`{"facility_id":221,"image_url":"https://example.org/photo.jpg","gallery_index":0}`
+hoặc `{"replacements":[...]}` (1–50 ảnh). Cần `X-Medical-Api-Key`.
+API tải PNG/JPEG/WebP thật (tối thiểu 200×200, tối đa 12 MiB/12 megapixel),
+gắn wordmark rồi nén đồng bộ thành JPEG **dưới 150.000 bytes**, cạnh dài tối đa
+1280px, giữ tỷ lệ. Chỉ cập nhật DB sau khi file cuối đã giải mã và kiểm tra dung
+lượng thành công; không chờ worker. Lỗi xử lý ảnh giữ nguyên URL/DB cũ.
+
+Kết quả giữ `public_url`, `width`, `height` và thêm `size_bytes`,
+`original_size_bytes`. `gallery_index=0` thay cả ảnh bìa; các vị trí khác chỉ thay
+ảnh tương ứng trong gallery. Caption và metadata gallery hiện có được giữ lại.
+Ảnh cũ không bị xóa; file nguồn và file trung gian được dọn sau xử lý. Sau lượt
+có ảnh lưu thành công, cache tìm kiếm được đánh dấu stale để lấy ảnh mới.
+Luồng Fix ảnh bên dưới và mặc định nén dưới 100 KiB của worker không thay đổi.
+
+### Hàng đợi và kết quả Fix ảnh
+
 Mọi request cần header `X-Medical-Api-Key` hiện có. Tiện ích gọi API trong background
 service worker với host permission MedReview; không đưa API key/claim token vào AI.
 
