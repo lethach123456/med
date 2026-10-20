@@ -87,6 +87,36 @@ $one = static function (DOMXPath $xpath, string $query, ?DOMNode $context = null
 $count = static function (DOMXPath $xpath, string $query, ?DOMNode $context = null): int {
     return $xpath->query($query, $context)->length;
 };
+$assertPreview = static function (DOMXPath $xpath, array $members, array $labels, string $context) use ($assert, $one, $count): void {
+    $previews = $xpath->query('//ol[' . td_readability_class('td-summary-preview') . ']');
+    $assert($previews->length === ($members === [] ? 0 : 1), $context . 'hero preview is one native list only when profiles exist');
+    if ($members === []) return;
+    $preview = $previews->item(0);
+    $assert($preview->getAttribute('aria-label') === $labels['preview'], $context . 'hero preview has a localized accessible name');
+    $items = $xpath->query('./li', $preview);
+    $assert($items->length === min(3, count($members)), $context . 'hero previews only the first three actual profiles');
+    foreach ($items as $index => $item) {
+        $member = $members[$index];
+        $rank = $member['rank'];
+        $assert($item->getAttribute('value') === (string) $rank, $context . 'preview native rank follows the resolved stored rank');
+        $link = $one($xpath, './a', $item);
+        $assert($link instanceof DOMElement && $link->getAttribute('href') === '#rank-' . $rank && $count($xpath, './a', $item) === 1, $context . 'preview has one direct jump link to its actual member');
+        $rankLabel = $one($xpath, './span[' . td_readability_class('td-preview-rank') . ']', $link);
+        $assert($rankLabel instanceof DOMElement && $rankLabel->getAttribute('aria-hidden') === 'true' && $rankLabel->textContent === str_pad((string) $rank, 2, '0', STR_PAD_LEFT), $context . 'visual preview rank is accurate and decorative');
+        $copy = $one($xpath, './span[' . td_readability_class('td-preview-copy') . ']', $link);
+        $assert($copy !== null, $context . 'preview groups its full name and specialty as one readable unit');
+        $name = $one($xpath, './span[' . td_readability_class('td-preview-name') . ']', $copy);
+        $assert($name !== null && $name->textContent === $member['name'], $context . 'preview preserves the full actual provider name');
+        $specialties = $xpath->query('./small', $copy);
+        $assert($specialties->length === ($member['specialty'] !== '' ? 1 : 0), $context . 'preview only shows specialty when present in data');
+        if ($member['specialty'] !== '') {
+            $assert($specialties->item(0)->textContent === $member['specialty'], $context . 'preview specialty is not rewritten or invented');
+        }
+        $targetLink = $one($xpath, '//article[@id="rank-' . $rank . '"]//h2[@id="tdMember' . $rank . '"]/a');
+        $assert($targetLink instanceof DOMElement && $targetLink->getAttribute('href') === $member['profile_url'], $context . 'preview target retains the correct localized doctor or facility route');
+    }
+    $assert($count($xpath, './/*[' . td_readability_class('td-rating') . ' or ' . td_readability_class('td-verified') . ']', $preview) === 0, $context . 'quick previews do not invent rating or verification badges');
+};
 
 foreach (['vi', 'en'] as $locale) {
     $labels = medical_toplist_detail_labels($locale, false);
@@ -133,6 +163,17 @@ foreach (['vi', 'en'] as $locale) {
         foreach ($avatarNodes as $avatar) {
             $assert(in_array($avatar->getAttribute('src'), $knownImages, true), $context . 'preview portrait comes from actual member data');
         }
+        $assertPreview($xpath, $members, $labels, $context);
+
+        $introHeading = $one($xpath, '//h2[@id="tdIntroHeading"]');
+        $assert($introHeading !== null && trim($introHeading->textContent) === $labels['intro'], $context . 'intro heading keeps its readable localized text');
+        $assert($count($xpath, './span[' . td_readability_class('td-section-icon') . ' and @aria-hidden="true"]/svg[@aria-hidden="true"]', $introHeading) === 1, $context . 'intro title icon is decorative rather than a second accessible label');
+        $headingCopy = $one($xpath, '//*[@id="toplist-members"]/*[' . td_readability_class('td-heading-copy') . ']');
+        $listHeading = $one($xpath, './h2', $headingCopy);
+        $assert($listHeading !== null && trim($listHeading->textContent) === $labels['list'], $context . 'list heading remains semantic and localized inside its new wrapper');
+        $listCopy = $xpath->query('./p[' . td_readability_class('td-section-copy') . ']', $headingCopy);
+        $assert($listCopy->length === ($memberCount > 0 ? 1 : 0), $context . 'list helper copy only accompanies real profiles');
+        if ($memberCount > 0) $assert($listCopy->item(0)->textContent === $labels['listCopy'], $context . 'list helper copy is localized');
 
         if ($memberCount === 0) {
             $assert(str_contains($html, $labels['empty']), $context . 'honest empty-state text');
@@ -150,6 +191,9 @@ foreach (['vi', 'en'] as $locale) {
         $assert($count($xpath, '//details[' . td_readability_class('td-mobile-toc') . ']//nav[' . td_readability_class('td-toc') . ']//a[starts-with(@href,"#rank-")]') === $memberCount, $context . 'mobile contents includes every member');
 
         $comparison = $one($xpath, '//details[' . td_readability_class('td-comparison-disclosure') . ']');
+        $comparisonHeading = $one($xpath, '//h2[@id="tdComparisonHeading"]');
+        $assert($comparisonHeading !== null && trim($comparisonHeading->textContent) === $labels['compare'], $context . 'comparison heading keeps its readable localized text');
+        $assert($count($xpath, './span[' . td_readability_class('td-section-icon') . ' and @aria-hidden="true"]/svg[@aria-hidden="true"]', $comparisonHeading) === 1, $context . 'comparison title icon is decorative');
         $assert($comparison !== null && !$comparison->hasAttribute('open'), $context . 'comparison is a native disclosure, closed initially');
         $assert($count($xpath, './summary', $comparison) === 1, $context . 'comparison has one summary control');
         $desktop = $one($xpath, './/*[' . td_readability_class('td-comparison-desktop') . ']', $comparison);
@@ -239,11 +283,13 @@ $article = $one($xpath, '//article[@data-td-member="1"]');
 $assert($count($xpath, './/img | .//*[' . td_readability_class('td-verified') . '] | .//*[' . td_readability_class('td-fees') . ']', $article) === 0, 'Sparse profiles have no fabricated portrait, verification or fee table');
 $assert($count($xpath, './/details[' . td_readability_class('td-photo-disclosure') . ']', $article) === 0, 'Sparse profiles have no unusable gallery disclosure');
 $assert(str_contains($article->textContent, 'SPARSE_REAL_CONTENT') && !str_contains($article->textContent, 'VNĐ') && !str_contains($article->textContent, '0.0/5'), 'Sparse profiles preserve actual text without guessed prices or scores');
+$assertPreview($xpath, medical_toplist_detail_members([$sparse], 'vi'), medical_toplist_detail_labels('vi', false), 'Sparse profile: ');
 
 // Explicit editorial images are accepted, but are never selected from a member implicitly.
 [$dom, $xpath] = td_readability_dom(td_readability_render(td_readability_rows(1), 'vi', 'doctor', 'https://example.org/editorial/featured.jpg'));
 $featured = $one($xpath, '//*[' . td_readability_class('td-hero-image') . ']//img');
 $assert($featured instanceof DOMElement && $featured->getAttribute('src') === 'https://example.org/editorial/featured.jpg', 'An explicit featured editorial image remains supported');
+$assert($count($xpath, '//ol[' . td_readability_class('td-summary-preview') . ']') === 0, 'Explicit editorial cover does not duplicate the optional profile-summary panel');
 
 // Non-consecutive and colliding ranks retain stored order while producing valid targets.
 $ranks = td_readability_rows(3);
@@ -255,6 +301,7 @@ $actualRanks = [];
 foreach ($xpath->query('//article[@data-td-member]') as $article) $actualRanks[] = (int) $article->getAttribute('data-td-member');
 $assert($actualRanks === [4, 5, 12], 'Resolved original ranking order is the rendered order');
 $assert(array_keys(td_readability_gallery($xpath)['galleries']) === [4, 5, 12], 'Lightbox galleries use the same resolved rank keys');
+$assertPreview($xpath, $rankMembers, medical_toplist_detail_labels('vi', false), 'Non-consecutive ranks: ');
 
 // Mixed lists must not turn facility profile links into doctor routes.
 $facility = ['id' => 93001, 'rank_order' => 2, 'member_type' => 'facility', 'name' => 'Cơ sở y tế Kiểm thử', 'slug' => 'co-so-y-te-kiem-thu', 'category' => 'Nha khoa', 'city' => 'Huế', 'content' => '<p>FULL_FACILITY_CONTENT</p>', 'verified' => 1];
@@ -265,6 +312,11 @@ foreach (['vi', 'en'] as $locale) {
     $assert($count($xpath, '//article[@data-td-member="2"]//h2/a[@href="' . $prefix . '/co-so-y-te/co-so-y-te-kiem-thu"]') === 1, $locale . ': mixed list retains facility profile route');
     $assert($count($xpath, '//article[@data-td-member="2"]//a[' . td_readability_class('td-verified') . ' and @href="' . $prefix . '/ho-so-da-xac-thuc"]') === 1, $locale . ': facility verification links to its localized explanation');
     $assert(str_contains($dom->textContent, 'FULL_FACILITY_CONTENT'), $locale . ': mixed facility content is not omitted');
+    $mixedRows = [td_readability_rows(1)[0], $facility];
+    $mixedLabels = medical_toplist_detail_labels($locale, true);
+    $assertPreview($xpath, medical_toplist_detail_members($mixedRows, $locale), $mixedLabels, $locale . ' mixed preview: ');
+    $mixedCopy = $one($xpath, '//*[@id="toplist-members"]//p[' . td_readability_class('td-section-copy') . ']');
+    $assert($mixedCopy !== null && $mixedCopy->textContent === $mixedLabels['listCopy'], $locale . ': mixed-list helper copy does not mislabel every facility as a doctor');
 }
 
 // Long, untrusted identities and media descriptions remain data, not executable markup.
@@ -281,6 +333,7 @@ $assert($count($xpath, '//*[@id="td-main"]') === 1, 'Article HTML cannot duplica
 $name = $one($xpath, '//h2[@id="tdMember1"]/a');
 $expectedName = medical_toplist_detail_members([$unsafe], 'vi')[0]['name'];
 $assert($name !== null && $name->textContent === $expectedName, 'Long provider names remain complete plain text');
+$assertPreview($xpath, medical_toplist_detail_members([$unsafe], 'vi'), medical_toplist_detail_labels('vi', false), 'Long untrusted preview: ');
 $assert(str_contains($dom->textContent, 'SAFE_LONG_CONTENT') && str_contains($dom->textContent, 'SAFE_PARAGRAPH'), 'Safe content survives sanitization without truncation');
 $assert(str_contains($unsafeHtml, '\\u003C'), 'Embedded gallery JSON uses HTML-safe escaping');
 $assert(td_readability_gallery($xpath)['galleries'][1]['images'][0]['caption'] === medical_doctor_profile_text('</script><script>UNSAFE_GALLERY</script>'), 'Escaping does not corrupt gallery metadata');

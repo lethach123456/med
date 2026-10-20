@@ -12,6 +12,7 @@ foreach ($tdMembers as $member) {
     $tdGalleryData[(string) $member['rank']] = ['name' => $member['name'], 'images' => $member['gallery']];
 }
 $tdSummaryMembers = array_slice(array_values(array_filter($tdMembers, static fn(array $member): bool => $member['image'] !== '')), 0, 3);
+$tdPreviewMembers = array_slice($tdMembers, 0, 3);
 $tdFactIcons = ['specialty' => 'specialty', 'workplace' => 'building', 'address' => 'pin', 'hours' => 'calendar', 'phone' => 'phone', 'website' => 'globe'];
 ?>
 <main id="td-main" class="doctor-toplist site-typo" data-locale="<?= $tdEscape($toplistLanguage) ?>">
@@ -54,6 +55,15 @@ $tdFactIcons = ['specialty' => 'specialty', 'workplace' => 'building', 'address'
           <?php endforeach; ?>
         </div>
         <?php endif; ?>
+        <ol class="td-summary-preview" role="list" aria-label="<?= $tdEscape($tdLabels['preview']) ?>">
+          <?php foreach ($tdPreviewMembers as $previewMember): ?>
+          <li value="<?= $previewMember['rank'] ?>"><a href="#rank-<?= $previewMember['rank'] ?>">
+            <span class="td-preview-rank" aria-hidden="true"><?= str_pad((string) $previewMember['rank'], 2, '0', STR_PAD_LEFT) ?></span>
+            <span class="td-preview-copy"><span class="td-preview-name"><?= $tdEscape($previewMember['name']) ?></span><?php if ($previewMember['specialty'] !== ''): ?><small><?= $tdEscape($previewMember['specialty']) ?></small><?php endif; ?></span>
+            <?= $tdIcon('arrow') ?>
+          </a></li>
+          <?php endforeach; ?>
+        </ol>
         <p><?= $tdEscape($tdLabels['overviewCopy']) ?></p>
       </div>
       <?php endif; ?>
@@ -76,14 +86,14 @@ $tdFactIcons = ['specialty' => 'specialty', 'workplace' => 'building', 'address'
       <div class="td-main">
         <?php if ($tdHasIntro): ?>
         <article class="td-intro" id="toplist-intro" aria-labelledby="tdIntroHeading">
-          <h2 class="td-block-title" id="tdIntroHeading"><?= $tdEscape($tdLabels['intro']) ?></h2>
+          <h2 class="td-block-title" id="tdIntroHeading"><span class="td-section-icon" aria-hidden="true"><?= $tdIcon('info') ?></span><?= $tdEscape($tdLabels['intro']) ?></h2>
           <div class="td-prose"><?= $tdIntro ?></div>
         </article>
         <?php endif; ?>
 
         <?php if ($tdMembers !== []): ?>
         <section class="td-comparison" id="toplist-comparison" aria-labelledby="tdComparisonHeading">
-          <h2 id="tdComparisonHeading"><?= $tdEscape($tdLabels['compare']) ?></h2>
+          <h2 id="tdComparisonHeading"><span class="td-section-icon" aria-hidden="true"><?= $tdIcon('list') ?></span><?= $tdEscape($tdLabels['compare']) ?></h2>
           <p><?= $tdEscape($tdLabels['compareCopy']) ?></p>
           <details class="td-comparison-disclosure">
             <summary class="td-comparison-toggle"><span><?= $tdEscape($tdLabels['comparisonToggle']) ?></span><span><?= count($tdMembers) ?> <?= $tdEscape($tdLabels['count']) ?></span><?= $tdIcon('chevron') ?></summary>
@@ -123,7 +133,10 @@ $tdFactIcons = ['specialty' => 'specialty', 'workplace' => 'building', 'address'
         </section>
         <?php endif; ?>
 
-        <div class="td-section-heading" id="toplist-members"><h2><?= $tdEscape($tdLabels['list']) ?></h2><span><?= count($tdMembers) ?> <?= $tdEscape($tdLabels['count']) ?></span></div>
+        <div class="td-section-heading" id="toplist-members">
+          <div class="td-heading-copy"><h2><?= $tdEscape($tdLabels['list']) ?></h2><?php if ($tdMembers !== []): ?><p class="td-section-copy"><?= $tdEscape($tdLabels['listCopy']) ?></p><?php endif; ?></div>
+          <span><?= count($tdMembers) ?> <?= $tdEscape($tdLabels['count']) ?></span>
+        </div>
         <?php if ($tdMembers === []): ?><p class="td-empty"><?= $tdEscape($tdLabels['empty']) ?></p><?php endif; ?>
 
         <?php foreach ($tdMembers as $member): ?>

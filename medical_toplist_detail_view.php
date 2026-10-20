@@ -9,6 +9,7 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
         'updated'=>'Updated', 'intro'=>'About this list', 'compare'=>'Quick comparison', 'toc'=>'Contents',
         'jumpList'=>'Explore the doctors', 'guide'=>'In this article', 'overview'=>'Profiles in this list',
         'overviewCopy'=>'Review the available profile information and confirm details directly with the provider.',
+        'preview'=>'Jump to a profile', 'listCopy'=>'Explore specialties, practice locations and the details available for each doctor.',
         'comparisonToggle'=>'View comparison', 'morePhotos'=>'more photos',
         'sideNoteTitle'=>'Before choosing', 'sideNote'=>'This list is for reference. Confirm specialties, fees and availability directly before choosing a provider.',
         'skip'=>'Skip to article',
@@ -27,6 +28,7 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
         'updated'=>'Cập nhật', 'intro'=>'Giới thiệu danh sách', 'compare'=>'So sánh nhanh', 'toc'=>'Mục lục',
         'jumpList'=>'Xem danh sách bác sĩ', 'guide'=>'Trong bài viết này', 'overview'=>'Hồ sơ trong danh sách',
         'overviewCopy'=>'Xem thông tin trong từng hồ sơ và đối chiếu trực tiếp với nơi khám trước khi lựa chọn.',
+        'preview'=>'Đến nhanh hồ sơ', 'listCopy'=>'Tìm hiểu chuyên môn, nơi công tác và thông tin khám của từng bác sĩ.',
         'comparisonToggle'=>'Xem thông tin so sánh', 'morePhotos'=>'ảnh khác',
         'sideNoteTitle'=>'Lưu ý khi tham khảo', 'sideNote'=>'Danh sách mang tính tham khảo. Hãy xác nhận chuyên môn, chi phí và lịch khám trực tiếp trước khi lựa chọn.',
         'skip'=>'Đến nội dung bài viết',
@@ -47,6 +49,7 @@ function medical_toplist_detail_labels(string $locale, bool $mixed): array
         $labels['name'] = $locale === 'en' ? 'Provider' : 'Hồ sơ';
         $labels['list'] = $locale === 'en' ? 'Facilities & doctors in this list' : 'Cơ sở y tế & bác sĩ trong danh sách';
         $labels['jumpList'] = $locale === 'en' ? 'Explore the list' : 'Xem danh sách';
+        $labels['listCopy'] = $locale === 'en' ? 'Explore the available information for each facility and doctor.' : 'Tìm hiểu thông tin khám của từng cơ sở y tế và bác sĩ trong danh sách.';
         $labels['empty'] = $locale === 'en' ? 'Provider profiles are being added to this list.' : 'Danh sách đang được bổ sung cơ sở y tế và bác sĩ.';
     }
     return $labels;
