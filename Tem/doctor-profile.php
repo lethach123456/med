@@ -33,6 +33,7 @@ $labels = $english ? [
     'sourceNote'=>'References are provided for checking individual profile facts; they are not a substitute for a professional consultation.',
     'accessed'=>'Accessed','feedback'=>'Suggest a correction','close'=>'Close image viewer','previous'=>'Previous image','next'=>'Next image','photos'=>'photos',
     'nav'=>'Doctor profile sections','present'=>'Current role','onPage'=>'ON THIS PROFILE','overview'=>'Profile at a glance',
+    'contents'=>'In this profile','photoError'=>'This photo could not be loaded.',
 ] : [
     'home'=>'Trang chủ','doctors'=>'Bác sĩ','profile'=>'HỒ SƠ BÁC SĨ','reference'=>'Thông tin từ nguồn công khai','verified'=>'Hồ sơ đã duyệt',
     'intro'=>'Giới thiệu','expertise'=>'Chuyên môn','education'=>'Đào tạo & bằng cấp','experience'=>'Quá trình công tác',
@@ -65,6 +66,7 @@ $labels = $english ? [
     'sourceNote'=>'Các nguồn giúp bạn đối chiếu từng thông tin trong hồ sơ, không thay thế việc tư vấn trực tiếp với người hành nghề.',
     'accessed'=>'Truy cập','feedback'=>'Góp ý thông tin','close'=>'Đóng trình xem ảnh','previous'=>'Ảnh trước','next'=>'Ảnh tiếp theo','photos'=>'ảnh',
     'nav'=>'Các phần hồ sơ bác sĩ','present'=>'Đang công tác','onPage'=>'TRONG HỒ SƠ NÀY','overview'=>'Thông tin nổi bật',
+    'contents'=>'Trong hồ sơ này','photoError'=>'Không thể tải ảnh này.',
 ];
 $label = static fn(string $key): string => $labels[$key] ?? $key;
 $icon = static fn(string $name): string => '<i class="ph ph-' . $name . '" aria-hidden="true"></i>';
@@ -106,41 +108,39 @@ if ($profile['sources'] !== []) $sections['nguon-tham-khao'] = 'sources';
 $contactPath = site_localized_path('/lien-he', $doctorLanguage);
 $primary=$profile['locations'][0] ?? [];
 ?>
-<main class="doctor-profile site-typo">
+<main id="doctor-main" class="doctor-profile site-typo" tabindex="-1">
   <div class="container dp-shell">
-    <nav class="dp-breadcrumb" aria-label="Breadcrumb"><a href="<?= $escape(site_localized_path('/', $doctorLanguage)) ?>"><?= $escape($label('home')) ?></a><span>›</span><a href="<?= $escape(site_localized_path('/bac-si.php', $doctorLanguage)) ?>"><?= $escape($label('doctors')) ?></a><span>›</span><span aria-current="page"><?= $escape($profile['name']) ?></span></nav>
+    <nav class="dp-breadcrumb" aria-label="<?= $english ? 'Breadcrumb' : 'Đường dẫn' ?>"><a href="<?= $escape(site_localized_path('/', $doctorLanguage)) ?>"><?= $escape($label('home')) ?></a><span aria-hidden="true">›</span><a href="<?= $escape(site_localized_path('/bac-si.php', $doctorLanguage)) ?>"><?= $escape($label('doctors')) ?></a><span aria-hidden="true">›</span><span aria-current="page"><?= $escape($profile['name']) ?></span></nav>
 
     <section class="dp-hero" aria-labelledby="doctor-name">
       <div class="dp-identity">
-        <div class="dp-eyebrow"><?= $icon('stethoscope') ?><?= $escape($label('profile')) ?><?php if ($profile['city'] !== ''): ?><span class="dp-city"><?= $escape($profile['city']) ?></span><?php endif; ?></div>
-        <h1 id="doctor-name"><?= $escape($profile['name']) ?></h1>
-        <?php if ($profile['title_text'] !== ''): ?><p class="dp-title"><?= $escape($profile['title_text']) ?></p><?php endif; ?>
+        <div class="dp-hero-headline">
+          <div class="dp-eyebrow"><?= $icon('stethoscope') ?><?= $escape($label('profile')) ?><?php if ($profile['city'] !== ''): ?><span class="dp-city"><?= $escape($profile['city']) ?></span><?php endif; ?></div>
+          <h1 id="doctor-name"><?= $escape($profile['name']) ?></h1>
+          <?php if ($profile['title_text'] !== ''): ?><p class="dp-title"><?= $escape($profile['title_text']) ?></p><?php endif; ?>
+        </div>
         <?php if ($profile['specialty_text'] !== ''): ?><span class="dp-specialty"><?= $icon('first-aid-kit') ?><?= $escape($profile['specialty_text']) ?></span><?php endif; ?>
         <?php if ($profile['subtitle'] !== '' && $profile['subtitle'] !== $profile['title_text']): ?><p class="dp-subtitle"><?= $escape($profile['subtitle']) ?></p><?php endif; ?>
         <div class="dp-status">
           <?php if (!empty($profile['is_verified']) && ($profile['verification_status'] ?? '') === 'reviewed'): ?><span class="dp-reviewed"><?= $icon('seal-check') ?><?= $escape($label('verified')) ?></span><?php else: ?><span><?= $icon('files') ?><?= $escape($label('reference')) ?></span><?php endif; ?>
           <?php if ($profile['has_rating']): ?><span class="dp-rating"><?= $icon('star') ?><strong><?= number_format($profile['rating'], 1) ?>/5</strong> · <?= number_format((int) $profile['reviews_count'], 0, ',', '.') ?> <?= $escape($label('ratings')) ?></span><?php else: ?><span><?= $icon('star') ?><?= $escape($label('noRating')) ?></span><?php endif; ?>
         </div>
+        <?php if ($profile['updated_label'] !== '' || $profile['sources'] !== []): ?>
+        <div class="dp-hero-meta">
+          <?php if ($profile['updated_label'] !== ''): ?><span><?= $icon('clock-clockwise') ?><?= $escape($label('updated')) ?>: <?= $escape($profile['updated_label']) ?></span><?php endif; ?>
+          <?php if ($profile['sources'] !== []): ?><a href="#nguon-tham-khao"><?= $icon('files') ?><?= count($profile['sources']) ?> <?= $escape($label('sourceCount')) ?></a><?php endif; ?>
+        </div>
+        <?php endif; ?>
         <div class="dp-actions">
           <?php if ($profile['booking_url'] !== ''): ?><a class="dp-button dp-primary" href="<?= $escape($profile['booking_url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $icon('calendar-check') ?><?= $escape($label('book')) ?><?= $icon('arrow-up-right') ?></a><?php elseif ($profile['locations'] !== []): ?><a class="dp-button dp-primary" href="#noi-kham"><?= $icon('map-pin') ?><?= $escape($label('places')) ?><?= $icon('arrow-down') ?></a><?php endif; ?>
           <?php if ($profile['phone_href'] !== ''): ?><a class="dp-button" href="<?= $escape($profile['phone_href']) ?>"><?= $icon('phone') ?><?= $escape($label('call')) ?></a><?php endif; ?>
         </div>
       </div>
       <div class="dp-hero-visual">
-        <svg class="dp-medical-art" viewBox="0 0 420 360" fill="none" aria-hidden="true" focusable="false">
-          <path d="M56 62C112 7 226 4 302 52c64 40 105 125 78 206-24 70-104 86-181 80C113 331 18 281 21 194c2-45 7-104 35-132Z" fill="#DCE8FF"/>
-          <circle cx="326" cy="260" r="72" fill="#CDEDE3"/>
-          <circle cx="73" cy="81" r="35" fill="#FFF3D7"/>
-          <path d="M351 70h24m-12-12v24M44 254h24m-12-12v24" stroke="#97B1E7" stroke-width="4" stroke-linecap="round"/>
-          <path d="m79 308 44-19M287 31l12 18" stroke="#B7CEF8" stroke-width="3" stroke-linecap="round"/>
-          <circle cx="382" cy="156" r="6" fill="#84C6B4"/>
-          <circle cx="38" cy="158" r="5" fill="#95B4F5"/>
-        </svg>
         <div class="dp-portrait<?= $profile['image_url'] === '' ? ' is-placeholder' : '' ?>">
           <span class="dp-avatar" aria-hidden="true"><?= $escape($profile['initials']) ?></span>
           <?php if ($profile['image_url'] !== ''): ?><img src="<?= $escape($profile['image_url']) ?>" alt="<?= $escape($profile['name']) ?>" width="320" height="380" fetchpriority="high" decoding="async" data-dp-photo><?php endif; ?>
         </div>
-        <span class="dp-visual-symbol" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M12 9v10a10 10 0 0 0 20 0V9M9 9h6m14 0h6M22 29v5a8 8 0 0 0 16 0v-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="38" cy="24" r="5" stroke="currentColor" stroke-width="2.5"/></svg></span>
       </div>
       <?php if ($profile['degree_text'] !== '' || !empty($profile['experience_start_year']) || $profile['languages_supported_json'] !== [] || $primary !== []): ?>
       <dl class="dp-facts" aria-label="<?= $escape($label('overview')) ?>">
@@ -158,8 +158,8 @@ $primary=$profile['locations'][0] ?? [];
     </nav>
     <div class="dp-layout">
       <div class="dp-main">
-        <section class="dp-section" id="gioi-thieu">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('user') ?></span><h2><?= $escape($label('intro')) ?></h2></div>
+        <section class="dp-section" id="gioi-thieu" aria-labelledby="doctor-intro-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('user') ?></span><h2 id="doctor-intro-heading"><?= $escape($label('intro')) ?></h2></div>
           <div class="dp-article" id="doctor-article" data-dp-article>
             <?php if (trim(strip_tags($profile['content'])) !== ''): ?><?= $profile['content'] ?><?php elseif ($profile['bio'] !== []): ?><?php foreach ($profile['bio'] as $paragraph): ?><p><?= $escape($paragraph) ?></p><?php endforeach; ?><?php else: ?><p><?= $escape($label('emptyIntro')) ?></p><?php endif; ?>
           </div>
@@ -168,8 +168,8 @@ $primary=$profile['locations'][0] ?? [];
         </section>
 
         <?php if ($hasExpertise): ?>
-        <section class="dp-section" id="chuyen-mon">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('stethoscope') ?></span><h2><?= $escape($label('expertise')) ?></h2></div>
+        <section class="dp-section" id="chuyen-mon" aria-labelledby="doctor-expertise-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('stethoscope') ?></span><h2 id="doctor-expertise-heading"><?= $escape($label('expertise')) ?></h2></div>
           <?php if ($profile['specialties'] !== []): ?><div class="dp-chips dp-specialties"><?php foreach ($profile['specialties'] as $specialty): ?><span><?= $escape($specialty) ?></span><?php endforeach; ?></div><?php endif; ?>
           <?php if ($profile['services_json'] !== []): ?><div class="dp-service-list"><?php foreach ($profile['services_json'] as $index=>$entry): ?><article><span class="dp-service-number"><?= str_pad((string) ($index+1), 2, '0', STR_PAD_LEFT) ?></span><div><h3><?= $escape($entry['name']) ?></h3><?php if (!empty($entry['description'])): ?><p><?= $escape($entry['description']) ?></p><?php endif; ?><?= $refs($entry) ?></div></article><?php endforeach; ?></div><?php endif; ?>
           <?php if ($profile['conditions_treated_json'] !== []): ?><div class="dp-subsection"><h3><?= $escape($label('conditions')) ?></h3><ul class="dp-condition-list"><?php foreach ($profile['conditions_treated_json'] as $entry): ?><li><?= $icon('check-circle') ?><span><?= $escape($entry['name']) ?><?= $refs($entry) ?></span></li><?php endforeach; ?></ul></div><?php endif; ?>
@@ -177,9 +177,9 @@ $primary=$profile['locations'][0] ?? [];
         <?php endif; ?>
 
         <?php if ($hasTraining): ?>
-        <section class="dp-section" id="dao-tao">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('graduation-cap') ?></span><h2><?= $escape($label('education')) ?></h2></div>
-          <?php if ($profile['education_json'] !== []): ?><ol class="dp-timeline"><?php foreach ($profile['education_json'] as $entry): ?><li><span class="dp-timeline-dot"></span><div><?php $period=medical_doctor_profile_period($entry,$english); if ($period !== ''): ?><span class="dp-period"><?= $escape($period) ?></span><?php endif; ?><h3><?= $escape(medical_doctor_profile_text($entry['degree'] ?? '') ?: $entry['institution'] ?? '') ?></h3><p><?= $escape($join([$entry['institution'] ?? '',$entry['specialty'] ?? ''])) ?></p><?= $refs($entry) ?></div></li><?php endforeach; ?></ol><?php endif; ?>
+        <section class="dp-section" id="dao-tao" aria-labelledby="doctor-education-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('graduation-cap') ?></span><h2 id="doctor-education-heading"><?= $escape($label('education')) ?></h2></div>
+          <?php if ($profile['education_json'] !== []): ?><ol class="dp-timeline" role="list"><?php foreach ($profile['education_json'] as $entry): ?><li><span class="dp-timeline-dot"></span><div><?php $period=medical_doctor_profile_period($entry,$english); if ($period !== ''): ?><span class="dp-period"><?= $escape($period) ?></span><?php endif; ?><h3><?= $escape(medical_doctor_profile_text($entry['degree'] ?? '') ?: $entry['institution'] ?? '') ?></h3><p><?= $escape($join([$entry['institution'] ?? '',$entry['specialty'] ?? ''])) ?></p><?= $refs($entry) ?></div></li><?php endforeach; ?></ol><?php endif; ?>
           <?php if ($profile['certifications_json'] !== []): ?><div class="dp-subsection"><h3><?= $escape($label('certificates')) ?></h3><div class="dp-records"><?php foreach ($profile['certifications_json'] as $entry): ?><article><?= $icon('certificate') ?><div><h4><?= $escape($entry['name']) ?></h4><p><?= $escape($join([$entry['issuer'] ?? '',$entry['year'] ?? ''])) ?></p><?= $refs($entry) ?></div></article><?php endforeach; ?></div></div><?php endif; ?>
         </section>
         <?php endif; ?>
@@ -255,15 +255,15 @@ $primary=$profile['locations'][0] ?? [];
         <?php endif; ?>
 
         <?php if ($profile['experience_json'] !== []): ?>
-        <section class="dp-section" id="cong-tac">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('briefcase') ?></span><h2><?= $escape($label('experience')) ?></h2></div>
-          <ol class="dp-timeline"><?php foreach ($profile['experience_json'] as $entry): ?><li><span class="dp-timeline-dot"></span><div><div class="dp-timeline-meta"><?php $period=medical_doctor_profile_period($entry,$english); if ($period !== ''): ?><span class="dp-period"><?= $escape($period) ?></span><?php endif; ?><?php if (!empty($entry['is_current'])): ?><span class="dp-current"><?= $escape($label('present')) ?></span><?php endif; ?></div><h3><?= $escape(medical_doctor_profile_text($entry['role'] ?? '') ?: $entry['facility_name'] ?? '') ?></h3><p><?= $escape($join([$entry['facility_name'] ?? '',$entry['department'] ?? ''])) ?></p><?= $refs($entry) ?></div></li><?php endforeach; ?></ol>
+        <section class="dp-section" id="cong-tac" aria-labelledby="doctor-experience-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('briefcase') ?></span><h2 id="doctor-experience-heading"><?= $escape($label('experience')) ?></h2></div>
+          <ol class="dp-timeline" role="list"><?php foreach ($profile['experience_json'] as $entry): ?><li><span class="dp-timeline-dot"></span><div><div class="dp-timeline-meta"><?php $period=medical_doctor_profile_period($entry,$english); if ($period !== ''): ?><span class="dp-period"><?= $escape($period) ?></span><?php endif; ?><?php if (!empty($entry['is_current'])): ?><span class="dp-current"><?= $escape($label('present')) ?></span><?php endif; ?></div><h3><?= $escape(medical_doctor_profile_text($entry['role'] ?? '') ?: $entry['facility_name'] ?? '') ?></h3><p><?= $escape($join([$entry['facility_name'] ?? '',$entry['department'] ?? ''])) ?></p><?= $refs($entry) ?></div></li><?php endforeach; ?></ol>
         </section>
         <?php endif; ?>
 
         <?php if ($profile['locations'] !== []): ?>
-        <section class="dp-section" id="noi-kham">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('buildings') ?></span><h2><?= $escape($label('locations')) ?></h2><span class="dp-count"><?= count($profile['locations']) ?></span></div>
+        <section class="dp-section" id="noi-kham" aria-labelledby="doctor-locations-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('buildings') ?></span><h2 id="doctor-locations-heading"><?= $escape($label('locations')) ?></h2><span class="dp-count"><?= count($profile['locations']) ?></span></div>
           <div class="dp-locations">
             <?php foreach ($profile['locations'] as $index=>$location): ?>
             <article class="dp-location">
@@ -286,8 +286,8 @@ $primary=$profile['locations'][0] ?? [];
         <?php endif; ?>
 
         <?php if ($hasFees): ?>
-        <section class="dp-section" id="lich-chi-phi">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('calendar-blank') ?></span><h2><?= $escape($label('fees')) ?></h2></div>
+        <section class="dp-section" id="lich-chi-phi" aria-labelledby="doctor-fees-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('calendar-blank') ?></span><h2 id="doctor-fees-heading"><?= $escape($label('fees')) ?></h2></div>
           <?php if ($profile['schedule_json'] !== []): ?><div class="dp-schedule-list"><?php foreach ($profile['schedule_json'] as $entry): ?><div class="dp-schedule-row"><strong><?= $escape($entry['day'] ?? '') ?></strong><div><span><?= $escape($entry['time_text'] ?? '') ?></span><?php if (!empty($entry['location_name'])): ?><small><?= $escape($entry['location_name']) ?></small><?php endif; ?><?= $refs($entry) ?></div></div><?php endforeach; ?></div><?php elseif (!empty($profile['hours_text'])): ?><p><?= $escape($profile['hours_text']) ?></p><?php endif; ?>
           <?php if ($profile['fees_json'] !== []): ?><div class="dp-subsection"><h3><?= $escape($label('generalFees')) ?></h3><?php foreach ($profile['fees_json'] as $entry): ?><div class="dp-fee-row"><div><strong><?= $escape($entry['service']) ?></strong><?php if (!empty($entry['notes'])): ?><p><?= $escape($entry['notes']) ?></p><?php endif; ?><?= $refs($entry) ?></div><span><?= $escape(medical_doctor_profile_fee($entry,$english)) ?></span></div><?php endforeach; ?></div><?php elseif (!empty($profile['price_text'])): ?><p><?= $escape($profile['price_text']) ?></p><?php endif; ?>
           <p class="dp-note"><?= $escape($label('confirmFee')) ?></p>
@@ -295,8 +295,8 @@ $primary=$profile['locations'][0] ?? [];
         <?php endif; ?>
 
         <?php if ($hasResearch): ?>
-        <section class="dp-section" id="nghien-cuu">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('book-open') ?></span><h2><?= $escape($label('research')) ?></h2></div>
+        <section class="dp-section" id="nghien-cuu" aria-labelledby="doctor-research-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('book-open') ?></span><h2 id="doctor-research-heading"><?= $escape($label('research')) ?></h2></div>
           <?php foreach (['publications_json'=>['publications','article'],'memberships_json'=>['memberships','users-three'],'awards_json'=>['awards','medal']] as $field=>[$key,$symbol]): if ($profile[$field]===[]) continue; ?>
           <div class="dp-subsection"><h3><?= $escape($label($key)) ?></h3><div class="dp-records"><?php foreach ($profile[$field] as $entry): ?><article><?= $icon($symbol) ?><div><h4><?= $escape($entry['title'] ?? $entry['name'] ?? '') ?></h4><?php $details=$join([$entry['role'] ?? '',$entry['issuer'] ?? '',$entry['year'] ?? '']); if ($details!==''): ?><p><?= $escape($details) ?></p><?php endif; ?><?php $url=medical_doctor_profile_url($entry['url'] ?? ''); if ($url!==''): ?><a class="dp-text-link" href="<?= $escape($url) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape((string) parse_url($url,PHP_URL_HOST)) ?><?= $icon('arrow-up-right') ?></a><?php endif; ?><?php if (!empty($entry['doi'])): ?><p class="dp-note">DOI: <?= $escape($entry['doi']) ?></p><?php endif; ?><?= $refs($entry) ?></div></article><?php endforeach; ?></div></div>
           <?php endforeach; ?>
@@ -304,26 +304,32 @@ $primary=$profile['locations'][0] ?? [];
         <?php endif; ?>
 
         <?php if ($profile['gallery'] !== [] || $profile['video_urls'] !== [] || $profile['social_links'] !== []): ?>
-        <section class="dp-section" id="tu-lieu">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('images') ?></span><h2><?= $escape($label('gallery')) ?></h2></div>
-          <?php if ($profile['gallery'] !== []): ?><div class="dp-gallery"><?php foreach ($profile['gallery'] as $index=>$image): $photoMeta=$profile['gallery_meta'][$image] ?? []; $caption=medical_doctor_profile_text($photoMeta['caption'] ?? ''); ?><figure><button type="button" data-dp-gallery="<?= $index ?>" aria-label="<?= $escape($profile['name']) ?> · <?= $index+1 ?>/<?= count($profile['gallery']) ?>"><img src="<?= $escape($image) ?>" alt="<?= $escape($caption ?: $profile['name'].' · '.($index+1)) ?>" width="360" height="240" loading="lazy" decoding="async" data-dp-gallery-photo></button><?php if ($caption!=='' || !empty($photoMeta['source_ids'])): ?><figcaption><?= $escape($caption) ?><?= $refs($photoMeta) ?></figcaption><?php endif; ?></figure><?php endforeach; ?></div><?php endif; ?>
+        <section class="dp-section" id="tu-lieu" aria-labelledby="doctor-media-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('images') ?></span><h2 id="doctor-media-heading"><?= $escape($label('gallery')) ?></h2></div>
+          <?php if ($profile['gallery'] !== []): ?><div class="dp-gallery"><?php foreach ($profile['gallery'] as $index=>$image): $photoMeta=$profile['gallery_meta'][$image] ?? []; $caption=medical_doctor_profile_text($photoMeta['caption'] ?? ''); $photoAlt=medical_doctor_profile_text($photoMeta['alt'] ?? '') ?: ($caption ?: $profile['name'].' · '.($index+1)); ?><figure><button type="button" data-dp-gallery="<?= $index ?>" data-dp-gallery-caption="<?= $escape($caption) ?>" data-dp-gallery-alt="<?= $escape($photoAlt) ?>" aria-label="<?= $escape($profile['name']) ?> · <?= $index+1 ?>/<?= count($profile['gallery']) ?>"><img src="<?= $escape($image) ?>" alt="<?= $escape($photoAlt) ?>" width="360" height="240" loading="lazy" decoding="async" data-dp-gallery-photo></button><?php if ($caption!=='' || !empty($photoMeta['source_ids'])): ?><figcaption><?= $escape($caption) ?><?= $refs($photoMeta) ?></figcaption><?php endif; ?></figure><?php endforeach; ?></div><?php endif; ?>
           <?php if ($profile['video_urls'] !== []): ?><div class="dp-media-links"><?php foreach ($profile['video_urls'] as $index=>$url): ?><a href="<?= $escape($url) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $icon('play-circle') ?><?= $escape($label('video')) ?> <?= $index+1 ?><?= $icon('arrow-up-right') ?></a><?php endforeach; ?></div><?php endif; ?>
           <?php if ($profile['social_links'] !== []): ?><div class="dp-media-links"><?php foreach ($profile['social_links'] as $platform=>$url): ?><a href="<?= $escape($url) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $icon('globe') ?><?= $escape(ucfirst($platform)) ?><?= $icon('arrow-up-right') ?></a><?php endforeach; ?></div><?php endif; ?>
         </section>
         <?php endif; ?>
 
         <?php if ($profile['sources'] !== []): ?>
-        <section class="dp-section dp-sources-section" id="nguon-tham-khao">
-          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('files') ?></span><h2><?= $escape($label('sources')) ?></h2><span class="dp-count"><?= count($profile['sources']) ?></span></div>
+        <section class="dp-section dp-sources-section" id="nguon-tham-khao" aria-labelledby="doctor-sources-heading">
+          <div class="dp-section-head"><span class="dp-section-icon"><?= $icon('files') ?></span><h2 id="doctor-sources-heading"><?= $escape($label('sources')) ?></h2><span class="dp-count"><?= count($profile['sources']) ?></span></div>
           <p class="dp-note"><?= $escape($label('sourceNote')) ?></p>
           <?php if ($profile['updated_label'] !== ''): ?><p class="dp-updated"><?= $icon('clock-clockwise') ?><?= $escape($label('updated')) ?>: <?= $escape($profile['updated_label']) ?></p><?php endif; ?>
-          <ol class="dp-sources"><?php foreach ($profile['sources'] as $source): ?><li id="<?= $escape($source['anchor']) ?>"><span class="dp-source-number"><?= $source['number'] ?></span><div><a href="<?= $escape($source['url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape($source['title']) ?><?= $icon('arrow-up-right') ?></a><p><?= $escape($source['publisher'] ?? parse_url($source['url'],PHP_URL_HOST)) ?><?php $accessed=medical_doctor_profile_date($source['accessed_at'] ?? ''); if ($accessed!==''): ?><span> · <?= $escape($label('accessed')) ?> <?= $escape($accessed) ?></span><?php endif; ?></p></div></li><?php endforeach; ?></ol>
+          <ol class="dp-sources" role="list"><?php foreach ($profile['sources'] as $source): ?><li id="<?= $escape($source['anchor']) ?>"><span class="dp-source-number"><?= $source['number'] ?></span><div><a href="<?= $escape($source['url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $escape($source['title']) ?><?= $icon('arrow-up-right') ?></a><p><?= $escape($source['publisher'] ?? parse_url($source['url'],PHP_URL_HOST)) ?><?php $accessed=medical_doctor_profile_date($source['accessed_at'] ?? ''); if ($accessed!==''): ?><span> · <?= $escape($label('accessed')) ?> <?= $escape($accessed) ?></span><?php endif; ?></p></div></li><?php endforeach; ?></ol>
           <a class="dp-text-link" href="<?= $escape($contactPath.'?topic=feedback#gui-lien-he') ?>"><?= $escape($label('feedback')) ?><?= $icon('arrow-right') ?></a>
         </section>
         <?php endif; ?>
       </div>
 
       <aside class="dp-sidebar" aria-label="<?= $escape($label('plan')) ?>">
+        <details class="dp-toc-card" open>
+          <summary><?= $icon('list') ?><span><?= $escape($label('contents')) ?></span><?= $icon('caret-down') ?></summary>
+          <nav class="dp-toc" aria-label="<?= $escape($label('nav')) ?>">
+            <?php foreach ($sections as $id=>$key): ?><a href="#<?= $escape($id) ?>"<?= $id === 'gioi-thieu' ? ' class="is-active" aria-current="location"' : '' ?>><?= $escape($label($key)) ?></a><?php endforeach; ?>
+          </nav>
+        </details>
         <section class="dp-contact-card">
           <span class="dp-contact-icon"><?= $icon('calendar-check') ?></span><h2><?= $escape($label('plan')) ?></h2><p><?= $escape($label('planNote')) ?></p>
           <?php if ($primary !== []): ?><div class="dp-sidebar-place"><?= $icon('buildings') ?><div><strong><?= $facilityName($primary) ?></strong><?php if (!empty($primary['address_text'])): ?><span><?= $escape($primary['address_text']) ?></span><?php endif; ?></div></div><?php endif; ?>
@@ -344,5 +350,5 @@ $primary=$profile['locations'][0] ?? [];
     </div></section>
     <?php endif; ?>
   </div>
-  <?php if ($profile['gallery'] !== []): ?><dialog class="dp-lightbox" data-dp-lightbox aria-label="<?= $escape($label('gallery')) ?>"><button class="dp-viewer-close" type="button" data-dp-close aria-label="<?= $escape($label('close')) ?>"><?= $icon('x') ?></button><span class="dp-viewer-count" data-dp-count></span><button class="dp-viewer-prev" type="button" data-dp-prev aria-label="<?= $escape($label('previous')) ?>"><?= $icon('caret-left') ?></button><img alt="<?= $escape($profile['name']) ?>" data-dp-viewer-image><button class="dp-viewer-next" type="button" data-dp-next aria-label="<?= $escape($label('next')) ?>"><?= $icon('caret-right') ?></button></dialog><?php endif; ?>
+  <?php if ($profile['gallery'] !== []): ?><dialog class="dp-lightbox" data-dp-lightbox aria-label="<?= $escape($label('gallery')) ?>"><button class="dp-viewer-close" type="button" data-dp-close aria-label="<?= $escape($label('close')) ?>"><?= $icon('x') ?></button><span class="dp-viewer-count" data-dp-count></span><button class="dp-viewer-prev" type="button" data-dp-prev aria-label="<?= $escape($label('previous')) ?>"><?= $icon('caret-left') ?></button><img alt="<?= $escape($profile['name']) ?>" data-dp-viewer-image><p class="dp-viewer-caption" data-dp-caption></p><p class="dp-viewer-error" data-dp-error role="status" hidden><?= $escape($label('photoError')) ?></p><button class="dp-viewer-next" type="button" data-dp-next aria-label="<?= $escape($label('next')) ?>"><?= $icon('caret-right') ?></button></dialog><?php endif; ?>
 </main>

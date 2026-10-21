@@ -101,6 +101,7 @@ $escape = static fn(mixed $value): string => htmlspecialchars(medical_doctor_pro
   <script src="/assets/js/doctor-profile.js?v=<?= filemtime(__DIR__ . '/assets/js/doctor-profile.js') ?>" defer></script>
 </head>
 <body class="doctor-profile-page">
+<a class="dp-skip-link" href="#doctor-main"><?= $english ? 'Skip to doctor profile' : 'Đến nội dung hồ sơ bác sĩ' ?></a>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/doctor-profile.php'; ?>
 <?php include __DIR__ . '/Tem/footer.php'; ?>
