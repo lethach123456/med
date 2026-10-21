@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_doctor_reviews.php';
+require_once __DIR__ . '/medical_patient_images.php';
 
 /** Doctor research schema and transport contract. No database work on include. */
 function medical_doctor_json_fields(): array
@@ -279,7 +280,7 @@ PROMPT . "\n\n" . medical_doctor_source_prompt_rules() . "\n\n" . medical_doctor
 /** Appended even to a custom admin prompt, so an older prompt cannot lose fields. */
 function medical_doctor_research_prompt(string $template, array $source): string
 {
-    $clean = $source;
+    $clean = medical_patient_images_redact($source);
     unset($clean['ai_writer_claim_json'], $clean['full_json'], $clean['reviewed_by']);
     foreach ($clean as $key => $value) {
         if (str_ends_with($key, '_json') && is_string($value)) {
@@ -539,6 +540,11 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
         if (!array_key_exists($field, $item) && array_key_exists($alias, $item)) $item[$field] = $item[$alias];
     }
     $fields = [];
+    // This is private metadata, not part of the public research JSON fields.
+    // Omission preserves earlier images; only an explicit [] clears them.
+    if (array_key_exists('patient_images_json', $item)) {
+        $fields['patient_images_json'] = medical_patient_images_encode($item['patient_images_json']);
+    }
     foreach (medical_doctor_text_fields() as $field => $max) {
         if (!array_key_exists($field, $item)) continue;
         $value = $item[$field];
@@ -1074,6 +1080,9 @@ function medical_doctor_save_research_locked(PDO $pdo, array $item): array
         throw new InvalidArgumentException('Cần id nguyên dương và writer_claim_token nhận từ writer-claim.');
     }
     $fields = medical_doctor_normalize_payload($item);
+    if (array_key_exists('patient_images_json', $fields)) {
+        medical_patient_images_require_schema($pdo, 'doctor');
+    }
     $pdo->beginTransaction();
     try {
         $stmt = $pdo->prepare('SELECT * FROM medical_doctors WHERE id=:id FOR UPDATE');
@@ -1094,7 +1103,7 @@ function medical_doctor_save_research_locked(PDO $pdo, array $item): array
             unset($fields['aggregate_ratings_json'], $fields['reviews_json']);
         }
         medical_doctor_link_workplaces($pdo, $id, $fields, $row, (string) ($row['language_code'] ?? 'vi'));
-        $raw = $item;
+        $raw = medical_patient_images_redact($item);
         foreach (['writer_claim_token', 'claim_token', 'ai_writer_claim_json', 'reviewed_by'] as $private) unset($raw[$private]);
         // Lets a client confirm a timed-out POST without starting another AI job.
         $raw['writer_request_id'] = (string) ($claim['request_id'] ?? '');

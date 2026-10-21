@@ -5,6 +5,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
 require_once __DIR__ . '/medical_doctor_content.php';
 require_once __DIR__ . '/medical_facility_image_fix.php';
+require_once __DIR__ . '/medical_patient_images.php';
 
 function medical_directory_table_exists(PDO $pdo, string $table): bool
 {
@@ -528,6 +529,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             featured_services_json MEDIUMTEXT NULL,
             tags_json MEDIUMTEXT NULL,
             gallery_json MEDIUMTEXT NULL,
+            patient_images_json MEDIUMTEXT NULL,
             intro_json MEDIUMTEXT NULL,
             stats_json MEDIUMTEXT NULL,
             utilities_json MEDIUMTEXT NULL,
@@ -640,6 +642,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             tags_json MEDIUMTEXT NULL,
             specialties_json MEDIUMTEXT NULL,
             gallery_json MEDIUMTEXT NULL,
+            patient_images_json MEDIUMTEXT NULL,
             bio_json MEDIUMTEXT NULL,
             ai_writer_claim_json MEDIUMTEXT NULL,
             status ENUM('draft','published') NOT NULL DEFAULT 'published',
@@ -805,6 +808,12 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
     // Writer leases belong to a task/record, never to its translation copy.
     if (array_key_exists('ai_writer_claim_json', $source)) $source['ai_writer_claim_json'] = null;
     if (array_key_exists('image_fix_json', $source)) $source['image_fix_json'] = null;
+    // Patient media is private metadata, never duplicated into a translation.
+    if (array_key_exists('patient_images_json', $source)) $source['patient_images_json'] = null;
+    if (array_key_exists('full_json', $source)) {
+        $redactedCopy = medical_patient_images_redact(['full_json' => $source['full_json']]);
+        $source['full_json'] = $redactedCopy['full_json'];
+    }
     $source['slug'] = $candidate;
     $source['language_code'] = 'en';
     $source['translation_of_id'] = $sourceId;

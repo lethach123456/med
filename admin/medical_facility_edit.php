@@ -3,10 +3,21 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../medical_directory.php';
+require_once __DIR__ . '/../medical_patient_images.php';
 
 admin_require_login();
 
 $pdo = db();
+$patientImagesReady = false;
+try {
+    $patientImagesReady = medical_patient_images_has_column($pdo, 'facility');
+} catch (Throwable $e) {
+    // This optional field must not block the existing facility editor.
+    error_log('Admin facility patient image schema check failed (' . get_class($e) . ').');
+}
+$patientImagesValue = '[]';
+$patientImagesError = '';
+$patientImagesToSave = null;
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -162,6 +173,17 @@ if ($isEdit) {
         exit;
     }
     $facilityTranslationRow = $row;
+    if ($row['patient_images_json'] ?? null) {
+        $patientImagesValue = (string) $row['patient_images_json'];
+        try {
+            $patientImagesDecoded = json_decode($patientImagesValue, false, 512, JSON_THROW_ON_ERROR);
+            $patientImagesValue = (string) json_encode($patientImagesDecoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            // Keep legacy invalid text visible so an unrelated save cannot erase it.
+        }
+    } elseif (array_key_exists('patient_images_json', $row) && $row['patient_images_json'] !== null) {
+        $patientImagesValue = (string) $row['patient_images_json'];
+    }
     $oldSlug = (string) ($row['slug'] ?? '');
     $originalGalleryItems = medical_directory_json_decode((string) ($row['gallery_json'] ?? ''), []);
     $item = medical_directory_facility_from_row($row);
@@ -213,6 +235,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($patientImagesReady && array_key_exists('patient_images_json', $_POST)) {
+        try {
+            if (!is_string($_POST['patient_images_json'])) {
+                throw new InvalidArgumentException('Ảnh bệnh nhân phải là chuỗi JSON chứa danh sách ảnh.');
+            }
+            $patientImagesValue = $_POST['patient_images_json'];
+            $patientImagesToSave = medical_patient_images_encode($patientImagesValue);
+        } catch (InvalidArgumentException $e) {
+            $patientImagesError = $e->getMessage();
+            $errors[] = $patientImagesError;
+        }
+    }
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));
     }
@@ -254,6 +288,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $utilities = facility_text_to_lines($values['utilities_lines']);
 
     if ($errors === []) {
+        // One optional column in the same write; omitted fields preserve stored images.
+        $patientImagesUpdateSql = $patientImagesToSave !== null ? ', patient_images_json = :patient_images_json' : '';
+        $patientImagesInsertSql = $patientImagesToSave !== null ? ', patient_images_json' : '';
+        $patientImagesPlaceholderSql = $patientImagesToSave !== null ? ', :patient_images_json' : '';
+        $patientImagesParams = $patientImagesToSave !== null ? [':patient_images_json' => $patientImagesToSave] : [];
         if ($isEdit) {
             $stmt = $pdo->prepare(
                 "UPDATE medical_facilities SET
@@ -284,10 +323,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     intro_json = :intro_json,
                     utilities_json = :utilities_json,
                     status = :status,
-                    display_order = :display_order
+                    display_order = :display_order{$patientImagesUpdateSql}
                  WHERE id = :id"
             );
-            $stmt->execute([
+            $stmt->execute($patientImagesParams + [
                 ':slug' => $values['slug'],
                 ':name' => $values['name'],
                 ':category' => $values['category'],
@@ -349,14 +388,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "INSERT INTO medical_facilities (
                 slug, name, category, city, subtitle, content, seo_title, seo_description, seo_keywords, verified, rating, reviews_count, followers_count,
                 hours_text, address_text, phone_text, website_url, price_text, price_table_html, image_url, images_label,
-                featured_services_json, tags_json, gallery_json, intro_json, utilities_json, status, display_order
+                featured_services_json, tags_json, gallery_json, intro_json, utilities_json, status, display_order{$patientImagesInsertSql}
             ) VALUES (
                 :slug, :name, :category, :city, :subtitle, :content, :seo_title, :seo_description, :seo_keywords, :verified, :rating, :reviews_count, :followers_count,
                 :hours_text, :address_text, :phone_text, :website_url, :price_text, :price_table_html, :image_url, :images_label,
-                :featured_services_json, :tags_json, :gallery_json, :intro_json, :utilities_json, :status, :display_order
+                :featured_services_json, :tags_json, :gallery_json, :intro_json, :utilities_json, :status, :display_order{$patientImagesPlaceholderSql}
             )"
         );
-        $stmt->execute([
+        $stmt->execute($patientImagesParams + [
             ':slug' => $values['slug'],
             ':name' => $values['name'],
             ':category' => $values['category'],
@@ -605,6 +644,19 @@ $mediaGalleryValue = $values['gallery_lines'];
           </div>
 
           <?php require __DIR__ . '/_media_gallery_field.php'; ?>
+
+          <div class="col-12">
+            <div class="border rounded-4 bg-white p-3">
+              <label class="form-label fw-semibold" for="facility_patient_images_json">Ảnh bệnh nhân · JSON riêng tư</label>
+              <p class="small text-secondary mb-2" id="facility_patient_images_help">Ảnh bệnh nhân – lưu riêng, chưa hiển thị công khai; chỉ dùng khi có sự đồng ý phù hợp, không ghi tên/số giấy tờ/hồ sơ bệnh án trong chú thích.</p>
+              <?php if (!$patientImagesReady): ?>
+                <div class="alert alert-warning small" id="facility_patient_images_schema" role="status">Chưa có cột lưu ảnh bệnh nhân. Trường này chỉ đọc; các thông tin khác vẫn lưu bình thường. Quản trị viên chạy <code>php scripts/migrate_patient_images.php --apply</code> rồi tải lại trang.</div>
+              <?php endif; ?>
+              <textarea id="facility_patient_images_json" name="patient_images_json" class="form-control mono<?php echo $patientImagesError !== '' ? ' is-invalid' : ''; ?>" rows="8" spellcheck="false" aria-describedby="facility_patient_images_help facility_patient_images_format<?php echo !$patientImagesReady ? ' facility_patient_images_schema' : ''; ?><?php echo $patientImagesError !== '' ? ' facility_patient_images_error' : ''; ?>"<?php echo !$patientImagesReady ? ' readonly' : ''; ?><?php echo $patientImagesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
+              <?php if ($patientImagesError !== ''): ?><div class="invalid-feedback" id="facility_patient_images_error" role="alert"><?php echo htmlspecialchars($patientImagesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+              <div class="form-text" id="facility_patient_images_format">Danh sách tối đa 100 ảnh; nhập <code>[]</code> để xóa danh sách. Mỗi ảnh cần <code>url</code>; có thể thêm <code>caption</code>, <code>alt</code>, <code>stage</code> (before/during/after/other), <code>source_url</code> và <code>consent_confirmed</code> (true/false). Chỉ lưu đường dẫn, không nhập Base64 hay tải ảnh trong biểu mẫu này.<br>Ví dụ: <code>[{"url":"/uploads/patient-photos/anh-1.webp","caption":"Kết quả sau điều trị","stage":"after","consent_confirmed":false}]</code></div>
+            </div>
+          </div>
 
           <div class="col-12 col-lg-6">
             <label class="form-label" for="featured_services_lines">Dịch vụ nổi bật trên list</label>

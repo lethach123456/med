@@ -34,5 +34,6 @@ function medical_doctor_api_source(array $row): array
     $row['writer_claim'] = $active ? array_intersect_key($claim, array_flip(['provider', 'model', 'task',
         'instance_id', 'instance_label', 'account_label', 'worker_id', 'claimed_at', 'heartbeat_at', 'expires_at'])) : null;
     $row['needs_content'] = medical_doctor_needs_content($row);
-    return $row;
+    // The research extension must never receive private patient-image metadata.
+    return medical_patient_images_redact($row);
 }

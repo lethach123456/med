@@ -164,7 +164,7 @@ $functionLines = array_slice(file($seedFunction->getFileName()), $seedFunction->
 $assert(!str_contains(implode('', $functionLines), 'SELECT slug FROM medical_facilities'), 'seed no full-directory aggregate loop');
 
 // Whole-project audit: schema SQL stays inside guarded libraries, not entry points.
-$ddlLibraries = ['db.php', 'medical_directory.php', 'medical_doctor_content.php', 'medical_facility_image_fix.php', 'toplist_directory.php', 'medical_media_worker.php', 'schema_migrations.php'];
+$ddlLibraries = ['db.php', 'medical_directory.php', 'medical_doctor_content.php', 'medical_facility_image_fix.php', 'medical_patient_images.php', 'toplist_directory.php', 'medical_media_worker.php', 'schema_migrations.php'];
 $root = dirname(__DIR__);
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 $audited = 0;

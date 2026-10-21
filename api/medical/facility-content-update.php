@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../../medical_search_cache.php';
 require_once __DIR__ . '/../../medical_facility_ratings.php';
+require_once __DIR__ . '/../../medical_patient_images.php';
 // The worker module is optional during deployment.  Article updates must keep
 // working even if the background image worker has not been installed yet.
 $medicalMediaWorker = __DIR__ . '/../../medical_media_worker.php';
@@ -215,10 +216,15 @@ if (isset($body['items']) && is_array($body['items'])) {
 } else {
     $items = [$body];
 }
+$patientImagesRequested = false;
 try {
     foreach ($items as $index => $item) {
         if (!is_array($item)) continue;
         $items[$index] = medical_api_content_normalize_rating_payload($item);
+        if (array_key_exists('patient_images_json', $item)) {
+            $items[$index]['patient_images_json'] = medical_patient_images_normalize($item['patient_images_json']);
+            $patientImagesRequested = true;
+        }
         // Validate the derived total before any item in this batch is persisted.
         medical_api_content_rating_summary($items[$index]['aggregate_ratings_json'] ?? [], $items[$index]['reviews'] ?? []);
     }
@@ -231,6 +237,13 @@ try {
     $pdo->query('SELECT id, content, full_json, ai_writer_claim_json FROM medical_facilities LIMIT 0');
 } catch (Throwable $e) {
     json_response(['ok' => false, 'message' => 'Chưa sẵn sàng schema nội dung. Chạy php scripts/migrate_medical_directory.php.'], 503);
+}
+// Legacy clients do not depend on this optional, separately migrated column.
+if ($patientImagesRequested) {
+    try { medical_patient_images_require_schema($pdo, 'facility'); }
+    catch (InvalidArgumentException $error) {
+        json_response(['ok' => false, 'message' => $error->getMessage()], 422);
+    }
 }
 $updated = [];
 $errors = [];
@@ -279,10 +292,14 @@ try { foreach ($items as $item) {
     ];
     $urlColumns = array_fill_keys(['website_url', 'google_maps_url', 'booking_url'], true);
     $seoFieldLimits = ['seo_title' => 160, 'seo_description' => 300, 'seo_keywords' => 255];
-    // Keep the original AI payload intact in full_json.  In particular, image
+    // Keep the public AI payload in full_json. In particular, gallery image
     // URLs remain the source URLs until the independent media worker has
     // downloaded and replaced them with locally owned files.
-    $normalizedItem = $item;
+    $normalizedItem = medical_patient_images_redact($item);
+    $patientImagesProvided = array_key_exists('patient_images_json', $item);
+    // A private-image-only patch must not replace the article's provenance.
+    $patientImagesOnly = $patientImagesProvided && array_diff(array_keys($normalizedItem),
+        ['id', 'slug', 'writer_claim_token', 'writer_claim', 'writer_claimed']) === [];
     if (array_key_exists('aggregate_ratings_json', $item) && $item['aggregate_ratings_json'] === []) {
         $existingAggregates = medical_facility_rating_normalize_aggregates($facilityRow['aggregate_ratings_json'] ?? null);
         if ($existingAggregates !== []) {
@@ -290,8 +307,12 @@ try { foreach ($items as $item) {
         }
     }
     unset($normalizedItem['writer_claim_token'], $normalizedItem['writer_claim'], $normalizedItem['writer_claimed'], $normalizedItem['rating_summary']);
-    $set = ['full_json' => ':full_json'];
+    $set = $patientImagesOnly ? [] : ['full_json' => ':full_json'];
     $params = [':id' => $facilityId];
+    if ($patientImagesProvided) {
+        $set['patient_images_json'] = ':patient_images_json';
+        $params[':patient_images_json'] = medical_patient_images_encode($item['patient_images_json']);
+    }
     foreach ($fields as $input => $column) {
         if (!array_key_exists($input, $item)) continue;
         $set[$column] = ':' . $column;
@@ -439,7 +460,7 @@ try { foreach ($items as $item) {
         $value = $item[$input];
         $params[':' . $column] = is_array($value) ? medical_api_json($value) : medical_api_json([(string) $value]);
     }
-    $params[':full_json'] = medical_api_json($normalizedItem);
+    if (!$patientImagesOnly) $params[':full_json'] = medical_api_json($normalizedItem);
     // Clear a completed lease in the same atomic write that saves the article.
     // A legacy client without a token may write only when no unexpired worker
     // owns the row; a leased client must still own the same unexpired token.

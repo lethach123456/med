@@ -3,10 +3,21 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../medical_directory.php';
+require_once __DIR__ . '/../medical_patient_images.php';
 
 admin_require_login();
 
 $pdo = db();
+$patientImagesReady = false;
+try {
+    $patientImagesReady = medical_patient_images_has_column($pdo, 'doctor');
+} catch (Throwable $e) {
+    // This optional field must not block the existing doctor editor.
+    error_log('Admin doctor patient image schema check failed (' . get_class($e) . ').');
+}
+$patientImagesValue = '[]';
+$patientImagesError = '';
+$patientImagesToSave = null;
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -72,6 +83,17 @@ if ($isEdit) {
         exit;
     }
     $doctorTranslationRow = $row;
+    if ($row['patient_images_json'] ?? null) {
+        $patientImagesValue = (string) $row['patient_images_json'];
+        try {
+            $patientImagesDecoded = json_decode($patientImagesValue, false, 512, JSON_THROW_ON_ERROR);
+            $patientImagesValue = (string) json_encode($patientImagesDecoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            // Keep legacy invalid text visible so an unrelated save cannot erase it.
+        }
+    } elseif (array_key_exists('patient_images_json', $row) && $row['patient_images_json'] !== null) {
+        $patientImagesValue = (string) $row['patient_images_json'];
+    }
     $item = medical_directory_doctor_from_row($row);
     $values = [
         'name' => (string) $item['name'],
@@ -194,6 +216,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === [] && ($_POST['_transla
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($patientImagesReady && array_key_exists('patient_images_json', $_POST)) {
+        try {
+            if (!is_string($_POST['patient_images_json'])) {
+                throw new InvalidArgumentException('Ảnh bệnh nhân phải là chuỗi JSON chứa danh sách ảnh.');
+            }
+            $patientImagesValue = $_POST['patient_images_json'];
+            $patientImagesToSave = medical_patient_images_encode($patientImagesValue);
+        } catch (InvalidArgumentException $e) {
+            $patientImagesError = $e->getMessage();
+            $errors[] = $patientImagesError;
+        }
+    }
     foreach ($researchKeys as $key) $researchValues[$key] = trim((string) ($_POST['research'][$key] ?? $researchValues[$key]));
     $researchInput = $researchValues;
     $researchInput['id'] = $id;
@@ -214,6 +248,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $researchFields = medical_doctor_normalize_payload($researchInput, false, $reviewIdentity);
     }
     catch (InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+    // This private field is deliberately excluded from public research data.
+    if ($patientImagesToSave !== null) {
+        $researchFields['patient_images_json'] = $patientImagesToSave;
+    }
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));
     }
@@ -509,6 +547,19 @@ $mediaGalleryValue = $values['gallery_lines'];
           </div>
 
           <?php require __DIR__ . '/_media_gallery_field.php'; ?>
+
+          <div class="col-12">
+            <div class="border rounded-4 bg-white p-3">
+              <label class="form-label fw-semibold" for="doctor_patient_images_json">Ảnh bệnh nhân · JSON riêng tư</label>
+              <p class="small text-secondary mb-2" id="doctor_patient_images_help">Ảnh bệnh nhân – lưu riêng, chưa hiển thị công khai; chỉ dùng khi có sự đồng ý phù hợp, không ghi tên/số giấy tờ/hồ sơ bệnh án trong chú thích.</p>
+              <?php if (!$patientImagesReady): ?>
+                <div class="alert alert-warning small" id="doctor_patient_images_schema" role="status">Chưa có cột lưu ảnh bệnh nhân. Trường này chỉ đọc; các thông tin khác vẫn lưu bình thường. Quản trị viên chạy <code>php scripts/migrate_patient_images.php --apply</code> rồi tải lại trang.</div>
+              <?php endif; ?>
+              <textarea id="doctor_patient_images_json" name="patient_images_json" class="form-control mono<?php echo $patientImagesError !== '' ? ' is-invalid' : ''; ?>" rows="8" spellcheck="false" aria-describedby="doctor_patient_images_help doctor_patient_images_format<?php echo !$patientImagesReady ? ' doctor_patient_images_schema' : ''; ?><?php echo $patientImagesError !== '' ? ' doctor_patient_images_error' : ''; ?>"<?php echo !$patientImagesReady ? ' readonly' : ''; ?><?php echo $patientImagesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
+              <?php if ($patientImagesError !== ''): ?><div class="invalid-feedback" id="doctor_patient_images_error" role="alert"><?php echo htmlspecialchars($patientImagesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+              <div class="form-text" id="doctor_patient_images_format">Danh sách tối đa 100 ảnh; nhập <code>[]</code> để xóa danh sách. Mỗi ảnh cần <code>url</code>; có thể thêm <code>caption</code>, <code>alt</code>, <code>stage</code> (before/during/after/other), <code>source_url</code> và <code>consent_confirmed</code> (true/false). Chỉ lưu đường dẫn, không nhập Base64 hay tải ảnh trong biểu mẫu này.<br>Ví dụ: <code>[{"url":"/uploads/patient-photos/anh-1.webp","caption":"Kết quả sau điều trị","stage":"after","consent_confirmed":false}]</code></div>
+            </div>
+          </div>
 
           <div class="col-12 col-lg-6">
             <label class="form-label" for="specialties_lines">Chuyên môn nổi bật</label>
