@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../medical_patient_images.php';
 // working even if the background image worker has not been installed yet.
 $medicalMediaWorker = __DIR__ . '/../../medical_media_worker.php';
 if (is_file($medicalMediaWorker)) require_once $medicalMediaWorker;
+header('X-MedReview-Patient-Images-Contract: 2');
 medical_api_auth();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_response(['ok' => false, 'message' => 'Method not allowed.'], 405);
 
@@ -217,6 +218,7 @@ if (isset($body['items']) && is_array($body['items'])) {
     $items = [$body];
 }
 $patientImagesRequested = false;
+$patientImageNotesRequested = false;
 try {
     foreach ($items as $index => $item) {
         if (!is_array($item)) continue;
@@ -224,6 +226,10 @@ try {
         if (array_key_exists('patient_images_json', $item)) {
             $items[$index]['patient_images_json'] = medical_patient_images_normalize($item['patient_images_json']);
             $patientImagesRequested = true;
+        }
+        if (array_key_exists('patient_images_notes', $item)) {
+            $items[$index]['patient_images_notes'] = medical_patient_images_notes_normalize($item['patient_images_notes']);
+            $patientImageNotesRequested = true;
         }
         // Validate the derived total before any item in this batch is persisted.
         medical_api_content_rating_summary($items[$index]['aggregate_ratings_json'] ?? [], $items[$index]['reviews'] ?? []);
@@ -245,6 +251,12 @@ if ($patientImagesRequested) {
         json_response(['ok' => false, 'message' => $error->getMessage()], 422);
     }
 }
+if ($patientImageNotesRequested) {
+    try { medical_patient_images_require_schema($pdo, 'facility', 'patient_images_notes'); }
+    catch (InvalidArgumentException $error) {
+        json_response(['ok' => false, 'message' => $error->getMessage()], 422);
+    }
+}
 $updated = [];
 $errors = [];
 $reviewsCreated = 0;
@@ -257,6 +269,7 @@ $galleryImagesRequested = 0;
 $galleryImagesQueued = 0;
 $imageErrors = [];
 $processedItems = [];
+$patientImageUpdates = [];
 try { foreach ($items as $item) {
     if (!is_array($item)) continue; $id = (int) ($item['id'] ?? 0); $slug = trim((string) ($item['slug'] ?? ''));
     if ($id <= 0 && $slug === '') { $errors[] = 'Thiếu id hoặc slug.'; continue; }
@@ -297,8 +310,9 @@ try { foreach ($items as $item) {
     // downloaded and replaced them with locally owned files.
     $normalizedItem = medical_patient_images_redact($item);
     $patientImagesProvided = array_key_exists('patient_images_json', $item);
+    $patientImageNotesProvided = array_key_exists('patient_images_notes', $item);
     // A private-image-only patch must not replace the article's provenance.
-    $patientImagesOnly = $patientImagesProvided && array_diff(array_keys($normalizedItem),
+    $patientImagesOnly = ($patientImagesProvided || $patientImageNotesProvided) && array_diff(array_keys($normalizedItem),
         ['id', 'slug', 'writer_claim_token', 'writer_claim', 'writer_claimed']) === [];
     if (array_key_exists('aggregate_ratings_json', $item) && $item['aggregate_ratings_json'] === []) {
         $existingAggregates = medical_facility_rating_normalize_aggregates($facilityRow['aggregate_ratings_json'] ?? null);
@@ -312,6 +326,10 @@ try { foreach ($items as $item) {
     if ($patientImagesProvided) {
         $set['patient_images_json'] = ':patient_images_json';
         $params[':patient_images_json'] = medical_patient_images_encode($item['patient_images_json']);
+    }
+    if ($patientImageNotesProvided) {
+        $set['patient_images_notes'] = ':patient_images_notes';
+        $params[':patient_images_notes'] = $item['patient_images_notes'];
     }
     foreach ($fields as $input => $column) {
         if (!array_key_exists($input, $item)) continue;
@@ -500,6 +518,17 @@ try { foreach ($items as $item) {
             continue;
         }
     }
+    // Do not report success merely because the payload/full_json contains
+    // these keys. Read the dedicated columns back from the same DB connection.
+    $patientExpected = [];
+    foreach (['patient_images_json', 'patient_images_notes'] as $privateColumn) {
+        if (array_key_exists(':' . $privateColumn, $params)) {
+            $patientExpected[$privateColumn] = $params[':' . $privateColumn];
+        }
+    }
+    if ($patientExpected !== []) {
+        $patientImageUpdates[] = medical_patient_images_verify_saved($pdo, 'facility', $facilityId, $patientExpected);
+    }
     $updated[] = $facilityId;
     // Queue is a best-effort optimization.  A background scanner can still
     // discover the remote URLs in gallery_json if queue storage is temporarily
@@ -566,9 +595,9 @@ try { foreach ($items as $item) {
     if ($updated !== []) {
         medical_search_cache_invalidate();
     }
-    json_response(['ok' => false, 'message' => 'Cập nhật thất bại: ' . $e->getMessage(), 'updated_ids' => $updated, 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems], 500);
+    json_response(['ok' => false, 'message' => 'Cập nhật thất bại: ' . $e->getMessage(), 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems], 500);
 }
 if ($updated !== []) {
     medical_search_cache_invalidate();
 }
-json_response(['ok' => true, 'updated_ids' => $updated, 'updated_count' => count($updated), 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems, 'errors' => $errors]);
+json_response(['ok' => $errors === [], 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'updated_count' => count($updated), 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems, 'errors' => $errors]);

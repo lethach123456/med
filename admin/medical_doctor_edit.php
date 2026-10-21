@@ -18,6 +18,15 @@ try {
 $patientImagesValue = '[]';
 $patientImagesError = '';
 $patientImagesToSave = null;
+$patientImagesNotesReady = false;
+try {
+    $patientImagesNotesReady = medical_patient_images_has_column($pdo, 'doctor', 'patient_images_notes');
+} catch (Throwable $e) {
+    error_log('Admin doctor patient image notes schema check failed (' . get_class($e) . ').');
+}
+$patientImagesNotesValue = '';
+$patientImagesNotesError = '';
+$patientImagesNotesToSave = null;
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -83,6 +92,7 @@ if ($isEdit) {
         exit;
     }
     $doctorTranslationRow = $row;
+    $patientImagesNotesValue = (string) ($row['patient_images_notes'] ?? '');
     if ($row['patient_images_json'] ?? null) {
         $patientImagesValue = (string) $row['patient_images_json'];
         try {
@@ -216,6 +226,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors === [] && ($_POST['_transla
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($patientImagesNotesReady && array_key_exists('patient_images_notes', $_POST)) {
+        if (is_string($_POST['patient_images_notes'])) {
+            $patientImagesNotesValue = $_POST['patient_images_notes'];
+        }
+        try {
+            $patientImagesNotesToSave = medical_patient_images_notes_normalize($_POST['patient_images_notes']);
+        } catch (InvalidArgumentException $e) {
+            $patientImagesNotesError = $e->getMessage();
+            $errors[] = $patientImagesNotesError;
+        }
+    }
     if ($patientImagesReady && array_key_exists('patient_images_json', $_POST)) {
         try {
             if (!is_string($_POST['patient_images_json'])) {
@@ -251,6 +272,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // This private field is deliberately excluded from public research data.
     if ($patientImagesToSave !== null) {
         $researchFields['patient_images_json'] = $patientImagesToSave;
+    }
+    if ($patientImagesNotesToSave !== null) {
+        $researchFields['patient_images_notes'] = $patientImagesNotesToSave;
     }
     foreach (array_keys($values) as $key) {
         $values[$key] = trim((string) ($_POST[$key] ?? ''));
@@ -558,6 +582,15 @@ $mediaGalleryValue = $values['gallery_lines'];
               <textarea id="doctor_patient_images_json" name="patient_images_json" class="form-control mono<?php echo $patientImagesError !== '' ? ' is-invalid' : ''; ?>" rows="8" spellcheck="false" aria-describedby="doctor_patient_images_help doctor_patient_images_format<?php echo !$patientImagesReady ? ' doctor_patient_images_schema' : ''; ?><?php echo $patientImagesError !== '' ? ' doctor_patient_images_error' : ''; ?>"<?php echo !$patientImagesReady ? ' readonly' : ''; ?><?php echo $patientImagesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
               <?php if ($patientImagesError !== ''): ?><div class="invalid-feedback" id="doctor_patient_images_error" role="alert"><?php echo htmlspecialchars($patientImagesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
               <div class="form-text" id="doctor_patient_images_format">Danh sách tối đa 100 ảnh; nhập <code>[]</code> để xóa danh sách. Mỗi ảnh cần <code>url</code>; có thể thêm <code>caption</code>, <code>alt</code>, <code>stage</code> (before/during/after/other), <code>source_url</code> và <code>consent_confirmed</code> (true/false). Chỉ lưu đường dẫn, không nhập Base64 hay tải ảnh trong biểu mẫu này.<br>Ví dụ: <code>[{"url":"/uploads/patient-photos/anh-1.webp","caption":"Kết quả sau điều trị","stage":"after","consent_confirmed":false}]</code></div>
+              <div class="mt-3">
+                <label class="form-label" for="doctor_patient_images_notes">Ghi chú tổng quan về ảnh bệnh nhân/khách hàng</label>
+                <?php if (!$patientImagesNotesReady): ?>
+                  <div class="alert alert-warning small" id="doctor_patient_images_notes_schema" role="status">Chưa sẵn sàng cột ghi chú ảnh bệnh nhân. Chỉ riêng ghi chú ở chế độ chỉ đọc; các trường khác vẫn lưu bình thường. Quản trị viên chạy <code>php scripts/migrate_patient_images.php --apply</code> rồi tải lại trang.</div>
+                <?php endif; ?>
+                <textarea id="doctor_patient_images_notes" name="patient_images_notes" class="form-control<?php echo $patientImagesNotesError !== '' ? ' is-invalid' : ''; ?>" rows="3" maxlength="4000" aria-describedby="doctor_patient_images_notes_help<?php echo !$patientImagesNotesReady ? ' doctor_patient_images_notes_schema' : ''; ?><?php echo $patientImagesNotesError !== '' ? ' doctor_patient_images_notes_error' : ''; ?>"<?php echo !$patientImagesNotesReady ? ' readonly' : ''; ?><?php echo $patientImagesNotesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesNotesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                <?php if ($patientImagesNotesError !== ''): ?><div class="invalid-feedback" id="doctor_patient_images_notes_error" role="alert"><?php echo htmlspecialchars($patientImagesNotesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                <div class="form-text" id="doctor_patient_images_notes_help">Mô tả đa số ảnh thể hiện gì, ví dụ trước/sau chỉnh nha, khách hàng chụp tại cơ sở hoặc ảnh kèm đánh giá. Đây là ghi chú nghiên cứu chung, không thay caption/alt từng ảnh. Cần đối chiếu: ảnh có đúng cơ sở/bác sĩ, đúng quá trình điều trị và có sự đồng ý phù hợp không? Không ghi thông tin nhận dạng bệnh nhân hoặc khẳng định kết quả đã được xác minh y khoa. Tối đa 4.000 ký tự; để trống để xóa ghi chú.</div>
+              </div>
             </div>
           </div>
 

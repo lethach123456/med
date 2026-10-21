@@ -145,6 +145,24 @@ function medical_patient_images_encode(mixed $value): string
     return json_encode(medical_patient_images_normalize($value), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 }
 
+/** Overall editorial observations/questions, separate from each photo caption. */
+function medical_patient_images_notes_normalize(mixed $value): string
+{
+    if (!is_string($value)) {
+        throw new InvalidArgumentException('patient_images_notes phải là chuỗi; dùng chuỗi rỗng để xóa ghi chú.');
+    }
+    if (preg_match('//u', $value) !== 1
+        || preg_match('/[\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}-\x{009F}]/u', $value)) {
+        throw new InvalidArgumentException('patient_images_notes chứa UTF-8 hoặc ký tự điều khiển không hợp lệ.');
+    }
+    $value = trim(str_replace(["\r\n", "\r"], "\n", $value));
+    $length = function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : preg_match_all('/./us', $value);
+    if ($length > 4000) {
+        throw new InvalidArgumentException('patient_images_notes tối đa 4000 ký tự.');
+    }
+    return $value;
+}
+
 function medical_patient_images_table(string $entity): string
 {
     return match ($entity) {
@@ -155,26 +173,57 @@ function medical_patient_images_table(string $entity): string
 }
 
 /** Read-only, not cached: safe for long-lived maintenance/test connections. */
-function medical_patient_images_has_column(PDO $pdo, string $entity): bool
+function medical_patient_images_has_column(PDO $pdo, string $entity, string $column = 'patient_images_json'): bool
 {
     $table = medical_patient_images_table($entity);
+    if (!in_array($column, ['patient_images_json', 'patient_images_notes'], true)) {
+        throw new InvalidArgumentException('Cột ảnh bệnh nhân không được hỗ trợ.');
+    }
     $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     if ($driver === 'sqlite') {
         $rows = $pdo->query('PRAGMA table_info("' . $table . '")')->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $row) if (($row['name'] ?? '') === 'patient_images_json') return true;
+        foreach ($rows as $row) if (($row['name'] ?? '') === $column) return true;
         return false;
     }
     if ($driver !== 'mysql') throw new InvalidArgumentException('Chỉ hỗ trợ metadata schema MySQL hoặc SQLite.');
     $stmt = $pdo->prepare('SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column LIMIT 1');
-    $stmt->execute([':table' => $table, ':column' => 'patient_images_json']);
+    $stmt->execute([':table' => $table, ':column' => $column]);
     return (bool) $stmt->fetchColumn();
 }
 
-function medical_patient_images_require_schema(PDO $pdo, string $entity): void
+function medical_patient_images_require_schema(PDO $pdo, string $entity, string $column = 'patient_images_json'): void
 {
-    if (!medical_patient_images_has_column($pdo, $entity)) {
-        throw new InvalidArgumentException('Chưa có cột patient_images_json cho ' . $entity . '. Quản trị viên chạy php scripts/migrate_patient_images.php --apply trên đúng DB.');
+    if (!medical_patient_images_has_column($pdo, $entity, $column)) {
+        throw new InvalidArgumentException('Chưa có cột ' . $column . ' cho ' . $entity . '. Quản trị viên chạy php scripts/migrate_patient_images.php --apply trên đúng DB.');
     }
+}
+
+/**
+ * Confirm dedicated-column persistence, not an echo of the incoming payload.
+ * Receipts/errors contain field names only, never patient photos or notes.
+ */
+function medical_patient_images_verify_saved(PDO $pdo, string $entity, int $id, array $expected): array
+{
+    $table = medical_patient_images_table($entity);
+    if ($id <= 0) throw new InvalidArgumentException('ID hồ sơ ảnh bệnh nhân phải là số nguyên dương.');
+    if ($expected === []) return [];
+    foreach ($expected as $column => $value) {
+        if (!in_array($column, ['patient_images_json', 'patient_images_notes'], true) || !is_string($value)) {
+            throw new InvalidArgumentException('Chỉ đối chiếu cột ảnh/ghi chú bệnh nhân với giá trị đã chuẩn hóa.');
+        }
+    }
+    $columns = array_keys($expected);
+    $select = implode(', ', array_map(static fn(string $column): string => '`' . $column . '`', $columns));
+    $stmt = $pdo->prepare('SELECT ' . $select . ' FROM `' . $table . '` WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $stored = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($stored)) throw new RuntimeException('Không thể xác nhận dữ liệu ảnh bệnh nhân: hồ sơ không còn tồn tại.');
+    foreach ($expected as $column => $value) {
+        if (!is_string($stored[$column] ?? null) || !hash_equals($value, $stored[$column])) {
+            throw new RuntimeException('Chưa xác nhận lưu đúng cột ' . $column . '; không coi phản hồi echo/full_json là đã lưu thành công.');
+        }
+    }
+    return ['id' => $id, 'saved_fields' => $columns, 'verified' => true];
 }
 
 /** Only the dedicated, explicit maintenance command may add these columns. */
@@ -186,13 +235,33 @@ function medical_patient_images_migrate(PDO $pdo): array
     $added = [];
     foreach (['facility', 'doctor'] as $entity) {
         $table = medical_patient_images_table($entity);
-        if (medical_patient_images_has_column($pdo, $entity)) continue;
+        $missing = [];
+        foreach (['patient_images_json' => 'MEDIUMTEXT NULL', 'patient_images_notes' => 'TEXT NULL'] as $column => $definition) {
+            if (!medical_patient_images_has_column($pdo, $entity, $column)) $missing[$column] = $definition;
+        }
+        if ($missing === []) continue;
+        $alter = [];
+        foreach ($missing as $column => $definition) $alter[] = 'ADD COLUMN `' . $column . '` ' . $definition;
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            // SQLite supports one added column per statement; keep local
+            // in-memory verification equivalent to MySQL's grouped ALTER.
+            foreach ($missing as $column => $definition) {
+                try { $pdo->exec('ALTER TABLE `' . $table . '` ADD COLUMN `' . $column . '` ' . $definition); }
+                catch (PDOException $e) {
+                    if (!medical_patient_images_has_column($pdo, $entity, $column)) throw $e;
+                }
+            }
+            $added[] = $table;
+            continue;
+        }
         try {
-            $pdo->exec('ALTER TABLE `' . $table . '` ADD COLUMN patient_images_json MEDIUMTEXT NULL');
+            $pdo->exec('ALTER TABLE `' . $table . '` ' . implode(', ', $alter));
             $added[] = $table;
         } catch (PDOException $e) {
             // An overlapping explicit migration may have added it first.
-            if (!medical_patient_images_has_column($pdo, $entity)) throw $e;
+            foreach (array_keys($missing) as $column) {
+                if (!medical_patient_images_has_column($pdo, $entity, $column)) throw $e;
+            }
         }
     }
     return $added;
@@ -207,7 +276,7 @@ function medical_patient_images_redact_node(mixed $value, bool &$changed, ?strin
         } catch (JsonException) {
             // Never echo a corrupt legacy container that may hold patient
             // metadata. Drop it instead of guessing where its private value ends.
-            if (preg_match('/patient_images(?:_json)?/i', $value)) {
+            if (preg_match('/patient_images(?:_json|_notes)?/i', $value)) {
                 $changed = true;
                 return 'null';
             }
@@ -225,7 +294,7 @@ function medical_patient_images_redact_node(mixed $value, bool &$changed, ?strin
     $items = $isObject ? get_object_vars($value) : $value;
     $localChanged = false;
     foreach ($items as $key => $item) {
-        if (in_array($key, ['patient_images_json', 'patient_images'], true)) {
+        if (in_array($key, ['patient_images_json', 'patient_images', 'patient_images_notes'], true)) {
             unset($items[$key]);
             $localChanged = true;
             continue;

@@ -530,6 +530,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             tags_json MEDIUMTEXT NULL,
             gallery_json MEDIUMTEXT NULL,
             patient_images_json MEDIUMTEXT NULL,
+            patient_images_notes TEXT NULL,
             intro_json MEDIUMTEXT NULL,
             stats_json MEDIUMTEXT NULL,
             utilities_json MEDIUMTEXT NULL,
@@ -643,6 +644,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             specialties_json MEDIUMTEXT NULL,
             gallery_json MEDIUMTEXT NULL,
             patient_images_json MEDIUMTEXT NULL,
+            patient_images_notes TEXT NULL,
             bio_json MEDIUMTEXT NULL,
             ai_writer_claim_json MEDIUMTEXT NULL,
             status ENUM('draft','published') NOT NULL DEFAULT 'published',
@@ -810,6 +812,7 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
     if (array_key_exists('image_fix_json', $source)) $source['image_fix_json'] = null;
     // Patient media is private metadata, never duplicated into a translation.
     if (array_key_exists('patient_images_json', $source)) $source['patient_images_json'] = null;
+    if (array_key_exists('patient_images_notes', $source)) $source['patient_images_notes'] = null;
     if (array_key_exists('full_json', $source)) {
         $redactedCopy = medical_patient_images_redact(['full_json' => $source['full_json']]);
         $source['full_json'] = $redactedCopy['full_json'];

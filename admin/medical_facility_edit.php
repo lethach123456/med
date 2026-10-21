@@ -18,6 +18,15 @@ try {
 $patientImagesValue = '[]';
 $patientImagesError = '';
 $patientImagesToSave = null;
+$patientImagesNotesReady = false;
+try {
+    $patientImagesNotesReady = medical_patient_images_has_column($pdo, 'facility', 'patient_images_notes');
+} catch (Throwable $e) {
+    error_log('Admin facility patient image notes schema check failed (' . get_class($e) . ').');
+}
+$patientImagesNotesValue = '';
+$patientImagesNotesError = '';
+$patientImagesNotesToSave = null;
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -173,6 +182,7 @@ if ($isEdit) {
         exit;
     }
     $facilityTranslationRow = $row;
+    $patientImagesNotesValue = (string) ($row['patient_images_notes'] ?? '');
     if ($row['patient_images_json'] ?? null) {
         $patientImagesValue = (string) $row['patient_images_json'];
         try {
@@ -235,6 +245,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($patientImagesNotesReady && array_key_exists('patient_images_notes', $_POST)) {
+        if (is_string($_POST['patient_images_notes'])) {
+            $patientImagesNotesValue = $_POST['patient_images_notes'];
+        }
+        try {
+            $patientImagesNotesToSave = medical_patient_images_notes_normalize($_POST['patient_images_notes']);
+        } catch (InvalidArgumentException $e) {
+            $patientImagesNotesError = $e->getMessage();
+            $errors[] = $patientImagesNotesError;
+        }
+    }
     if ($patientImagesReady && array_key_exists('patient_images_json', $_POST)) {
         try {
             if (!is_string($_POST['patient_images_json'])) {
@@ -288,11 +309,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $utilities = facility_text_to_lines($values['utilities_lines']);
 
     if ($errors === []) {
-        // One optional column in the same write; omitted fields preserve stored images.
+        // Private fields are independent, and omission preserves stored values.
         $patientImagesUpdateSql = $patientImagesToSave !== null ? ', patient_images_json = :patient_images_json' : '';
         $patientImagesInsertSql = $patientImagesToSave !== null ? ', patient_images_json' : '';
         $patientImagesPlaceholderSql = $patientImagesToSave !== null ? ', :patient_images_json' : '';
         $patientImagesParams = $patientImagesToSave !== null ? [':patient_images_json' => $patientImagesToSave] : [];
+        if ($patientImagesNotesToSave !== null) {
+            $patientImagesUpdateSql .= ', patient_images_notes = :patient_images_notes';
+            $patientImagesInsertSql .= ', patient_images_notes';
+            $patientImagesPlaceholderSql .= ', :patient_images_notes';
+            $patientImagesParams[':patient_images_notes'] = $patientImagesNotesToSave;
+        }
         if ($isEdit) {
             $stmt = $pdo->prepare(
                 "UPDATE medical_facilities SET
@@ -655,6 +682,15 @@ $mediaGalleryValue = $values['gallery_lines'];
               <textarea id="facility_patient_images_json" name="patient_images_json" class="form-control mono<?php echo $patientImagesError !== '' ? ' is-invalid' : ''; ?>" rows="8" spellcheck="false" aria-describedby="facility_patient_images_help facility_patient_images_format<?php echo !$patientImagesReady ? ' facility_patient_images_schema' : ''; ?><?php echo $patientImagesError !== '' ? ' facility_patient_images_error' : ''; ?>"<?php echo !$patientImagesReady ? ' readonly' : ''; ?><?php echo $patientImagesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
               <?php if ($patientImagesError !== ''): ?><div class="invalid-feedback" id="facility_patient_images_error" role="alert"><?php echo htmlspecialchars($patientImagesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
               <div class="form-text" id="facility_patient_images_format">Danh sách tối đa 100 ảnh; nhập <code>[]</code> để xóa danh sách. Mỗi ảnh cần <code>url</code>; có thể thêm <code>caption</code>, <code>alt</code>, <code>stage</code> (before/during/after/other), <code>source_url</code> và <code>consent_confirmed</code> (true/false). Chỉ lưu đường dẫn, không nhập Base64 hay tải ảnh trong biểu mẫu này.<br>Ví dụ: <code>[{"url":"/uploads/patient-photos/anh-1.webp","caption":"Kết quả sau điều trị","stage":"after","consent_confirmed":false}]</code></div>
+              <div class="mt-3">
+                <label class="form-label" for="facility_patient_images_notes">Ghi chú tổng quan về ảnh bệnh nhân/khách hàng</label>
+                <?php if (!$patientImagesNotesReady): ?>
+                  <div class="alert alert-warning small" id="facility_patient_images_notes_schema" role="status">Chưa sẵn sàng cột ghi chú ảnh bệnh nhân. Chỉ riêng ghi chú ở chế độ chỉ đọc; các trường khác vẫn lưu bình thường. Quản trị viên chạy <code>php scripts/migrate_patient_images.php --apply</code> rồi tải lại trang.</div>
+                <?php endif; ?>
+                <textarea id="facility_patient_images_notes" name="patient_images_notes" class="form-control<?php echo $patientImagesNotesError !== '' ? ' is-invalid' : ''; ?>" rows="3" maxlength="4000" aria-describedby="facility_patient_images_notes_help<?php echo !$patientImagesNotesReady ? ' facility_patient_images_notes_schema' : ''; ?><?php echo $patientImagesNotesError !== '' ? ' facility_patient_images_notes_error' : ''; ?>"<?php echo !$patientImagesNotesReady ? ' readonly' : ''; ?><?php echo $patientImagesNotesError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($patientImagesNotesValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                <?php if ($patientImagesNotesError !== ''): ?><div class="invalid-feedback" id="facility_patient_images_notes_error" role="alert"><?php echo htmlspecialchars($patientImagesNotesError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                <div class="form-text" id="facility_patient_images_notes_help">Mô tả đa số ảnh thể hiện gì, ví dụ trước/sau chỉnh nha, khách hàng chụp tại cơ sở hoặc ảnh kèm đánh giá. Đây là ghi chú nghiên cứu chung, không thay caption/alt từng ảnh. Cần đối chiếu: ảnh có đúng cơ sở/bác sĩ, đúng quá trình điều trị và có sự đồng ý phù hợp không? Không ghi thông tin nhận dạng bệnh nhân hoặc khẳng định kết quả đã được xác minh y khoa. Tối đa 4.000 ký tự; để trống để xóa ghi chú.</div>
+              </div>
             </div>
           </div>
 

@@ -545,6 +545,9 @@ function medical_doctor_normalize_payload(array $item, bool $strictResearch = tr
     if (array_key_exists('patient_images_json', $item)) {
         $fields['patient_images_json'] = medical_patient_images_encode($item['patient_images_json']);
     }
+    if (array_key_exists('patient_images_notes', $item)) {
+        $fields['patient_images_notes'] = medical_patient_images_notes_normalize($item['patient_images_notes']);
+    }
     foreach (medical_doctor_text_fields() as $field => $max) {
         if (!array_key_exists($field, $item)) continue;
         $value = $item[$field];
@@ -1082,6 +1085,9 @@ function medical_doctor_save_research_locked(PDO $pdo, array $item): array
     $fields = medical_doctor_normalize_payload($item);
     if (array_key_exists('patient_images_json', $fields)) {
         medical_patient_images_require_schema($pdo, 'doctor');
+    }
+    if (array_key_exists('patient_images_notes', $fields)) {
+        medical_patient_images_require_schema($pdo, 'doctor', 'patient_images_notes');
     }
     $pdo->beginTransaction();
     try {
