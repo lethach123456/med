@@ -443,6 +443,8 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $verifyCode = substr($facilityEndpoint, $verifyStart, $verifyEnd + strlen('$updated[] = $facilityId;') - $verifyStart);
     $verifyReceiver = static function (PDO $pdo, array $params, int $facilityId = 393) use ($verifyCode): array {
         $patientImageUpdates = [];
+        $facilityInsightsProvided = array_key_exists(':facility_insights_json', $params);
+        $facilityInsightUpdates = [];
         $updated = [];
         eval($verifyCode);
         return ['patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated];

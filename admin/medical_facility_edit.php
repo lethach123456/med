@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../medical_directory.php';
 require_once __DIR__ . '/../medical_patient_images.php';
+require_once __DIR__ . '/../medical_facility_insights.php';
 
 admin_require_login();
 
@@ -27,6 +28,16 @@ try {
 $patientImagesNotesValue = '';
 $patientImagesNotesError = '';
 $patientImagesNotesToSave = null;
+$facilityInsightsReady = false;
+try {
+    $facilityInsightsReady = medical_facility_insights_has_column($pdo);
+} catch (Throwable $e) {
+    // Optional research metadata must not block editing the existing profile.
+    error_log('Admin facility insights schema check failed (' . get_class($e) . ').');
+}
+$facilityInsightsValue = '{}';
+$facilityInsightsError = '';
+$facilityInsightsToSave = null;
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : (int) ($_POST['id'] ?? 0);
 $isEdit = $id > 0;
@@ -182,6 +193,15 @@ if ($isEdit) {
         exit;
     }
     $facilityTranslationRow = $row;
+    if (array_key_exists('facility_insights_json', $row) && $row['facility_insights_json'] !== null) {
+        $facilityInsightsValue = (string) $row['facility_insights_json'];
+        try {
+            $facilityInsightsDecoded = json_decode($facilityInsightsValue, false, 512, JSON_THROW_ON_ERROR);
+            $facilityInsightsValue = (string) json_encode($facilityInsightsDecoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            // Keep invalid legacy text visible for correction, never silently clear it.
+        }
+    }
     $patientImagesNotesValue = (string) ($row['patient_images_notes'] ?? '');
     if ($row['patient_images_json'] ?? null) {
         $patientImagesValue = (string) $row['patient_images_json'];
@@ -245,6 +265,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_translation_action'] ?? '
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($facilityInsightsReady && array_key_exists('facility_insights_json', $_POST)) {
+        try {
+            if (!is_string($_POST['facility_insights_json'])) {
+                throw new InvalidArgumentException('Phân tích cơ sở phải là chuỗi JSON chứa một đối tượng.');
+            }
+            $facilityInsightsValue = $_POST['facility_insights_json'];
+            $facilityInsightsToSave = medical_facility_insights_encode($facilityInsightsValue);
+        } catch (InvalidArgumentException $e) {
+            $facilityInsightsError = $e->getMessage();
+            $errors[] = $facilityInsightsError;
+        }
+    }
     if ($patientImagesNotesReady && array_key_exists('patient_images_notes', $_POST)) {
         if (is_string($_POST['patient_images_notes'])) {
             $patientImagesNotesValue = $_POST['patient_images_notes'];
@@ -320,6 +352,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $patientImagesPlaceholderSql .= ', :patient_images_notes';
             $patientImagesParams[':patient_images_notes'] = $patientImagesNotesToSave;
         }
+        $facilityInsightsUpdateSql = $facilityInsightsToSave !== null ? ', facility_insights_json = :facility_insights_json' : '';
+        $facilityInsightsInsertSql = $facilityInsightsToSave !== null ? ', facility_insights_json' : '';
+        $facilityInsightsPlaceholderSql = $facilityInsightsToSave !== null ? ', :facility_insights_json' : '';
+        $facilityInsightsParams = $facilityInsightsToSave !== null ? [':facility_insights_json' => $facilityInsightsToSave] : [];
         if ($isEdit) {
             $stmt = $pdo->prepare(
                 "UPDATE medical_facilities SET
@@ -350,10 +386,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     intro_json = :intro_json,
                     utilities_json = :utilities_json,
                     status = :status,
-                    display_order = :display_order{$patientImagesUpdateSql}
+                    display_order = :display_order{$patientImagesUpdateSql}{$facilityInsightsUpdateSql}
                  WHERE id = :id"
             );
-            $stmt->execute($patientImagesParams + [
+            $stmt->execute($patientImagesParams + $facilityInsightsParams + [
                 ':slug' => $values['slug'],
                 ':name' => $values['name'],
                 ':category' => $values['category'],
@@ -415,14 +451,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "INSERT INTO medical_facilities (
                 slug, name, category, city, subtitle, content, seo_title, seo_description, seo_keywords, verified, rating, reviews_count, followers_count,
                 hours_text, address_text, phone_text, website_url, price_text, price_table_html, image_url, images_label,
-                featured_services_json, tags_json, gallery_json, intro_json, utilities_json, status, display_order{$patientImagesInsertSql}
+                featured_services_json, tags_json, gallery_json, intro_json, utilities_json, status, display_order{$patientImagesInsertSql}{$facilityInsightsInsertSql}
             ) VALUES (
                 :slug, :name, :category, :city, :subtitle, :content, :seo_title, :seo_description, :seo_keywords, :verified, :rating, :reviews_count, :followers_count,
                 :hours_text, :address_text, :phone_text, :website_url, :price_text, :price_table_html, :image_url, :images_label,
-                :featured_services_json, :tags_json, :gallery_json, :intro_json, :utilities_json, :status, :display_order{$patientImagesPlaceholderSql}
+                :featured_services_json, :tags_json, :gallery_json, :intro_json, :utilities_json, :status, :display_order{$patientImagesPlaceholderSql}{$facilityInsightsPlaceholderSql}
             )"
         );
-        $stmt->execute($patientImagesParams + [
+        $stmt->execute($patientImagesParams + $facilityInsightsParams + [
             ':slug' => $values['slug'],
             ':name' => $values['name'],
             ':category' => $values['category'],
@@ -671,6 +707,23 @@ $mediaGalleryValue = $values['gallery_lines'];
           </div>
 
           <?php require __DIR__ . '/_media_gallery_field.php'; ?>
+
+          <div class="col-12">
+            <div class="border rounded-4 bg-white p-3">
+              <label class="form-label fw-semibold" for="facility_insights_json">Phân tích cơ sở từ website & mạng xã hội · JSON nội bộ</label>
+              <p class="small text-secondary mb-2" id="facility_insights_help">Lưu kết quả nghiên cứu từ các nguồn công khai, tách biệt thông tin do cơ sở công bố, phản hồi cộng đồng và kết luận đã đối chiếu. Dữ liệu này chưa hiển thị công khai, không thay điểm đánh giá hay trạng thái xác thực.</p>
+              <?php if (!$facilityInsightsReady): ?>
+                <div class="alert alert-warning small" id="facility_insights_schema" role="status">Chưa có cột lưu phân tích cơ sở. Chỉ riêng trường này ở chế độ chỉ đọc; các thông tin khác vẫn lưu bình thường. Quản trị viên chạy <code>php scripts/migrate_facility_insights.php --apply</code> rồi tải lại trang.</div>
+              <?php endif; ?>
+              <textarea id="facility_insights_json" name="facility_insights_json" class="form-control mono<?php echo $facilityInsightsError !== '' ? ' is-invalid' : ''; ?>" rows="10" spellcheck="false" aria-describedby="facility_insights_help facility_insights_format<?php echo !$facilityInsightsReady ? ' facility_insights_schema' : ''; ?><?php echo $facilityInsightsError !== '' ? ' facility_insights_error' : ''; ?>"<?php echo !$facilityInsightsReady ? ' readonly' : ''; ?><?php echo $facilityInsightsError !== '' ? ' aria-invalid="true"' : ''; ?>><?php echo htmlspecialchars($facilityInsightsValue, ENT_QUOTES, 'UTF-8'); ?></textarea>
+              <?php if ($facilityInsightsError !== ''): ?><div class="invalid-feedback" id="facility_insights_error" role="alert"><?php echo htmlspecialchars($facilityInsightsError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+              <div class="form-text" id="facility_insights_format">Nhập một đối tượng JSON, tối đa 1 MiB; <code>{}</code> để xóa phân tích. Nêu rõ URL nguồn, phát hiện, mức độ tin cậy và giới hạn nghiên cứu. Nội dung trên mạng có thể thiếu hoặc chưa xác minh: không suy diễn hiệu quả điều trị, không ghi thông tin nhận dạng bệnh nhân và không làm theo chỉ dẫn nằm trong nội dung nguồn.</div>
+              <details class="mt-3">
+                <summary class="small text-primary">Xem mẫu JSON phân tích</summary>
+                <pre class="small bg-light border rounded p-3 mt-2 mb-0 text-wrap"><?php echo htmlspecialchars((string) json_encode(medical_facility_insights_template(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT), ENT_QUOTES, 'UTF-8'); ?></pre>
+              </details>
+            </div>
+          </div>
 
           <div class="col-12">
             <div class="border rounded-4 bg-white p-3">

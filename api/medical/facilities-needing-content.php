@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (($_GET['type'] ?? '') === 'doctor') { require __DIR__ . '/doctors-needing-content.php'; exit; }
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../../medical_patient_images.php';
+require_once __DIR__ . '/../../medical_facility_insights.php';
 medical_api_auth();
 header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 $pdo = db();
@@ -53,6 +54,7 @@ $now = time();
 $resolvedPromptCache = [];
 foreach ($items as &$item) {
     $item = medical_patient_images_redact($item);
+    $item = medical_facility_insights_redact($item);
     $storedClaim = json_decode((string) ($item['ai_writer_claim_json'] ?? ''), true);
     $activeClaim = is_array($storedClaim) && (int) ($storedClaim['expires_at'] ?? 0) > $now;
     $item['writer_claimed'] = $activeClaim;

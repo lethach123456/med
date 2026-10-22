@@ -105,6 +105,8 @@ function medical_api_translation_fields(string $type): array
 /** Return the complete source-table row, decoding stored JSON columns for the translation prompt. */
 function medical_api_translation_source(string $type, array $row): array
 {
+    // Internal analysis and patient media are not translation source material.
+    $row = medical_facility_insights_redact(medical_patient_images_redact($row));
     unset($row['target_translation_id'], $row['target_translation_slug'], $row['target_translation_status']);
     unset($row['ai_writer_claim_json'], $row['image_fix_json'], $row['reviewed_by']);
     foreach ($row as $column => $value) {

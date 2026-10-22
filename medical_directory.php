@@ -6,6 +6,7 @@ require_once __DIR__ . '/medical_search_cache.php';
 require_once __DIR__ . '/medical_doctor_content.php';
 require_once __DIR__ . '/medical_facility_image_fix.php';
 require_once __DIR__ . '/medical_patient_images.php';
+require_once __DIR__ . '/medical_facility_insights.php';
 
 function medical_directory_table_exists(PDO $pdo, string $table): bool
 {
@@ -263,15 +264,16 @@ function medical_directory_ensure_ai_writer_claim_columns(PDO $pdo): void
 /** Machine-oriented rules appended to facility prompts served through APIs. */
 function medical_directory_facility_json_transport_rules(string $template): string
 {
+    $insightsRules = medical_facility_insights_prompt_rules();
     if (str_contains($template, 'MEDREVIEW_JSON_TRANSPORT_RULES')) {
-        return $template;
+        return str_contains($template, $insightsRules) ? $template : rtrim($template) . "\n\n" . $insightsRules;
     }
     return rtrim($template) . "\n\nMEDREVIEW_JSON_TRANSPORT_RULES:\n"
         . "- Chỉ trả JSON hợp lệ theo JSON RFC 8259; không dùng markdown hoặc code fence.\n"
         . "- URL phải là chuỗi URL thô https://..., tuyệt đối không dùng dạng [text](url).\n"
         . "- gallery_json là mảng ảnh, mỗi ảnh dùng object {\"url\":\"https://...\",\"angle\":\"...\",\"caption\":\"...\",\"source\":\"...\"}; url là bắt buộc, các trường còn lại có thể để \"\".\n"
         . "- Mọi dấu ngoặc kép, xuống dòng hoặc ký tự đặc biệt trong content/notes_for_editor phải được JSON escape.\n"
-        . "- Trường không có dữ liệu dùng null, [] hoặc \"\" đúng theo kiểu dữ liệu; không thay bằng lời giải thích.\n";
+        . "- Trường không có dữ liệu dùng null, [] hoặc \"\" đúng theo kiểu dữ liệu; không thay bằng lời giải thích.\n\n" . $insightsRules;
 }
 
 /** Inserts the image-prompt default once while preserving any admin edits. */
@@ -531,6 +533,7 @@ function medical_directory_ensure_tables(PDO $pdo): void
             gallery_json MEDIUMTEXT NULL,
             patient_images_json MEDIUMTEXT NULL,
             patient_images_notes TEXT NULL,
+            facility_insights_json MEDIUMTEXT NULL,
             intro_json MEDIUMTEXT NULL,
             stats_json MEDIUMTEXT NULL,
             utilities_json MEDIUMTEXT NULL,
@@ -813,8 +816,10 @@ function medical_directory_create_translation_copy(PDO $pdo, string $entity, int
     // Patient media is private metadata, never duplicated into a translation.
     if (array_key_exists('patient_images_json', $source)) $source['patient_images_json'] = null;
     if (array_key_exists('patient_images_notes', $source)) $source['patient_images_notes'] = null;
+    // Source-language editorial analysis requires its own translation/review.
+    if (array_key_exists('facility_insights_json', $source)) $source['facility_insights_json'] = null;
     if (array_key_exists('full_json', $source)) {
-        $redactedCopy = medical_patient_images_redact(['full_json' => $source['full_json']]);
+        $redactedCopy = medical_facility_insights_redact(medical_patient_images_redact(['full_json' => $source['full_json']]));
         $source['full_json'] = $redactedCopy['full_json'];
     }
     $source['slug'] = $candidate;
