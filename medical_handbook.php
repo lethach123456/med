@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_public_links.php';
 
 /** Read-only handbook data and presentation helpers; safe to load without a database. */
 function handbook_view_escape(mixed $value): string
@@ -385,6 +386,7 @@ function handbook_slugify_anchor(string $text, int $index = 1): string
  */
 function handbook_prepare_content_with_toc(string $html, array $related, string $locale = 'vi'): array
 {
+    $html = medical_normalize_facility_links_html($html);
     $e = 'handbook_view_escape';
     $isEn = handbook_view_locale($locale) === 'en';
     $facilities = is_array($related['facilities'] ?? null) ? $related['facilities'] : [];

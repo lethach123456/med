@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_public_links.php';
 
 /**
  * In-request import of handbook illustrations from real data URIs or public HTTP(S) files.
@@ -21,6 +22,10 @@ function handbook_ai_media_text(string $value, int $limit): string
 function handbook_ai_media_link(string $value): string
 {
     $value = trim($value);
+    $origin = function_exists('site_canonical_origin') ? site_canonical_origin() : 'https://medreview.vn';
+    $canonical = medical_canonical_facility_url($value, $origin);
+    if ($canonical !== $value && str_starts_with($canonical, '/')) $canonical = $origin . $canonical;
+    $value = $canonical;
     if ($value === '' || strlen($value) > 2048 || preg_match('/[\x00-\x20\x7f\\\\]/', $value)) return '';
     $parts = parse_url($value);
     if (!is_array($parts) || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['https', 'http'], true)
@@ -325,7 +330,7 @@ function handbook_ai_prepare_article_html(string $html, int $postId, ?string $st
         handbook_ai_cleanup_created_files($created, $root);
         throw $error;
     }
-    return ['content' => $content, 'images' => $metadata, 'created_files' => $created];
+    return ['content' => medical_normalize_facility_links_html($content), 'images' => $metadata, 'created_files' => $created];
 }
 
 /** Delete only exact regular files created by this importer in this request. */

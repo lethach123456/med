@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var query = initialParams.get('q') || '';
   var limit = 20;
   var endpoint = '/admin/api/medical/facilities_list.php';
-  var detailUrl = <?= json_encode(site_url('co-so-y-te-chi-tiet.php?slug='), JSON_UNESCAPED_SLASHES) ?>;
+  var detailUrls = <?= json_encode(['vi' => site_url(medical_public_entity_path('facility', '', 'vi') . '/'), 'en' => site_url(medical_public_entity_path('facility', '', 'en') . '/')], JSON_UNESCAPED_SLASHES) ?>;
   var editUrl = <?= json_encode(admin_url('medical_facility_edit.php?id='), JSON_UNESCAPED_SLASHES) ?>;
 
   function escapeHtml(value) {
@@ -123,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     tbody.innerHTML = items.map(function (row) {
       var status = String(row.status || '');
+      var detailUrl = detailUrls[String(row.language_code || 'vi').toLowerCase() === 'en' ? 'en' : 'vi'];
       return '<tr>' +
         '<td>' + number(row.display_order) + '</td>' +
         '<td><div class="fw-semibold">' + escapeHtml(row.name) + '</div><div class="small text-secondary mono">' + escapeHtml(row.slug) + '</div></td>' +

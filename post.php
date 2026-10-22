@@ -83,7 +83,8 @@ if (!$post) {
     if (!$isHandbookDetailRoute) $post = post_template_resolve_content($post);
     $title = (string) ($post['title'] ?? '');
     $excerpt = (string) ($post['excerpt'] ?? '');
-    $content = (string) ($post['content'] ?? '');
+    $post['content'] = medical_normalize_facility_links_html((string) ($post['content'] ?? ''));
+    $content = $post['content'];
     $featured = (string) ($post['featured_image_url'] ?? '');
     $updatedAt = (string) ($post['updated_at'] ?? '');
     $categoryName = (string) ($post['category_name'] ?? '');
@@ -497,7 +498,7 @@ if (!$post) {
                         <span><?php echo htmlspecialchars((string) ($item['rating'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>/5</span>
                       </div>
                       <p><?php echo htmlspecialchars((string) ($item['subtitle'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-                      <a class="suggest-link" href="/co-so-y-te-chi-tiet.php?slug=<?php echo rawurlencode((string) ($item['slug'] ?? '')); ?>"><?php echo $isEnglishPost ? 'View facility' : 'Xem cơ sở y tế'; ?></a>
+                      <a class="suggest-link" href="<?php echo htmlspecialchars(medical_public_entity_path('facility', (string) ($item['slug'] ?? ''), (string) ($item['language_code'] ?? $htmlLang)), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglishPost ? 'View facility' : 'Xem cơ sở y tế'; ?></a>
                     </div>
                   </article>
                 <?php endforeach; ?>

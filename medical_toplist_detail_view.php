@@ -78,7 +78,13 @@ function medical_toplist_detail_html(string $html): string
                 while ($child->firstChild) $node->insertBefore($child->firstChild, $child);
                 $node->removeChild($child); continue;
             }
-            $href = $tag === 'a' ? medical_doctor_profile_url($child->getAttribute('href')) : '';
+            $href = '';
+            if ($tag === 'a') {
+                $sourceHref = $child->getAttribute('href');
+                $canonicalHref = medical_canonical_facility_url($sourceHref, site_canonical_origin());
+                if ($canonicalHref !== $sourceHref && str_starts_with($canonicalHref, '/')) $canonicalHref = site_absolute_url($canonicalHref);
+                $href = medical_doctor_profile_url($canonicalHref);
+            }
             $image = $tag === 'img' ? medical_doctor_profile_url($child->getAttribute('src'), true) : '';
             $alt = $tag === 'img' ? $child->getAttribute('alt') : '';
             $span = [];
@@ -98,7 +104,7 @@ function medical_toplist_detail_html(string $html): string
     };
     $walk($root); $result = '';
     foreach ($root->childNodes as $child) $result .= $dom->saveHTML($child);
-    return trim($result);
+    return medical_normalize_facility_links_html(trim($result), site_canonical_origin());
 }
 
 /** Read-only models for doctor and mixed Toplists. Keep the raw ranking order. */

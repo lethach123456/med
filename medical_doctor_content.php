@@ -382,6 +382,9 @@ function medical_doctor_sanitize_html(string $html): string
             $href = $tag === 'a' ? $child->getAttribute('href') : '';
             foreach (iterator_to_array($child->attributes) as $attribute) $child->removeAttribute($attribute->name);
             if ($href !== '') {
+                $canonicalHref = medical_canonical_facility_url($href, site_canonical_origin());
+                if ($canonicalHref !== $href && str_starts_with($canonicalHref, '/')) $canonicalHref = site_absolute_url($canonicalHref);
+                $href = $canonicalHref;
                 try { $url = medical_doctor_http_url($href); } catch (InvalidArgumentException $e) { $url = null; }
                 if ($url !== null) { $child->setAttribute('href', $url); $child->setAttribute('rel', 'nofollow noopener noreferrer'); }
             }
@@ -390,7 +393,7 @@ function medical_doctor_sanitize_html(string $html): string
     $walk($root);
     $result = '';
     foreach ($root->childNodes as $child) $result .= $dom->saveHTML($child);
-    return trim($result);
+    return medical_normalize_facility_links_html(trim($result), site_canonical_origin());
 }
 
 function medical_doctor_decode_array(mixed $value, string $field): array

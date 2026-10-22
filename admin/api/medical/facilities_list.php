@@ -31,8 +31,10 @@ $totalPages = max(1, (int) ceil($total / $limit));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $limit;
 
+$languageColumn = medreview_translation_schema_ready($pdo, 'medical_facilities')
+    ? 'language_code' : "'vi' AS language_code";
 $stmt = $pdo->prepare(
-    'SELECT id, slug, name, category, city, rating, reviews_count, status, display_order, updated_at
+    'SELECT id, slug, name, category, city, rating, reviews_count, status, display_order, updated_at, ' . $languageColumn . '
      FROM medical_facilities
      ' . $where . '
      ORDER BY display_order ASC, id DESC

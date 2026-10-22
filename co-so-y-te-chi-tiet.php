@@ -765,7 +765,7 @@ if (is_array($dbFacility) && $dbFacility !== []) {
     $facility['intro'] = [(string) $facility['content']];
   }
 $relatedFacilities = array_map('facility_detail_normalize', $relatedFacilities);
-$facilityPriceTableHtml = facility_detail_compact_price_html((string) ($facility['price_table_html'] ?? ''));
+$facilityPriceTableHtml = medical_normalize_facility_links_html(facility_detail_compact_price_html((string) ($facility['price_table_html'] ?? '')), site_canonical_origin());
 
 $facilityReviewSummary = (array) ($facility['review_summary'] ?? []);
 $facilityReviewCount = (int) ($facilityReviewSummary['count'] ?? 0);
@@ -2537,7 +2537,7 @@ if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
           <h2><?php echo htmlspecialchars($tr('Giới thiệu về ', 'About ') . $facility['name'], ENT_QUOTES, 'UTF-8'); ?></h2>
           <div class="section-copy">
             <?php foreach ($facility['intro'] as $paragraph): ?>
-              <?php if (strpos($paragraph, '<') !== false): ?><?php echo $paragraph; ?><?php else: ?><p><?php echo htmlspecialchars($paragraph, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+              <?php if (strpos($paragraph, '<') !== false): ?><?php echo medical_normalize_facility_links_html($paragraph, site_canonical_origin()); ?><?php else: ?><p><?php echo htmlspecialchars($paragraph, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
             <?php endforeach; ?>
           </div>
 

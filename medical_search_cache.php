@@ -862,6 +862,9 @@ function medical_search_cache_public_item(string $type, array $item, string $ser
         'service_text' => $serviceText,
     ];
     if ($type === 'facilities') {
+        // Older snapshots can still contain .php?slug= URLs. Rebuild the
+        // outgoing route from record identity without rebuilding the index.
+        $public['url'] = medical_public_entity_path('facility', (string) ($item['slug'] ?? ''), (string) ($item['language_code'] ?? 'vi'));
         $public['rating_basis'] = (string) ($item['rating_basis'] ?? 'legacy');
         $public['rating_sources'] = (array) ($item['rating_sources'] ?? []);
         $public['category'] = (string) ($item['category'] ?? '');
@@ -940,7 +943,7 @@ function medical_search_cache_directory_item(array $item): array
         'id' => (int) ($item['id'] ?? 0),
         'slug' => (string) ($item['slug'] ?? ''),
         'language_code' => (string) ($item['language_code'] ?? 'vi'),
-        'url' => (string) ($item['url'] ?? ''),
+        'url' => medical_public_entity_path('facility', (string) ($item['slug'] ?? ''), (string) ($item['language_code'] ?? 'vi')),
         'name' => (string) ($item['name'] ?? ''),
         'category' => (string) ($item['category'] ?? 'Cơ sở y tế'),
         'city' => (string) ($item['city'] ?? ''),
