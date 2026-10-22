@@ -1,0 +1,71 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require_once dirname(__DIR__) . '/medical_review_article_admin.php';
+$checks = 0;
+$assert = static function (bool $ok, string $label) use (&$checks): void { $checks++; if (!$ok) throw new RuntimeException('FAIL: ' . $label); };
+$throws = static function (callable $call, string $label) use ($assert): void {
+    try { $call(); } catch (InvalidArgumentException | RuntimeException) { $assert(true, $label); return; }
+    $assert(false, $label);
+};
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+medreview_with_schema_migration(static fn() => medical_review_articles_migrate($pdo));
+$payload = ['title' => 'Phân tích cơ sở mẫu', 'slug' => 'phan-tich-co-so-mau',
+    'excerpt' => 'Tóm tắt thận trọng từ dữ liệu công khai của cơ sở.', 'verdict' => 'Thông tin cần tiếp tục đối chiếu trước khi đặt lịch.',
+    'content_html' => '<p>' . str_repeat('Đây là nhận định biên tập từ dữ liệu đã lưu, không phải trải nghiệm khám bệnh và không chứng minh kết quả điều trị. ', 5) . '</p>',
+    'strengths_json' => ['Có thông tin liên hệ.'], 'considerations_json' => ['Cần xác nhận chi phí trực tiếp.'], 'suitable_for_json' => [],
+    'analysis_sections_json' => [], 'sources_json' => [['id'=>'profile','url'=>'https://medreview.vn/co-so-y-te/co-so-mau','title'=>'Hồ sơ cơ sở','platform'=>'MedReview']],
+    'evidence_limitations_json' => ['Dữ liệu nguồn chưa được kiểm chứng độc lập.'], 'seo_title'=>'Phân tích cơ sở mẫu',
+    'seo_description'=>'Những thông tin cần đối chiếu trước khi chọn cơ sở.', 'researched_at'=>'2026-10-22T10:00:00+07:00'];
+$fields = medical_review_articles_validate_article($payload);
+$values = ['entity_type'=>'facility','entity_id'=>393,'language_code'=>'vi','status'=>'draft',
+    'source_snapshot_json'=>'{"PRIVATE_SOURCE":true}', 'source_revision'=>str_repeat('a',64),
+    'source_review_count'=>41,'source_rating'=>4.3,'source_rating_basis'=>'external_aggregates',
+    'ai_content_json'=>'{"old":"submission-receipt"}'];
+foreach ($fields as $key=>$value) $values[$key] = str_ends_with($key,'_json') ? medical_review_articles_json_encode($value) : $value;
+$slots = array_map(static fn($key)=>':'.$key,array_keys($values));
+$pdo->prepare('INSERT INTO medical_review_articles('.implode(',',array_keys($values)).') VALUES('.implode(',',$slots).')')->execute(array_combine($slots,array_values($values)));
+$read = static fn()=> $pdo->query('SELECT * FROM medical_review_articles WHERE id=1')->fetch();
+$original = $read();
+$version = medical_review_article_admin_version($original);
+$receipt = medical_review_article_admin_save($pdo,1,$payload+['status'=>'published'],$version);
+$saved = $read();
+$assert($receipt === ['id'=>1,'status'=>'published','saved'=>true,'storage_verified'=>true], 'Admin confirms stored publication');
+$assert($saved['published_at'] !== null && $saved['status']==='published', 'Explicit publish stores publication timestamp');
+$assert($saved['ai_content_json'] === null && $saved['ai_writer_claim_json'] === null, 'Manual edit invalidates old AI replay receipt');
+foreach (['entity_type','entity_id','language_code','source_snapshot_json','source_revision','source_review_count','source_rating','source_rating_basis'] as $key) $assert($saved[$key] === $original[$key], 'Editor cannot change source identity/provenance: '.$key);
+$throws(static fn()=>medical_review_article_admin_save($pdo,1,$payload+['status'=>'draft'],$version), 'Stale editor version cannot overwrite newer publication');
+$assert($read() === $saved && !$pdo->inTransaction(), 'Stale editor rolls back without changing article');
+$throws(static fn()=>medical_review_article_admin_save($pdo,1,$payload+['status'=>'published','entity_id'=>99],medical_review_article_admin_version($saved)), 'Admin cannot move article onto a different facility');
+$throws(static fn()=>medical_review_article_admin_save($pdo,1,$payload+['status'=>'invalid'],medical_review_article_admin_version($saved)), 'Unknown publication state rejected');
+$throws(static fn()=>medical_review_article_admin_save($pdo,1,array_replace($payload,['content_html'=>'<script>alert(1)</script>']),medical_review_article_admin_version($saved)), 'Unsafe/empty article cannot be published');
+$pdo->prepare('UPDATE medical_review_articles SET ai_writer_claim_json=:claim WHERE id=1')->execute([':claim'=>json_encode(['expires_at'=>time()+600,'token_sha256'=>str_repeat('b',64)])]);
+$claimed=$read();
+$throws(static fn()=>medical_review_article_admin_save($pdo,1,$payload+['status'=>'draft'],medical_review_article_admin_version($claimed)), 'Active AI writer prevents simultaneous manual edit');
+$assert($read()===$claimed && !$pdo->inTransaction(), 'Active writer state preserved');
+$pdo->exec('UPDATE medical_review_articles SET ai_writer_claim_json=NULL WHERE id=1');
+$beforeArchive=$read();
+medical_review_article_admin_save($pdo,1,$payload+['status'=>'archived'],medical_review_article_admin_version($beforeArchive));
+$assert($read()['status']==='archived', 'Archive hides article without deleting evidence');
+$controller=file_get_contents(dirname(__DIR__).'/admin/medical_review_articles.php');
+$assert(str_contains($controller,'admin_require_login()') && str_contains($controller,'hash_equals($csrf'), 'Admin form requires login and CSRF');
+$assert(str_contains($controller,'name="version"') && str_contains($controller,'role="alert"') && str_contains($controller,'id="article-errors"'), 'Editor retains optimistic version and focusable error summary');
+$htaccess=file_get_contents(dirname(__DIR__).'/.htaccess');
+foreach (['^review/([^/]+)/?$', '^en/review/([^/]+)/?$'] as $route) $assert(str_contains($htaccess,$route), 'Canonical article route exists: '.$route);
+$sitemap=file_get_contents(dirname(__DIR__).'/sitemap.php');
+$assert(str_contains($sitemap,"'review-articles' => [") && str_contains($sitemap,"a.status='published'") && str_contains($sitemap,'medical_review_articles_path('), 'Sitemap includes published editorial article canonical routes');
+$assert(str_contains($sitemap, '$articleLocaleFilter') && str_contains($sitemap, '{$lang}'), 'Article sitemaps split locales in both leaf and root indexes');
+$sourceStart = strpos($sitemap, 'function medreview_sitemap_sources(): array');
+$sourceEnd = strpos($sitemap, 'function medreview_sitemap_source_count(', $sourceStart);
+eval(substr($sitemap, $sourceStart, $sourceEnd - $sourceStart));
+$articleMap = medreview_sitemap_sources()['review-articles'];
+$pdo->exec("CREATE TABLE medical_facilities(id INTEGER PRIMARY KEY,status TEXT,language_code TEXT)");
+$pdo->exec("INSERT INTO medical_facilities VALUES(393,'published',NULL)");
+$assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes archived articles');
+$pdo->exec("UPDATE medical_review_articles SET status='published' WHERE id=1");
+$assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap matches public Vietnamese facility with NULL legacy locale');
+$pdo->exec("UPDATE medical_facilities SET language_code='' WHERE id=393");
+$assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap normalizes blank legacy facility locale to Vietnamese');
+$pdo->exec("UPDATE medical_review_articles SET title='' WHERE id=1");
+$assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes malformed blank-title article');
+echo 'Review article admin: '.$checks." checks passed; isolated SQLite only.\n";

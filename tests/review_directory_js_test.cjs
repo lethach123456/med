@@ -1,6 +1,7 @@
 'use strict';
 
-// Behavioral unit tests only: a small DOM/VM harness, no browser or network.
+// Legacy feedback-component behavioral tests; /review now serves editorial
+// articles with native GET navigation. No browser or network is used here.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -155,7 +156,8 @@ function harness({ locale = 'vi', start, compact = false, reduced = true, suppor
   same((template.match(/form="reviewDirectoryFilter" data-review-control/g) || []).length, 3, 'All three external selects are associated with the search form');
   check(template.includes('type="submit" form="reviewDirectoryFilter"') && template.includes('data-review-filter-close hidden'), 'Apply submits the same form and no-JS close control stays hidden');
   check(resultsTemplate.includes('review_view_url($reviewBasePath, $reviewFilters') && resultsTemplate.includes('review_view_escape($rvHref)'), 'SSR paging preserves filters and escapes detail URLs');
-  check(controllerSource.includes("$_GET['partial']") && controllerSource.includes("'Cache-Control: no-store'") && controllerSource.indexOf('review_view_directory(') < controllerSource.indexOf('if ($reviewIsPartial)'), 'Partial responses run the same published/locale query and are not cached');
+  check(controllerSource.includes('medical_review_articles_directory_page(') && !controllerSource.includes('review_view_directory('), 'The public review menu queries articles, not individual feedback');
+  check(controllerSource.includes('review-articles.js') && !controllerSource.includes("$_GET['partial']"), 'Editorial directory uses native GET navigation instead of the legacy feedback partial-response protocol');
 
   const noFetch = harness({ supportsFetch: false });
   same(noFetch.form.listeners.submit, undefined, 'Unsupported clients keep native GET submission');

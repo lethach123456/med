@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../medical_directory.php';
 require_once __DIR__ . '/../medical_handbook_ai.php';
+require_once __DIR__ . '/../medical_review_article_ai.php';
 
 admin_require_login();
 $pdo = db();
@@ -14,6 +15,7 @@ $promptTypeLabels = [
     'facility' => 'Cơ sở y tế',
     'doctor' => 'Bác sĩ',
     'handbook' => 'Cẩm nang',
+    'review_article' => 'Bài review cơ sở',
 ];
 $requestedType = (string) ($_POST['prompt_type'] ?? $_GET['type'] ?? 'facility');
 $selectedType = array_key_exists($requestedType, $promptTypeLabels) ? $requestedType : 'facility';
@@ -21,6 +23,7 @@ $scopeLabels = [
     'facility' => ['name' => 'Ngành áp dụng', 'item' => 'ngành', 'hint' => 'Chọn ngành có sẵn hoặc nhập thêm ngành riêng.'],
     'doctor' => ['name' => 'Chuyên môn áp dụng', 'item' => 'chuyên môn', 'hint' => 'Chọn chuyên môn có sẵn hoặc nhập một cụm từ xuất hiện trong chuyên môn bác sĩ.'],
     'handbook' => ['name' => 'Ngôn ngữ hoặc chủ đề áp dụng', 'item' => 'phạm vi', 'hint' => 'Chọn Tiếng Việt/Tiếng Anh hoặc nhập cụm từ trong tiêu đề bài, ví dụ “niềng răng”.'],
+    'review_article' => ['name' => 'Ngành hoặc ngôn ngữ áp dụng', 'item' => 'phạm vi', 'hint' => 'Chọn ngành cơ sở hoặc vi/en. Bài review phân tích dữ liệu đã lưu, không phải đánh giá trải nghiệm cá nhân.'],
 ];
 $normalizeCategory = static function (string $value): string {
     if (function_exists('medical_directory_ai_prompt_normalize_category')) {
@@ -45,10 +48,14 @@ $basePrompts = $pdo->query(
     'SELECT prompt_key, label, template, updated_at FROM medical_ai_prompts ORDER BY id ASC'
 )->fetchAll(PDO::FETCH_ASSOC);
 $basePrompts = handbook_ai_admin_prompts($basePrompts);
+if (!in_array('review_article', array_column($basePrompts, 'prompt_key'), true)) {
+    $basePrompts[] = ['prompt_key' => 'review_article', 'label' => 'Viết bài review phân tích cơ sở',
+        'template' => medical_review_article_ai_default_prompt(), 'updated_at' => null, 'is_builtin' => true];
+}
 
 $categoryOptions = [];
 try {
-    if ($selectedType === 'facility') {
+    if (in_array($selectedType, ['facility', 'review_article'], true)) {
         $categoryRows = $pdo->query(
             "SELECT DISTINCT TRIM(category) AS label FROM medical_facilities
              WHERE TRIM(COALESCE(category, '')) <> '' ORDER BY label ASC"
@@ -67,6 +74,10 @@ try {
         if ($key !== '' && !isset($categoryOptions[$key])) {
             $categoryOptions[$key] = $label;
         }
+    }
+    if ($selectedType === 'review_article') {
+        $categoryOptions['vi'] = 'vi';
+        $categoryOptions['en'] = 'en';
     }
 } catch (Throwable $e) {
     error_log('AI prompt category options failed: ' . $e->getMessage());
@@ -126,11 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
             $stmt = $pdo->prepare('UPDATE medical_ai_prompts SET template = :template WHERE prompt_key = :key');
             foreach ($updates as $key => $template) {
-                if ($key === 'handbook') {
+                if (in_array($key, ['handbook', 'review_article'], true)) {
                     // Explicit CSRF-valid save also supports the built-in row
                     // before the optional handbook migration has seeded it.
-                    $pdo->prepare("INSERT INTO medical_ai_prompts(prompt_key,label,template) VALUES('handbook','Viết bài Cẩm nang',:template) ON DUPLICATE KEY UPDATE template=VALUES(template)")
-                        ->execute([':template'=>$template]);
+                    $pdo->prepare("INSERT INTO medical_ai_prompts(prompt_key,label,template) VALUES(:key,:label,:template) ON DUPLICATE KEY UPDATE template=VALUES(template)")
+                        ->execute([':key' => $key, ':label' => $key === 'handbook' ? 'Viết bài Cẩm nang' : 'Viết bài review phân tích cơ sở', ':template' => $template]);
                 } else {
                     $stmt->execute([':template' => $template, ':key' => $key]);
                 }
@@ -360,6 +371,7 @@ $promptNotes = [
     'doctor' => 'Prompt nghiên cứu hồ sơ bác sĩ: nhận diện đúng người, đào tạo/công tác, giấy phép, chuyên môn, nơi khám, lịch/giá, nguồn chứng minh, SEO và đánh giá công khai có thật. Nhận aggregate_ratings_json (score/count) và reviews_json có URL/bằng chứng, entity_type=doctor, doctor_id/name đúng hồ sơ; không dùng điểm cơ sở. Nguồn đánh giá tách khỏi nguồn chuyên môn/pháp lý; không dùng trang booking/review y tế bên thứ ba, không bịa review hoặc tự chấm verified. Hỗ trợ {{id}}, {{name}}, {{specialty}}, {{facility_name}}, {{city}}, {{address}}, {{phone}}, {{website}}, {{source_json}}, {{output_template}}. API tự bổ sung contract cho cả mẫu đã lưu, tự tính điểm; AI không gửi rating/reviews_count gốc. JSON bắt buộc trong block code json.',
     'handbook' => 'Viết bài Cẩm nang theo chủ đề và ngôn ngữ được giao. BẮT BUỘC có suggested_facilities_json và suggested_doctors_json (mảng riêng, có thể []), tối đa 8 hồ sơ mỗi loại; chỉ ghi tên/địa chỉ/chuyên khoa, nơi công tác, URL bằng chứng công khai đã kiểm tra; không bịa ID, đánh giá hoặc quan hệ công tác. API so khớp tên + địa chỉ/chuyên môn, ghép hồ sơ đủ gần (>=90–95%), tạo hồ sơ published nhưng chưa xác minh và nội dung trống để hàng đợi viết hồ sơ xử lý; trường hợp mơ hồ hoặc thiếu bằng chứng trả unresolved, không tự tạo. Ảnh cần là file thật theo contract JSON + linkN_base64.txt. Mỗi ảnh chèn wordmark MedReview.vn ở góc trên bên phải: sans-serif Bold/ExtraBold, Med #142D50, Review/.vn #2D63FF; .vn cao 45–55% và cùng baseline. Base64, bytes và SHA-256 tính trên file cuối đã ghép logo. Bài Cẩm nang chỉ xuất bản khi nội dung, ảnh và gợi ý đã lưu thành công. Hỗ trợ {{id}}, {{title}}, {{topic}}, {{language}}, {{brief}}, {{source_json}}, {{output_template}}; API luôn thêm quy tắc mới nhất.',
     'review' => 'Dùng cho review y tế. Giữ giọng văn khách quan, không khẳng định tuyệt đối hoặc tự bịa đánh giá.',
+    'review_article' => 'Bài phân tích cơ sở, lưu riêng trong medical_review_articles. Chỉ cơ sở có trên 40 đánh giá theo dữ liệu nguồn hợp lệ và có facility_insights_json có nội dung mới vào hàng đợi. Phân biệt tổng đánh giá Google/Facebook với số nhận xét chi tiết thực sự được cung cấp; không giả đã đọc toàn bộ, không tự chấm sao, không viết như khách hàng đã trải nghiệm, không suy ra hiệu quả điều trị từ ảnh trước/sau. Hỗ trợ {{source_json}}, {{source_revision}}, {{output_template}}; API luôn bổ sung quy tắc hiện hành. Mặc định lưu nháp để quản trị viên xem và xuất bản.',
     'translation' => 'Dùng chung cho API dịch hồ sơ cơ sở y tế, bác sĩ và Toplist từ tiếng Việt sang tiếng Anh. Giữ nguyên source_id, dữ liệu thực tế, cấu trúc HTML/JSON; dịch đúng các trường được cho phép. API sẽ yêu cầu AI trả kết quả trong một block code ```json.',
 ];
 
@@ -368,7 +380,7 @@ foreach ($basePrompts as $basePrompt) {
     $basePromptByKey[(string) $basePrompt['prompt_key']] = $basePrompt;
 }
 $basePromptTabs = [];
-foreach (['facility', 'facility_image_prompt', 'facility_image_fix', 'toplist', 'toplist_doctor', 'doctor', 'handbook', 'review', 'translation'] as $promptKey) {
+foreach (['facility', 'facility_image_prompt', 'facility_image_fix', 'toplist', 'toplist_doctor', 'doctor', 'handbook', 'review_article', 'review', 'translation'] as $promptKey) {
     if (isset($basePromptByKey[$promptKey])) {
         $basePromptTabs[] = $basePromptByKey[$promptKey];
         unset($basePromptByKey[$promptKey]);
@@ -389,7 +401,7 @@ if (is_string($_GET['prompt'] ?? null)) {
 
 $adminPageTitle = 'Admin • Prompt AI';
 $adminHeaderTitle = 'Prompt AI';
-$adminHeaderSubtitle = 'Mẫu chung và mẫu tuỳ biến cho cơ sở y tế, bác sĩ, Cẩm nang';
+$adminHeaderSubtitle = 'Mẫu chung và mẫu tuỳ biến cho hồ sơ, Cẩm nang và bài review phân tích';
 $adminActive = 'medical-ai-prompts';
 require __DIR__ . '/_layout_start.php';
 ?>
@@ -397,13 +409,14 @@ require __DIR__ . '/_layout_start.php';
   .ai-prompt-hero { border:1px solid rgba(127,169,235,.3); background:linear-gradient(125deg,#f8fbff 0%,#eef5ff 62%,#f3fffb 100%); }
   .ai-prompt-hero .card-body { padding:1.1rem 1.35rem; }
   .ai-prompt-source { display:inline-grid; width:36px; height:36px; place-items:center; border-radius:11px; color:#2563eb; background:#eaf2ff; }
-  .ai-prompt-types { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; }
+  .ai-prompt-types { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; }
   .ai-prompt-type { display:flex; min-width:0; align-items:center; gap:.75rem; padding:.85rem 1rem; border:1px solid #dce6f4; border-radius:.8rem; color:#364e70; background:#fff; text-decoration:none; transition:border-color .15s ease,background .15s ease,box-shadow .15s ease; }
   .ai-prompt-type:hover,.ai-prompt-type:focus-visible { color:#1958c5; border-color:#8bb4ff; background:#f8fbff; }
   .ai-prompt-type.is-active { color:#174ba8; border-color:#93b8fa; background:#eff6ff; box-shadow:0 2px 10px rgba(36,95,200,.07); }
   .ai-prompt-type strong { display:block; font-size:.91rem; }
   .ai-prompt-type small { display:block; color:#65748b; }
   .ai-prompt-type .ai-prompt-type-count { margin-left:auto; border-radius:999px; padding:.12rem .5rem; color:#3563a4; background:#e7f0ff; font-size:.76rem; font-weight:700; }
+  @media (min-width:768px) and (max-width:1100px) { .ai-prompt-types { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .ai-prompt-type:focus-visible,.ai-prompt-tab:focus-visible,.ai-prompt-row-actions .btn:focus-visible { outline:3px solid #74a5ff; outline-offset:2px; }
   .ai-prompt-tabs { display:flex; gap:.25rem; overflow-x:auto; padding:.3rem; border:1px solid #e0e9f6; border-radius:.85rem; background:#f6f9fd; scrollbar-width:none; }
   .ai-prompt-tabs::-webkit-scrollbar { display:none; }
@@ -452,7 +465,7 @@ require __DIR__ . '/_layout_start.php';
       <div class="d-flex gap-3 align-items-start">
         <span class="ai-prompt-source flex-shrink-0"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
         <div>
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Quản lý prompt nội dung</h2><span class="badge text-bg-light border">3 luồng viết bài</span></div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><h2 class="h4 mb-0">Quản lý prompt nội dung</h2><span class="badge text-bg-light border"><?php echo count($promptTypeLabels); ?> luồng viết bài</span></div>
           <p class="text-secondary mb-0">Chọn loại nội dung, chỉnh mẫu mặc định hoặc thêm nhiều mẫu theo ngành, chuyên môn, ngôn ngữ và chủ đề. Khi không có mẫu phù hợp, hệ thống dùng prompt chung.</p>
         </div>
       </div>
@@ -462,8 +475,8 @@ require __DIR__ . '/_layout_start.php';
       <?php foreach ($promptTypeLabels as $typeKey => $typeLabel): ?>
         <?php $typeActive = $typeKey === $selectedType; ?>
         <a class="ai-prompt-type <?php echo $typeActive ? 'is-active' : ''; ?>" href="<?php echo $escape($pageUrl); ?>?type=<?php echo $escape($typeKey); ?>" <?php echo $typeActive ? 'aria-current="page"' : ''; ?>>
-          <i class="fa-solid <?php echo $typeKey === 'facility' ? 'fa-building-medical' : ($typeKey === 'doctor' ? 'fa-user-doctor' : 'fa-book-open'); ?>" aria-hidden="true"></i>
-          <span class="min-w-0"><strong><?php echo $escape($typeLabel); ?></strong><small><?php echo $typeKey === 'facility' ? 'Theo ngành' : ($typeKey === 'doctor' ? 'Theo chuyên môn' : 'Theo ngôn ngữ / chủ đề'); ?></small></span>
+          <i class="fa-solid <?php echo $typeKey === 'facility' ? 'fa-building-medical' : ($typeKey === 'doctor' ? 'fa-user-doctor' : ($typeKey === 'review_article' ? 'fa-newspaper' : 'fa-book-open')); ?>" aria-hidden="true"></i>
+          <span class="min-w-0"><strong><?php echo $escape($typeLabel); ?></strong><small><?php echo $typeKey === 'facility' ? 'Theo ngành' : ($typeKey === 'doctor' ? 'Theo chuyên môn' : ($typeKey === 'review_article' ? 'Theo ngành / ngôn ngữ' : 'Theo ngôn ngữ / chủ đề')); ?></small></span>
           <span class="ai-prompt-type-count" aria-label="<?php echo (int) ($variantCounts[$typeKey] ?? 0); ?> mẫu tuỳ biến"><?php echo (int) ($variantCounts[$typeKey] ?? 0); ?></span>
         </a>
       <?php endforeach; ?>
@@ -506,7 +519,7 @@ require __DIR__ . '/_layout_start.php';
             <div>
               <label class="form-label fw-bold mb-1" for="basePrompt<?php echo $escape($promptKey); ?>"><?php echo $escape($prompt['label']); ?></label>
               <?php if (in_array($promptKey, ['facility', 'doctor', 'handbook'], true)): ?><span class="badge text-bg-primary ms-2">Mẫu dự phòng</span><?php endif; ?>
-              <?php if (!empty($prompt['is_builtin'])): ?><div class="small text-secondary mt-1">Mẫu mặc định có sẵn. Bấm Lưu prompt chung để lưu vào DB. API nhận bài vẫn cần chạy migration Cẩm nang.</div><?php endif; ?>
+              <?php if (!empty($prompt['is_builtin'])): ?><div class="small text-secondary mt-1">Mẫu mặc định có sẵn. Bấm Lưu prompt chung để lưu vào DB. API nhận bài cần migration riêng của loại nội dung này.</div><?php endif; ?>
               <div class="form-text mt-1"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i><?php echo $escape($promptNotes[$promptKey] ?? 'Chỉ trả về JSON hợp lệ.'); ?></div>
             </div>
             <?php if (!empty($prompt['updated_at'])): ?><span class="small text-secondary">Cập nhật: <?php echo $escape($prompt['updated_at']); ?></span><?php endif; ?>

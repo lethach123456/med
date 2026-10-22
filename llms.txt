@@ -15,7 +15,7 @@ Trên trình duyệt hỗ trợ WebMCP, các trang có thanh tìm kiếm chung �
 - [Trang chủ](https://medreview.vn/): Điểm bắt đầu khám phá MedReview.
 - [Cơ sở y tế](https://medreview.vn/co-so-y-te): Tìm cơ sở theo tên, địa điểm và dịch vụ; mở hồ sơ để xem thông tin chi tiết.
 - [Bác sĩ](https://medreview.vn/bac-si): Tìm hồ sơ theo tên, chuyên khoa và địa điểm.
-- [Review](https://medreview.vn/review): Các bài chia sẻ và trải nghiệm được xuất bản.
+- [Review](https://medreview.vn/review): Bài phân tích cơ sở y tế từ hồ sơ, dữ liệu đánh giá và nguồn công khai; tách biệt với phản hồi trải nghiệm cá nhân. Mỗi bài nêu nguồn và giới hạn bằng chứng, không bảo đảm kết quả điều trị.
 - [Toplist](https://medreview.vn/toplist): Danh sách tham khảo về cơ sở y tế và bác sĩ.
 - [Cẩm nang](https://medreview.vn/cam-nang): Bài viết thông tin sức khỏe và hướng dẫn theo chủ đề.
 
@@ -24,7 +24,7 @@ Trên trình duyệt hỗ trợ WebMCP, các trang có thanh tìm kiếm chung �
 - [Home](https://medreview.vn/en): English-language entry point.
 - [Healthcare facilities](https://medreview.vn/en/co-so-y-te): Browse English-language facility profiles.
 - [Doctors](https://medreview.vn/en/bac-si): Browse English-language doctor profiles.
-- [Reviews](https://medreview.vn/en/review): Published experiences and review articles in English.
+- [Reviews](https://medreview.vn/en/review): Published English-language editorial facility analysis with sources and evidence limitations, not first-person patient testimonials.
 - [Toplists](https://medreview.vn/en/toplist): Curated reference lists in English.
 - [Health guides](https://medreview.vn/en/cam-nang): Informational articles in English.
 

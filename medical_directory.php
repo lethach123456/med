@@ -335,9 +335,9 @@ function medical_directory_resolve_ai_prompt(PDO $pdo, string $type, string $cat
 {
     $type = trim($type);
     $categoryKey = medical_directory_ai_prompt_normalize_category($category);
-    $localeKey = $type === 'handbook' ? medical_directory_ai_prompt_normalize_category($locale) : '';
+    $localeKey = in_array($type, ['handbook', 'review_article'], true) ? medical_directory_ai_prompt_normalize_category($locale) : '';
 
-    if (in_array($type, ['facility', 'doctor', 'handbook'], true)) {
+    if (in_array($type, ['facility', 'doctor', 'handbook', 'review_article'], true)) {
         $variants = [];
         try {
             $variantStmt = $pdo->prepare(
@@ -374,7 +374,7 @@ function medical_directory_resolve_ai_prompt(PDO $pdo, string $type, string $cat
         $longestMatch = -1;
         foreach ($variants as $candidate) {
             foreach ($candidate['scope_keys'] as $scope) {
-                if ($categoryKey === '' || ($type === 'handbook' && in_array($scope, ['vi', 'en'], true))) {
+                if ($categoryKey === '' || (in_array($type, ['handbook', 'review_article'], true) && in_array($scope, ['vi', 'en'], true))) {
                     continue;
                 }
                 $pattern = '/(?<![\p{L}\p{N}\p{M}])' . preg_quote($scope, '/') . '(?![\p{L}\p{N}\p{M}])/u';

@@ -14,7 +14,7 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->exec('CREATE TABLE medical_ai_prompts (prompt_key TEXT PRIMARY KEY, label TEXT, template TEXT)');
 $pdo->exec('CREATE TABLE medical_ai_prompt_variants (id INTEGER PRIMARY KEY AUTOINCREMENT, prompt_type TEXT, label TEXT, template TEXT, priority INTEGER, is_active INTEGER, updated_at TEXT)');
 $pdo->exec('CREATE TABLE medical_ai_prompt_variant_categories (variant_id INTEGER, category_key TEXT, category_label TEXT)');
-foreach (['facility', 'doctor', 'handbook', 'review'] as $type) {
+foreach (['facility', 'doctor', 'handbook', 'review', 'review_article'] as $type) {
     $stmt = $pdo->prepare('INSERT INTO medical_ai_prompts VALUES (?,?,?)');
     $stmt->execute([$type, 'Default ' . $type, 'Base ' . $type]);
 }
@@ -60,6 +60,16 @@ $assert(medical_directory_resolve_ai_prompt($pdo, 'handbook', 'Haircare', 'en')[
     'handbook categoryless variant catches missing locale');
 $assert(medical_directory_resolve_ai_prompt($pdo, 'review', 'Nha khoa')['source'] === 'default',
     'unrelated prompt types continue to use base prompt');
+
+$reviewGlobal = $add('review_article', 'Review shared', [], 1);
+$reviewEnglish = $add('review_article', 'English review', ['en'], 1);
+$reviewDental = $add('review_article', 'Dental analysis', ['Nha khoa'], 100);
+$assert(medical_directory_resolve_ai_prompt($pdo, 'review_article', 'Nha khoa tổng quát', 'en')['variant_id'] === $reviewDental,
+    'editorial review facility category takes precedence over language');
+$assert(medical_directory_resolve_ai_prompt($pdo, 'review_article', 'Spa', 'en')['variant_id'] === $reviewEnglish,
+    'editorial review language variant overrides global fallback');
+$assert(medical_directory_resolve_ai_prompt($pdo, 'review_article', 'Spa', 'vi')['variant_id'] === $reviewGlobal,
+    'editorial review global variant handles unmatched category and language');
 
 $pdo->exec('UPDATE medical_ai_prompt_variants SET is_active=0');
 $assert(medical_directory_resolve_ai_prompt($pdo, 'facility', 'Nha khoa')['template'] === 'Base facility',

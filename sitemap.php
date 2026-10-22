@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_handbook.php';
+require_once __DIR__ . '/medical_review_articles.php';
 
 const MEDREVIEW_SITEMAP_PAGE_SIZE = 10000;
 
@@ -23,7 +24,7 @@ function medreview_sitemap_table_exists(PDO $pdo, string $table): bool
 {
     static $allowed = [
         'medical_facilities', 'medical_doctors', 'medical_reviews',
-        'medical_toplists', 'posts', 'categories', 'products', 'front_editor_page_profiles',
+        'medical_toplists', 'medical_review_articles', 'posts', 'categories', 'products', 'front_editor_page_profiles',
     ];
     if (!in_array($table, $allowed, true)) {
         return false;
@@ -214,6 +215,12 @@ function medreview_sitemap_sources(): array
             'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => '/review-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']),
         ],
+        'review-articles' => [
+            'table' => 'medical_review_articles',
+            'count' => "SELECT COUNT(*) FROM medical_review_articles a WHERE a.entity_type='facility' AND a.status='published' AND TRIM(a.slug)<>'' AND TRIM(a.title)<>'' AND TRIM(a.content_html)<>'' AND EXISTS (SELECT 1 FROM medical_facilities f WHERE f.id=a.entity_id AND f.status='published' AND COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')=a.language_code)",
+            'rows' => "SELECT a.slug, a.language_code, a.updated_at FROM medical_review_articles a WHERE a.entity_type='facility' AND a.status='published' AND TRIM(a.slug)<>'' AND TRIM(a.title)<>'' AND TRIM(a.content_html)<>'' AND EXISTS (SELECT 1 FROM medical_facilities f WHERE f.id=a.entity_id AND f.status='published' AND COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')=a.language_code) ORDER BY a.id ASC LIMIT :limit OFFSET :offset",
+            'path' => static fn (array $row): string => medical_review_articles_path((string) $row['language_code'], (string) $row['slug']),
+        ],
         'toplists' => [
             'table' => 'medical_toplists',
             'count' => "SELECT COUNT(*) FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
@@ -257,6 +264,9 @@ try {
         if (medreview_sitemap_table_exists($pdo, $table)) $translationReady[$table] = medreview_translation_schema_ready($pdo, $table);
     }
     $sources = medreview_sitemap_sources();
+    $articleLocaleFilter = " AND a.language_code='" . $language . "'";
+    $sources['review-articles']['count'] .= $articleLocaleFilter;
+    $sources['review-articles']['rows'] = str_replace(' ORDER BY', $articleLocaleFilter . ' ORDER BY', $sources['review-articles']['rows']);
     foreach (['facilities' => 'medical_facilities', 'doctors' => 'medical_doctors', 'toplists' => 'medical_toplists'] as $sourceName => $table) {
         if (isset($sources[$sourceName]) && !($translationReady[$table] ?? false)) {
             $sources[$sourceName]['rows'] = str_replace('language_code, ', '', $sources[$sourceName]['rows']);
@@ -289,6 +299,7 @@ try {
                         ? " AND COALESCE(NULLIF(TRIM(language_code),''),'vi') = '{$lang}'"
                         : ($lang === 'en' ? ' AND 1=0' : '');
                 }
+                if ($name === 'review-articles') $source['count'] .= " AND a.language_code='{$lang}'";
                 $count = medreview_sitemap_source_count($pdo, $source);
                 if ($count > 0) $parts[$name] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }

@@ -6,9 +6,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') json_response(['ok'=>false,'message'=>
 $type = trim((string)($_GET['type'] ?? 'facility')); $name = trim((string)($_GET['name'] ?? '')); $title = trim((string)($_GET['title'] ?? '')); $category = trim((string)($_GET['category'] ?? ''));
 if ($type === 'toplist_doctor') { $type = 'toplist'; $_GET['entity_type'] = 'doctor'; }
 if ($type === 'toplist' && $name === '') $name = $title;
-$allowed=['facility','facility_image_prompt','facility_image_fix','toplist','doctor','review','translation','handbook']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
-if ($name === '' && !in_array($type, ['translation', 'facility_image_fix', 'handbook'], true)) json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
+$allowed=['facility','facility_image_prompt','facility_image_fix','toplist','doctor','review','review_article','translation','handbook']; if (!in_array($type,$allowed,true)) json_response(['ok'=>false,'message'=>'Loại nội dung không hợp lệ.'],422);
+if ($name === '' && !in_array($type, ['translation', 'facility_image_fix', 'handbook', 'review_article'], true)) json_response(['ok'=>false,'message'=>'Thiếu tên đối tượng.'],422);
 $pdo=db();
+if ($type === 'review_article') {
+    require_once __DIR__ . '/../../medical_review_article_ai.php';
+    try {
+        $id = medical_review_article_ai_id($_GET['id'] ?? null);
+        medical_review_articles_require_schema($pdo);
+        $source = medical_review_articles_facility_source($pdo, $id);
+        if ($source === null) json_response(['ok' => false, 'message' => 'Không tìm thấy cơ sở y tế.', 'reason' => 'facility_not_found'], 404);
+        if (!(medical_review_articles_eligibility($source)['eligible'] ?? false)) json_response(['ok' => false, 'message' => 'Cơ sở cần trên 40 đánh giá từ dữ liệu nguồn hợp lệ và facility_insights_json có nội dung.', 'reason' => 'not_eligible'], 422);
+        $resolved = medical_directory_resolve_ai_prompt($pdo, 'review_article', (string) ($source['facility']['category'] ?? ''), (string) $source['language_code']);
+        $revision = medical_review_articles_source_revision($source);
+        json_response(['ok' => true, 'type' => 'review_article', 'entity_id' => $id,
+            'source_revision' => $revision, 'label' => $resolved['label'] ?: 'Viết bài review phân tích cơ sở',
+            'prompt_source' => $resolved['source'], 'prompt_variant_id' => $resolved['variant_id'],
+            'output_template' => medical_review_article_ai_output_template($source, $revision),
+            'prompt' => medical_review_article_ai_prompt($source, $revision, $resolved['template'])]);
+    } catch (Throwable $error) { medical_review_article_ai_error($error); }
+}
 if ($type === 'handbook') {
     require_once __DIR__ . '/../../medical_handbook_ai.php';
     $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

@@ -65,9 +65,14 @@ foreach(['Tem/handbook-article.php','Tem/toplist-doctor-detail.php','Tem/review-
     $source=(string)file_get_contents(dirname(__DIR__).'/'.$file);
     $assert(substr_count($source,'site_language_metadata_tags(')===1,$file.' partial has exactly one hook');
 }
-foreach(['review.php','review-chi-tiet.php']as$file){
+foreach(['review-chi-tiet.php']as$file){
     $source=(string)file_get_contents(dirname(__DIR__).'/'.$file);
     $assert(str_contains($source,'site_language_response_header($locale)')&&!str_contains($source,'site_language_metadata_tags('),$file.' shares one head hook and sets header before output');
+}
+foreach (['review.php','review-bai-viet.php'] as $file) {
+    $source=(string)file_get_contents(dirname(__DIR__).'/'.$file);
+    $assert(substr_count($source,'site_language_metadata_tags(')===1 && str_contains($source,'site_language_response_header($locale)'), $file.' declares editorial article locale once');
+    $assert(strpos($source,'site_language_response_header(')<strrpos($source,'<!doctype html>'), $file.' sends locale header before editorial output');
 }
 $assert(str_contains((string)file_get_contents(dirname(__DIR__).'/Tem/footer.php'),"\$GLOBALS['site_forced_locale']"),'Footer honors record-owned locale like header');
 $errorSource=(string)file_get_contents(dirname(__DIR__).'/Tem/public-404.php');
