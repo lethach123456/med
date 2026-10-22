@@ -13,7 +13,7 @@ require_once __DIR__ . '/medical_media_library.php';
 function medical_replacement_image_store(string $bytes, string $folder, string $entity): array
 {
     $label = match ($entity) {
-        'doctor' => 'bác sĩ', 'facility' => 'cơ sở y tế',
+        'doctor' => 'bác sĩ', 'facility' => 'cơ sở y tế', 'toplist' => 'Toplist',
         default => throw new InvalidArgumentException('Loại ảnh thay thế không hợp lệ.'),
     };
     if (strlen($bytes) > 12 * 1024 * 1024) throw new InvalidArgumentException('Ảnh ' . $label . ' không được vượt quá 12 MB.');

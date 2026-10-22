@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * API thay ảnh đại diện cho bài Toplist: nhận URL ảnh -> nén -> lưu trữ nội bộ.
+ * API thay ảnh đại diện cho bài Toplist: nhận URL ảnh -> đóng logo -> nén -> lưu nội bộ.
  * Xác thực bằng header X-Medical-Api-Key (giống các API bài viết / cơ sở).
  *
  * POST JSON:
@@ -16,13 +16,13 @@ declare(strict_types=1);
  * - toplist_id: id bài Toplist (bảng medical_toplists)
  * - image_url: URL ảnh mới (http/https)
  *
- * Luồng xử lý mỗi ảnh: tải về -> kiểm tra ảnh thật -> nén JPEG dưới 150.000
+ * Luồng xử lý mỗi ảnh: tải về -> kiểm tra ảnh thật -> đóng wordmark
+ * MedReview (như facility/doctor image-replace) -> nén JPEG dưới 150.000
  * bytes, cạnh dài tối đa 1280px -> lưu vào uploads/library/toplists/{id}/
- * -> cập nhật medical_toplists.featured_image_url. KHÁC facility/doctor
- * image-replace: ảnh Toplist KHÔNG đóng wordmark MedReview.
+ * -> cập nhật medical_toplists.featured_image_url.
  */
 require_once __DIR__ . '/_auth.php';
-require_once __DIR__ . '/../../medical_media_library.php';
+require_once __DIR__ . '/../../medical_replacement_images.php';
 require_once __DIR__ . '/../../medical_search_cache.php';
 
 medical_api_auth();
@@ -65,47 +65,6 @@ function toplist_image_replace_download(string $url): string
     return $data;
 }
 
-/**
- * Compress + store WITHOUT the MedReview wordmark (toplist cover policy),
- * mirroring the verification medical_replacement_image_store applies after
- * branding: only a decodable JPEG below 150 KB / 1280px is published.
- * @return array{url:string,width:int,height:int,size:int,original_size:int,target_bytes:int}
- */
-function toplist_image_store(string $bytes, string $folder): array
-{
-    if (strlen($bytes) > 12 * 1024 * 1024) throw new InvalidArgumentException('Ảnh Toplist không được vượt quá 12 MB.');
-    $info = @getimagesizefromstring($bytes);
-    if (!is_array($info)
-        || !in_array($info[2] ?? 0, [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)
-        || ($info[0] ?? 0) < 200 || ($info[1] ?? 0) < 200 || $info[0] * $info[1] > 12_000_000) {
-        throw new InvalidArgumentException('Ảnh Toplist phải là PNG/JPEG/WebP thật, tối thiểu 200×200, tối đa 12 MB và 12 megapixel.');
-    }
-    if (!extension_loaded('gd') || !function_exists('imagecreatefromstring') || !function_exists('imagejpeg')) {
-        throw new RuntimeException('Máy chủ chưa bật GD để xử lý ảnh Toplist.');
-    }
-    if (medical_media_normalize_folder($folder) === null || trim($folder, '/ ') === '') {
-        throw new InvalidArgumentException('Thư mục lưu ảnh Toplist không hợp lệ.');
-    }
-    $targetBytes = 149999;
-    $stored = medical_media_store_compressed_jpeg($bytes, $folder, $targetBytes);
-    if (!($stored['ok'] ?? false) || !is_string($stored['url'] ?? null)) {
-        throw new RuntimeException((string) ($stored['error'] ?? 'Không nén/lưu được ảnh Toplist.'));
-    }
-    $path = medical_media_local_library_path($stored['url']);
-    $final = is_string($path) ? @getimagesize($path) : false;
-    $size = is_string($path) ? @filesize($path) : false;
-    $decoded = is_array($final) && ($final[2] ?? 0) === IMAGETYPE_JPEG ? @imagecreatefromjpeg($path) : false;
-    if (!$decoded instanceof GdImage || !is_int($size) || $size < 1 || $size > $targetBytes || max((int) $final[0], (int) $final[1]) > 1280) {
-        if ($decoded instanceof GdImage) imagedestroy($decoded);
-        throw new RuntimeException('Ảnh Toplist đã lưu không giải mã được hoặc chưa đạt giới hạn 150 KB/1280px.');
-    }
-    imagedestroy($decoded);
-    @chmod(dirname($path), 0755);
-    @chmod($path, 0644);
-    return array_replace($stored, ['width' => (int) $final[0], 'height' => (int) $final[1], 'size' => $size,
-        'original_size' => strlen($bytes), 'target_bytes' => $targetBytes]);
-}
-
 $results = [];
 $pdo = db();
 foreach ($replacements as $index => $item) {
@@ -131,8 +90,8 @@ foreach ($replacements as $index => $item) {
 
         // 1. Tải ảnh mới
         $data = toplist_image_replace_download($newUrl);
-        // 2. Nén + lưu nội bộ (không đóng logo).
-        $stored = toplist_image_store($data, 'toplists/' . $toplistId);
+        // 2. Đóng wordmark + nén + lưu nội bộ (pipeline chung với facility/doctor).
+        $stored = medical_replacement_image_store($data, 'toplists/' . $toplistId, 'toplist');
         $publicUrl = $stored['url'];
 
         // 3. Cập nhật DB: featured_image_url (updated_at tự cập nhật theo schema).
@@ -145,7 +104,7 @@ foreach ($replacements as $index => $item) {
         $result['height'] = $stored['height'];
         $result['size_bytes'] = $stored['size'];
         $result['original_size_bytes'] = $stored['original_size'];
-        $result['message'] = 'Đã thay ảnh đại diện và nén dưới 150 KB (không đóng logo).';
+        $result['message'] = 'Đã thay ảnh, đóng logo và nén dưới 150 KB.';
     } catch (Throwable $error) {
         $result['message'] = $error->getMessage();
         error_log('Toplist image replace: ' . get_class($error) . ': ' . $error->getMessage());
