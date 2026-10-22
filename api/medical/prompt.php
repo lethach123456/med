@@ -22,6 +22,7 @@ if ($type === 'review_article') {
         json_response(['ok' => true, 'type' => 'review_article', 'entity_id' => $id,
             'source_revision' => $revision, 'label' => $resolved['label'] ?: 'Viết bài review phân tích cơ sở',
             'prompt_source' => $resolved['source'], 'prompt_variant_id' => $resolved['variant_id'],
+            'evidence_catalog' => medical_review_article_evidence_catalog($source),
             'output_template' => medical_review_article_ai_output_template($source, $revision),
             'prompt' => medical_review_article_ai_prompt($source, $revision, $resolved['template'])]);
     } catch (Throwable $error) { medical_review_article_ai_error($error); }

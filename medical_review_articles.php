@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_facility_insights.php';
 require_once __DIR__ . '/medical_facility_ratings.php';
+require_once __DIR__ . '/medical_review_article_price_source.php';
 
 /** Editorial articles are not individual patient reviews. Including this file performs no I/O. */
 const MEDICAL_REVIEW_ARTICLE_CONTENT_FIELDS = ['title', 'slug', 'excerpt', 'content_html', 'verdict',
@@ -270,10 +271,11 @@ function medical_review_articles_eligibility(array $source): array
 function medical_review_articles_facility_columns(): array
 {
     return ['id','translation_of_id','slug','name','category','city','subtitle','address_text','phone_text','website_url','google_maps_url',
-        'hours_text','price_text','image_url','status','language_code','featured_services_json','services_json',
+        'hours_text','price_text','price_table_html','price_source_scope','image_url','status','language_code','featured_services_json','services_json',
         'equipment_mentioned_json','doctors_json','aggregate_ratings_json','social_links_json','facility_insights_json',
         'business_license','medical_operation_license','established_year','insurance_accepted_json','payment_methods_json',
-        'languages_supported_json','parking_info','warranty_policy','intro_json','highlights_json','content'];
+        'languages_supported_json','parking_info','nearby_landmarks','latitude','longitude','booking_url','branch_count',
+        'utilities_json','warranty_policy','intro_json','highlights_json','content'];
 }
 
 function medical_review_articles_public_fact_node(mixed $value, int $depth, int &$remaining): mixed
@@ -324,9 +326,15 @@ function medical_review_articles_nested_facts(mixed $value, string $field): arra
         }
         if (!is_array($entry) || array_is_list($entry)) continue;
         $fields = $field === 'doctors_json' ? ['name','title','title_text','specialty','specialty_text','role','url']
-            : ['name','title','label','description','summary','category','price','price_text','unit','url'];
+            : ['name','title','label','description','summary','category','price','price_text','unit','currency','url'];
+        if ($field === 'utilities_json') $fields = ['name','title','label','text','description','summary'];
+        if ($field === 'equipment_mentioned_json') $fields = ['name','title','label','description','summary','model','manufacturer','type','purpose','url'];
         $clean = [];
         foreach ($fields as $allowed) {
+            if ($allowed === 'price' && (is_int($entry[$allowed] ?? null) || is_float($entry[$allowed] ?? null))) {
+                if (is_finite((float) $entry[$allowed]) && $entry[$allowed] >= 0 && $entry[$allowed] <= 1000000000000) $clean[$allowed] = $entry[$allowed];
+                continue;
+            }
             if (!is_string($entry[$allowed] ?? null)) continue;
             if ($allowed === 'url') {
                 try { $clean[$allowed] = medical_facility_insights_url($entry[$allowed], $field . '.url'); }
@@ -373,7 +381,17 @@ function medical_review_articles_source_from_row(array $row, array $samples = []
     $facility = [];
     foreach (medical_review_articles_facility_columns() as $field) {
         if ($field === 'facility_insights_json') continue;
-        if (str_ends_with($field, '_json')) {
+        if ($field === 'price_table_html') {
+            $facility[$field] = medical_review_article_price_source($row[$field] ?? null);
+        } elseif (in_array($field, ['latitude', 'longitude'], true)) {
+            $value = $row[$field] ?? null;
+            $limit = $field === 'latitude' ? 90 : 180;
+            $facility[$field] = (is_int($value) || is_float($value) || is_string($value)) && is_numeric($value)
+                && is_finite((float) $value) && abs((float) $value) <= $limit ? (float) $value : null;
+        } elseif ($field === 'branch_count') {
+            $value = $row[$field] ?? null;
+            $facility[$field] = (is_int($value) || is_string($value)) && preg_match('/^[1-9][0-9]{0,2}$/D', (string) $value) === 1 ? (int) $value : null;
+        } elseif (str_ends_with($field, '_json')) {
             $facility[$field] = medical_review_articles_nested_facts($row[$field] ?? [], $field);
         } else {
             $limit = $field === 'content' ? 20000 : 5000;
@@ -382,7 +400,7 @@ function medical_review_articles_source_from_row(array $row, array $samples = []
                 : (is_string($row[$field] ?? null) ? mb_substr(trim(strip_tags($row[$field])), 0, $limit, 'UTF-8') : '');
         }
     }
-    foreach (['website_url','google_maps_url'] as $field) {
+    foreach (['website_url','google_maps_url','booking_url'] as $field) {
         try { $facility[$field] = medical_facility_insights_url($facility[$field], $field); }
         catch (InvalidArgumentException) { $facility[$field] = ''; }
     }

@@ -43,6 +43,11 @@ $baseFacility = ['id' => 1,'slug' => 'nha-khoa-a','language_code' => 'vi','name'
     'highlights_json' => json_encode([['title' => 'Điểm đáng chú ý','description' => 'Có thông tin phục vụ khách hàng.','claim_token' => 'SECRET_TOKEN']]),
     'business_license' => 'Số giấy tờ do cơ sở cung cấp', 'medical_operation_license' => 'Thông tin tự công bố cần xác minh',
     'insurance_accepted_json' => '["Bảo hiểm cần liên hệ xác nhận"]', 'parking_info' => 'Liên hệ trước để hỏi chỗ đỗ xe.',
+    'price_table_html' => '<table onclick="bad()"><tr><th>Dịch vụ</th><th>Giá tham khảo</th></tr><tr><td>Khám răng</td><td>200.000 VND/lượt</td></tr><tr><td>Hàn răng</td><td>400.000–600.000 VND/răng</td></tr></table><script>SECRET_PRICE_SCRIPT</script>',
+    'price_source_scope' => 'branch_reference', 'nearby_landmarks' => 'Gần công viên trung tâm',
+    'latitude' => '16.047079', 'longitude' => '108.206230', 'booking_url' => 'https://clinic.example/booking', 'branch_count' => '2',
+    'utilities_json' => '["Chỗ đỗ xe",{"name":"Thanh toán thẻ","text":"Có hỗ trợ thanh toán thẻ","claim_token":"SECRET_TOKEN","patient_images_notes":"SECRET_PATIENT"}]',
+    'equipment_mentioned_json' => '[{"name":"Máy quét hàm","model":"Model A","manufacturer":"Hãng A","purpose":"Lấy dấu hàm","private_token":"SECRET_TOKEN"}]',
     'patient_images_notes' => 'SECRET_PATIENT', 'patient_images_json' => '["SECRET_IMAGE"]','full_json' => 'SECRET_FULL','ai_writer_claim_json' => 'SECRET_CLAIM'];
 $insertFacility = static function (array $data) use ($pdo): void {
     $keys = array_keys($data);
@@ -76,6 +81,24 @@ $assert(mb_strlen($source['facility']['content'], 'UTF-8') === 20000 && !str_con
 $assert($source['facility']['intro_json']['paragraphs'][0] === 'Cơ sở tự công bố thông tin về dịch vụ và cơ sở vật chất.', 'Known public intro paragraphs retained');
 $assert($source['facility']['highlights_json'][0]['title'] === 'Điểm đáng chú ý', 'Known public highlights retained');
 $assert($source['facility']['business_license'] === 'Số giấy tờ do cơ sở cung cấp' && str_contains($source['facility']['profile_claims_notice'], 'không phải xác minh pháp lý'), 'License strings remain explicitly unverified profile claims');
+$assert(str_contains($source['facility']['price_table_html'], 'Khám răng') && str_contains($source['facility']['price_table_html'], '200.000 VND/lượt')
+    && str_contains($source['facility']['price_table_html'], 'Hàn răng') && str_contains($source['facility']['price_table_html'], '400.000–600.000 VND/răng'), 'Source supplies actual price-table services, amounts, units and ranges');
+$assert(!str_contains($source['facility']['price_table_html'], 'onclick') && !str_contains($source['facility']['price_table_html'], '<script'), 'Price table is sanitized without importing active content');
+$assert($source['facility']['price_source_scope'] === 'branch_reference' && $source['facility']['nearby_landmarks'] === 'Gần công viên trung tâm', 'Price scope and location landmarks accompany profile facts');
+$assert($source['facility']['latitude'] === 16.047079 && $source['facility']['longitude'] === 108.20623 && $source['facility']['branch_count'] === 2, 'Coordinates and branch count normalized as bounded numbers');
+$assert($source['facility']['booking_url'] === 'https://clinic.example/booking', 'Public booking URL supplied for practical context');
+$assert($source['facility']['utilities_json'] === ['Chỗ đỗ xe', ['name' => 'Thanh toán thẻ', 'text' => 'Có hỗ trợ thanh toán thẻ']], 'Utilities allow public descriptions, not icons/claims/private extension fields');
+$assert($source['facility']['equipment_mentioned_json'][0] === ['name' => 'Máy quét hàm', 'model' => 'Model A', 'manufacturer' => 'Hãng A', 'purpose' => 'Lấy dấu hàm'], 'Equipment retains real model/manufacturer/purpose without private metadata');
+$assert(!in_array('features_json', medical_review_articles_facility_columns(), true) && !array_key_exists('features_json', $source['facility']), 'Platform trust/verification features are not misrepresented as facility attributes');
+$numericService = medical_review_articles_nested_facts([['name' => 'Khám', 'price' => 250000, 'unit' => 'lượt', 'currency' => 'VND', 'patient_images_notes' => 'SECRET_PATIENT']], 'services_json');
+$assert($numericService === [['name' => 'Khám', 'price' => 250000, 'unit' => 'lượt', 'currency' => 'VND']], 'Numeric service prices retain units and currency for cross-checking');
+foreach ([['latitude' => '91', 'longitude' => '-181', 'branch_count' => '0', 'booking_url' => 'javascript:bad()'],
+    ['latitude' => INF, 'longitude' => NAN, 'branch_count' => '2.5', 'booking_url' => 'http://127.0.0.1/private'],
+    ['latitude' => true, 'longitude' => 'not-a-coordinate', 'branch_count' => true, 'booking_url' => 'blob:https://clinic.example/fake']] as $invalidPractical) {
+    $invalidSource = medical_review_articles_source_from_row(array_replace($baseFacility, $invalidPractical));
+    $assert($invalidSource['facility']['latitude'] === null && $invalidSource['facility']['longitude'] === null
+        && $invalidSource['facility']['branch_count'] === null && $invalidSource['facility']['booking_url'] === '', 'Invalid location numbers, branch count and booking URLs never become source facts');
+}
 $storedSource = medical_review_articles_facility_source($pdo, 3);
 $assert($storedSource['review_metrics']['reviews_count'] === 45 && $storedSource['review_metrics']['basis'] === 'stored_reviews', 'Actual stored count qualifies independently');
 $assert(medical_review_articles_eligibility($storedSource)['eligible'], '45 valid stored reviews qualify');
@@ -108,6 +131,10 @@ $reordered = $source; $reordered['facility_insights_json'] = (object) array_reve
 $assert($revision === medical_review_articles_source_revision($reordered), 'Object key formatting does not stale source revision');
 $changed = $source; $changed['facility']['name'] = 'Tên thay đổi';
 $assert($revision !== medical_review_articles_source_revision($changed), 'Meaningful public fact changes source revision');
+$changed = $source; $changed['facility']['price_table_html'] = str_replace('200.000', '300.000', $changed['facility']['price_table_html']);
+$assert($revision !== medical_review_articles_source_revision($changed), 'Price table updates invalidate stale AI source revisions');
+$changed = $source; $changed['facility']['nearby_landmarks'] = 'Gần nhà ga';
+$assert($revision !== medical_review_articles_source_revision($changed), 'Practical location updates also invalidate source revisions');
 $private = $source + ['full_json' => 'SECRET_FULL','ai_claim_token' => 'SECRET_TOKEN','patient_images_notes' => 'SECRET_PATIENT'];
 $assert($revision === medical_review_articles_source_revision($private), 'Private extension fields cannot affect or enter snapshot');
 $assert(strlen($revision) === 64, 'Source revision uses full SHA-256');

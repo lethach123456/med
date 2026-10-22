@@ -53,9 +53,9 @@ if ($ready && $id === 0) {
     $statement = $pdo->prepare('SELECT a.id,a.title,a.slug,a.status,a.language_code,a.updated_at,a.source_review_count,f.name AS facility_name' . $from . ' ORDER BY a.updated_at DESC,a.id DESC LIMIT ' . $perPage . ' OFFSET ' . (($page-1)*$perPage));
     $statement->execute($params); $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 }
-$adminPageTitle = 'Admin • Bài review phân tích';
-$adminHeaderTitle = $id > 0 ? 'Biên tập bài review' : 'Bài review phân tích';
-$adminHeaderSubtitle = 'Bài phân tích cơ sở y tế, tách biệt với đánh giá trải nghiệm người dùng';
+$adminPageTitle = 'Admin • Bài review cơ sở y tế';
+$adminHeaderTitle = $id > 0 ? 'Biên tập bài review' : 'Bài review cơ sở y tế';
+$adminHeaderSubtitle = 'Bài giới thiệu-review cơ sở theo góc nhìn khách hàng: thế mạnh, phản hồi và lưu ý';
 $adminActive = 'medical-review-articles';
 require __DIR__ . '/_layout_start.php';
 ?>
@@ -71,9 +71,9 @@ require __DIR__ . '/_layout_start.php';
   <div class="card-body p-3 p-lg-4">
     <input type="hidden" name="csrf_token" value="<?= $escape($csrf) ?>"><input type="hidden" name="id" value="<?= $id ?>">
     <input type="hidden" name="version" value="<?= $escape(is_string($_POST['version'] ?? null) && $errors !== [] ? $_POST['version'] : medical_review_article_admin_version($row)) ?>">
-    <p class="small text-secondary">Cơ sở #<?= (int) $row['entity_id'] ?> · <?= $escape(strtoupper($row['language_code'])) ?> · <?= (int) $row['source_review_count'] ?> đánh giá theo dữ liệu nguồn lúc viết. Bài này không thêm đánh giá, không thay rating và không thay hồ sơ cơ sở.</p>
+    <p class="small text-secondary">Thông tin nội bộ: cơ sở #<?= (int) $row['entity_id'] ?> · <?= $escape(strtoupper($row['language_code'])) ?> · <?= (int) $row['source_review_count'] ?> đánh giá theo dữ liệu nguồn lúc viết. Không chép số liệu này vào bài. Bài review không thêm đánh giá, không thay rating hoặc hồ sơ cơ sở.</p>
     <div class="row g-3">
-    <?php foreach (['title'=>'Tiêu đề','slug'=>'Slug URL','excerpt'=>'Tóm tắt','verdict'=>'Nhận định tổng quan','content_html'=>'Nội dung bài · HTML','seo_title'=>'Tiêu đề SEO','seo_description'=>'Mô tả SEO','researched_at'=>'Ngày phân tích · UTC'] as $field=>$label): ?>
+    <?php foreach (['title'=>'Tiêu đề','slug'=>'Slug URL','excerpt'=>'Tóm tắt giới thiệu','verdict'=>'Nhận xét chung dành cho khách hàng','content_html'=>'Nội dung giới thiệu-review · HTML','seo_title'=>'Tiêu đề SEO','seo_description'=>'Mô tả SEO','researched_at'=>'Ngày biên soạn · UTC'] as $field=>$label): ?>
       <div class="<?= in_array($field, ['slug','seo_title','researched_at'], true) ? 'col-12 col-md-6' : 'col-12' ?>">
         <label class="form-label" for="article-<?= $field ?>"><?= $escape($label) ?></label>
         <?php if (in_array($field, ['excerpt','verdict','content_html','seo_description'], true)): ?>
@@ -81,9 +81,9 @@ require __DIR__ . '/_layout_start.php';
         <?php else: ?><input class="form-control" id="article-<?= $field ?>" name="<?= $field ?>" value="<?= $escape($input[$field] ?? '') ?>" <?= in_array($field,['title','slug'],true) ? 'required' : '' ?>><?php endif; ?>
       </div>
     <?php endforeach; ?>
-    <div class="col-12"><details><summary class="fw-semibold text-primary">Phần phân tích có cấu trúc và nguồn · JSON</summary>
-      <p class="small text-secondary mt-2">Nếu có mục phân tích có cấu trúc, trang chi tiết hiển thị các mục đó thay phần HTML dài để tránh lặp. Sửa cả hai phần khi nội dung thay đổi. Không đưa ảnh hoặc dữ liệu nhận dạng bệnh nhân vào bài.</p>
-      <div class="row g-3"><?php foreach (['strengths_json'=>'Điểm đáng chú ý','considerations_json'=>'Điều cần cân nhắc','suitable_for_json'=>'Nhu cầu phù hợp','analysis_sections_json'=>'Các mục phân tích','sources_json'=>'Nguồn đối chiếu','evidence_limitations_json'=>'Giới hạn bằng chứng'] as $field=>$label): ?>
+    <div class="col-12"><details><summary class="fw-semibold text-primary">Các phần bài viết và thông tin tham khảo · JSON</summary>
+      <p class="small text-secondary mt-2">Các mục bài viết có thể là giới thiệu, thế mạnh/dịch vụ, khách hàng nhận xét gì và lưu ý trước khi đến. Nếu có các mục này, trang chi tiết hiển thị chúng thay phần HTML dài để tránh lặp; sửa cả hai phần khi nội dung thay đổi. Không chèn thống kê, ảnh hoặc thông tin nhận dạng bệnh nhân.</p>
+      <div class="row g-3"><?php foreach (['strengths_json'=>'Thế mạnh / điểm nổi bật','considerations_json'=>'Lưu ý trước khi đến','suitable_for_json'=>'Phù hợp với nhu cầu nào','analysis_sections_json'=>'Các mục giới thiệu và nhận xét của khách hàng','sources_json'=>'Nguồn đối chiếu','evidence_limitations_json'=>'Lưu ý về thông tin tham khảo'] as $field=>$label): ?>
         <div class="col-12 col-lg-6"><label class="form-label mt-2" for="article-<?= $field ?>"><?= $escape($label) ?></label><textarea class="form-control mono" id="article-<?= $field ?>" name="<?= $field ?>" rows="6" spellcheck="false"><?= $escape($input[$field] ?? '[]') ?></textarea></div>
       <?php endforeach; ?></div>
     </details></div>
@@ -94,7 +94,7 @@ require __DIR__ . '/_layout_start.php';
 </form>
 <?php elseif ($id === 0): ?>
 <div class="card border-0 shadow-soft"><div class="card-body p-3 p-lg-4">
-  <h2 class="h5">Bài review cơ sở y tế</h2><p class="text-secondary">AI lấy cơ sở đủ dữ liệu từ hàng đợi, viết bài rồi gửi về đây dưới dạng nháp. Bạn đọc lại và đổi trạng thái sang Xuất bản. Các đánh giá gốc và hồ sơ cơ sở được giữ nguyên.</p>
+  <h2 class="h5">Bài review cơ sở y tế</h2><p class="text-secondary">AI viết lại hồ sơ cơ sở thành bài dễ đọc, kết hợp thế mạnh, phản hồi khách hàng và lưu ý từ dữ liệu đã có; không đưa thống kê vào bài. Bài được gửi về dưới dạng nháp để bạn xem và xuất bản. Các đánh giá gốc và hồ sơ cơ sở được giữ nguyên.</p>
   <details class="mb-3"><summary class="small text-primary">Cổng dành cho AI / tiện ích</summary><code class="d-block mt-2 text-break">GET /api/medical/review-articles-needing-content.php</code><code class="d-block text-break">POST /api/medical/review-article-content-update.php</code><p class="small text-secondary mt-2 mb-0">Dùng API key hiện có. Nhận quyền viết bài trước khi gửi kết quả; xem hướng dẫn trong docs/review-articles-api.md.</p></details>
   <form method="get" class="row g-2 align-items-end mb-3"><div class="col-12 col-md-6"><label class="form-label small" for="article-search">Tiêu đề hoặc cơ sở</label><input class="form-control" id="article-search" name="q" value="<?= $escape($query) ?>"></div><div class="col-8 col-md-3"><label class="form-label small" for="article-status-filter">Trạng thái</label><select class="form-select" id="article-status-filter" name="status"><option value="">Tất cả</option><?php foreach (['draft'=>'Bản nháp','published'=>'Xuất bản','archived'=>'Ẩn'] as $value=>$label): ?><option value="<?= $value ?>" <?= $status===$value?'selected':'' ?>><?= $label ?></option><?php endforeach; ?></select></div><div class="col-4 col-md-3"><button class="btn btn-primary w-100" type="submit">Lọc bài</button></div></form>
   <div class="table-responsive"><table class="table align-middle"><caption class="visually-hidden">Danh sách bài review phân tích</caption><thead><tr><th>Bài viết</th><th>Cơ sở</th><th>Ngôn ngữ</th><th>Trạng thái</th><th>Cập nhật</th><th>Thao tác</th></tr></thead><tbody>

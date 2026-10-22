@@ -26,11 +26,114 @@ Bộ lọc tùy chọn: `language=vi|en`, `id=393`, hoặc `ids=393,394` (tối 
 - `facility_insights_json` hợp lệ và có nội dung phân tích, không chỉ `{}`/thông tin phiên bản.
 - Chưa có bài viết có nội dung hoặc bài đã xuất bản; chưa có tác vụ khác giữ quyền còn hạn.
 
-Mỗi item trả `entity_id`, `language_code`, `source_revision`, `source`, `prompt`, `output_template`; hỗ trợ prompt `review_article` tùy biến trong admin theo danh mục/ngôn ngữ.
+Mỗi item trả `entity_id`, `language_code`, `source_revision`, `source`, `evidence_catalog`, `prompt`, `output_template`; hỗ trợ prompt `review_article` tùy biến trong admin theo danh mục/ngôn ngữ. Prompt tùy biến có thể đặt `{{evidence_catalog}}`; nếu bỏ, API vẫn bổ sung danh mục và quy tắc đối chiếu ở cuối.
 
 Nguồn AI gồm dữ liệu kinh doanh công khai, số đánh giá được chuẩn hóa, mẫu phản hồi đã bỏ tác giả/che thông tin liên hệ và phân tích `facility_insights_json`. Không gửi `full_json`, ảnh/ghi chú bệnh nhân, token, claim hoặc ghi chú riêng. Việc che thông tin không bảo đảm văn bản tự do hoàn toàn vô danh; prompt chỉ cho phép tổng hợp chủ đề, không lặp lại chi tiết nhận diện cá nhân.
 
-`review_metrics` là tổng hợp nguồn; `stored_review_metrics` là bản ghi hệ thống; `sample_count` là số mẫu thực sự được đọc (tối đa 40), **không phải tổng đánh giá nguồn**. Nếu insights chỉ là báo cáo rà soát ảnh, AI phải nêu hạn chế, không suy ra chất lượng chuyên môn.
+`review_metrics` là tổng hợp nguồn; `stored_review_metrics` là bản ghi hệ thống; `sample_count` là số mẫu thực sự được cung cấp (tối đa 40), **không phải tổng đánh giá nguồn**. Đây là dữ liệu nội bộ để chọn và đối chiếu nguồn, không phải các con số cần đưa vào bài. Nếu insights chỉ là báo cáo rà soát ảnh, không suy ra chất lượng chuyên môn hoặc ý kiến khách hàng từ ảnh.
+
+### Đối chiếu đầy đủ dữ liệu cơ sở
+
+`facility.content` là khung nội dung, không phải bản gốc luôn đúng. AI cần đối chiếu
+với các trường cụ thể cùng chủ đề để bổ sung hoặc hiệu chỉnh chi tiết đã cũ:
+
+| Chủ đề | Các trường nguồn chính |
+| --- | --- |
+| Giá dịch vụ | `price_table_html`, `price_text`, giá/đơn vị trong `services_json`, `price_source_scope`. |
+| Máy móc, không gian | `equipment_mentioned_json`, `utilities_json` và nội dung quét liên quan. |
+| Địa chỉ, vị trí | `address_text`, `city`, `google_maps_url`, `nearby_landmarks`, `parking_info`; tọa độ hợp lệ chỉ đối chiếu nội bộ. |
+| Dịch vụ, nhân sự | `featured_services_json`, `services_json`, `doctors_json`, nội dung hồ sơ và kết quả quét đúng chủ đề. |
+| Thông tin thực tế | `hours_text`, `booking_url`, bảo hiểm, thanh toán, ngôn ngữ, bảo hành và `branch_count` khi có. |
+
+`facility_insights_json` là dữ liệu quét được ưu tiên cao nhất khi nội dung có
+thật, liên quan đúng mục, có căn cứ và thời điểm phù hợp. Ví dụ: quét máy móc
+bổ sung phần thiết bị; quét bảng giá bổ sung giá và điều kiện áp dụng. Không
+dùng một summary chỉ rà soát ảnh để suy ra giá, địa chỉ mới, nhân sự hoặc pháp
+lý; thiếu mục nào trong insights thì vẫn khai thác các trường hồ sơ tương ứng.
+Nếu nguồn không thống nhất, chọn thông tin cụ thể, đúng chi nhánh, có căn cứ và
+mốc thời gian phù hợp; không tự hợp nhất các dữ kiện mâu thuẫn.
+
+Bảng giá nguồn được làm sạch nội dung chủ động, giữ quan hệ hàng/ô và phạm vi
+giá. Không lấy giá “từ”, giá ưu đãi hay giá tham khảo toàn hệ thống làm tổng phí
+cho mọi trường hợp tại một chi nhánh. Bài có thể dùng mức giá thực khi rõ dịch
+vụ, đơn vị và phạm vi; không tự gán nhãn “rẻ/đắt” bằng suy đoán.
+
+Các cột này đã có trong bảng cơ sở, không cần migration mới. Nguồn chỉ lấy dữ
+liệu công khai theo whitelist; `features_json` legacy chứa thông điệp về kiểm
+duyệt/xác thực của nền tảng nên không được coi là đặc điểm cơ sở. Không đưa
+`full_json`, ảnh hay thông tin nhận dạng bệnh nhân vào prompt.
+
+Thay đổi bảng giá hoặc thông tin vị trí làm đổi `source_revision` như các dữ
+kiện nguồn khác; tác vụ đang giữ nguồn cũ cần tải lại và nhận quyền theo nguồn mới.
+
+### Đối chiếu bằng chứng trước khi viết
+
+Prompt hướng dẫn AI làm **hai bước trong cùng một lượt viết**, không phải hai
+lần gọi API hoặc hai bài trả về:
+
+1. Đọc `source.facility.content` làm nền, bổ sung bằng các trường hồ sơ, từng phản hồi thực tế và insights; lập các nhận định ngắn
+   có tham chiếu. Phân biệt thông tin cơ sở công bố, phản hồi đơn lẻ, chủ đề
+   xuất hiện trong nhiều phản hồi và điều chưa thống nhất giữa các nguồn.
+2. Viết lại nội dung nền thành bài review hoàn chỉnh về cơ sở, lồng ghép nhận định
+   và phản hồi vào đúng chủ đề. Thông tin chưa rõ thì bỏ hoặc diễn đạt có giới hạn
+   tự nhiên; không đưa câu báo cáo kiểm chứng vào bài. Không chép bảng đối chiếu, mã tham chiếu hoặc số liệu
+   nội bộ vào lời văn dành cho người đọc.
+
+AI chỉ trả **một JSON cuối cùng** chứa bài viết và, nếu có,
+`editorial_evidence_json`. Tiện ích vẫn dùng luồng GET → claim/heartbeat → POST
+hiện có, không cần một cổng phân tích riêng.
+
+Danh mục tham chiếu bằng chứng do server tạo từ chính dữ liệu nguồn của lượt
+viết. Mỗi item có `id`, `kind` (`profile`, `feedback`, `insight`), `path` và
+`evidence_type`. Danh mục chỉ chứa đường dẫn/loại dữ liệu, không sao chép lại
+văn bản nguồn; AI phải đọc nội dung tại đường dẫn tương ứng trong `source`.
+Ví dụ mã `p-name` tham chiếu tên trong hồ sơ, `r-1` tham chiếu một phản hồi,
+`i-1` hoặc `i-summary` tham chiếu nhận định/tóm tắt insights khi chúng thực sự
+có trong danh mục. Chỉ dùng ID được server cấp cho cùng `source_revision`;
+không tự suy đoán ID, thêm URL hay truy cập trường ngoài danh mục.
+
+Danh mục này khác danh mục URL trong `sources_json`: `evidence_refs` và
+`opposing_refs` dùng các mã bằng chứng như `p-name`/`r-1`; `source_ids` của
+`analysis_sections_json` vẫn dùng ID nguồn URL như `s1`. Không đổi lẫn hai loại.
+
+## Giọng văn và các trường bài viết
+
+Bài review lấy `facility.content` làm trục nội dung: giới thiệu cơ sở, đội ngũ,
+dịch vụ, cơ sở vật chất và quá trình chăm sóc. Các trường hồ sơ bổ sung chỗ còn
+thiếu; phản hồi, chỉ số và `facility_insights_json` làm phong phú từng chủ đề,
+không thay thế toàn bộ bài bằng phân tích đánh giá hoặc lời dặn trước khi đến.
+Nếu content thiếu thì xây dựng bài từ những trường có dữ liệu, không tự bịa.
+Không phải báo cáo thống kê,
+kiểm toán hay bài tự nhận đã trải nghiệm. Không đưa điểm sao, tổng số review,
+số mẫu, tỷ lệ hoặc bảng số liệu vào tiêu đề, tóm tắt, nội dung hay các nhận xét.
+
+| Trường hiện có | Nội dung dành cho người đọc |
+| --- | --- |
+| `excerpt` | Giới thiệu ngắn, định vị cơ sở. |
+| `content_html` | Viết lại content cơ sở thành bài hoàn chỉnh, bổ sung thông tin hồ sơ, phản hồi và insights vào đúng chủ đề. |
+| `strengths_json` | Thế mạnh, dịch vụ hoặc điểm nổi bật có cơ sở đối chiếu. |
+| `analysis_sections_json` | Các phần giới thiệu, đội ngũ, dịch vụ, không gian và trải nghiệm; lồng phản hồi vào đúng mục, lưu ý gọn khi cần. |
+| `considerations_json` | Lưu ý thực tế trước khi đặt lịch hoặc sử dụng dịch vụ. |
+| `suitable_for_json` | Nhu cầu nào có thể tìm hiểu cơ sở này. |
+| `verdict` | Nhận xét chung cân bằng, không bảo đảm kết quả điều trị. |
+
+Không cần thêm cột hoặc xóa cột DB cho cách viết này. `sources_json`,
+`evidence_limitations_json`, snapshot, revision và số liệu nguồn tiếp tục được
+lưu để đối chiếu; không biến chúng thành nội dung báo cáo trong bài. Quy tắc
+viết mới được API bổ sung cho cả prompt mặc định và prompt tùy biến đã lưu.
+
+Phần phản hồi tổng hợp chủ đề thực sự có trong các nhận xét được cung cấp.
+Khi nội dung phản hồi nhất quán, có thể nhận xét tự nhiên rằng các phản hồi hiện
+có thiên về tích cực và nêu cụ thể điểm được đánh giá tốt. Không lấy điểm sao
+để tự suy ra tay nghề, hiệu quả điều trị hay sự hài lòng của tất cả khách hàng;
+một nhận xét đơn lẻ không thành xu hướng phổ biến. Không cố lặp mọi lời chê để
+cân bằng cơ học, cũng không che giấu vấn đề quan trọng. Lưu ý thực tế như lịch
+hẹn hoặc báo giá chỉ chiếm phần vừa đủ, không lấn át nội dung giới thiệu-review.
+
+Không chèn những đoạn như “chưa đủ cơ sở để kết luận”, “chưa có đủ tài liệu để
+đối chiếu” hay “trong tập nhận xét được lưu” vào lời văn công khai. Thông tin
+thiếu thì bỏ, không bịa và không lấp bài bằng lời cảnh báo. Ghi chú nguồn và
+giới hạn thông tin giữ ngắn ở phần riêng, không lặp trong từng đoạn.
 
 ## 2. Nhận quyền viết
 
@@ -89,7 +192,7 @@ AI trả một object trong một khối mã `json`. Tiện ích ghép `request_
   "suitable_for_json": ["Nhu cầu có thể tìm hiểu thêm tại cơ sở"],
   "analysis_sections_json": [],
   "sources_json": [{"id":"s1","title":"Giữ nguồn từ danh mục GET","url":"https://medreview.vn/co-so-y-te/slug-that","platform":"MedReview"}],
-  "evidence_limitations_json": ["Số phản hồi mẫu ít hơn tổng số đánh giá; không xác minh độc lập kết quả điều trị."],
+  "evidence_limitations_json": ["Thông tin được tổng hợp từ nguồn công khai; hãy xác nhận trực tiếp dịch vụ và chi phí với cơ sở."],
   "seo_title": "Tiêu đề SEO",
   "seo_description": "Mô tả SEO trung lập",
   "researched_at": "2026-10-22"
@@ -106,6 +209,86 @@ Mẫu trên chỉ mô tả cấu trúc, không phải payload thử hợp lệ: 
 
 Nếu có sections, chúng bao phủ cùng nội dung bài đầy đủ trong `content_html`; giao diện hiển thị một phiên bản, không lặp hai bài. Mỗi section cần nguồn tồn tại. Các danh sách nhận định tối đa 30 mục, nguồn tối đa 100, sections tối đa 20. `evidence_limitations_json` bắt buộc không trống. API không nhận các trường sửa dữ liệu cơ sở, đánh giá, bệnh nhân hoặc trạng thái xác thực.
 
+### Trường đối chiếu nội bộ tùy chọn
+
+Có thể bổ sung `editorial_evidence_json` vào **cùng object bài viết** gửi POST:
+
+```json
+{
+  "editorial_evidence_json": {
+    "schema_version": 1,
+    "claims": [
+      {
+        "id": "claim-profile-name",
+        "topic": "other",
+        "statement": "Cơ sở được nhận diện theo tên trong hồ sơ.",
+        "evidence_refs": ["p-name"],
+        "feedback_scope": "none",
+        "opposing_refs": [],
+        "disposition": "use"
+      },
+      {
+        "id": "claim-reception",
+        "topic": "reception",
+        "statement": "Có phản hồi đề cập việc hướng dẫn lịch hẹn.",
+        "evidence_refs": ["r-1"],
+        "feedback_scope": "single",
+        "opposing_refs": [],
+        "disposition": "qualify"
+      }
+    ]
+  }
+}
+```
+
+Đây chỉ là phần JSON bổ sung để giải thích cấu trúc, không phải request đầy
+đủ hay kết luận về một cơ sở thật. Chỉ dùng ví dụ phản hồi nếu `r-1` thực sự
+có trong danh mục và nội dung phản hồi hỗ trợ nhận định đó.
+
+- `schema_version` là số nguyên `1`; `claims` là danh sách tối đa 30 mục.
+  Mỗi mục phải có đủ bảy trường trong ví dụ, ID duy nhất tối đa 80 ký tự,
+  `statement` là văn bản UTF-8 thuần tối đa 800 ký tự. Toàn bộ phần đối chiếu
+  không vượt 64 KiB; không nhận các trường tùy ý ngoài hợp đồng.
+- `topic` là `services`, `staff`, `reception`, `waiting_time`, `costs`,
+  `facilities`, `access`, `suitability` hoặc `other`.
+- `feedback_scope: "none"` khi không khái quát phản hồi;
+  `"single"` cho phản hồi đơn lẻ; `"recurring"` chỉ dùng khi có nhiều phản
+  hồi riêng biệt hỗ trợ cùng chủ đề. Lặp một ID hoặc dẫn các bản sao cùng
+  nội dung không biến một phản hồi thành xu hướng chung. `recurring` cần ít
+  nhất hai nội dung phản hồi trực tiếp khác nhau sau chuẩn hóa; một nhận định
+  trong insights không được tính thành phản hồi trực tiếp bổ sung.
+- `opposing_refs` chỉ dẫn bằng chứng có thật đang không thống nhất với nhận
+  định. Không tự bịa mâu thuẫn; tổng đánh giá bên ngoài và số mẫu được lưu
+  không phải hai con số mâu thuẫn vì chúng mô tả hai phạm vi khác nhau.
+- `evidence_refs` cần ít nhất một ID, tối đa 20 ID duy nhất;
+  `opposing_refs` có thể trống, tối đa 20 ID duy nhất. Không đưa cùng một ID
+  vào cả hai danh sách; tổng hai danh sách của một nhận định tối đa 20 ID.
+  Các ID đều phải thuộc danh mục bằng chứng của nguồn
+  hiện tại.
+- `disposition` là `use` (có thể dùng), `qualify` (cần giới hạn cách diễn đạt)
+  hoặc `omit` (không đưa nhận định vào bài). Đây là quyết định biên tập của
+  AI, không phải trạng thái xác minh của cơ sở. Khi có `opposing_refs` hoặc
+  nhận định dựa vào insight chưa xác minh, chỉ dùng `qualify`/`omit`, không
+  chọn `use`.
+
+Trường này **không bắt buộc với payload cũ**: bỏ hẳn trường vẫn được nhận
+như trước. Nếu gửi thì phải đúng hợp đồng; không gửi `null` hoặc một danh
+sách thay cho object. Không chèn khóa API, token, dữ liệu nhận dạng bệnh nhân,
+ảnh hoặc bản sao tùy ý của toàn bộ nguồn vào phần đối chiếu.
+
+Server lưu phần đối chiếu đã chuẩn hóa **bên trong `ai_content_json`**, cùng
+metadata vận hành; không tạo cột mới và không đưa nó vào bài viết, danh sách
+review, trang chi tiết hay dữ liệu công khai. Nội dung bài đọc vẫn nằm trong
+các trường hiện có. Khi gửi lại cùng request, phần đối chiếu cũng phải giữ
+nguyên như những nội dung khác của payload.
+
+Kiểm tra tham chiếu chỉ xác nhận cấu trúc, ID nguồn có tồn tại và điều kiện
+tham chiếu cho phản hồi đơn lẻ/lặp lại. Nó **không tự chứng minh** câu viết
+được nguồn hỗ trợ về ngữ nghĩa, các nguồn độc lập với nhau hoặc thông tin là
+đúng về mặt y khoa. Phần đối chiếu không làm tăng nhãn xác thực và không tự
+cho phép xuất bản. Biên tập viên vẫn cần đọc lại bài và các nguồn trước khi
+công khai; cơ chế trạng thái bên dưới không thay đổi.
+
 Mặc định lưu **draft** để biên tập viên duyệt trong admin. Chỉ khi chủ API chủ động gửi `status:"published"` mới xuất bản; không coi AI tự viết là đã được duyệt. API kiểm tra quyền + revision, lưu toàn bộ bài viết và snapshot nguồn riêng trong giao dịch, đọc lại các cột để xác nhận trước khi trả `saved:true, storage_verified:true`. Đây là xác nhận lưu DB, không phải xác nhận chất lượng y khoa.
 
 Gửi lại đúng request/token/payload trả `idempotent:true`, không tạo bài mới. Dữ liệu khác dùng lại request ID báo 409; bản thảo đã được biên tập sau lần gửi đầu không bị ghi đè. Khi đã có nội dung, API không dùng tác vụ mới để ghi đè bài; chỉnh sửa trong admin.
@@ -120,7 +303,7 @@ Gửi lại đúng request/token/payload trả `idempotent:true`, không tạo b
 | 409 | source_revision_changed | Lấy và nghiên cứu nguồn mới. |
 | 409 | already_written / article_changed | Bài đã có nội dung/đã được biên tập; không gửi đè. |
 | 409 | idempotency_conflict | Không tái sử dụng request ID với dữ liệu khác. |
-| 422 | unknown_source / invalid_payload | Sửa JSON/nguồn theo danh mục và hợp đồng. |
+| 422 | unknown_source / invalid_payload / invalid_evidence | Sửa JSON/nguồn hoặc bản ghi bằng chứng theo danh mục và hợp đồng. |
 | 503 | schema_unavailable | Chạy migration riêng trên đúng DB; tiện ích không tự migration. |
 
 API này không gọi dịch vụ AI hoặc quét mạng xã hội thay người dùng. Nó cung cấp nguồn/prompt, giữ quyền viết và nhận kết quả để biên tập/xuất bản bài phân tích.

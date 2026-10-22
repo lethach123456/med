@@ -88,6 +88,102 @@ $source = $queue['items'][0]['source']; $revision = $queue['items'][0]['source_r
 $prompt = medical_review_article_ai_prompt($source, $revision, 'Custom {{source_json}} {{output_template}}');
 $assert(!str_contains($prompt, '{{output_template}}') && str_contains($prompt, 'RÀNG BUỘC BẮT BUỘC'), 'Variants receive source/output and mandatory editorial constraints');
 $assert(str_contains(medical_review_article_ai_default_prompt(), 'không giả vờ đã đến khám'), 'No fabricated personal experience');
+$writingRules = medical_review_article_ai_customer_writing_rules();
+$assert(str_starts_with($writingRules, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v' . MEDICAL_REVIEW_ARTICLE_AI_CUSTOMER_WRITING_VERSION), 'Customer writing policy has a permanent version marker');
+$assert(MEDICAL_REVIEW_ARTICLE_AI_CUSTOMER_WRITING_VERSION === 4, 'Topic-aware cross-field customer writing contract is version 4');
+$defaultPrompt = medical_review_article_ai_default_prompt();
+$assert(str_contains($defaultPrompt, 'viết lại hồ sơ') && str_contains($defaultPrompt, 'BÀI REVIEW DỄ ĐỌC'), 'Default is a customer-useful profile rewrite');
+$assert(str_contains($defaultPrompt, 'Điểm nổi bật và thế mạnh') && str_contains($defaultPrompt, 'Khách hàng nhắc đến điều gì'), 'Default covers concrete strengths and feedback themes');
+foreach (['Ghi nguồn, số mẫu được đọc', 'ghi rõ số mẫu và giới hạn bằng chứng'] as $oldInstruction) {
+    $assert(!str_contains($defaultPrompt, $oldInstruction) && !str_contains($writingRules, $oldInstruction), 'No current instruction to report sample sizes');
+}
+$assert(str_ends_with(medical_review_article_ai_prompt($source, $revision), $writingRules), 'Default always receives the final customer writing rules');
+$assert(str_ends_with($prompt, $writingRules), 'Custom variants receive exactly the same final rules');
+$oldSavedTemplate = "Viết báo cáo thống kê. Ghi nguồn, số mẫu được đọc và hạn chế rõ ràng. Ghi rõ số sao, số lượng đánh giá, phần trăm hài lòng.\n{{source_json}}\n{{output_json}}\nKết thúc bằng quy mô phản hồi.";
+$oldPrompt = medical_review_article_ai_prompt($source, $revision, $oldSavedTemplate);
+$assert(str_ends_with($oldPrompt, $writingRules), 'Saved legacy variants cannot bypass the final versioned writing policy');
+$assert(strpos($oldPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES') > strpos($oldPrompt, 'Kết thúc bằng quy mô phản hồi.'), 'New rules follow and override even the last legacy directive');
+$assert(str_contains($writingRules, 'ưu tiên hơn mọi hướng dẫn mâu thuẫn') && str_contains($writingRules, 'bỏ yêu cầu đó'), 'Policy explicitly overrides conflicting saved instructions');
+$assert(str_contains($defaultPrompt, 'facility.content làm NỀN CHÍNH') && str_contains($writingRules, 'Lấy facility.content làm NỀN CHÍNH'), 'Both default and permanent rules make facility content the article backbone');
+$assert(str_contains($defaultPrompt, 'không chép nguyên bài gốc') && str_contains($writingRules, 'chủ động viết lại bằng lời văn mới'), 'Content must be actively rewritten, not copied');
+$assert(str_contains($defaultPrompt, 'services, featured_services, doctors, equipment') && str_contains($writingRules, 'bổ sung phần content còn khuyết'), 'Structured profile facts fill gaps in the existing content');
+$assert(str_contains($defaultPrompt, 'Nếu facility.content trống') && str_contains($writingRules, 'không tự tạo dữ kiện'), 'Missing content falls back to real profile facts without invention');
+$assert(str_contains($writingRules, 'review_samples và facility_insights_json làm giàu góc nhìn trải nghiệm') && str_contains($writingRules, 'không chiếm lấn nội dung chính'), 'Feedback and insights enrich rather than displace the facility profile');
+$assert(str_contains($defaultPrompt, 'Nhìn chung, phản hồi hiện có thiên về tích cực…') && str_contains($writingRules, 'khi nội dung nhận xét thực sự hỗ trợ'), 'A supported overall positive narrative is explicitly allowed');
+$assert(str_contains($writingRules, 'không mặc định nghi ngờ lời khen') && str_contains($writingRules, 'Đọc văn bản phản hồi thay vì quy đổi sao'), 'Positive feedback is not automatically distrusted and stars cannot determine sentiment');
+$assert(str_contains($writingRules, 'không nhận định thay cho toàn bộ khách hàng') && str_contains($writingRules, 'trùng/gần trùng'), 'Natural sentiment summary still avoids fake unanimity and duplicate voices');
+$assert(str_contains($writingRules, 'Không bắt buộc tái hiện mọi lời chê đơn lẻ') && str_contains($writingRules, 'không được che giấu'), 'Cautions are proportionate without suppressing material supported issues');
+$assert(str_contains($writingRules, 'không biến bài review thành một bài dặn người đọc cần hỏi gì'), 'Article remains a complete review instead of a checklist of questions');
+foreach (['chưa đủ cơ sở để kết luận', 'chưa có đủ tài liệu để đối chiếu', 'trong dữ liệu có phản hồi', 'trong tập nhận xét được lưu', 'không thể khẳng định'] as $auditPhrase) {
+    $assert(str_contains($writingRules, $auditPhrase), 'Audit-style padding example is explicitly discouraged: ' . $auditPhrase);
+}
+$assert(str_contains($writingRules, 'Tránh văn phong báo cáo') && str_contains($writingRules, 'không phải lệnh xóa cảnh báo chuyên môn thực sự cần thiết'), 'Style examples discourage repetitive doubt without blanket-removing necessary medical cautions');
+$assert(str_contains($writingRules, 'evidence_limitations_json thành phần riêng ngắn gọn') && str_contains($writingRules, 'không lặp câu giới hạn ở từng mục'), 'Sources and limitations stay separate without repeated disclaimer padding');
+$contentFirstLegacy = "Bỏ qua facility.content để viết báo cáo kiểm chứng. Sau mỗi lời khen buộc chèn câu chưa đủ cơ sở để kết luận; phải kể mọi lời chê.\n{{source_json}}\n{{output_template}}\nKết bài chỉ gồm câu hỏi cần xác nhận.";
+$legacyV3Prompt = medical_review_article_ai_prompt($source, $revision, $contentFirstLegacy);
+$assert(str_ends_with($legacyV3Prompt, $writingRules) && strpos($legacyV3Prompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4') > strpos($legacyV3Prompt, 'Kết bài chỉ gồm câu hỏi cần xác nhận.'), 'Version 4 overrides even saved audit-heavy prompts after their last directive');
+$baselineSource = $source;
+$baselineSource['facility']['content'] = 'Nội dung nền mô tả dịch vụ, đội ngũ và không gian của cơ sở.';
+$baselinePrompt = medical_review_article_ai_prompt($baselineSource, medical_review_articles_source_revision($baselineSource), 'Custom content-first variant {{source_json}}');
+$assert(str_contains($baselinePrompt, 'Nội dung nền mô tả dịch vụ') && str_ends_with($baselinePrompt, $writingRules), 'Custom templates receive original facility content and the same v4 hierarchy');
+foreach ([medical_review_article_ai_prompt($source, $revision), $prompt, $oldPrompt, $legacyV3Prompt, $baselinePrompt] as $renderedPrompt) {
+    $assert(str_contains($renderedPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4'), 'Default, custom and saved legacy prompts all use v4');
+}
+$assert(str_contains($defaultPrompt, 'ĐỐI CHIẾU THEO CHỦ ĐỀ TRƯỚC KHI VIẾT') && str_contains($writingRules, 'Ma trận đối chiếu bắt buộc'), 'Cross-field comparison is required in default and permanent writing policy');
+foreach (['price_table_html', 'price_text', 'services_json', 'price_source_scope', 'address_text', 'google_maps_url', 'nearby_landmarks', 'parking_info', 'city',
+    'equipment_mentioned_json', 'utilities_json', 'doctors_json', 'featured_services_json', 'hours_text', 'booking_url', 'branch_count', 'insurance_accepted_json',
+    'payment_methods_json', 'warranty_policy', 'languages_supported_json'] as $factField) {
+    $assert(str_contains($defaultPrompt, $factField) && str_contains($writingRules, $factField), 'Default and saved variants compare field ' . $factField);
+}
+$assert(str_contains($defaultPrompt, 'ưu tiên cao nhất THEO TỪNG CHỦ ĐỀ') && str_contains($writingRules, 'nội dung quét cụ thể, mới và căn cứ phù hợp'), 'Scanned insights have topic-specific priority when concrete, fresh and supported');
+$assert(str_contains($defaultPrompt, 'summary rà soát ảnh không được ghi đè bảng giá, địa chỉ') && str_contains($writingRules, 'không cho một summary ảnh ghi đè'), 'Photo summaries cannot blindly override unrelated structured facts');
+$assert(str_contains($writingRules, 'Insights thiếu chủ đề nào thì dùng trường hồ sơ của chủ đề đó') && str_contains($writingRules, 'không tự suy điền từ ảnh'), 'Missing insight topics fall back to actual profile fields, not photo guesses');
+$assert(str_contains($writingRules, 'hiệu chỉnh content cũ') && str_contains($writingRules, 'nguồn cụ thể và độ mới'), 'Specific current evidence may correct older content internally');
+$assert(str_contains($writingRules, 'không biến giá toàn hệ thống/tham khảo thành giá riêng chi nhánh') && str_contains($writingRules, 'không suy tổng phí từ một hạng mục'), 'Price scope and per-service units do not become invented branch totals');
+$assert(str_contains($writingRules, 'không được tự tính khoảng cách/thời gian đi từ tọa độ') && str_contains($writingRules, 'bịa mốc đường/chỗ đỗ xe'), 'Location prose cannot invent distances, travel times or parking');
+$assert(str_contains($writingRules, 'không được đoán model, chứng nhận vô trùng') && str_contains($writingRules, 'không đoán danh tính/bằng cấp'), 'Photos cannot establish equipment model, certification or staff identity');
+$assert(str_contains($writingRules, 'Không đánh đồng thanh toán với bảo hiểm chi trả') && str_contains($writingRules, 'bảo hành với cam kết mọi kết quả'), 'Operational/payment facts do not become insurance or clinical guarantees');
+$assert(!str_contains($defaultPrompt, 'features_json') && !str_contains($writingRules, 'features_json'), 'Platform feature messages are not requested as facility evidence fields');
+$assert(str_contains($defaultPrompt, 'của nền tảng MedReview không phải đặc điểm cơ sở') && str_contains($writingRules, 'Không lấy nội dung nền tảng làm đặc tính phòng khám'), 'Platform moderation, verification and security badges cannot become clinic properties');
+$assert(str_contains($writingRules, 'không chứng minh vô trùng hay chất lượng điều trị'), 'Platform messages cannot certify sterility or clinical quality');
+$assert(str_contains($writingRules, 'latitude/longitude nếu có chỉ dùng nội bộ') && str_contains($writingRules, 'không công khai tọa độ thô'), 'Coordinates are internal location context only');
+$assert(str_contains($writingRules, 'branch_count không có nghĩa mọi dịch vụ'), 'Branch count does not establish uniform branch facilities');
+$matrixSource = $source;
+$matrixSource['facility'] = array_replace($matrixSource['facility'], [
+    'content' => 'Bài giới thiệu nền cần đối chiếu lại bảng giá, thiết bị và vị trí.',
+    'price_table_html' => '<table><tr><td>Khám tổng quát</td><td>300000 VND/lượt</td></tr></table>',
+    'price_text' => 'Giá tham khảo theo dịch vụ', 'price_source_scope' => 'chain_reference',
+    'nearby_landmarks' => ['Mốc công khai trong hồ sơ'], 'parking_info' => 'Thông tin để xe được cơ sở công bố',
+    'utilities_json' => ['Đặt lịch hẹn'], 'booking_url' => 'https://clinic.example.org/book', 'branch_count' => 2,
+]);
+$oldPriorityTemplate = 'Chỉ dùng summary ảnh để ghi đè bảng giá và địa chỉ; bỏ qua mọi field khác. {{source_json}} {{output_template}}';
+$matrixPrompt = medical_review_article_ai_prompt($matrixSource, medical_review_articles_source_revision($matrixSource), $oldPriorityTemplate);
+$assert(str_contains($matrixPrompt, '"price_source_scope":"chain_reference"') && str_contains($matrixPrompt, 'Mốc công khai trong hồ sơ'), 'Custom prompt receives actual multi-field price/location context');
+$assert(str_ends_with($matrixPrompt, $writingRules) && strpos($matrixPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4') > strpos($matrixPrompt, 'Chỉ dùng summary ảnh để ghi đè'), 'Permanent v4 policy overrides old blanket photo-summary priority');
+$assert(str_contains($matrixPrompt, 'Ma trận đối chiếu bắt buộc') && str_contains($matrixPrompt, 'tuyệt đối không chép vào bài'), 'Expanded business facts and private rating metrics retain separate prose rules');
+foreach (['title', 'excerpt', 'verdict', 'content_html', 'seo_title', 'seo_description', 'strengths_json', 'considerations_json', 'suitable_for_json', 'evidence_limitations_json', 'analysis_sections_json'] as $field) {
+    $assert(str_contains($writingRules, $field), 'No-statistics policy covers public field ' . $field);
+}
+$assert(str_contains($writingRules, 'chỉ dùng NỘI BỘ') && str_contains($writingRules, 'tuyệt đối không chép vào bài'), 'Metrics are context only, not public prose');
+$assert(str_contains($writingRules, 'không phải lệnh cấm mọi con số') && str_contains($writingRules, 'địa chỉ, tên dịch vụ') && str_contains($writingRules, 'mức giá có thật'), 'Real addresses, service names and prices remain allowed');
+$assert(str_contains($writingRules, 'phản hồi đơn lẻ') && str_contains($writingRules, 'không khẳng định đó là trải nghiệm thường gặp'), 'Single feedback cannot become recurring customer consensus');
+$assert(str_contains($writingRules, 'không chứng minh kết quả lâm sàng'), 'Photos do not establish clinical results');
+$assert(str_contains($writingRules, 'đúng cặp ID/URL') && str_contains($writingRules, 'source_revision'), 'Citation and source revision protocols remain mandatory');
+$assert(str_contains($oldPrompt, '"sample_count":3') && str_contains($oldPrompt, '"reviews_count":80'), 'Internal evidence metrics remain intact in the AI source DTO');
+$assert(medical_review_article_ai_output_template($source, $revision)['sources_json'] === medical_review_article_ai_source_catalog($source), 'Writing style leaves the source catalog IDs and URLs untouched');
+$assert(medical_review_articles_source_revision($source) === $revision, 'Prompt style does not alter the source revision');
+$assert(str_contains($queue['items'][0]['prompt'], 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES'), 'Queue prompts use the same permanent customer writing policy');
+$evidenceCatalog = medical_review_article_evidence_catalog($source);
+$assert($queue['items'][0]['evidence_catalog'] === $evidenceCatalog, 'Queue serves the same deterministic evidence catalog used by validation');
+$assert(str_contains($defaultPrompt, 'THỰC HIỆN HAI BƯỚC') && str_contains($defaultPrompt, 'bản ghi căn cứ, không phải chuỗi suy nghĩ'), 'Default directs a concise evidence summary then article in the same task');
+$assert(str_contains($writingRules, 'editorial_evidence_json') && str_contains($writingRules, 'lưu NỘI BỘ'), 'Two-step output is a private evidence summary, not public prose');
+$assert(str_contains($oldPrompt, '"path":"review_samples.0.excerpt"') && !str_contains($oldPrompt, '{{evidence_catalog}}'), 'Legacy templates receive the actual evidence catalog automatically');
+$explicitEvidencePrompt = medical_review_article_ai_prompt($source, $revision, '{{evidence_catalog}} {{source_json}} {{output_template}}');
+$assert(!str_contains($explicitEvidencePrompt, '{{evidence_catalog}}') && str_contains($explicitEvidencePrompt, '"id":"p-name"'), 'Custom evidence catalog placeholder is supported');
+$assert(!in_array('editorial_evidence_json', MEDICAL_REVIEW_ARTICLE_CONTENT_FIELDS, true)
+    && !in_array('editorial_evidence_json', MEDICAL_REVIEW_ARTICLE_AI_CONTENT_FIELDS, true), 'Private evidence must never become a public field or dynamic SQL column');
+$outputKeys = array_keys(medical_review_article_ai_output_template($source, $revision));
+$assert(array_search('editorial_evidence_json', $outputKeys, true) < array_search('content_html', $outputKeys, true), 'Output template puts the evidence summary before prose, not as a post-hoc justification');
 $leaseBody = ['entity_type' => 'facility', 'entity_id' => 1, 'language_code' => 'vi', 'source_revision' => $revision,
     'request_id' => 'article-1', 'client' => ['instance_id' => 'device-a', 'worker_id' => 'worker-a', 'provider' => 'ChatGPT']];
 $lease = medical_review_article_ai_lease($pdo, $leaseBody, 1000);
@@ -106,29 +202,55 @@ $heartbeat = medical_review_article_ai_lease($pdo, ['entity_id' => 1, 'action' =
 $assert($heartbeat['expires_at'] === 2000, 'Heartbeat refresh');
 $articleBody = medical_review_article_ai_output_template($source, $revision);
 $articleBody['title'] = 'Review Cơ sở 1: dịch vụ và những điểm cần cân nhắc';
-$articleBody['excerpt'] = 'Phân tích thông tin cơ sở và tín hiệu từ một số phản hồi công khai.';
-$articleBody['verdict'] = 'Dữ liệu hiện có hỗ trợ tìm hiểu dịch vụ, không đủ để kết luận hiệu quả điều trị.';
-$articleBody['content_html'] = '<h2>Tổng quan</h2><p>' . str_repeat('Thông tin này dựa trên hồ sơ công khai và một số phản hồi được lưu; người đọc nên xác nhận trực tiếp trước khi đặt lịch. ', 5) . '</p><script>alert(1)</script>';
+$articleBody['excerpt'] = 'Tìm hiểu dịch vụ, điểm đáng chú ý và những điều nên hỏi trước khi đặt lịch tại cơ sở.';
+$articleBody['verdict'] = 'Có thể tìm hiểu thêm nếu bạn cần một địa điểm tư vấn; hãy hỏi rõ dịch vụ và chi phí trước khi quyết định.';
+$articleBody['content_html'] = '<h2>Tìm hiểu cơ sở trước khi đặt lịch</h2><p>' . str_repeat('Trước khi đặt lịch tại cơ sở, bạn nên trao đổi về nhu cầu thăm khám, hỏi rõ dịch vụ phù hợp, lịch hẹn và cách tính chi phí. Việc xác nhận trực tiếp sẽ giúp chuẩn bị thuận tiện hơn. ', 4) . '</p><script>alert(1)</script>';
 $articleBody['strengths_json'] = ['Có thông tin địa điểm công khai'];
 $articleBody['considerations_json'] = ['Chưa có thông tin chi phí đầy đủ'];
 $articleBody['suitable_for_json'] = ['Người cần tìm hiểu địa điểm và hỏi lịch khám'];
-$articleBody['evidence_limitations_json'] = ['Chỉ đọc 3 mẫu phản hồi, không phải toàn bộ 80 đánh giá của nguồn bên ngoài.'];
+$articleBody['evidence_limitations_json'] = ['Nhận xét công khai là trải nghiệm cá nhân; nên xác nhận trực tiếp thông tin dịch vụ trước khi đặt lịch.'];
 $articleBody['claim_token'] = $lease['claim_token']; $articleBody['request_id'] = 'article-1';
 $articleBody['researched_at'] = '2026-10-22';
+$articleBody['editorial_evidence_json'] = ['schema_version' => 1, 'claims' => [
+    ['id' => 'c1', 'topic' => 'other', 'statement' => 'Tên cơ sở có trong hồ sơ được cung cấp.', 'evidence_refs' => ['p-name'],
+        'feedback_scope' => 'none', 'opposing_refs' => [], 'disposition' => 'use'],
+    ['id' => 'c2', 'topic' => 'reception', 'statement' => 'Có phản hồi nhắc đến hướng dẫn lịch hẹn.', 'evidence_refs' => ['r-1'],
+        'feedback_scope' => 'single', 'opposing_refs' => [], 'disposition' => 'qualify'],
+]];
 $wrong = $articleBody; $wrong['claim_token'] = str_repeat('a', 64);
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 409, 'lease_lost');
 $wrong = $articleBody; $wrong['sources_json'][0]['url'] = 'https://unprovided.example.org';
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422, 'unknown_source');
 $wrong = $articleBody; $wrong['patient_images_notes'] = 'do not accept';
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422);
+$wrong = $articleBody; $wrong['editorial_evidence_json'] = null;
+$throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422, 'invalid_evidence');
+$wrong = $articleBody; $wrong['editorial_evidence_json']['claims'][0]['evidence_refs'] = ['p-rating'];
+$throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422, 'invalid_evidence');
+$wrong = $articleBody; $wrong['editorial_evidence_json']['claims'][1]['evidence_refs'] = ['r-1', 'r-2'];
+$wrong['editorial_evidence_json']['claims'][1]['feedback_scope'] = 'recurring';
+$throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422, 'invalid_evidence');
+$assert(trim((string) medical_review_article_ai_article_row($pdo, 1, 'vi')['content_html']) === '', 'Invalid evidence never partially saves article content');
 $receipt = medical_review_article_ai_save($pdo, $articleBody, 1150);
 $assert($receipt['saved'] && $receipt['storage_verified'] && !$receipt['idempotent'] && $receipt['status'] === 'draft', 'Real save verified by DB readback, draft by default');
 $saved = medical_review_article_ai_article_row($pdo, 1, 'vi');
 $assert($saved['ai_writer_claim_json'] === null && !str_contains((string) $saved['content_html'], '<script'), 'Claim released and unsafe HTML removed');
 $assert((int) $saved['source_review_count'] === 80 && $saved['source_rating_basis'] === 'external_aggregates', 'Stored source metrics preserve provenance');
 $assert(!str_contains((string) $saved['source_snapshot_json'], 'PRIVATE_'), 'Snapshot contains allowed source only');
+$savedMetadata = medical_review_article_ai_decode($saved['ai_content_json']);
+$assert(($savedMetadata['editorial_evidence_json'] ?? null) === medical_review_article_ai_evidence($articleBody['editorial_evidence_json']), 'Evidence is persisted and read back only inside private AI metadata');
+$assert(!str_contains(medical_review_article_ai_json($receipt), 'editorial_evidence_json')
+    && !str_contains(medical_review_article_ai_json($receipt), 'evidence_refs'), 'Save receipt never echoes private evidence');
+$assert(!str_contains((string) $saved['source_snapshot_json'], 'editorial_evidence_json'), 'Source snapshot does not absorb AI-authored evidence');
 $retry = medical_review_article_ai_save($pdo, $articleBody, 9999);
 $assert($retry['idempotent'] && $retry['article_id'] === $receipt['article_id'], 'Safe exact replay after lease expiration');
+$wrong = $articleBody; $wrong['editorial_evidence_json']['claims'][0]['statement'] .= ' Đã sửa.';
+$throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1200), 409, 'idempotency_conflict');
+$tamperedMetadata = $savedMetadata;
+$tamperedMetadata['editorial_evidence_json']['claims'][0]['statement'] .= ' Chỉnh nội bộ.';
+$pdo->prepare('UPDATE medical_review_articles SET ai_content_json=:metadata WHERE id=:id')->execute([':metadata' => medical_review_article_ai_json($tamperedMetadata), ':id' => $receipt['article_id']]);
+$throws(static fn() => medical_review_article_ai_save($pdo, $articleBody, 1200), 409, 'article_changed');
+$pdo->prepare('UPDATE medical_review_articles SET ai_content_json=:metadata WHERE id=:id')->execute([':metadata' => $saved['ai_content_json'], ':id' => $receipt['article_id']]);
 $wrong = $articleBody; $wrong['title'] .= ' CHANGED';
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1200), 409, 'idempotency_conflict');
 $pdo->prepare('UPDATE medical_review_articles SET verdict=:verdict WHERE id=:id')->execute([':verdict' => 'Edited after AI save', ':id' => $receipt['article_id']]);
@@ -140,6 +262,10 @@ $two = $second['items'][0];
 $claimTwo = medical_review_article_ai_lease($pdo, ['entity_id' => 2, 'source_revision' => $two['source_revision'], 'request_id' => 'article-2', 'client' => ['instance_id' => 'd', 'worker_id' => 'w']], 1000);
 $bodyTwo = $articleBody; $bodyTwo['entity_id'] = 2; $bodyTwo['source_revision'] = $two['source_revision']; $bodyTwo['claim_token'] = $claimTwo['claim_token']; $bodyTwo['request_id'] = 'article-2';
 $bodyTwo['title'] = 'Review Cơ sở 2'; $bodyTwo['status'] = 'published'; $bodyTwo['sources_json'] = medical_review_article_ai_source_catalog($two['source']);
+unset($bodyTwo['editorial_evidence_json']);
+$legacyContent = medical_review_article_ai_content($bodyTwo);
+$assert(medical_review_article_ai_payload_hash(2, 'vi', $two['source_revision'], 'published', $legacyContent, null)
+    === hash('sha256', medical_review_article_ai_json([2, 'vi', $two['source_revision'], 'published', $legacyContent])), 'Omitted evidence preserves the exact legacy payload hash formula');
 $pdo->runtime = false;
 $pdo->exec("CREATE TRIGGER suppress_review_update BEFORE UPDATE OF content_html ON medical_review_articles WHEN NEW.entity_id=2 BEGIN SELECT RAISE(IGNORE); END");
 $pdo->runtime = true;
@@ -150,6 +276,19 @@ $assert(trim((string) medical_review_article_ai_article_row($pdo, 2, 'vi')['cont
 $pdo->runtime = false; $pdo->exec('DROP TRIGGER suppress_review_update'); $pdo->runtime = true;
 $published = medical_review_article_ai_save($pdo, $bodyTwo, 1100);
 $assert($published['status'] === 'published' && medical_review_article_ai_article_row($pdo, 2, 'vi')['published_at'] !== null, 'Explicit publishing supported');
+$assert(!array_key_exists('editorial_evidence_json', medical_review_article_ai_decode(medical_review_article_ai_article_row($pdo, 2, 'vi')['ai_content_json'])), 'Legacy client omission does not fabricate an evidence record');
+$assert(medical_review_article_ai_save($pdo, $bodyTwo, 9999)['idempotent'], 'Legacy client can replay after its lease expires');
+
+// Exact retries keep their original source context even if the live catalog has since changed.
+$replayPdo = review_article_ai_fixture();
+$replaySource = medical_review_articles_facility_source($replayPdo, 1);
+$replayRevision = medical_review_articles_source_revision($replaySource);
+$replayClaim = medical_review_article_ai_lease($replayPdo, ['entity_id' => 1, 'source_revision' => $replayRevision, 'request_id' => 'evidence-replay', 'client' => ['instance_id' => 'd', 'worker_id' => 'w']], 1000);
+$replayBody = $articleBody;
+$replayBody['source_revision'] = $replayRevision; $replayBody['claim_token'] = $replayClaim['claim_token']; $replayBody['request_id'] = 'evidence-replay';
+medical_review_article_ai_save($replayPdo, $replayBody, 1100);
+$replayPdo->runtime = false; $replayPdo->exec('DELETE FROM medical_reviews WHERE facility_id=1'); $replayPdo->runtime = true;
+$assert(medical_review_article_ai_save($replayPdo, $replayBody, 9999)['idempotent'], 'Exact evidence replay is checked against stored metadata, not a changed live catalog');
 
 // Changed evidence invalidates the lease without overwriting article or source data.
 $eight = medical_review_articles_facility_source($pdo, 8);

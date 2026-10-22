@@ -95,7 +95,10 @@ $renderDetail = static function (array $article): string {
 $detail = $renderDetail($fixture);
 $check(str_contains($detail, 'Nội dung phân tích duy nhất.') && !str_contains($detail, 'PHẦN DỰ PHÒNG KHÔNG HIỂN THỊ LẶP'), 'Structured body replaces fallback HTML, preventing duplicate prose.');
 $check(str_contains($detail, 'Phân tích có hỗ trợ AI') && str_contains($detail, 'không phải trải nghiệm khám trực tiếp'), 'Editorial provenance does not pretend to be a patient visit.');
-$check(str_contains($detail, '1.248') && str_contains($detail, 'Đánh giá tổng hợp') && str_contains($detail, 'không phải số phản hồi được trích dẫn'), 'Aggregate count and article sample scope are explicitly distinguished.');
+$check(!str_contains($detail, '1.248') && !str_contains($detail, '1248') && !str_contains($detail, '4.5 / 5'), 'Internal source counts and scores never appear in the customer article.');
+$check(!str_contains($detail, 'Điểm ghi nhận') && !str_contains($detail, 'Đánh giá tổng hợp') && !str_contains($detail, 'Review trên MedReview') && !str_contains($detail, 'ra-facility-facts'), 'Facility sidebar has no rating or review-count panel.');
+$check(str_contains($detail, 'Dịch vụ &amp; cơ sở vật chất') && str_contains($detail, 'Điểm nổi bật') && str_contains($detail, 'Điều cần cân nhắc') && str_contains($detail, 'Phù hợp với nhu cầu nào?'), 'Qualitative review sections remain the focus for customers.');
+$check(str_contains($detail, 'Bài viết tổng hợp thông tin từ hồ sơ cơ sở, nhận xét công khai') && !str_contains($detail, 'dữ liệu đánh giá được ghi nhận'), 'Methodology is concise, natural and not a statistics report.');
 $check(str_contains($detail, '/co-so-y-te/co-so-test') && str_contains($detail, 'Xem hồ sơ cơ sở'), 'Article links directly to canonical facility profile.');
 $check(str_contains($detail, 'noopener noreferrer') && str_contains($detail, 'Giới thiệu &lt;cơ sở&gt;') && !str_contains($detail, 'javascript:'), 'Sources open safely with escaped labels and valid URLs only.');
 $check(str_contains($detail, 'href="#review-source-1"') && str_contains($detail, 'id="review-source-1"') && str_contains($detail, 'Nguồn đối chiếu:'), 'Readers can trace an analysis section to its exact cited source.');
@@ -103,6 +106,33 @@ $check(str_contains($detail, 'Không đánh giá kết quả điều trị lâm 
 $check(substr_count($detail, 'id="review-analysis-1"') === 1 && str_contains($detail, 'href="#review-analysis-1"'), 'TOC section target is unique despite desktop/mobile navigation.');
 $check(!str_contains($detail, 'patient_images_json') && !str_contains($detail, 'source_snapshot_json') && !str_contains($detail, 'ai_writer_claim'), 'Private editorial state is never shown.');
 $check(str_contains($detail, 'data-review-article-share hidden') && str_contains($detail, 'role="status"'), 'Share action progressively enhances with a screen-reader status.');
+
+// Evidence is private whether stored as its own field or inside AI metadata.
+// These are row-shaped arrays only: no database connection or stored fixture.
+$privateEvidenceFixture = array_replace($fixture, [
+    'ai_content_json' => json_encode(['editorial_evidence_json' => ['summary' => 'PRIVATE_AI_EVIDENCE_SENTINEL']], JSON_THROW_ON_ERROR),
+    'editorial_evidence_json' => json_encode(['summary' => 'PRIVATE_TOP_LEVEL_EVIDENCE_SENTINEL'], JSON_THROW_ON_ERROR),
+    'facility_id' => $fixture['facility']['id'], 'facility_name' => $fixture['facility']['name'],
+    'facility_slug' => $fixture['facility']['slug'], 'facility_category' => $fixture['facility']['category'],
+    'facility_city' => $fixture['facility']['city'], 'facility_address' => $fixture['facility']['address_text'], 'facility_image' => '',
+]);
+$privateEvidenceFixture['analysis_sections_json'][0]['id'] = 'services-and-space';
+$publicEvidenceDto = medical_review_articles_public_dto($privateEvidenceFixture);
+$check(!array_key_exists('ai_content_json', $publicEvidenceDto), 'Public DTO excludes the entire private AI metadata field.');
+$check(!array_key_exists('editorial_evidence_json', $publicEvidenceDto), 'Public DTO excludes a separate private editorial evidence field.');
+$privacyOutputs = [
+    'public DTO' => json_encode($publicEvidenceDto, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+    'directory from public DTO' => $renderDirectory([$publicEvidenceDto]),
+    'detail from public DTO' => $renderDetail($publicEvidenceDto),
+    // Defense in depth: templates must not dump arbitrary keys if given a row.
+    'directory from private row fixture' => $renderDirectory([$privateEvidenceFixture]),
+    'detail from private row fixture' => $renderDetail($privateEvidenceFixture),
+];
+foreach ($privacyOutputs as $privacySurface => $privacyOutput) {
+    foreach (['PRIVATE_AI_EVIDENCE_SENTINEL', 'PRIVATE_TOP_LEVEL_EVIDENCE_SENTINEL', 'ai_content_json', 'editorial_evidence_json'] as $privateEvidenceToken) {
+        $check(!str_contains($privacyOutput, $privateEvidenceToken), $privacySurface . ' never exposes private evidence: ' . $privateEvidenceToken);
+    }
+}
 
 $root = dirname(__DIR__);
 $directoryController = (string) file_get_contents($root . '/review.php');
