@@ -639,11 +639,19 @@ function medical_review_articles_find_public(PDO $pdo, string $slug, string $loc
     $row = $statement->fetch(PDO::FETCH_ASSOC);
     if (!is_array($row)) return null;
     $article = medical_review_articles_public_dto($row);
+    require_once __DIR__ . '/medical_review_article_translations.php';
+    $explicitAlternates = medical_review_article_translations_public_alternates($pdo, $article);
+    if ($explicitAlternates !== null) {
+        $article['alternates'] = $explicitAlternates;
+        return $article;
+    }
+    $legacyTranslationScope = medical_review_article_translations_schema_ready($pdo)
+        ? " AND (a.language_code<>'en' OR a.translation_of_id IS NULL)" : '';
     $alternates = $pdo->prepare("SELECT a.language_code,a.slug FROM medical_review_articles a
         INNER JOIN medical_facilities f ON a.entity_type='facility' AND f.id=a.entity_id
         WHERE a.entity_type='facility' AND (f.id=:family_id OR f.translation_of_id=:translation_parent) AND a.status='published' AND f.status='published'
         AND a.language_code IN ('vi','en') AND COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')=a.language_code
-        AND TRIM(COALESCE(a.content_html,''))<>'' AND TRIM(a.title)<>'' AND TRIM(a.slug)<>''");
+        AND TRIM(COALESCE(a.content_html,''))<>'' AND TRIM(a.title)<>'' AND TRIM(a.slug)<>''" . $legacyTranslationScope);
     $parentId = (int) ($row['facility_translation_of_id'] ?? 0);
     $familyId = $parentId > 0 ? $parentId : (int) $article['entity_id'];
     $alternates->execute([':family_id' => $familyId, ':translation_parent' => $familyId]);
@@ -652,5 +660,6 @@ function medical_review_articles_find_public(PDO $pdo, string $slug, string $loc
         $code = medical_review_articles_locale((string) $alternate['language_code']);
         $article['alternates'][$code] = medical_review_articles_path($code, (string) $alternate['slug']);
     }
+    $article['alternates'][$article['language_code']] = $article['url'];
     return $article;
 }

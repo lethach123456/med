@@ -38,27 +38,96 @@ Mỗi item trả `entity_id`, `language_code`, `source_revision`, `source`, `evi
 
 `GET /api/medical/review-articles-needing-content.php?language=en` và
 `GET /api/medical/prompt.php?type=review_article&id=ID_CO_SO_TIENG_ANH`
-trả thêm hai trường ở cấp item/response, không nằm trong mẫu JSON cần POST:
+trả ID để đối chiếu ổn định, kèm URL tương thích ở cấp item/response. Các trường
+này không do AI tự điền trong mẫu JSON nội dung; client có thể ghép hai ID vào
+POST theo hướng dẫn bên dưới:
 
 ```json
 {
   "language_code": "en",
+  "vietnamese_facility_id": 393,
+  "vietnamese_review_id": 27,
   "vietnamese_facility_url": "/co-so-y-te/slug-co-so-tieng-viet",
   "vietnamese_review_url": "/review/slug-bai-review-tieng-viet"
 }
 ```
 
-Đây là đường dẫn canonical tương đối, ghép với origin của API để mở. Hai slug
+`vietnamese_review_id` là khóa chính `medical_review_articles.id` của bài
+review tiếng Việt, **không phải ID cơ sở**. Dùng ID này để đối chiếu bài; đổi
+tiêu đề hoặc slug SEO vẫn giữ nguyên ID. `vietnamese_facility_id` là ID hồ sơ
+cơ sở Việt, tách biệt với ID bài review. Các ID là số nguyên hoặc `null`.
+Với item tiếng Anh, `article_id` (nếu đã có bài) là ID review tiếng Anh;
+`vietnamese_review_id` là ID review tiếng Việt tương ứng. `entity_id` vẫn là
+ID cơ sở tiếng Anh để nhận quyền và gửi nội dung theo giao thức hiện tại.
+
+URL giữ lại để tương thích: đây là đường dẫn canonical tương đối, ghép với origin của API để mở. Hai slug
 có thể khác nhau; lấy đúng URL trả về, không tự suy ra từ slug tiếng Anh.
 Hệ thống đối chiếu cha Việt bằng `translation_of_id` của cơ sở tiếng Anh, chỉ
 trả URL của hồ sơ/bài đã xuất bản và có nội dung phù hợp. Chưa có bài review
-Việt thì `vietnamese_review_url: null`; không có hồ sơ cha Việt công khai thì
-cả hai trường là `null`. Không ghép theo tên, không liên kết nhầm bài bác sĩ
+Việt thì `vietnamese_review_id` và `vietnamese_review_url` là `null`; không có hồ sơ cha Việt công khai thì
+cả bốn trường là `null`. Không ghép theo tên, không liên kết nhầm bài bác sĩ
 hoặc bài của cơ sở khác. Luồng tiếng Việt giữ response cũ.
 
-Các link chỉ là metadata điều hướng; không đổi `source`, `source_revision`,
-claim hoặc payload nhận bài, không tự chèn link vào nội dung AI. Vì vậy bài
+Các URL chỉ là metadata điều hướng; hai ID được API nhận chấp nhận như thông
+tin liên kết, không phải nội dung bài viết. Các trường này không đổi `source`, `source_revision`,
+claim, không tự chèn link vào nội dung AI. Vì vậy bài
 review Việt cập nhật/xuất bản không làm mất quyền đang viết bài tiếng Anh.
+
+### Gửi ID khi cập nhật bài review tiếng Anh
+
+Chạy migration riêng **một lần trên đúng DB** trước khi dùng ID liên kết:
+
+```sh
+php scripts/migrate_review_article_translations.php --check
+php scripts/migrate_review_article_translations.php --apply
+```
+
+Migration chỉ thêm cột `medical_review_articles.translation_of_id` (ID bài
+review gốc) và unique index; không sửa cơ sở, không gộp/xóa hay đăng hàng loạt
+bài cũ. API không tự migration. Code vẫn cho luồng cũ không gửi ID hoạt động
+khi chưa có cột này; gửi ID liên kết trước migration nhận 503
+`translation_schema_unavailable`.
+
+Trong payload đầy đủ gửi tới
+`POST /api/medical/review-article-content-update.php`, client ghép hai ID đọc
+từ GET cùng các trường `claim_token`, `request_id` và nội dung như hiện tại:
+
+```json
+{
+  "entity_id": 900,
+  "language_code": "en",
+  "vietnamese_review_id": 27,
+  "vietnamese_facility_id": 393,
+  "status": "published"
+}
+```
+
+Đây chỉ là các trường minh họa cần ghép, không phải toàn bộ payload hợp lệ.
+Hai ID nhận số nguyên dương hoặc chuỗi số nguyên; `null`/bỏ qua nghĩa là không
+khẳng định ID mới, **không xóa liên kết đã có**. Chỉ review tiếng Anh được gửi
+ID bản Việt. API kiểm tra bài 27 là review cơ sở tiếng Việt đã xuất bản, thuộc
+cơ sở 393; cơ sở 393 phải đúng cha Việt của cơ sở tiếng Anh 900. API không tự
+đổi `medical_facilities.translation_of_id`. Truyền sai ID/ngôn ngữ/cơ sở nhận
+422 `invalid_translation`, không ghi một phần.
+
+Có thể chỉ gửi `vietnamese_review_id` để suy ra và kiểm tra cơ sở tương ứng.
+Chỉ gửi `vietnamese_facility_id` thì API tìm bài Việt đã xuất bản đúng cơ sở;
+chưa có bài phù hợp thì vẫn nhận nội dung nhưng không tạo liên kết bài rỗng.
+Không đoán ID từ URL, slug hoặc tên. Một bài Việt chỉ ghép với một bài Anh;
+ghép trùng nhận 409 `translation_conflict`.
+
+Khi lưu thành công, bài Anh giữ cùng `article_id`, tự `published`, và cột
+`translation_of_id` của bài Anh lưu ID bài Việt. Receipt trả
+`translation_of_id`, `vietnamese_review_id`, `vietnamese_facility_id` đã kiểm
+tra và đọc lại. Sửa slug/SEO hay sửa bài trong admin không xóa liên kết.
+Giao diện đổi ngôn ngữ/hreflang ưu tiên cặp bài theo ID và dùng URL hiện tại;
+bản chưa công khai không được hiển thị thành link công khai. Bài cũ chưa có
+cặp riêng vẫn dùng quan hệ cơ sở làm fallback.
+
+ID gửi vào thuộc nội dung thao tác idempotency: retry nguyên request không
+lưu lại; thay ID bằng cùng `request_id` nhận 409 `idempotency_conflict`. Nếu
+liên kết bị chỉnh sau claim, API báo `article_changed` thay vì ghi đè. Retry
+không bị ảnh hưởng chỉ vì bài Việt đổi slug/trạng thái sau lần lưu ban đầu.
 
 Thông tin cập nhật gồm `article_id`, `article_status`, `has_content` trong item;
 response có `updates_supported:true` và `save_status:"published"`.

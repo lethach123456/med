@@ -406,30 +406,37 @@ $assert(medical_review_article_ai_save($legacyPdo, $legacyUpdateBody, 1150)['sta
 $assert(medical_review_article_ai_output_template($source, $revision)['status'] === 'published'
     && str_contains($writingRules, 'thay mọi yêu cầu draft trong mẫu cũ'), 'New and saved prompts consistently request publication');
 
-// Optional Vietnamese links describe an explicit translation, never guessed content or a new source revision.
+// Optional Vietnamese references describe an explicit translation; IDs remain stable when SEO paths change.
 $linksPdo = review_article_ai_fixture();
 $linksQueue = static fn() => medical_review_article_ai_queue($linksPdo, ['language' => 'en', 'id' => '6'], null, 1000);
 $unlinkedEnglish = $linksQueue()['items'][0];
 $assert(array_key_exists('vietnamese_facility_url', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_facility_url'] === null
-    && array_key_exists('vietnamese_review_url', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_review_url'] === null,
-    'English items expose explicit null links when no Vietnamese parent is recorded');
+    && array_key_exists('vietnamese_review_url', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_review_url'] === null
+    && array_key_exists('vietnamese_facility_id', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_facility_id'] === null
+    && array_key_exists('vietnamese_review_id', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_review_id'] === null,
+    'English items expose explicit null IDs and links when no Vietnamese parent is recorded');
 $linksFacilityChange = static function (string $sql) use ($linksPdo): void {
     $linksPdo->runtime = false;
     try { $linksPdo->exec($sql); } finally { $linksPdo->runtime = true; }
 };
 $linksFacilityChange('UPDATE medical_facilities SET translation_of_id=1 WHERE id=6');
 $parentOnly = $linksQueue()['items'][0];
-$assert($parentOnly['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $parentOnly['vietnamese_review_url'] === null,
+$assert($parentOnly['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $parentOnly['vietnamese_review_url'] === null
+    && $parentOnly['vietnamese_facility_id'] === 1 && $parentOnly['vietnamese_review_id'] === null,
     'An explicitly linked published Vietnamese facility is usable before its review exists');
 $englishRevisionBeforeReview = $parentOnly['source_revision'];
 $englishSourceBeforeReview = $parentOnly['source'];
-$linksPdo->exec("INSERT INTO medical_review_articles (entity_type,entity_id,language_code,slug,status,title,content_html,source_snapshot_json,ai_content_json,ai_writer_claim_json)
-    VALUES ('facility',1,'vi','bai-review-co-so-mot','draft','Review cơ sở một','<p>Nội dung tiếng Việt</p>','PRIVATE_VI_SNAPSHOT','PRIVATE_VI_METADATA','PRIVATE_VI_TOKEN')");
-$assert($linksQueue()['items'][0]['vietnamese_review_url'] === null, 'A draft Vietnamese article is never linked');
+$linksPdo->exec("INSERT INTO medical_review_articles (id,entity_type,entity_id,language_code,slug,status,title,content_html,source_snapshot_json,ai_content_json,ai_writer_claim_json)
+    VALUES (101,'facility',1,'vi','bai-review-co-so-mot','draft','Review cơ sở một','<p>Nội dung tiếng Việt</p>','PRIVATE_VI_SNAPSHOT','PRIVATE_VI_METADATA','PRIVATE_VI_TOKEN')");
+$draftVietnamese = $linksQueue()['items'][0];
+$assert($draftVietnamese['vietnamese_review_url'] === null && $draftVietnamese['vietnamese_review_id'] === null,
+    'A draft Vietnamese article exposes neither its review ID nor its URL');
 $linksPdo->exec("UPDATE medical_review_articles SET status='published' WHERE entity_id=1");
 $linkedEnglish = $linksQueue()['items'][0];
 $assert($linkedEnglish['vietnamese_facility_url'] === '/co-so-y-te/clinic-1'
     && $linkedEnglish['vietnamese_review_url'] === '/review/bai-review-co-so-mot', 'English queue links the exact parent facility and its distinct published review slug');
+$assert($linkedEnglish['vietnamese_facility_id'] === 1 && $linkedEnglish['vietnamese_review_id'] === 101,
+    'Vietnamese review ID is the integer article primary key, not its facility entity ID');
 $assert($linkedEnglish['language_code'] === 'en' && $linkedEnglish['source']['facility']['url'] === '/en/co-so-y-te/clinic-6'
     && $linkedEnglish['output_template']['language_code'] === 'en', 'Reference links do not change the English writing target or its canonical facility URL');
 $assert($linkedEnglish['source_revision'] === $englishRevisionBeforeReview
@@ -437,20 +444,33 @@ $assert($linkedEnglish['source_revision'] === $englishRevisionBeforeReview
     'Publishing a Vietnamese review does not invalidate an English source or its lease revision');
 $assert(!array_key_exists('vietnamese_facility_url', $linkedEnglish['source'])
     && !array_key_exists('vietnamese_review_url', $linkedEnglish['source']['facility'])
-    && !array_key_exists('vietnamese_review_url', $linkedEnglish['output_template']), 'Vietnamese references remain response metadata, not source data or AI output fields');
+    && !array_key_exists('vietnamese_review_url', $linkedEnglish['output_template'])
+    && !array_key_exists('vietnamese_facility_id', $linkedEnglish['source'])
+    && !array_key_exists('vietnamese_review_id', $linkedEnglish['source']['facility'])
+    && !array_key_exists('vietnamese_review_id', $linkedEnglish['output_template']), 'Vietnamese references remain response metadata, not source data or AI output fields');
 $linksPdo->exec("UPDATE medical_review_articles SET slug='review-tieng-viet-da-doi',content_html='<p>Bản cập nhật tiếng Việt</p>' WHERE entity_id=1");
 $changedVietnamese = $linksQueue()['items'][0];
 $assert($changedVietnamese['vietnamese_review_url'] === '/review/review-tieng-viet-da-doi'
-    && $changedVietnamese['source_revision'] === $englishRevisionBeforeReview, 'Vietnamese article changes refresh its link without changing the English source revision');
+    && $changedVietnamese['vietnamese_facility_id'] === 1 && $changedVietnamese['vietnamese_review_id'] === 101
+    && $changedVietnamese['source_revision'] === $englishRevisionBeforeReview, 'Vietnamese article slug changes refresh its link without changing either reference ID or the English source revision');
+$linksFacilityChange("UPDATE medical_facilities SET slug='clinic-one-seo-updated' WHERE id=1");
+$changedVietnameseFacility = $linksQueue()['items'][0];
+$assert($changedVietnameseFacility['vietnamese_facility_url'] === '/co-so-y-te/clinic-one-seo-updated'
+    && $changedVietnameseFacility['vietnamese_facility_id'] === 1 && $changedVietnameseFacility['vietnamese_review_id'] === 101
+    && $changedVietnameseFacility['source_revision'] === $englishRevisionBeforeReview,
+    'Vietnamese facility SEO slug changes leave both reference IDs and the English source revision stable');
+$linksFacilityChange("UPDATE medical_facilities SET slug='clinic-1' WHERE id=1");
 $linkedMap = medical_review_article_ai_vietnamese_links($linksPdo, [$changedVietnamese['source']]);
-$assert($linkedMap[6] === ['vietnamese_facility_url' => '/co-so-y-te/clinic-1', 'vietnamese_review_url' => '/review/review-tieng-viet-da-doi'],
-    'Batch helper returns only the two documented optional paths for an English entity');
+$assert($linkedMap[6] === ['vietnamese_facility_id' => 1, 'vietnamese_review_id' => 101,
+    'vietnamese_facility_url' => '/co-so-y-te/clinic-1', 'vietnamese_review_url' => '/review/review-tieng-viet-da-doi'],
+    'Batch helper returns only the four documented optional reference fields for an English entity');
 
 foreach (["status='archived'", "title='   '", "slug='   '", "content_html='   '", 'content_html=NULL', "language_code='en'", "entity_type='doctor'"] as $invalidReview) {
     $linksPdo->exec("UPDATE medical_review_articles SET entity_type='facility',language_code='vi',status='published',title='Review cơ sở một',slug='review-tieng-viet-da-doi',content_html='<p>Nội dung tiếng Việt</p>' WHERE entity_id=1");
     $linksPdo->exec('UPDATE medical_review_articles SET ' . $invalidReview . ' WHERE entity_id=1');
     $invalidReviewLinks = $linksQueue()['items'][0];
-    $assert($invalidReviewLinks['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $invalidReviewLinks['vietnamese_review_url'] === null,
+    $assert($invalidReviewLinks['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $invalidReviewLinks['vietnamese_review_url'] === null
+        && $invalidReviewLinks['vietnamese_facility_id'] === 1 && $invalidReviewLinks['vietnamese_review_id'] === null,
         'Nonpublic, incomplete, wrong-language or non-facility articles cannot become Vietnamese review links: ' . $invalidReview);
 }
 $linksPdo->exec("UPDATE medical_review_articles SET entity_type='facility',language_code='vi',status='published',title='Review cơ sở một',slug='review-tieng-viet-da-doi',content_html='<p>Nội dung tiếng Việt</p>' WHERE entity_id=1");
@@ -460,19 +480,22 @@ foreach (["status='draft'", "status='archived'", "language_code='en'", "slug='  
     $linksFacilityChange("UPDATE medical_facilities SET status='published',language_code='vi',slug='clinic-1' WHERE id=1");
     $linksFacilityChange('UPDATE medical_facilities SET ' . $invalidParent . ' WHERE id=1');
     $invalidParentLinks = $linksQueue()['items'][0];
-    $assert($invalidParentLinks['vietnamese_facility_url'] === null && $invalidParentLinks['vietnamese_review_url'] === null,
+    $assert($invalidParentLinks['vietnamese_facility_url'] === null && $invalidParentLinks['vietnamese_review_url'] === null
+        && $invalidParentLinks['vietnamese_facility_id'] === null && $invalidParentLinks['vietnamese_review_id'] === null,
         'An unavailable or wrong-language parent suppresses both links: ' . $invalidParent);
 }
 $linksFacilityChange("UPDATE medical_facilities SET status='published',language_code='vi',slug='clinic-1' WHERE id=1");
 foreach (['0', 'NULL', '99999', '6'] as $invalidParentId) {
     $linksFacilityChange('UPDATE medical_facilities SET translation_of_id=' . $invalidParentId . ' WHERE id=6');
     $withoutParentLinks = $linksQueue()['items'][0];
-    $assert($withoutParentLinks['vietnamese_facility_url'] === null && $withoutParentLinks['vietnamese_review_url'] === null,
+    $assert($withoutParentLinks['vietnamese_facility_url'] === null && $withoutParentLinks['vietnamese_review_url'] === null
+        && $withoutParentLinks['vietnamese_facility_id'] === null && $withoutParentLinks['vietnamese_review_id'] === null,
         'Zero, null, nonexistent and English self parents cannot attach unrelated Vietnamese reviews: ' . $invalidParentId);
 }
 $linksFacilityChange("UPDATE medical_facilities SET translation_of_id=NULL,slug='clinic-2',name='Cơ sở 2' WHERE id=6");
 $sameNameLinks = $linksQueue()['items'][0];
-$assert($sameNameLinks['vietnamese_facility_url'] === null && $sameNameLinks['vietnamese_review_url'] === null,
+$assert($sameNameLinks['vietnamese_facility_url'] === null && $sameNameLinks['vietnamese_review_url'] === null
+    && $sameNameLinks['vietnamese_facility_id'] === null && $sameNameLinks['vietnamese_review_id'] === null,
     'The same facility name or slug never substitutes for an explicit translation link');
 $linksFacilityChange("UPDATE medical_facilities SET translation_of_id=1,slug='clinic-6',name='Cơ sở 6' WHERE id=6");
 $linksPdo->statements = [];
@@ -485,11 +508,190 @@ foreach ($linksPdo->statements as $sql) $assert(!preg_match('/^\s*(UPDATE|INSERT
 $linksPdo->statements = [];
 $vietnameseQueue = medical_review_article_ai_queue($linksPdo, ['language' => 'vi', 'id' => '2'], null, 1000);
 $assert(!array_key_exists('vietnamese_facility_url', $vietnameseQueue['items'][0])
-    && !array_key_exists('vietnamese_review_url', $vietnameseQueue['items'][0]), 'Existing Vietnamese queue response fields are unchanged');
+    && !array_key_exists('vietnamese_review_url', $vietnameseQueue['items'][0])
+    && !array_key_exists('vietnamese_facility_id', $vietnameseQueue['items'][0])
+    && !array_key_exists('vietnamese_review_id', $vietnameseQueue['items'][0]), 'Existing Vietnamese queue response fields are unchanged');
 $assert(count(array_filter($linksPdo->statements, static fn(string $sql): bool => str_contains($sql, 'FROM medical_facilities en'))) === 0,
     'Vietnamese queue does not execute the optional English-to-Vietnamese link query');
 $linksPdo->statements = [];
 $assert(medical_review_article_ai_vietnamese_links($linksPdo, []) === []
     && medical_review_article_ai_vietnamese_links($linksPdo, [array_replace($englishSourceBeforeReview, ['language_code' => 'vi'])]) === []
     && $linksPdo->statements === [], 'Empty or Vietnamese-only source batches do not query for optional links');
+
+// POST links English articles to Vietnamese ARTICLE IDs, not mutable SEO URLs or entity IDs.
+$translationFixture = static function (bool $withTranslationSchema = true): ReviewArticleAiTestPDO {
+    $connection = review_article_ai_fixture();
+    $connection->runtime = false;
+    try {
+        if ($withTranslationSchema) medreview_with_schema_migration(static fn() => medical_review_article_translations_migrate($connection));
+        $connection->exec('UPDATE medical_facilities SET translation_of_id=1 WHERE id=6');
+        $connection->exec("INSERT INTO medical_review_articles (id,entity_type,entity_id,language_code,slug,status,title,content_html)
+            VALUES (101,'facility',1,'vi','review-vietnamese-parent','published','Review cơ sở tiếng Việt','<p>Nội dung bài review tiếng Việt.</p>')");
+    } finally { $connection->runtime = true; }
+    return $connection;
+};
+$prepareEnglishTranslation = static function (ReviewArticleAiTestPDO $connection, string $request, int $clock = 1000, int $entityId = 6) use ($articleBody): array {
+    $englishSource = medical_review_articles_facility_source($connection, $entityId);
+    $englishRevision = medical_review_articles_source_revision($englishSource);
+    $owner = medical_review_article_ai_lease($connection, ['entity_id' => $entityId, 'language_code' => 'en',
+        'source_revision' => $englishRevision, 'request_id' => $request,
+        'client' => ['instance_id' => 'translation-device', 'worker_id' => 'translation-worker']], $clock);
+    return array_replace($articleBody, ['entity_id' => $entityId, 'language_code' => 'en', 'source_revision' => $englishRevision,
+        'claim_token' => $owner['claim_token'], 'request_id' => $request, 'title' => 'Review English clinic',
+        'sources_json' => medical_review_article_ai_source_catalog($englishSource),
+        'editorial_evidence_json' => ['schema_version' => 1, 'claims' => []]]);
+};
+$translationCase = 0;
+foreach ([['vietnamese_review_id' => 101], ['vietnamese_facility_id' => 1],
+    ['vietnamese_review_id' => '101', 'vietnamese_facility_id' => '1']] as $translationAssertions) {
+    ++$translationCase;
+    $translationPdo = $translationFixture();
+    $translationBody = $prepareEnglishTranslation($translationPdo, 'translation-success-' . $translationCase) + $translationAssertions;
+    $translationBody['status'] = 'draft';
+    $translatedReceipt = medical_review_article_ai_save($translationPdo, $translationBody, 1100);
+    $translatedRow = medical_review_article_ai_article_row($translationPdo, 6, 'en');
+    $assert($translatedReceipt['status'] === 'published' && $translatedReceipt['saved'] && $translatedReceipt['storage_verified'],
+        'Successful linked English writes publish even when the sender requested draft');
+    $assert((int) $translatedRow['translation_of_id'] === 101 && $translatedReceipt['translation_of_id'] === 101
+        && $translatedReceipt['vietnamese_review_id'] === 101 && $translatedReceipt['vietnamese_facility_id'] === 1,
+        'Either Vietnamese assertion resolves and persists the same distinct article parent');
+    $assert((int) $translationPdo->query("SELECT COUNT(*) FROM medical_review_articles WHERE entity_id=6 AND language_code='en'")->fetchColumn() === 1,
+        'Linking never creates a duplicate English article or a replacement Vietnamese article');
+    $translationPdo->exec("UPDATE medical_review_articles SET slug='parent-new-seo-url',status='archived' WHERE id=101");
+    $translatedReplay = medical_review_article_ai_save($translationPdo, $translationBody, 9999);
+    $assert($translatedReplay['idempotent'] && $translatedReplay['vietnamese_review_id'] === 101,
+        'Exact linked replay uses the saved ID receipt even after Vietnamese slug and visibility change');
+    $changedAssertions = $translationBody;
+    $changedAssertions[array_key_exists('vietnamese_review_id', $translationAssertions) ? 'vietnamese_review_id' : 'vietnamese_facility_id'] = 9999;
+    $throws(static fn() => medical_review_article_ai_save($translationPdo, $changedAssertions, 9999), 409, 'idempotency_conflict');
+    $translationPdo->exec('UPDATE medical_review_articles SET translation_of_id=NULL WHERE entity_id=6');
+    $throws(static fn() => medical_review_article_ai_save($translationPdo, $translationBody, 9999), 409, 'article_changed');
+    $assert(!$translationPdo->inTransaction(), 'Failed linked replay rolls back and closes its transaction');
+}
+
+// A facility-only assertion does not pin an unpublished Vietnamese draft.
+$facilityOnlyPdo = $translationFixture();
+$facilityOnlyPdo->exec("UPDATE medical_review_articles SET status='draft' WHERE id=101");
+$facilityOnlyBody = $prepareEnglishTranslation($facilityOnlyPdo, 'facility-only-without-published-review') + ['vietnamese_facility_id' => 1, 'vietnamese_review_id' => null];
+$facilityOnlyReceipt = medical_review_article_ai_save($facilityOnlyPdo, $facilityOnlyBody, 1100);
+$assert($facilityOnlyReceipt['status'] === 'published' && $facilityOnlyReceipt['vietnamese_facility_id'] === 1
+    && $facilityOnlyReceipt['vietnamese_review_id'] === null && $facilityOnlyReceipt['translation_of_id'] === null,
+    'A valid facility-only assertion accepts English content without linking a Vietnamese draft');
+
+$migrationDuringClaimPdo = $translationFixture(false);
+$migrationDuringClaimBody = $prepareEnglishTranslation($migrationDuringClaimPdo, 'migration-during-claim') + ['vietnamese_review_id' => 101];
+$migrationDuringClaimPdo->runtime = false;
+medreview_with_schema_migration(static fn() => medical_review_article_translations_migrate($migrationDuringClaimPdo));
+$migrationDuringClaimPdo->runtime = true;
+$assert(medical_review_article_ai_save($migrationDuringClaimPdo, $migrationDuringClaimBody, 1100)['vietnamese_review_id'] === 101,
+    'Adding the optional null column does not invalidate an otherwise unchanged active claim');
+
+// Reject malformed IDs, wrong article identities and mismatched source families atomically.
+$invalidTranslationPdo = $translationFixture();
+$invalidTranslationBody = $prepareEnglishTranslation($invalidTranslationPdo, 'translation-invalid');
+$beforeInvalidTranslation = medical_review_article_ai_article_row($invalidTranslationPdo, 6, 'en');
+foreach (['vietnamese_review_id', 'vietnamese_facility_id'] as $idField) {
+    foreach (['', 0, -1, true, false, 1.5, 101.0, '01', '1 OR 1=1', '4294967296', [], new stdClass()] as $invalidId) {
+        $badTranslation = $invalidTranslationBody;
+        $badTranslation[$idField] = $invalidId;
+        $throws(static fn() => medical_review_article_ai_save($invalidTranslationPdo, $badTranslation, 1100), 422, 'invalid_translation');
+    }
+}
+foreach ([['vietnamese_review_id' => 9999], ['vietnamese_facility_id' => 9999], ['vietnamese_facility_id' => 6],
+    ['vietnamese_facility_id' => 2], ['vietnamese_review_id' => 101, 'vietnamese_facility_id' => 2]] as $invalidAssertions) {
+    $throws(static fn() => medical_review_article_ai_save($invalidTranslationPdo, $invalidTranslationBody + $invalidAssertions, 1100), 422, 'invalid_translation');
+}
+foreach (["status='draft'", "status='archived'", "language_code='en'", "entity_type='doctor'", 'entity_id=2', "title=' '", "slug=' '", "content_html=' '"] as $invalidParentArticle) {
+    $invalidTranslationPdo->exec("UPDATE medical_review_articles SET entity_type='facility',entity_id=1,language_code='vi',status='published',title='Vietnamese review',slug='parent-review',content_html='<p>Vietnamese content</p>' WHERE id=101");
+    $invalidTranslationPdo->exec('UPDATE medical_review_articles SET ' . $invalidParentArticle . ' WHERE id=101');
+    $throws(static fn() => medical_review_article_ai_save($invalidTranslationPdo, $invalidTranslationBody + ['vietnamese_review_id' => 101], 1100), 422, 'invalid_translation');
+}
+$assert(medical_review_article_ai_article_row($invalidTranslationPdo, 6, 'en') === $beforeInvalidTranslation
+    && !$invalidTranslationPdo->inTransaction(), 'Every invalid translation leaves content, publication, relation and writer ownership unchanged');
+foreach (['NULL', '2', '6', '9999'] as $wrongFacilityParent) {
+    $wrongFamilyPdo = $translationFixture();
+    $wrongFamilyPdo->runtime = false;
+    $wrongFamilyPdo->exec('UPDATE medical_facilities SET translation_of_id=' . $wrongFacilityParent . ' WHERE id=6');
+    $wrongFamilyPdo->runtime = true;
+    $wrongFamilyBody = $prepareEnglishTranslation($wrongFamilyPdo, 'translation-wrong-family-' . $wrongFacilityParent)
+        + ['vietnamese_review_id' => 101];
+    $throws(static fn() => medical_review_article_ai_save($wrongFamilyPdo, $wrongFamilyBody, 1100), 422, 'invalid_translation');
+}
+
+$duplicateTranslationPdo = $translationFixture();
+$duplicateOriginalBody = $prepareEnglishTranslation($duplicateTranslationPdo, 'translation-first-child') + ['vietnamese_review_id' => 101];
+medical_review_article_ai_save($duplicateTranslationPdo, $duplicateOriginalBody, 1100);
+$duplicateTranslationPdo->runtime = false;
+$duplicateTranslationPdo->exec("UPDATE medical_facilities SET language_code='en',translation_of_id=1 WHERE id=8");
+$duplicateTranslationPdo->runtime = true;
+$duplicateTranslationBody = $prepareEnglishTranslation($duplicateTranslationPdo, 'translation-second-child', 1200, 8)
+    + ['vietnamese_review_id' => 101];
+$duplicateBefore = medical_review_article_ai_article_row($duplicateTranslationPdo, 8, 'en');
+$throws(static fn() => medical_review_article_ai_save($duplicateTranslationPdo, $duplicateTranslationBody, 1250), 409, 'translation_conflict');
+$assert(medical_review_article_ai_article_row($duplicateTranslationPdo, 8, 'en') === $duplicateBefore,
+    'A Vietnamese review cannot be attached to a second English article or partially saved after a binding conflict');
+
+// Optional fields do not silently move Vietnamese originals or clear an existing English pairing.
+$preserveTranslationPdo = $translationFixture();
+$firstTranslationBody = $prepareEnglishTranslation($preserveTranslationPdo, 'translation-initial') + ['vietnamese_review_id' => 101];
+$firstTranslationReceipt = medical_review_article_ai_save($preserveTranslationPdo, $firstTranslationBody, 1100);
+$omittedTranslationBody = $prepareEnglishTranslation($preserveTranslationPdo, 'translation-omitted', 1200);
+$omittedTranslationBody['title'] .= ' updated without references';
+$omittedTranslationReceipt = medical_review_article_ai_save($preserveTranslationPdo, $omittedTranslationBody, 1250);
+$assert($omittedTranslationReceipt['article_id'] === $firstTranslationReceipt['article_id']
+    && $omittedTranslationReceipt['vietnamese_review_id'] === 101
+    && (int) medical_review_article_ai_article_row($preserveTranslationPdo, 6, 'en')['translation_of_id'] === 101,
+    'Updating English content with omitted IDs preserves the previously stored article pairing');
+$nullableTranslationBody = $prepareEnglishTranslation($preserveTranslationPdo, 'translation-null', 1300)
+    + ['vietnamese_review_id' => null, 'vietnamese_facility_id' => null];
+$assert(medical_review_article_ai_save($preserveTranslationPdo, $nullableTranslationBody, 1350)['vietnamese_review_id'] === 101,
+    'Explicit null means no translation assertion, not an unlink instruction');
+$relationChangedBody = $prepareEnglishTranslation($preserveTranslationPdo, 'translation-concurrent', 1400);
+$preserveTranslationPdo->exec('UPDATE medical_review_articles SET translation_of_id=NULL WHERE entity_id=6');
+$throws(static fn() => medical_review_article_ai_lease($preserveTranslationPdo, ['entity_id' => 6, 'language_code' => 'en', 'action' => 'heartbeat',
+    'claim_token' => $relationChangedBody['claim_token']], 1450), 409, 'article_changed');
+$throws(static fn() => medical_review_article_ai_save($preserveTranslationPdo, $relationChangedBody, 1450), 409, 'article_changed');
+$preserveTranslationPdo->exec('UPDATE medical_review_articles SET translation_of_id=101 WHERE entity_id=6');
+medical_review_article_ai_lease($preserveTranslationPdo, ['entity_id' => 6, 'language_code' => 'en', 'action' => 'release', 'claim_token' => $relationChangedBody['claim_token']], 1450);
+require_once dirname(__DIR__) . '/medical_review_article_admin.php';
+$manualEnglish = medical_review_article_ai_article_row($preserveTranslationPdo, 6, 'en');
+$manualBody = array_intersect_key($nullableTranslationBody, array_flip(MEDICAL_REVIEW_ARTICLE_CONTENT_FIELDS));
+$manualBody['status'] = 'published';
+medical_review_article_admin_save($preserveTranslationPdo, (int) $manualEnglish['id'], $manualBody, medical_review_article_admin_version($manualEnglish));
+$assert((int) medical_review_article_ai_article_row($preserveTranslationPdo, 6, 'en')['translation_of_id'] === 101,
+    'Manual article editing preserves the stable translation column');
+
+$viAssertionsPdo = $translationFixture();
+[$viAssertionsOwner, $viAssertionsBody] = $prepareUpdate($viAssertionsPdo, $articleBody, 'vietnamese-cannot-be-child', 1000);
+foreach ([['vietnamese_review_id' => 101], ['vietnamese_facility_id' => 1]] as $notEnglishAssertions) {
+    $throws(static fn() => medical_review_article_ai_save($viAssertionsPdo, $viAssertionsBody + $notEnglishAssertions, 1100), 422, 'invalid_translation');
+}
+$viAssertionsBody['vietnamese_review_id'] = null;
+$viAssertionsBody['vietnamese_facility_id'] = null;
+$viWithoutAssertionsReceipt = medical_review_article_ai_save($viAssertionsPdo, $viAssertionsBody, 1100);
+$assert($viWithoutAssertionsReceipt['translation_of_id'] === null && $viWithoutAssertionsReceipt['vietnamese_review_id'] === null
+    && $viWithoutAssertionsReceipt['vietnamese_facility_id'] === null, 'Vietnamese originals accept nullable no-op reference fields without creating a self-link');
+
+// The optional migration is explicit: untouched legacy schema and clients still work without it.
+$noTranslationSchemaPdo = $translationFixture(false);
+$noTranslationSchemaBody = $prepareEnglishTranslation($noTranslationSchemaPdo, 'translation-schema-unavailable');
+$noTranslationSchemaBefore = medical_review_article_ai_article_row($noTranslationSchemaPdo, 6, 'en');
+$throws(static fn() => medical_review_article_ai_save($noTranslationSchemaPdo, $noTranslationSchemaBody + ['vietnamese_review_id' => 101], 1100), 503, 'translation_schema_unavailable');
+$assert(medical_review_article_ai_article_row($noTranslationSchemaPdo, 6, 'en') === $noTranslationSchemaBefore,
+    'Missing optional schema cannot partially publish a submitted relation');
+$noTranslationSchemaPdo->statements = [];
+$legacyUnlinkedBody = $noTranslationSchemaBody;
+unset($legacyUnlinkedBody['editorial_evidence_json']);
+$legacyUnlinkedReceipt = medical_review_article_ai_save($noTranslationSchemaPdo, $legacyUnlinkedBody, 1100);
+$legacyUnlinkedMetadata = medical_review_article_ai_decode(medical_review_article_ai_article_row($noTranslationSchemaPdo, 6, 'en')['ai_content_json']);
+$assert($legacyUnlinkedReceipt['status'] === 'published' && $legacyUnlinkedReceipt['translation_of_id'] === null
+    && $legacyUnlinkedReceipt['vietnamese_review_id'] === null && $legacyUnlinkedReceipt['vietnamese_facility_id'] === null,
+    'Legacy clients on pre-migration schema remain usable and return explicit null article references');
+$assert($legacyUnlinkedMetadata['payload_sha256'] === medical_review_article_ai_payload_hash(6, 'en', $legacyUnlinkedBody['source_revision'],
+    'published', medical_review_article_ai_content($legacyUnlinkedBody), null), 'Omitted translation IDs keep the exact established legacy payload hash');
+$legacyNullReplayBody = $legacyUnlinkedBody + ['vietnamese_review_id' => null, 'vietnamese_facility_id' => null];
+$assert(medical_review_article_ai_save($noTranslationSchemaPdo, $legacyNullReplayBody, 9999)['idempotent'],
+    'Null optional IDs normalize to omission and do not break legacy receipt replay');
+foreach ($noTranslationSchemaPdo->statements as $sql) $assert(!preg_match('/^\s*(CREATE|ALTER|DROP)/i', $sql),
+    'Runtime write never attempts optional translation DDL');
 echo 'Review article AI: ' . $checks . " checks passed.\n";

@@ -4,6 +4,7 @@ declare(strict_types=1);
 /** Editorial review articles are not individual patient reviews. No DB connection on include. */
 require_once __DIR__ . '/medical_review_articles.php';
 require_once __DIR__ . '/medical_review_article_evidence.php';
+require_once __DIR__ . '/medical_review_article_translations.php';
 
 const MEDICAL_REVIEW_ARTICLE_AI_QUEUE = '/api/medical/review-articles-needing-content.php';
 const MEDICAL_REVIEW_ARTICLE_AI_RECEIVER = '/api/medical/review-article-content-update.php';
@@ -259,8 +260,9 @@ function medical_review_article_ai_needs_content(?array $row): bool
 /** Snapshot of the article being replaced; heartbeats intentionally do not change it. */
 function medical_review_article_ai_article_revision(array $row): string
 {
+    if (($row['translation_of_id'] ?? null) === null) unset($row['translation_of_id']);
     $fields = array_merge(MEDICAL_REVIEW_ARTICLE_AI_CONTENT_FIELDS,
-        ['id', 'entity_type', 'entity_id', 'language_code', 'status', 'updated_at', 'published_at', 'ai_content_json']);
+        ['id', 'entity_type', 'entity_id', 'language_code', 'status', 'updated_at', 'published_at', 'ai_content_json', 'translation_of_id']);
     return hash('sha256', medical_review_article_ai_json(medical_review_articles_canonical_value(array_intersect_key($row, array_flip($fields)))));
 }
 
@@ -309,19 +311,23 @@ function medical_review_article_ai_vietnamese_links(PDO $pdo, array $sources): a
     $links = [];
     foreach ($sources as $source) {
         if (($source['language_code'] ?? '') !== 'en' || (int) ($source['entity_id'] ?? 0) < 1) continue;
-        $links[(int) $source['entity_id']] = ['vietnamese_facility_url' => null, 'vietnamese_review_url' => null];
+        $links[(int) $source['entity_id']] = ['vietnamese_facility_id' => null, 'vietnamese_review_id' => null,
+            'vietnamese_facility_url' => null, 'vietnamese_review_url' => null];
     }
     if ($links === []) return [];
+    $hasTranslations = medical_review_article_translations_schema_ready($pdo);
+    $englishArticleJoin = $hasTranslations ? " LEFT JOIN medical_review_articles ea ON ea.entity_type='facility' AND ea.entity_id=en.id AND ea.language_code='en' " : '';
+    $pinnedReviewCondition = $hasTranslations ? ' AND (ea.translation_of_id IS NULL OR a.id=ea.translation_of_id) ' : '';
     // Platform translations are EN children of an explicitly linked VI profile.
     // No name/slug guessing or zero-parent family matching is allowed here.
     foreach (array_chunk(array_keys($links), 100) as $ids) {
         $parameters = []; $slots = [];
         foreach ($ids as $index => $id) { $slots[] = ':id' . $index; $parameters[':id' . $index] = $id; }
-        $query = $pdo->prepare("SELECT en.id AS english_id,vi.slug AS facility_slug,a.slug AS review_slug
-            FROM medical_facilities en INNER JOIN medical_facilities vi ON vi.id=en.translation_of_id
+        $query = $pdo->prepare("SELECT en.id AS english_id,vi.id AS facility_id,vi.slug AS facility_slug,a.id AS review_id,a.slug AS review_slug
+            FROM medical_facilities en INNER JOIN medical_facilities vi ON vi.id=en.translation_of_id " . $englishArticleJoin . "
             LEFT JOIN medical_review_articles a ON a.entity_type='facility' AND a.entity_id=vi.id
                 AND a.language_code='vi' AND a.status='published' AND TRIM(a.title)<>''
-                AND TRIM(a.slug)<>'' AND TRIM(COALESCE(a.content_html,''))<>''
+                AND TRIM(a.slug)<>'' AND TRIM(COALESCE(a.content_html,''))<>'' " . $pinnedReviewCondition . "
             WHERE en.id IN (" . implode(',', $slots) . ") AND en.status='published'
                 AND COALESCE(NULLIF(LOWER(TRIM(en.language_code)),''),'vi')='en'
                 AND vi.status='published' AND TRIM(vi.slug)<>''
@@ -329,6 +335,8 @@ function medical_review_article_ai_vietnamese_links(PDO $pdo, array $sources): a
         $query->execute($parameters);
         foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $links[(int) $row['english_id']] = [
+                'vietnamese_facility_id' => (int) $row['facility_id'],
+                'vietnamese_review_id' => $row['review_id'] !== null ? (int) $row['review_id'] : null,
                 'vietnamese_facility_url' => medical_public_entity_path('facility', (string) $row['facility_slug'], 'vi'),
                 'vietnamese_review_url' => is_string($row['review_slug']) ? medical_review_articles_path('vi', $row['review_slug']) : null];
         }
@@ -530,7 +538,7 @@ function medical_review_article_ai_lease(PDO $pdo, array $body, ?int $now = null
 function medical_review_article_ai_content(array $body): array
 {
     $allowed = array_merge(MEDICAL_REVIEW_ARTICLE_AI_CONTENT_FIELDS,
-        ['id', 'entity_type', 'entity_id', 'language_code', 'status', 'claim_token', 'writer_claim_token', 'source_revision', 'request_id', 'editorial_evidence_json']);
+        ['id', 'entity_type', 'entity_id', 'language_code', 'status', 'claim_token', 'writer_claim_token', 'source_revision', 'request_id', 'editorial_evidence_json', 'vietnamese_review_id', 'vietnamese_facility_id']);
     if (array_diff(array_keys($body), $allowed)) throw new MedicalReviewArticleAiException('Có trường không được hỗ trợ; không nhận dữ liệu bệnh nhân, thay đổi cơ sở hoặc điểm đánh giá.');
     if (!array_key_exists('researched_at', $body)) throw new MedicalReviewArticleAiException('researched_at là bắt buộc; giữ ngày nghiên cứu trong JSON để gửi lại có cùng nội dung.');
     return medical_review_articles_validate_article(array_intersect_key($body, array_flip(MEDICAL_REVIEW_ARTICLE_AI_CONTENT_FIELDS)));
@@ -547,11 +555,67 @@ function medical_review_article_ai_evidence(mixed $raw, ?array $source = null): 
     }
 }
 
-function medical_review_article_ai_payload_hash(int $entityId, string $locale, string $revision, string $status, array $content, ?array $evidence): string
+function medical_review_article_ai_translation_assertions(array $body): ?array
+{
+    $assertions = [];
+    foreach (['vietnamese_review_id', 'vietnamese_facility_id'] as $field) {
+        if (!array_key_exists($field, $body) || $body[$field] === null) continue;
+        try { $assertions[$field] = medical_review_article_ai_id($body[$field]); }
+        catch (MedicalReviewArticleAiException) { throw new MedicalReviewArticleAiException($field . ' phải là ID số nguyên dương hoặc null.', 422, 'invalid_translation'); }
+    }
+    if ($assertions !== [] && ($body['language_code'] ?? 'vi') !== 'en') {
+        throw new MedicalReviewArticleAiException('Chỉ bài review tiếng Anh nhận ID bản tiếng Việt.', 422, 'invalid_translation');
+    }
+    return $assertions === [] ? null : $assertions;
+}
+
+/** Resolve and lock a verified article-ID relation without changing either facility. */
+function medical_review_article_ai_translation_reference(PDO $pdo, array $source, array $article, ?array $assertions): ?array
+{
+    $existing = (int) ($article['translation_of_id'] ?? 0);
+    if ($assertions === null && $existing < 1) return null;
+    if (!medical_review_article_translations_schema_ready($pdo)) {
+        throw new MedicalReviewArticleAiException('Chưa có cột liên kết bài review. Chạy php scripts/migrate_review_article_translations.php --apply.', 503, 'translation_schema_unavailable');
+    }
+    $parent = (int) ($source['facility']['translation_of_id'] ?? 0);
+    $facilityId = $assertions['vietnamese_facility_id'] ?? $parent;
+    if (($source['language_code'] ?? '') !== 'en' || $parent < 1 || $facilityId !== $parent) {
+        throw new MedicalReviewArticleAiException('ID cơ sở Việt không khớp bản gốc của cơ sở tiếng Anh.', 422, 'invalid_translation');
+    }
+    $lock = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+    $facility = $pdo->prepare("SELECT id FROM medical_facilities WHERE id=:id AND status='published'
+        AND COALESCE(NULLIF(LOWER(TRIM(language_code)),''),'vi')='vi' LIMIT 1" . $lock);
+    $facility->execute([':id' => $parent]);
+    if ($facility->fetchColumn() === false) throw new MedicalReviewArticleAiException('Không tìm thấy hồ sơ cơ sở Việt đã xuất bản phù hợp.', 422, 'invalid_translation');
+    $reviewId = $assertions['vietnamese_review_id'] ?? ($existing > 0 ? $existing : null);
+    $target = $pdo->prepare('SELECT id,entity_id,entity_type,language_code,status,title,slug,content_html FROM medical_review_articles WHERE '
+        . ($reviewId !== null ? 'id=:id' : "entity_id=:id AND entity_type='facility' AND language_code='vi'") . ' LIMIT 1' . $lock);
+    $target->execute([':id' => $reviewId ?? $parent]);
+    $review = $target->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($review)) {
+        if ($reviewId !== null) throw new MedicalReviewArticleAiException('Không tìm thấy ID bài review tiếng Việt.', 422, 'invalid_translation');
+        return ['vietnamese_review_id' => null, 'vietnamese_facility_id' => $parent];
+    }
+    $reviewIsPublic = $review['status'] === 'published' && trim((string) $review['title']) !== ''
+        && trim((string) $review['slug']) !== '' && trim(strip_tags((string) $review['content_html'])) !== '';
+    if ($reviewId === null && !$reviewIsPublic) return ['vietnamese_review_id' => null, 'vietnamese_facility_id' => $parent];
+    if ((int) $review['id'] === (int) $article['id'] || (int) $review['entity_id'] !== $parent
+        || $review['entity_type'] !== 'facility' || $review['language_code'] !== 'vi'
+        || (isset($assertions['vietnamese_review_id']) && !$reviewIsPublic)) {
+        throw new MedicalReviewArticleAiException('Bài review Việt không đúng cơ sở/ngôn ngữ hoặc chưa xuất bản đầy đủ.', 422, 'invalid_translation');
+    }
+    $duplicate = $pdo->prepare("SELECT id FROM medical_review_articles WHERE translation_of_id=:parent AND language_code='en' AND id<>:id LIMIT 1");
+    $duplicate->execute([':parent' => (int) $review['id'], ':id' => (int) $article['id']]);
+    if ($duplicate->fetchColumn() !== false) throw new MedicalReviewArticleAiException('Bài review Việt đã ghép với một bài tiếng Anh khác.', 409, 'translation_conflict');
+    return ['vietnamese_review_id' => (int) $review['id'], 'vietnamese_facility_id' => $parent];
+}
+
+function medical_review_article_ai_payload_hash(int $entityId, string $locale, string $revision, string $status, array $content, ?array $evidence, ?array $translation = null): string
 {
     $parts = [$entityId, $locale, $revision, $status, $content];
     // Retain the original hash format for clients and receipts without evidence metadata.
     if ($evidence !== null) $parts[] = ['editorial_evidence_json' => $evidence];
+    if ($translation !== null) $parts[] = ['submitted_translation' => $translation];
     return hash('sha256', medical_review_article_ai_json($parts));
 }
 
@@ -562,6 +626,9 @@ function medical_review_article_ai_receipt(array $row, bool $idempotent): array
         'entity_id' => (int) $row['entity_id'], 'language_code' => (string) $row['language_code'],
         'slug' => (string) $row['slug'], 'status' => (string) $row['status'], 'saved' => true,
         'storage_verified' => true, 'idempotent' => $idempotent,
+        'translation_of_id' => (int) ($row['translation_of_id'] ?? 0) > 0 ? (int) $row['translation_of_id'] : null,
+        'vietnamese_review_id' => (int) ($row['translation_of_id'] ?? 0) > 0 ? (int) $row['translation_of_id'] : null,
+        'vietnamese_facility_id' => $metadata['translation_reference']['vietnamese_facility_id'] ?? null,
         'updated_existing' => ($metadata['operation'] ?? '') === 'update',
         'message' => (string) $row['status'] === 'published' ? 'Đã lưu và xuất bản bài review.' : 'Đã lưu bản nháp bài review theo lượt gửi trước.'];
 }
@@ -577,6 +644,7 @@ function medical_review_article_ai_save(PDO $pdo, array $body, ?int $now = null)
     // Accept old clients still sending draft, but new successful writes are always published.
     $status = 'published';
     $content = medical_review_article_ai_content($body);
+    $translationAssertions = medical_review_article_ai_translation_assertions($body);
     $evidence = array_key_exists('editorial_evidence_json', $body) ? medical_review_article_ai_evidence($body['editorial_evidence_json']) : null;
     medical_review_articles_require_schema($pdo);
     if ($pdo->inTransaction()) throw new MedicalReviewArticleAiException('Không thể bắt đầu giao dịch.', 503, 'transaction_unavailable');
@@ -596,7 +664,7 @@ function medical_review_article_ai_save(PDO $pdo, array $body, ?int $now = null)
             $content['slug'] = (string) $article['slug'];
         }
         $hashStatus = $sameRequest && !($previous['auto_publish'] ?? false) ? ($body['status'] ?? 'draft') : $status;
-        $payloadHash = medical_review_article_ai_payload_hash($entityId, $locale, $revision, $hashStatus, $content, $evidence);
+        $payloadHash = medical_review_article_ai_payload_hash($entityId, $locale, $revision, $hashStatus, $content, $evidence, $translationAssertions);
         if ($sameRequest) {
             if (!hash_equals((string) ($previous['payload_sha256'] ?? ''), $payloadHash)
                 || !hash_equals((string) ($previous['token_sha256'] ?? ''), hash('sha256', $token))) {
@@ -604,8 +672,12 @@ function medical_review_article_ai_save(PDO $pdo, array $body, ?int $now = null)
             }
             $storedContent = medical_review_articles_validate_article(array_intersect_key($article, array_flip(MEDICAL_REVIEW_ARTICLE_AI_CONTENT_FIELDS)));
             $storedEvidence = array_key_exists('editorial_evidence_json', $previous) ? medical_review_article_ai_evidence($previous['editorial_evidence_json']) : null;
-            $storedHash = medical_review_article_ai_payload_hash($entityId, $locale, $revision, (string) $article['status'], $storedContent, $storedEvidence);
+            $storedHash = medical_review_article_ai_payload_hash($entityId, $locale, $revision, (string) $article['status'], $storedContent, $storedEvidence, $previous['submitted_translation'] ?? null);
             if (!hash_equals($payloadHash, $storedHash)) throw new MedicalReviewArticleAiException('Bài đã được biên tập sau lần gửi trước; không ghi đè.', 409, 'article_changed');
+            if (array_key_exists('translation_reference', $previous) && ($previous['translation_reference']['vietnamese_review_id'] ?? null)
+                !== ((int) ($article['translation_of_id'] ?? 0) > 0 ? (int) $article['translation_of_id'] : null)) {
+                throw new MedicalReviewArticleAiException('Liên kết bài review đã thay đổi; không ghi đè lượt cập nhật mới.', 409, 'article_changed');
+            }
             $pdo->commit();
             return medical_review_article_ai_receipt($article, true);
         }
@@ -627,13 +699,17 @@ function medical_review_article_ai_save(PDO $pdo, array $body, ?int $now = null)
             if (($knownSources[$entry['id']] ?? null) !== $entry['url']) throw new MedicalReviewArticleAiException('sources_json có ID/URL không khớp danh mục dữ liệu nguồn; giữ đúng nguồn đã cung cấp.', 422, 'unknown_source');
         }
         if ($evidence !== null) $evidence = medical_review_article_ai_evidence($evidence, $source);
+        $translationReference = medical_review_article_ai_translation_reference($pdo, $source, $article, $translationAssertions);
         $metadata = ['contract_version' => 1, 'request_id' => $request, 'payload_sha256' => $payloadHash,
             'token_sha256' => hash('sha256', $token), 'source_revision' => $revision, 'saved_at' => gmdate('c', $now),
             'auto_publish' => true, 'operation' => $hadContent ? 'update' : 'create'];
         if ($preserveSlug && $hadContent) $metadata['preserved_slug'] = $content['slug'];
         if ($evidence !== null) $metadata['editorial_evidence_json'] = $evidence;
+        if ($translationAssertions !== null) $metadata['submitted_translation'] = $translationAssertions;
+        if ($translationReference !== null) $metadata['translation_reference'] = $translationReference;
         $values = [];
         foreach ($content as $field => $value) $values[$field] = str_ends_with($field, '_json') ? medical_review_article_ai_json($value) : $value;
+        if ($translationReference !== null) $values['translation_of_id'] = $translationReference['vietnamese_review_id'];
         // Slugs are server controlled unless a valid slug was explicitly submitted.
         if (!isset($values['slug']) || trim((string) $values['slug']) === '') $values['slug'] = (string) $article['slug'];
         $values += ['status' => $status, 'source_snapshot_json' => medical_review_article_ai_json(medical_review_articles_source_snapshot($source)),

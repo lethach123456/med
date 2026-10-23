@@ -5,7 +5,8 @@ require_once __DIR__ . '/medical_review_articles.php';
 /** Optimistic editor version also changes when an AI acquires the article. */
 function medical_review_article_admin_version(array $row): string
 {
-    $fields = array_merge(MEDICAL_REVIEW_ARTICLE_CONTENT_FIELDS, ['id', 'status', 'updated_at', 'ai_writer_claim_json']);
+    if (($row['translation_of_id'] ?? null) === null) unset($row['translation_of_id']);
+    $fields = array_merge(MEDICAL_REVIEW_ARTICLE_CONTENT_FIELDS, ['id', 'status', 'updated_at', 'ai_writer_claim_json', 'translation_of_id']);
     return hash('sha256', medical_review_articles_json_encode(array_intersect_key($row, array_flip($fields))));
 }
 
