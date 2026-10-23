@@ -303,6 +303,39 @@ function medical_review_article_ai_filters(array $query): array
     return ['page' => $page, 'limit' => $limit, 'locale' => $locale, 'ids' => array_values($ids), 'include_existing' => $includeExisting];
 }
 
+/** Optional public Vietnamese counterparts, outside source snapshots/revisions. */
+function medical_review_article_ai_vietnamese_links(PDO $pdo, array $sources): array
+{
+    $links = [];
+    foreach ($sources as $source) {
+        if (($source['language_code'] ?? '') !== 'en' || (int) ($source['entity_id'] ?? 0) < 1) continue;
+        $links[(int) $source['entity_id']] = ['vietnamese_facility_url' => null, 'vietnamese_review_url' => null];
+    }
+    if ($links === []) return [];
+    // Platform translations are EN children of an explicitly linked VI profile.
+    // No name/slug guessing or zero-parent family matching is allowed here.
+    foreach (array_chunk(array_keys($links), 100) as $ids) {
+        $parameters = []; $slots = [];
+        foreach ($ids as $index => $id) { $slots[] = ':id' . $index; $parameters[':id' . $index] = $id; }
+        $query = $pdo->prepare("SELECT en.id AS english_id,vi.slug AS facility_slug,a.slug AS review_slug
+            FROM medical_facilities en INNER JOIN medical_facilities vi ON vi.id=en.translation_of_id
+            LEFT JOIN medical_review_articles a ON a.entity_type='facility' AND a.entity_id=vi.id
+                AND a.language_code='vi' AND a.status='published' AND TRIM(a.title)<>''
+                AND TRIM(a.slug)<>'' AND TRIM(COALESCE(a.content_html,''))<>''
+            WHERE en.id IN (" . implode(',', $slots) . ") AND en.status='published'
+                AND COALESCE(NULLIF(LOWER(TRIM(en.language_code)),''),'vi')='en'
+                AND vi.status='published' AND TRIM(vi.slug)<>''
+                AND COALESCE(NULLIF(LOWER(TRIM(vi.language_code)),''),'vi')='vi'");
+        $query->execute($parameters);
+        foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $links[(int) $row['english_id']] = [
+                'vietnamese_facility_url' => medical_public_entity_path('facility', (string) $row['facility_slug'], 'vi'),
+                'vietnamese_review_url' => is_string($row['review_slug']) ? medical_review_articles_path('vi', $row['review_slug']) : null];
+        }
+    }
+    return $links;
+}
+
 /** GET is strictly read-only: article placeholders are created only by POST claim. */
 function medical_review_article_ai_queue(PDO $pdo, array $query, ?callable $resolvePrompt = null, ?int $now = null): array
 {
@@ -346,6 +379,7 @@ function medical_review_article_ai_queue(PDO $pdo, array $query, ?callable $reso
     $items = [];
     $selectedIds = array_slice($eligibleIds, ($page - 1) * $filter['limit'], $filter['limit']);
     $sources = $selectedIds === [] ? [] : medical_review_articles_facility_sources($pdo, $filter['locale'], $selectedIds, 25);
+    $vietnameseLinks = medical_review_article_ai_vietnamese_links($pdo, $sources);
     foreach ($sources as $source) {
         $revision = medical_review_articles_source_revision($source);
         $variant = $resolvePrompt !== null ? $resolvePrompt($pdo, $source) : null;
@@ -362,7 +396,7 @@ function medical_review_article_ai_queue(PDO $pdo, array $query, ?callable $reso
             'prompt_label' => (string) ($variant['label'] ?? 'Bài review phân tích cơ sở y tế'),
             'prompt_source' => (string) ($variant['source'] ?? $variant['prompt_source'] ?? 'default'),
             'prompt_variant_id' => $variant['variant_id'] ?? $variant['prompt_variant_id'] ?? null,
-            'output_template' => medical_review_article_ai_output_template($source, $revision)];
+            'output_template' => medical_review_article_ai_output_template($source, $revision)] + ($vietnameseLinks[(int) $source['entity_id']] ?? []);
     }
     return ['ok' => true, 'type' => 'review_article', 'contract_version' => 1, 'page' => $page, 'limit' => $filter['limit'],
         'pages' => $pages, 'total' => $total, 'items' => $items, 'claim_required' => true,

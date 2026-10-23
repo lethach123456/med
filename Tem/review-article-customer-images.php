@@ -18,7 +18,6 @@ $photoCount = count($reviewArticleCustomerImages);
       <button type="button" data-review-slider-next aria-controls="review-customer-track" aria-label="<?= $raText('Hai ảnh tiếp theo', 'Next two photos') ?>"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
     </div>
   <?php endif; ?>
-  <p class="ra-gallery-note"><i class="ph ph-info" aria-hidden="true"></i><span><?= $raText('Hình ảnh tham khảo, không đại diện cho kết quả điều trị của mọi người.', 'Photos are for reference and do not represent treatment outcomes for everyone.') ?></span></p>
 </section>
 <dialog class="ra-photo-dialog" aria-label="<?= $raText('Xem hình ảnh khách hàng', 'Customer photo viewer') ?>" data-review-photo-dialog>
   <div class="ra-photo-toolbar">

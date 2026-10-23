@@ -34,6 +34,32 @@ trong một lô không lọc ID, dùng `include_existing=1` một cách chủ đ
 
 Mỗi item trả `entity_id`, `language_code`, `source_revision`, `source`, `evidence_catalog`, `prompt`, `output_template`; hỗ trợ prompt `review_article` tùy biến trong admin theo danh mục/ngôn ngữ. Prompt tùy biến có thể đặt `{{evidence_catalog}}`; nếu bỏ, API vẫn bổ sung danh mục và quy tắc đối chiếu ở cuối.
 
+### Liên kết bản tiếng Việt khi lấy bài tiếng Anh
+
+`GET /api/medical/review-articles-needing-content.php?language=en` và
+`GET /api/medical/prompt.php?type=review_article&id=ID_CO_SO_TIENG_ANH`
+trả thêm hai trường ở cấp item/response, không nằm trong mẫu JSON cần POST:
+
+```json
+{
+  "language_code": "en",
+  "vietnamese_facility_url": "/co-so-y-te/slug-co-so-tieng-viet",
+  "vietnamese_review_url": "/review/slug-bai-review-tieng-viet"
+}
+```
+
+Đây là đường dẫn canonical tương đối, ghép với origin của API để mở. Hai slug
+có thể khác nhau; lấy đúng URL trả về, không tự suy ra từ slug tiếng Anh.
+Hệ thống đối chiếu cha Việt bằng `translation_of_id` của cơ sở tiếng Anh, chỉ
+trả URL của hồ sơ/bài đã xuất bản và có nội dung phù hợp. Chưa có bài review
+Việt thì `vietnamese_review_url: null`; không có hồ sơ cha Việt công khai thì
+cả hai trường là `null`. Không ghép theo tên, không liên kết nhầm bài bác sĩ
+hoặc bài của cơ sở khác. Luồng tiếng Việt giữ response cũ.
+
+Các link chỉ là metadata điều hướng; không đổi `source`, `source_revision`,
+claim hoặc payload nhận bài, không tự chèn link vào nội dung AI. Vì vậy bài
+review Việt cập nhật/xuất bản không làm mất quyền đang viết bài tiếng Anh.
+
 Thông tin cập nhật gồm `article_id`, `article_status`, `has_content` trong item;
 response có `updates_supported:true` và `save_status:"published"`.
 

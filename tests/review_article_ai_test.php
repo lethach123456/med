@@ -405,4 +405,91 @@ $assert($legacyReplay['idempotent'] && $legacyReplay['status'] === 'draft', 'Exa
 $assert(medical_review_article_ai_save($legacyPdo, $legacyUpdateBody, 1150)['status'] === 'published', 'A new update publishes a legacy draft without changing its article identity');
 $assert(medical_review_article_ai_output_template($source, $revision)['status'] === 'published'
     && str_contains($writingRules, 'thay mọi yêu cầu draft trong mẫu cũ'), 'New and saved prompts consistently request publication');
+
+// Optional Vietnamese links describe an explicit translation, never guessed content or a new source revision.
+$linksPdo = review_article_ai_fixture();
+$linksQueue = static fn() => medical_review_article_ai_queue($linksPdo, ['language' => 'en', 'id' => '6'], null, 1000);
+$unlinkedEnglish = $linksQueue()['items'][0];
+$assert(array_key_exists('vietnamese_facility_url', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_facility_url'] === null
+    && array_key_exists('vietnamese_review_url', $unlinkedEnglish) && $unlinkedEnglish['vietnamese_review_url'] === null,
+    'English items expose explicit null links when no Vietnamese parent is recorded');
+$linksFacilityChange = static function (string $sql) use ($linksPdo): void {
+    $linksPdo->runtime = false;
+    try { $linksPdo->exec($sql); } finally { $linksPdo->runtime = true; }
+};
+$linksFacilityChange('UPDATE medical_facilities SET translation_of_id=1 WHERE id=6');
+$parentOnly = $linksQueue()['items'][0];
+$assert($parentOnly['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $parentOnly['vietnamese_review_url'] === null,
+    'An explicitly linked published Vietnamese facility is usable before its review exists');
+$englishRevisionBeforeReview = $parentOnly['source_revision'];
+$englishSourceBeforeReview = $parentOnly['source'];
+$linksPdo->exec("INSERT INTO medical_review_articles (entity_type,entity_id,language_code,slug,status,title,content_html,source_snapshot_json,ai_content_json,ai_writer_claim_json)
+    VALUES ('facility',1,'vi','bai-review-co-so-mot','draft','Review cơ sở một','<p>Nội dung tiếng Việt</p>','PRIVATE_VI_SNAPSHOT','PRIVATE_VI_METADATA','PRIVATE_VI_TOKEN')");
+$assert($linksQueue()['items'][0]['vietnamese_review_url'] === null, 'A draft Vietnamese article is never linked');
+$linksPdo->exec("UPDATE medical_review_articles SET status='published' WHERE entity_id=1");
+$linkedEnglish = $linksQueue()['items'][0];
+$assert($linkedEnglish['vietnamese_facility_url'] === '/co-so-y-te/clinic-1'
+    && $linkedEnglish['vietnamese_review_url'] === '/review/bai-review-co-so-mot', 'English queue links the exact parent facility and its distinct published review slug');
+$assert($linkedEnglish['language_code'] === 'en' && $linkedEnglish['source']['facility']['url'] === '/en/co-so-y-te/clinic-6'
+    && $linkedEnglish['output_template']['language_code'] === 'en', 'Reference links do not change the English writing target or its canonical facility URL');
+$assert($linkedEnglish['source_revision'] === $englishRevisionBeforeReview
+    && medical_review_article_ai_json($linkedEnglish['source']) === medical_review_article_ai_json($englishSourceBeforeReview),
+    'Publishing a Vietnamese review does not invalidate an English source or its lease revision');
+$assert(!array_key_exists('vietnamese_facility_url', $linkedEnglish['source'])
+    && !array_key_exists('vietnamese_review_url', $linkedEnglish['source']['facility'])
+    && !array_key_exists('vietnamese_review_url', $linkedEnglish['output_template']), 'Vietnamese references remain response metadata, not source data or AI output fields');
+$linksPdo->exec("UPDATE medical_review_articles SET slug='review-tieng-viet-da-doi',content_html='<p>Bản cập nhật tiếng Việt</p>' WHERE entity_id=1");
+$changedVietnamese = $linksQueue()['items'][0];
+$assert($changedVietnamese['vietnamese_review_url'] === '/review/review-tieng-viet-da-doi'
+    && $changedVietnamese['source_revision'] === $englishRevisionBeforeReview, 'Vietnamese article changes refresh its link without changing the English source revision');
+$linkedMap = medical_review_article_ai_vietnamese_links($linksPdo, [$changedVietnamese['source']]);
+$assert($linkedMap[6] === ['vietnamese_facility_url' => '/co-so-y-te/clinic-1', 'vietnamese_review_url' => '/review/review-tieng-viet-da-doi'],
+    'Batch helper returns only the two documented optional paths for an English entity');
+
+foreach (["status='archived'", "title='   '", "slug='   '", "content_html='   '", 'content_html=NULL', "language_code='en'", "entity_type='doctor'"] as $invalidReview) {
+    $linksPdo->exec("UPDATE medical_review_articles SET entity_type='facility',language_code='vi',status='published',title='Review cơ sở một',slug='review-tieng-viet-da-doi',content_html='<p>Nội dung tiếng Việt</p>' WHERE entity_id=1");
+    $linksPdo->exec('UPDATE medical_review_articles SET ' . $invalidReview . ' WHERE entity_id=1');
+    $invalidReviewLinks = $linksQueue()['items'][0];
+    $assert($invalidReviewLinks['vietnamese_facility_url'] === '/co-so-y-te/clinic-1' && $invalidReviewLinks['vietnamese_review_url'] === null,
+        'Nonpublic, incomplete, wrong-language or non-facility articles cannot become Vietnamese review links: ' . $invalidReview);
+}
+$linksPdo->exec("UPDATE medical_review_articles SET entity_type='facility',language_code='vi',status='published',title='Review cơ sở một',slug='review-tieng-viet-da-doi',content_html='<p>Nội dung tiếng Việt</p>' WHERE entity_id=1");
+$linksPdo->exec("INSERT INTO medical_review_articles (entity_type,entity_id,language_code,slug,status,title,content_html)
+    VALUES ('facility',2,'vi','unrelated-vietnamese-review','published','Unrelated clinic','<p>Other clinic content</p>')");
+foreach (["status='draft'", "status='archived'", "language_code='en'", "slug='   '"] as $invalidParent) {
+    $linksFacilityChange("UPDATE medical_facilities SET status='published',language_code='vi',slug='clinic-1' WHERE id=1");
+    $linksFacilityChange('UPDATE medical_facilities SET ' . $invalidParent . ' WHERE id=1');
+    $invalidParentLinks = $linksQueue()['items'][0];
+    $assert($invalidParentLinks['vietnamese_facility_url'] === null && $invalidParentLinks['vietnamese_review_url'] === null,
+        'An unavailable or wrong-language parent suppresses both links: ' . $invalidParent);
+}
+$linksFacilityChange("UPDATE medical_facilities SET status='published',language_code='vi',slug='clinic-1' WHERE id=1");
+foreach (['0', 'NULL', '99999', '6'] as $invalidParentId) {
+    $linksFacilityChange('UPDATE medical_facilities SET translation_of_id=' . $invalidParentId . ' WHERE id=6');
+    $withoutParentLinks = $linksQueue()['items'][0];
+    $assert($withoutParentLinks['vietnamese_facility_url'] === null && $withoutParentLinks['vietnamese_review_url'] === null,
+        'Zero, null, nonexistent and English self parents cannot attach unrelated Vietnamese reviews: ' . $invalidParentId);
+}
+$linksFacilityChange("UPDATE medical_facilities SET translation_of_id=NULL,slug='clinic-2',name='Cơ sở 2' WHERE id=6");
+$sameNameLinks = $linksQueue()['items'][0];
+$assert($sameNameLinks['vietnamese_facility_url'] === null && $sameNameLinks['vietnamese_review_url'] === null,
+    'The same facility name or slug never substitutes for an explicit translation link');
+$linksFacilityChange("UPDATE medical_facilities SET translation_of_id=1,slug='clinic-6',name='Cơ sở 6' WHERE id=6");
+$linksPdo->statements = [];
+$privateLinksQueue = $linksQueue();
+$linksJson = medical_review_article_ai_json($privateLinksQueue);
+foreach (['PRIVATE_FULL', 'PRIVATE_PATIENT_IMAGES', 'PRIVATE_PATIENT_NOTES', 'PRIVATE_FACILITY_TOKEN', 'PRIVATE_VI_SNAPSHOT', 'PRIVATE_VI_METADATA', 'PRIVATE_VI_TOKEN'] as $private) {
+    $assert(!str_contains($linksJson, $private), 'Optional language links cannot expose private fields: ' . $private);
+}
+foreach ($linksPdo->statements as $sql) $assert(!preg_match('/^\s*(UPDATE|INSERT|DELETE|CREATE|ALTER|DROP)/i', $sql), 'Resolving language links keeps English GET strictly read-only');
+$linksPdo->statements = [];
+$vietnameseQueue = medical_review_article_ai_queue($linksPdo, ['language' => 'vi', 'id' => '2'], null, 1000);
+$assert(!array_key_exists('vietnamese_facility_url', $vietnameseQueue['items'][0])
+    && !array_key_exists('vietnamese_review_url', $vietnameseQueue['items'][0]), 'Existing Vietnamese queue response fields are unchanged');
+$assert(count(array_filter($linksPdo->statements, static fn(string $sql): bool => str_contains($sql, 'FROM medical_facilities en'))) === 0,
+    'Vietnamese queue does not execute the optional English-to-Vietnamese link query');
+$linksPdo->statements = [];
+$assert(medical_review_article_ai_vietnamese_links($linksPdo, []) === []
+    && medical_review_article_ai_vietnamese_links($linksPdo, [array_replace($englishSourceBeforeReview, ['language_code' => 'vi'])]) === []
+    && $linksPdo->statements === [], 'Empty or Vietnamese-only source batches do not query for optional links');
 echo 'Review article AI: ' . $checks . " checks passed.\n";

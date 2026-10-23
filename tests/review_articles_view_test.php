@@ -128,7 +128,7 @@ $check(!str_contains($detail, 'id="review-customer-images"') && !str_contains($d
 $galleryDetail = $renderDetail($fixture, $photos);
 $check(str_contains($galleryDetail, 'id="review-customer-images"') && str_contains($galleryDetail, '<dialog') && str_contains($galleryDetail, 'loading="lazy"'), 'Customer gallery is progressively enhanced and lazy-loaded.');
 $check(str_contains($galleryDetail, '&lt;b&gt;Ảnh khách&lt;/b&gt;') && !str_contains($galleryDetail, 'PRIVATE_SOURCE') && !str_contains($galleryDetail, 'PRIVATE_NOTES'), 'Customer captions are escaped; private photo metadata never appears.');
-$check(str_contains($galleryDetail, 'data-review-photo-prev') && str_contains($galleryDetail, 'data-review-photo-close') && str_contains($galleryDetail, 'không đại diện cho kết quả điều trị'), 'Gallery includes viewer controls and a non-promissory treatment disclaimer.');
+$check(str_contains($galleryDetail, 'data-review-photo-prev') && str_contains($galleryDetail, 'data-review-photo-close') && !str_contains($galleryDetail, 'không đại diện cho kết quả điều trị') && !str_contains($galleryDetail, 'ra-gallery-note'), 'Gallery retains viewer controls without the removed photo disclaimer.');
 $check(str_contains($galleryDetail, 'alt="Ảnh &lt;khách&gt;"') && !str_contains($galleryDetail, 'alt="Ảnh <khách>"'), 'Customer image alt text remains escaped in the polished card.');
 $check(str_contains($galleryDetail, 'data-review-photo-stage') && str_contains($galleryDetail, 'data-review-photo-status') && str_contains($galleryDetail, 'data-review-photo-retry hidden'), 'Photo viewer has a loading/status stage and a progressively revealed retry action.');
 

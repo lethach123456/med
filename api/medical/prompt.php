@@ -19,13 +19,14 @@ if ($type === 'review_article') {
         if (!(medical_review_articles_eligibility($source)['eligible'] ?? false)) json_response(['ok' => false, 'message' => 'Cơ sở cần trên 40 đánh giá từ dữ liệu nguồn hợp lệ và facility_insights_json có nội dung.', 'reason' => 'not_eligible'], 422);
         $resolved = medical_directory_resolve_ai_prompt($pdo, 'review_article', (string) ($source['facility']['category'] ?? ''), (string) $source['language_code']);
         $revision = medical_review_articles_source_revision($source);
+        $vietnameseLinks = medical_review_article_ai_vietnamese_links($pdo, [$source]);
         json_response(['ok' => true, 'type' => 'review_article', 'entity_id' => $id,
             'save_status' => 'published', 'updates_supported' => true,
             'source_revision' => $revision, 'label' => $resolved['label'] ?: 'Viết bài review phân tích cơ sở',
             'prompt_source' => $resolved['source'], 'prompt_variant_id' => $resolved['variant_id'],
             'evidence_catalog' => medical_review_article_evidence_catalog($source),
             'output_template' => medical_review_article_ai_output_template($source, $revision),
-            'prompt' => medical_review_article_ai_prompt($source, $revision, $resolved['template'])]);
+            'prompt' => medical_review_article_ai_prompt($source, $revision, $resolved['template'])] + ($vietnameseLinks[$id] ?? []));
     } catch (Throwable $error) { medical_review_article_ai_error($error); }
 }
 if ($type === 'handbook') {
