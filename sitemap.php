@@ -144,19 +144,19 @@ function medreview_sitemap_static_paths(string $language = 'vi'): array
         '/en',
         medical_public_facility_path(),
         site_localized_path(medical_public_facility_path(), 'en'),
-        '/bac-si.php',
-        site_localized_path('/bac-si.php', 'en'),
-        '/review.php',
-        site_localized_path('/review.php', 'en'),
-        '/ve-chung-toi.php',
-        '/danh-muc-y-te.php',
+        site_localized_path('/bac-si', 'vi'),
+        site_localized_path('/bac-si', 'en'),
+        site_localized_path('/review', 'vi'),
+        site_localized_path('/review', 'en'),
+        site_localized_path('/ve-chung-toi', 'vi'),
+        site_localized_path('/danh-muc-y-te', 'vi'),
         '/ho-so-da-xac-thuc',
         '/en/ho-so-da-xac-thuc',
         '/cam-nang',
         '/en/cam-nang',
         medical_public_toplist_path(),
         site_localized_path(medical_public_toplist_path(), 'en'),
-        site_localized_path('/ve-chung-toi.php', 'en'),
+        site_localized_path('/ve-chung-toi', 'en'),
     ];
     $paths = array_values(array_filter($paths, static fn (string $path): bool =>
         (preg_match('~^/en(?:/|$)~', $path) === 1) === ($language === 'en')));
@@ -211,8 +211,10 @@ function medreview_sitemap_sources(): array
         ],
         'reviews' => [
             'table' => 'medical_reviews',
-            'count' => "SELECT COUNT(*) FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            // Thin imported review records stay readable on facility profiles,
+            // but should not be promoted as standalone sitemap landing pages.
+            'count' => "SELECT COUNT(*) FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120)",
+            'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120) ORDER BY id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => '/review-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']),
         ],
         'review-articles' => [

@@ -2,6 +2,36 @@
 declare(strict_types=1);
 
 // Presentation only: no database or cache bootstrap.
+function doctor_directory_page_url(string $path, array $filters, int $page): string
+{
+    $query = [];
+    foreach (['q', 'city', 'specialty', 'min_rating', 'sort'] as $key) {
+        $value = trim((string) ($filters[$key] ?? ''));
+        if ($value !== '' && !($key === 'sort' && $value === 'recommended')) $query[$key] = $value;
+    }
+    if ($page > 1) $query['page'] = $page;
+    return $path . ($query !== [] ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : '');
+}
+
+function doctor_directory_pagination(string $path, array $filters, int $page, int $pages, string $locale): string
+{
+    if ($pages <= 1) return '';
+    $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    $en = $locale === 'en';
+    $link = static function (int $target, string $label, string $content, bool $current = false) use ($escape, $path, $filters): string {
+        return '<a href="' . $escape(doctor_directory_page_url($path, $filters, $target)) . '" data-page="' . $target . '" aria-label="' . $escape($label) . '"' . ($current ? ' class="is-current" aria-current="page"' : '') . '>' . $content . '</a>';
+    };
+    $html = $page > 1 ? $link($page - 1, $en ? 'Previous page' : 'Trang trước', '‹') : '';
+    $last = 0;
+    for ($i = 1; $i <= $pages; $i++) {
+        if ($i !== 1 && $i !== $pages && abs($i - $page) > 1) continue;
+        if ($last > 0 && $i - $last > 1) $html .= '<span class="pagination-gap" aria-hidden="true">…</span>';
+        $html .= $link($i, ($en ? 'Page ' : 'Trang ') . $i, (string) $i, $i === $page);
+        $last = $i;
+    }
+    return $html . ($page < $pages ? $link($page + 1, $en ? 'Next page' : 'Trang sau', '›') : '');
+}
+
 function doctor_directory_card(array $item, ?string $locale = null): string
 {
     $locale ??= function_exists('site_page_locale') ? site_page_locale('doctors') : 'vi';

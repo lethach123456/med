@@ -36,16 +36,17 @@
     return `<article class="doctor-card"><a class="doctor-media" href="${detail}" aria-label="${isEnglish ? 'View profile of ' : 'Xem hồ sơ '}${esc(item.name)}">${media}</a><div class="doctor-profile"><div class="doctor-eyebrow">${item.specialty_text ? `<span>${esc(item.specialty_text)}</span>` : ''}${item.city ? `<i>·</i><span>${esc(item.city)}</span>` : ''}</div><div class="doctor-name-row"><h2><a href="${detail}">${esc(item.name)}</a></h2>${verified}</div>${item.title_text ? `<p class="doctor-subtitle">${esc(item.title_text)}</p>` : ''}<div class="doctor-details">${details}</div>${services.length ? `<div class="doctor-tags" data-doctor-tags>${tags}${more}</div>` : ''}</div><div class="doctor-card-footer"><div class="doctor-score">${score}</div><div class="doctor-price"><span>${words.consultation}</span><strong>${esc(item.price || words.contact)}</strong></div><a class="doctor-action" href="${detail}">${words.profile}<i class="ph ph-arrow-right" aria-hidden="true"></i></a></div></article>`;
   };
   const empty = () => `<div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2>${words.emptyTitle}</h2><p>${words.emptyCopy}</p></div>`;
-  const pageButton = (label, page, active = false, disabled = false, aria = '') => `<button type="button" data-page="${page}"${active ? ' class="is-current"' : ''}${disabled ? ' disabled' : ''}${aria ? ` aria-label="${aria}"` : ''}>${label}</button>`;
+  const pageButton = (label, page, active = false, aria = '') => `<a href="${esc(pageURL(page))}" data-page="${page}"${active ? ' class="is-current" aria-current="page"' : ''}${aria ? ` aria-label="${aria}"` : ''}>${label}</a>`;
   const renderPager = paging => {
     const total = Number(paging.total_pages || 1), page = Number(paging.page || 1);
     if (total <= 1) { pager.innerHTML = ''; return; }
-    const items = [pageButton('‹', page - 1, false, page <= 1, words.previous)];
+    const items = [];
+    if (page > 1) items.push(pageButton('‹', page - 1, false, words.previous));
     const from = Math.max(1, page - 2), to = Math.min(total, page + 2);
     if (from > 1) { items.push(pageButton('1', 1)); if (from > 2) items.push('<span class="pagination-gap">…</span>'); }
     for (let n = from; n <= to; n++) items.push(pageButton(String(n), n, n === page));
     if (to < total) { if (to < total - 1) items.push('<span class="pagination-gap">…</span>'); items.push(pageButton(String(total), total)); }
-    items.push(pageButton('›', page + 1, false, page >= total, words.next));
+    if (page < total) items.push(pageButton('›', page + 1, false, words.next));
     pager.innerHTML = items.join('');
   };
   const parameters = page => {
@@ -55,6 +56,21 @@
     params.set('limit', '12');
     params.set('locale', isEnglish ? 'en' : 'vi');
     return params;
+  };
+  const pageURL = page => {
+    const params = parameters(page);
+    for (const [key, value] of [...params]) {
+      if (!value || key === 'limit' || key === 'locale' || (key === 'page' && value === '1') || (key === 'sort' && value === 'recommended')) params.delete(key);
+    }
+    return window.location.pathname + (params.size ? `?${params}` : '');
+  };
+  const syncSeoState = page => {
+    const params = parameters(page);
+    const filtered = ['q', 'city', 'specialty', 'min_rating'].some(key => Boolean(params.get(key))) || (params.get('sort') || 'recommended') !== 'recommended';
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const robots = document.querySelector('meta[name="robots"]');
+    if (canonical) canonical.href = `${window.location.origin}${pageURL(page)}`;
+    if (robots) robots.content = filtered ? 'noindex,follow' : 'index,follow';
   };
   const syncFilterCount = () => {
     const active = selectFilters.filter(select => select.name !== 'sort' && select.value !== '').length;
@@ -86,10 +102,10 @@
       count.innerHTML = `<strong>${format(paging.total || 0)}</strong> ${words.count}`;
       renderPager(paging);
       if (updateUrl) {
-        const url = new URL(window.location.href);
-        url.search = '';
-        for (const [key, value] of parameters(Number(paging.page || 1))) if (value && key !== 'limit') url.searchParams.set(key, value);
+        const page = Number(paging.page || 1);
+        const url = pageURL(page);
         history.replaceState({}, '', url);
+        syncSeoState(page);
       }
     } catch (error) {
       if (id !== requestId) return;
@@ -151,6 +167,12 @@
     button.querySelector('[data-tags-label]').textContent = expanded ? words.collapse : (Number(button.dataset.extraCount) > 0 ? `+${button.dataset.extraCount}` : (isEnglish ? 'Details' : 'Xem đủ'));
     button.setAttribute('aria-label', expanded ? words.collapse : (isEnglish ? 'Show more specialties' : 'Xem thêm chuyên môn'));
   });
-  pager.addEventListener('click', event => { const button = event.target.closest('button[data-page]'); if (!button || button.disabled) return; load(Number(button.dataset.page)); scrollToResults(); });
+  pager.addEventListener('click', event => {
+    const link = event.target.closest('a[data-page]');
+    if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    load(Number(link.dataset.page));
+    scrollToResults();
+  });
   syncFilterCount();
 })();

@@ -213,6 +213,17 @@ try {
     // Render the page shell even if cache storage and DB are both unavailable.
 }
 
+$hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['category'] !== ''
+    || $filters['service'] !== '' || $filters['min_rating'] !== '' || $filters['sort'] !== 'recommended';
+$isIndexableDirectoryPage = !$hasSeoFilters;
+$canonicalPage = (int) ($initial['page'] ?? 1);
+$canonicalQuery = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'recommended'), ARRAY_FILTER_USE_BOTH);
+if ($canonicalPage > 1) $canonicalQuery['page'] = $canonicalPage;
+$canonicalPath = site_localized_path(medical_public_facility_path(), $locale, $canonicalQuery);
+if ($isIndexableDirectoryPage && $canonicalPage > 1) {
+    $title .= $isEnglish ? ' — Page ' . $canonicalPage : ' — Trang ' . $canonicalPage;
+}
+
 require_once __DIR__ . '/medical_facility_directory_view.php';
 ?>
 <!doctype html>
@@ -224,12 +235,15 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
   <?= site_favicon_tags() ?>
   <title><?= facility_directory_escape($title) ?></title>
   <meta name="description" content="<?= facility_directory_escape($description) ?>">
+  <meta name="robots" content="<?= $isIndexableDirectoryPage ? 'index,follow' : 'noindex,follow' ?>">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= facility_directory_escape($seoKeywords) ?>"><?php endif; ?>
   <link rel="canonical" href="<?= facility_directory_escape(site_absolute_url($canonicalPath)) ?>">
   <?= site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']) ?>
+  <?php if ($isIndexableDirectoryPage && $canonicalPage === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?= facility_directory_escape(site_absolute_url(medical_public_facility_path())) ?>">
   <link rel="alternate" hreflang="en" href="<?= facility_directory_escape(site_absolute_url(site_localized_path(medical_public_facility_path(), 'en'))) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= facility_directory_escape(site_absolute_url(medical_public_facility_path())) ?>">
+  <?php endif; ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">

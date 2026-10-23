@@ -5,6 +5,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_search_cache.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 $locale = site_page_locale('doctors');
+medical_redirect_legacy_path('/bac-si.php', site_localized_path('/bac-si', $locale));
 site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 
@@ -33,6 +34,11 @@ $filters = [
     'min_rating' => in_array($ratingFilter, ['4', '4.5'], true) ? $ratingFilter : '',
     'sort' => in_array($sortFilter, ['recommended', 'newest', 'rating', 'reviews'], true) ? $sortFilter : 'recommended',
 ];
+$directoryPage = max(1, (int) ($_GET['page'] ?? 1));
+$hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['specialty'] !== ''
+    || $filters['min_rating'] !== '' || $filters['sort'] !== 'recommended';
+$isIndexableDirectoryPage = !$hasSeoFilters;
+$canonicalPath = site_localized_path('/bac-si', $locale);
 $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $number = static fn(int $value): string => number_format(max(0, $value), 0, $isEnglish ? '.' : ',', $isEnglish ? ',' : '.');
 
@@ -51,7 +57,7 @@ try {
     $index = medical_search_cache_doctor_directory_index(medical_search_cache_filter_locale($cache['index'], $locale));
     $result = medical_search_cache_doctor_directory_search(
         $index,
-        $filters + ['page' => max(1, (int) ($_GET['page'] ?? 1)), 'limit' => 12]
+        $filters + ['page' => $directoryPage, 'limit' => 12]
     );
     $initial = ['items' => $result['items'], 'paging' => $result['paging']];
 
@@ -81,6 +87,13 @@ try {
 } catch (Throwable $e) {
     error_log('doctor directory page failed: ' . $e->getMessage());
 }
+$canonicalPage = (int) ($initial['paging']['page'] ?? 1);
+$canonicalQuery = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'recommended'), ARRAY_FILTER_USE_BOTH);
+if ($canonicalPage > 1) $canonicalQuery['page'] = $canonicalPage;
+$canonicalPath = site_localized_path('/bac-si', $locale, $canonicalQuery);
+if ($isIndexableDirectoryPage && $canonicalPage > 1) {
+    $title .= $isEnglish ? ' — Page ' . $canonicalPage : ' — Trang ' . $canonicalPage;
+}
 
 require_once __DIR__ . '/medical_doctor_directory_view.php';
 ?>
@@ -93,12 +106,17 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?php echo $escape($title); ?></title>
   <meta name="description" content="<?php echo $escape($description); ?>">
+  <?php if (!$isIndexableDirectoryPage): ?><meta name="robots" content="noindex,follow">
+  <?php else: ?><meta name="robots" content="index,follow">
+  <?php endif; ?>
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
   <?php echo site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']); ?>
-  <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">
-  <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/bac-si.php', 'en'))); ?>">
-  <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/bac-si.php')); ?>">
+  <?php if ($isIndexableDirectoryPage && $directoryPage === 1): ?>
+  <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/bac-si')); ?>">
+  <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/bac-si', 'en'))); ?>">
+  <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/bac-si')); ?>">
+  <?php endif; ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">

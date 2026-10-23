@@ -90,6 +90,15 @@
     }
     return form.getAttribute('action') + (params.size ? '?' + params : '');
   }
+  function syncSeoState(page) {
+    const params = parameters(page);
+    const filtered = ['q', 'city', 'category', 'service', 'min_rating'].some((key) => Boolean(params.get(key)))
+      || (params.get('sort') || 'recommended') !== 'recommended';
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const robots = document.querySelector('meta[name="robots"]');
+    if (canonical) canonical.href = `${location.origin}${pageURL(page)}`;
+    if (robots) robots.content = filtered ? 'noindex,follow' : 'index,follow';
+  }
   function syncFilters() {
     const params = parameters();
     const filters = ['q', 'city', 'category', 'service', 'min_rating'].filter((key) => params.get(key));
@@ -234,6 +243,7 @@
         const url = pageURL(currentPage);
         if (url !== location.pathname + location.search) history[historyMode === 'replace' ? 'replaceState' : 'pushState']({}, '', url);
       }
+      syncSeoState(currentPage);
       revealCards();
       if (scroll) scrollResults();
     } catch (error) {

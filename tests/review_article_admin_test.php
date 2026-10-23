@@ -68,4 +68,19 @@ $pdo->exec("UPDATE medical_facilities SET language_code='' WHERE id=393");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap normalizes blank legacy facility locale to Vietnamese');
 $pdo->exec("UPDATE medical_review_articles SET title='' WHERE id=1");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes malformed blank-title article');
+$reviewMap = medreview_sitemap_sources()['reviews'];
+$pdo->exec('CREATE TABLE medical_reviews (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, excerpt TEXT, story_json TEXT, updated_at TEXT)');
+$reviewInsert = $pdo->prepare('INSERT INTO medical_reviews VALUES(?,?,?,?,?,?)');
+foreach ([
+    [1, 'review-rich', 'published', str_repeat('x', 80), null, '2026-10-01'],
+    [2, 'review-story', 'published', '', str_repeat('y', 120), '2026-10-02'],
+    [3, 'review-thin', 'published', str_repeat('x', 79), null, '2026-10-03'],
+    [4, 'review-draft', 'draft', str_repeat('x', 200), null, '2026-10-04'],
+] as $reviewFixture) $reviewInsert->execute($reviewFixture);
+$assert((int)$pdo->query($reviewMap['count'])->fetchColumn()===2, 'Sitemap only includes published individual reviews with a minimum amount of narrative');
+$reviewRowsQuery = $pdo->prepare($reviewMap['rows']);
+$reviewRowsQuery->bindValue(':limit', 100, PDO::PARAM_INT);
+$reviewRowsQuery->bindValue(':offset', 0, PDO::PARAM_INT);
+$reviewRowsQuery->execute();
+$assert(count($reviewRowsQuery->fetchAll(PDO::FETCH_ASSOC))===2, 'Sitemap review count and page query share the same quality floor');
 echo 'Review article admin: '.$checks." checks passed; isolated SQLite only.\n";

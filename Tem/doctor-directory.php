@@ -1,3 +1,4 @@
+<?php $doctorDirectoryPath = site_localized_path('/bac-si', $locale); ?>
 <main class="doctor-directory dd-redesign site-typo" data-locale="<?php echo $escape($locale); ?>" data-page="<?php echo (int) ($initial['paging']['page'] ?? 1); ?>" data-total-pages="<?php echo (int) ($initial['paging']['total_pages'] ?? 1); ?>">
   <section class="doctor-container">
     <nav class="doctor-breadcrumb" aria-label="<?php echo $isEnglish ? 'Breadcrumb' : 'Đường dẫn'; ?>"><a href="<?php echo htmlspecialchars(site_localized_path('/', $locale), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $isEnglish ? 'Home' : 'Trang chủ'; ?></a><i class="ph ph-caret-right" aria-hidden="true"></i><strong aria-current="page"><?php echo $isEnglish ? 'Doctors' : 'Bác sĩ'; ?></strong></nav>
@@ -53,7 +54,7 @@
         <div class="doctor-list" id="doctorList">
           <?php if (($initial['items'] ?? []) !== []): foreach ($initial['items'] as $item) echo doctor_directory_card($item); else: ?><div class="doctor-empty"><i class="ph ph-magnifying-glass"></i><h2><?php echo $isEnglish ? 'No matching doctors found' : 'Chưa tìm thấy bác sĩ phù hợp'; ?></h2><p><?php echo $isEnglish ? 'Try another keyword or remove some filters.' : 'Thử đổi từ khóa hoặc bỏ bớt điều kiện lọc.'; ?></p></div><?php endif; ?>
         </div>
-        <nav class="doctor-pagination" id="doctorPagination" aria-label="<?php echo $isEnglish ? 'Doctor directory pagination' : 'Phân trang danh sách bác sĩ'; ?>"></nav>
+        <nav class="doctor-pagination" id="doctorPagination" aria-label="<?php echo $isEnglish ? 'Doctor directory pagination' : 'Phân trang danh sách bác sĩ'; ?>"><?php echo doctor_directory_pagination($doctorDirectoryPath, $filters, (int) ($initial['paging']['page'] ?? 1), (int) ($initial['paging']['total_pages'] ?? 1), $locale); ?></nav>
       </section>
       <aside class="doctor-aside">
         <?php if ($cities !== []): ?><section class="doctor-city-card">

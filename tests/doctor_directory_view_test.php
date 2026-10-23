@@ -39,6 +39,10 @@ $assert(str_contains(doctor_directory_card(array_replace($item,['rating'=>0,'rev
 $assert(!str_contains(doctor_directory_card(array_replace($item,['reviews_count'=>0]),'vi'),'4.3<small>'),'No score without reviews');
 $en=doctor_directory_card($item,'en');
 foreach (['href="/en/bac-si/test"','View profile','Consultation fee','18 reviews','Contact for updates'] as $label) $assert(str_contains($en,$label),'English label/link: '.$label);
+$assert(doctor_directory_page_url('/bac-si', ['q'=>'', 'city'=>'', 'specialty'=>'', 'min_rating'=>'', 'sort'=>'recommended'], 2) === '/bac-si?page=2', 'Unfiltered doctor pages have a distinct crawlable URL');
+$assert(doctor_directory_page_url('/en/bac-si', ['city'=>'Đà Nẵng', 'sort'=>'recommended'], 3) === '/en/bac-si?city=%C4%90%C3%A0%20N%E1%BA%B5ng&page=3', 'Filtered page links retain their state');
+$doctorPager = doctor_directory_pagination('/bac-si', [], 2, 5, 'vi');
+$assert(str_contains($doctorPager, 'href="/bac-si"') && str_contains($doctorPager, 'href="/bac-si?page=3"') && str_contains($doctorPager, 'aria-current="page"'), 'Server-rendered pager exposes normal links for crawlers');
 $assert(str_contains(doctor_directory_card(array_replace($item,['price'=>'250.000 VND']),'vi'),'250.000 VND'),'Published fee preserved');
 $template=(string)file_get_contents(dirname(__DIR__).'/Tem/doctor-directory.php');
 $js=(string)file_get_contents(dirname(__DIR__).'/assets/js/doctor-directory.js');
@@ -51,6 +55,8 @@ $assert(strpos($template, '</header>') < strpos($template, 'id="doctorDirectoryF
 $assert(str_contains($template, 'doctor-hero-note') && str_contains($template, '$number($reviewCount)'), 'Hero statistics retain real review data');
 $assert(str_contains($template, 'doctor-city-art') && str_contains($template, 'data-doctor-open-filters'), 'Illustrated location card has a working filter shortcut');
 $assert(str_contains($template, 'class="doctor-result-heading"') && str_contains($template, 'Bác sĩ dành cho bạn'), 'Compact results toolbar has a consistent mobile heading');
+$assert(str_contains($template, 'doctor_directory_pagination($doctorDirectoryPath') && str_contains($js,'<a href="${esc(pageURL(page))}" data-page='), 'Doctor pagination remains crawlable before and after enhancement');
+$assert(str_contains($js, "syncSeoState(page)") && str_contains($js, "robots.content = filtered ? 'noindex,follow'"), 'AJAX filter state updates robots/canonical hints');
 $assert(str_contains($template, 'Lọc và sắp xếp bác sĩ') && str_contains($template, 'aria-controls="doctorFilterOptions"'), 'Shortened filter control retains a complete accessible name and disclosure relationship');
 $assert(str_contains($js, "focus({preventScroll:true})") && str_contains($js, "doctor-enhanced"), 'Shortcut focuses its real location control and only shows with enhancement');
 $css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/doctor-directory.css');

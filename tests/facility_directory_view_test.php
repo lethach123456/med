@@ -39,6 +39,7 @@ $assert(facility_directory_pagination('/co-so-y-te', [], 1, 1, 'vi') === '', 'Si
 $pager = facility_directory_pagination('/co-so-y-te', ['city' => 'Đà Nẵng', 'sort' => 'recommended'], 2, 36, 'vi');
 $assert(str_contains($pager, 'aria-current="page"') && str_contains($pager, 'data-page="36"'), 'Current and boundary pages rendered');
 $assert(str_contains($pager, 'city=') && !str_contains($pager, 'sort=recommended'), 'Pagination preserves meaningful filters');
+$assert(facility_directory_page_url('/co-so-y-te', [], 2) === '/co-so-y-te?page=2', 'Unfiltered facility pages have distinct canonicalizable URLs');
 $assert(str_contains(facility_directory_pagination('/en/co-so-y-te', [], 1, 2, 'en'), 'Next page'), 'English pagination');
 
 // Render the public template with isolated fixtures, never the DB-backed page controller.
