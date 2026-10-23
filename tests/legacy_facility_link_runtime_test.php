@@ -27,7 +27,7 @@ $assert(handbook_ai_media_link($legacy) === 'https://medreview.vn/co-so-y-te/nha
 $assert(handbook_ai_media_link('https://other.example' . $legacy) === 'https://other.example' . $legacy, 'Article receiver leaves external source URL unchanged');
 $doctor = medical_doctor_sanitize_html($article);
 $assert(str_contains($doctor, 'href="https://medreview.vn/co-so-y-te/nha-khoa-mau#gioi-thieu"'), 'Doctor HTML keeps relative legacy facility anchor as safe canonical absolute URL');
-$assert(str_contains($doctor, 'nofollow') && !str_contains($doctor, 'class="ref"'), 'Doctor sanitizer still enforces existing allowlist');
+$assert(!str_contains($doctor, 'nofollow') && str_contains($doctor, 'rel="noopener noreferrer"') && !str_contains($doctor, 'class="ref"'), 'Doctor sanitizer preserves followable safe link and existing allowlist');
 $toplist = medical_toplist_detail_html($article);
 $assert(str_contains($toplist, 'href="https://medreview.vn/co-so-y-te/nha-khoa-mau#gioi-thieu"'), 'Doctor/mixed Toplist HTML also keeps normalized internal link');
 

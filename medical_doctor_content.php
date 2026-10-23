@@ -386,7 +386,7 @@ function medical_doctor_sanitize_html(string $html): string
                 if ($canonicalHref !== $href && str_starts_with($canonicalHref, '/')) $canonicalHref = site_absolute_url($canonicalHref);
                 $href = $canonicalHref;
                 try { $url = medical_doctor_http_url($href); } catch (InvalidArgumentException $e) { $url = null; }
-                if ($url !== null) { $child->setAttribute('href', $url); $child->setAttribute('rel', 'nofollow noopener noreferrer'); }
+                if ($url !== null) { $child->setAttribute('href', $url); $child->setAttribute('rel', 'noopener noreferrer'); }
             }
         }
     };

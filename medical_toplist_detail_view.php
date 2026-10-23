@@ -98,7 +98,7 @@ function medical_toplist_detail_html(string $html): string
                 $child->setAttribute('src', $image); $child->setAttribute('alt', $alt);
                 $child->setAttribute('loading', 'lazy'); $child->setAttribute('decoding', 'async');
             }
-            if ($href !== '') { $child->setAttribute('href', $href); $child->setAttribute('rel', 'nofollow noopener noreferrer'); }
+            if ($href !== '') { $child->setAttribute('href', $href); $child->setAttribute('rel', 'noopener noreferrer'); }
             foreach ($span as $key=>$value) $child->setAttribute($key, $value);
         }
     };

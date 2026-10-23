@@ -147,7 +147,7 @@ function medical_review_articles_sanitize_html(string $html): string
                 catch (InvalidArgumentException) { $href = ''; }
                 if ($href !== '') {
                     $child->setAttribute('href', $href);
-                    $child->setAttribute('rel', 'nofollow noopener noreferrer');
+                    $child->setAttribute('rel', 'noopener noreferrer');
                 }
             }
         }

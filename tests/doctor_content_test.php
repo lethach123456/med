@@ -31,7 +31,7 @@ foreach (['verified', 'rating', 'reviews_count', 'language_code', 'translation_o
 $html = medical_doctor_sanitize_html('<script>alert(1)</script><p onclick="evil()" style="color:red">Safe <a href="javascript:evil()">link</a><iframe src="https://evil.test"></iframe></p>');
 $assert(!str_contains($html, 'script') && !str_contains($html, 'alert') && !str_contains($html, 'onclick') && !str_contains($html, 'iframe') && !str_contains($html, 'javascript'), 'active HTML removed');
 $assert(str_contains($html, '<p>Safe'), 'safe HTML retained');
-$assert(str_contains(medical_doctor_sanitize_html('<a href="https://example.org">x</a>'), 'nofollow'), 'links hardened');
+$assert(str_contains(medical_doctor_sanitize_html('<a href="https://example.org">x</a>'), 'rel="noopener noreferrer"') && !str_contains(medical_doctor_sanitize_html('<a href="https://example.org">x</a>'), 'nofollow'), 'external links stay followable and safe for new tabs');
 foreach (['javascript:alert(1)', '[site](https://example.org)', 'https://user:password@example.org', 'data:text/html,x'] as $url) $reject(fn() => medical_doctor_http_url($url), 'unsafe URL');
 $assert(medical_doctor_http_url(null) === null, 'unknown URL remains null');
 foreach ([[], ['url' => 'https://example.org'], 123, false] as $badUrl) {

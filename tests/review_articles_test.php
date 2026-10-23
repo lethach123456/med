@@ -141,7 +141,7 @@ $assert(strlen($revision) === 64, 'Source revision uses full SHA-256');
 $html = '<h2 onclick="bad()">Phân tích</h2><p style="color:red">Nội dung<script>alert(1)</script><img src="https://evil.test/a" onerror="bad()"><svg><script>bad()</script></svg></p><a href="javascript:alert(1)">Xấu</a><a href="https://clinic.example/about">Nguồn</a>';
 $safe = medical_review_articles_sanitize_html($html);
 foreach (['onclick','style=','<script','<img','<svg','javascript:','alert(1)'] as $bad) $assert(!str_contains($safe, $bad), 'HTML sanitizer removes ' . $bad);
-$assert(str_contains($safe, '<h2>') && str_contains($safe, 'nofollow noopener noreferrer'), 'Reading structure and safe sourced link preserved');
+$assert(str_contains($safe, '<h2>') && str_contains($safe, 'noopener noreferrer') && !str_contains($safe, 'nofollow'), 'Reading structure and followable safe sourced link preserved');
 $validArticle = ['title' => 'Review Nha khoa A: phân tích thông tin và trải nghiệm','excerpt' => 'Phân tích có nguồn và giới hạn của dữ liệu, không thay thế tư vấn chuyên môn.',
     'verdict' => 'Nên đối chiếu dịch vụ, chi phí và lịch hẹn trực tiếp với cơ sở.', 'content_html' => '<h2>Tổng quan</h2><p>' . str_repeat('Bài viết phân tích thông tin công khai và trải nghiệm được ghi nhận, không khẳng định hiệu quả điều trị. ', 8) . '</p>',
     'strengths_json' => ['Thông tin địa chỉ rõ ràng.'],'considerations_json' => ['Cần xác nhận chi phí trực tiếp.'],'suitable_for_json' => ['Người muốn tham khảo thông tin trước khi liên hệ.'],

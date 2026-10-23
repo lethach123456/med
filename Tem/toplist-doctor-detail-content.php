@@ -198,7 +198,7 @@ $tdFactIcons = ['specialty' => 'specialty', 'workplace' => 'building', 'address'
             <?php endif; ?>
             <?php if ($member['sources'] !== []): ?>
             <details class="td-sources"><summary><?= $tdEscape($tdLabels['sources']) ?> <span><?= count($member['sources']) ?></span><?= $tdIcon('chevron') ?></summary><ul>
-              <?php foreach ($member['sources'] as $source): ?><li><a href="<?= $tdEscape($source['url']) ?>" target="_blank" rel="nofollow noopener noreferrer"><?= $tdEscape($source['title']) ?></a></li><?php endforeach; ?>
+              <?php foreach ($member['sources'] as $source): ?><li><a href="<?= $tdEscape($source['url']) ?>" target="_blank" rel="noopener noreferrer"><?= $tdEscape($source['title']) ?></a></li><?php endforeach; ?>
             </ul></details>
             <?php endif; ?>
 

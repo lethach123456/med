@@ -23,7 +23,7 @@ foreach ($doctorResearchLabels as $field => $label):
       <p><strong><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></strong>
         <?php if ($parts !== []): ?><br><?php echo htmlspecialchars(implode(' · ', $parts), ENT_QUOTES, 'UTF-8'); ?><?php endif; ?>
         <?php $url = null; try { $url = medical_doctor_http_url($entry['url'] ?? $entry['website_url'] ?? null); } catch (InvalidArgumentException $e) {} ?>
-        <?php if ($url): ?><br><a href="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="nofollow noopener noreferrer"><?php echo htmlspecialchars((string) ($entry['publisher'] ?? parse_url($url, PHP_URL_HOST)), ENT_QUOTES, 'UTF-8'); ?></a><?php endif; ?>
+        <?php if ($url): ?><br><a href="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars((string) ($entry['publisher'] ?? parse_url($url, PHP_URL_HOST)), ENT_QUOTES, 'UTF-8'); ?></a><?php endif; ?>
       </p>
     <?php endforeach; ?>
     <?php if ($field === 'sources_json' && !empty($doctor['last_researched_at'])): ?>
