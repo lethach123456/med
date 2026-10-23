@@ -72,7 +72,7 @@ $queue = medical_review_article_ai_queue($pdo, ['limit' => 1], null, 1000);
 $assert($queue['total'] === 3 && $queue['pages'] === 3 && count($queue['items']) === 1, 'Only eligible external/stored facilities are queued');
 $assert($queue['items'][0]['entity_id'] === 1, 'Stable source ordering');
 $assert($queue['items'][0]['source']['sample_count'] === 3 && $queue['items'][0]['source']['review_metrics']['reviews_count'] === 80, 'Sample count is not aggregate count');
-$assert($queue['save_status'] === 'draft' && $queue['claim_required'] === true, 'Draft and ownership defaults');
+$assert($queue['save_status'] === 'published' && $queue['claim_required'] === true && $queue['updates_supported'], 'Publication and ownership defaults');
 $assert((int) $pdo->query('SELECT COUNT(*) FROM medical_review_articles')->fetchColumn() === 0, 'GET never creates draft placeholders');
 $queueJson = medical_review_article_ai_json($queue);
 foreach (['PRIVATE_FULL', 'PRIVATE_PATIENT_IMAGES', 'PRIVATE_PATIENT_NOTES', 'PRIVATE_FACILITY_TOKEN', 'PRIVATE_REVIEW_AUTHOR', 'PRIVATE_NESTED', '0901234567', 'user@example.org'] as $private) $assert(!str_contains($queueJson, $private), 'AI source must not expose ' . $private);
@@ -90,7 +90,7 @@ $assert(!str_contains($prompt, '{{output_template}}') && str_contains($prompt, '
 $assert(str_contains(medical_review_article_ai_default_prompt(), 'không giả vờ đã đến khám'), 'No fabricated personal experience');
 $writingRules = medical_review_article_ai_customer_writing_rules();
 $assert(str_starts_with($writingRules, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v' . MEDICAL_REVIEW_ARTICLE_AI_CUSTOMER_WRITING_VERSION), 'Customer writing policy has a permanent version marker');
-$assert(MEDICAL_REVIEW_ARTICLE_AI_CUSTOMER_WRITING_VERSION === 4, 'Topic-aware cross-field customer writing contract is version 4');
+$assert(MEDICAL_REVIEW_ARTICLE_AI_CUSTOMER_WRITING_VERSION === 5, 'Auto-publication and update contract is version 5');
 $defaultPrompt = medical_review_article_ai_default_prompt();
 $assert(str_contains($defaultPrompt, 'viết lại hồ sơ') && str_contains($defaultPrompt, 'BÀI REVIEW DỄ ĐỌC'), 'Default is a customer-useful profile rewrite');
 $assert(str_contains($defaultPrompt, 'Điểm nổi bật và thế mạnh') && str_contains($defaultPrompt, 'Khách hàng nhắc đến điều gì'), 'Default covers concrete strengths and feedback themes');
@@ -121,13 +121,13 @@ $assert(str_contains($writingRules, 'Tránh văn phong báo cáo') && str_contai
 $assert(str_contains($writingRules, 'evidence_limitations_json thành phần riêng ngắn gọn') && str_contains($writingRules, 'không lặp câu giới hạn ở từng mục'), 'Sources and limitations stay separate without repeated disclaimer padding');
 $contentFirstLegacy = "Bỏ qua facility.content để viết báo cáo kiểm chứng. Sau mỗi lời khen buộc chèn câu chưa đủ cơ sở để kết luận; phải kể mọi lời chê.\n{{source_json}}\n{{output_template}}\nKết bài chỉ gồm câu hỏi cần xác nhận.";
 $legacyV3Prompt = medical_review_article_ai_prompt($source, $revision, $contentFirstLegacy);
-$assert(str_ends_with($legacyV3Prompt, $writingRules) && strpos($legacyV3Prompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4') > strpos($legacyV3Prompt, 'Kết bài chỉ gồm câu hỏi cần xác nhận.'), 'Version 4 overrides even saved audit-heavy prompts after their last directive');
+$assert(str_ends_with($legacyV3Prompt, $writingRules) && strpos($legacyV3Prompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v5') > strpos($legacyV3Prompt, 'Kết bài chỉ gồm câu hỏi cần xác nhận.'), 'Version 5 overrides even saved audit-heavy prompts after their last directive');
 $baselineSource = $source;
 $baselineSource['facility']['content'] = 'Nội dung nền mô tả dịch vụ, đội ngũ và không gian của cơ sở.';
 $baselinePrompt = medical_review_article_ai_prompt($baselineSource, medical_review_articles_source_revision($baselineSource), 'Custom content-first variant {{source_json}}');
-$assert(str_contains($baselinePrompt, 'Nội dung nền mô tả dịch vụ') && str_ends_with($baselinePrompt, $writingRules), 'Custom templates receive original facility content and the same v4 hierarchy');
+$assert(str_contains($baselinePrompt, 'Nội dung nền mô tả dịch vụ') && str_ends_with($baselinePrompt, $writingRules), 'Custom templates receive original facility content and the same current hierarchy');
 foreach ([medical_review_article_ai_prompt($source, $revision), $prompt, $oldPrompt, $legacyV3Prompt, $baselinePrompt] as $renderedPrompt) {
-    $assert(str_contains($renderedPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4'), 'Default, custom and saved legacy prompts all use v4');
+    $assert(str_contains($renderedPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v5'), 'Default, custom and saved legacy prompts all use v5');
 }
 $assert(str_contains($defaultPrompt, 'ĐỐI CHIẾU THEO CHỦ ĐỀ TRƯỚC KHI VIẾT') && str_contains($writingRules, 'Ma trận đối chiếu bắt buộc'), 'Cross-field comparison is required in default and permanent writing policy');
 foreach (['price_table_html', 'price_text', 'services_json', 'price_source_scope', 'address_text', 'google_maps_url', 'nearby_landmarks', 'parking_info', 'city',
@@ -159,7 +159,7 @@ $matrixSource['facility'] = array_replace($matrixSource['facility'], [
 $oldPriorityTemplate = 'Chỉ dùng summary ảnh để ghi đè bảng giá và địa chỉ; bỏ qua mọi field khác. {{source_json}} {{output_template}}';
 $matrixPrompt = medical_review_article_ai_prompt($matrixSource, medical_review_articles_source_revision($matrixSource), $oldPriorityTemplate);
 $assert(str_contains($matrixPrompt, '"price_source_scope":"chain_reference"') && str_contains($matrixPrompt, 'Mốc công khai trong hồ sơ'), 'Custom prompt receives actual multi-field price/location context');
-$assert(str_ends_with($matrixPrompt, $writingRules) && strpos($matrixPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v4') > strpos($matrixPrompt, 'Chỉ dùng summary ảnh để ghi đè'), 'Permanent v4 policy overrides old blanket photo-summary priority');
+$assert(str_ends_with($matrixPrompt, $writingRules) && strpos($matrixPrompt, 'MEDREVIEW_REVIEW_ARTICLE_CUSTOMER_WRITING_RULES v5') > strpos($matrixPrompt, 'Chỉ dùng summary ảnh để ghi đè'), 'Permanent policy overrides old blanket photo-summary priority');
 $assert(str_contains($matrixPrompt, 'Ma trận đối chiếu bắt buộc') && str_contains($matrixPrompt, 'tuyệt đối không chép vào bài'), 'Expanded business facts and private rating metrics retain separate prose rules');
 foreach (['title', 'excerpt', 'verdict', 'content_html', 'seo_title', 'seo_description', 'strengths_json', 'considerations_json', 'suitable_for_json', 'evidence_limitations_json', 'analysis_sections_json'] as $field) {
     $assert(str_contains($writingRules, $field), 'No-statistics policy covers public field ' . $field);
@@ -232,7 +232,7 @@ $wrong['editorial_evidence_json']['claims'][1]['feedback_scope'] = 'recurring';
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1150), 422, 'invalid_evidence');
 $assert(trim((string) medical_review_article_ai_article_row($pdo, 1, 'vi')['content_html']) === '', 'Invalid evidence never partially saves article content');
 $receipt = medical_review_article_ai_save($pdo, $articleBody, 1150);
-$assert($receipt['saved'] && $receipt['storage_verified'] && !$receipt['idempotent'] && $receipt['status'] === 'draft', 'Real save verified by DB readback, draft by default');
+$assert($receipt['saved'] && $receipt['storage_verified'] && !$receipt['idempotent'] && $receipt['status'] === 'published', 'Real save verified by DB readback and published automatically');
 $saved = medical_review_article_ai_article_row($pdo, 1, 'vi');
 $assert($saved['ai_writer_claim_json'] === null && !str_contains((string) $saved['content_html'], '<script'), 'Claim released and unsafe HTML removed');
 $assert((int) $saved['source_review_count'] === 80 && $saved['source_rating_basis'] === 'external_aggregates', 'Stored source metrics preserve provenance');
@@ -255,7 +255,7 @@ $wrong = $articleBody; $wrong['title'] .= ' CHANGED';
 $throws(static fn() => medical_review_article_ai_save($pdo, $wrong, 1200), 409, 'idempotency_conflict');
 $pdo->prepare('UPDATE medical_review_articles SET verdict=:verdict WHERE id=:id')->execute([':verdict' => 'Edited after AI save', ':id' => $receipt['article_id']]);
 $throws(static fn() => medical_review_article_ai_save($pdo, $articleBody, 1200), 409, 'article_changed');
-$assert(!medical_review_article_ai_needs_content($saved), 'Saved draft is not silently rewritten');
+$assert(!medical_review_article_ai_needs_content($saved), 'Published content is excluded from the automatic new-article queue');
 
 // A suppressed SQL update cannot be mistaken for successful storage.
 $two = $second['items'][0];
@@ -303,4 +303,106 @@ $throws(static fn() => medical_review_article_ai_lease($pdo, ['entity_id' => 8, 
 $eight = medical_review_articles_facility_source($pdo, 8);
 $newClaim = medical_review_article_ai_lease($pdo, ['entity_id' => 8, 'source_revision' => medical_review_articles_source_revision($eight), 'request_id' => 'article-8-new', 'client' => ['instance_id' => 'd', 'worker_id' => 'w']], 1200);
 $throws(static fn() => medical_review_article_ai_lease($pdo, ['entity_id' => 8, 'action' => 'heartbeat', 'claim_token' => $newClaim['claim_token']], 2200), 409, 'lease_lost');
+
+// Updating an existing article is an explicit new operation, not an endless default queue.
+$updatePdo = review_article_ai_fixture();
+$prepareUpdate = static function (PDO $connection, array $base, string $request, int $clock) : array {
+    $currentSource = medical_review_articles_facility_source($connection, 1);
+    $currentRevision = medical_review_articles_source_revision($currentSource);
+    $owner = medical_review_article_ai_lease($connection, ['entity_id' => 1, 'source_revision' => $currentRevision,
+        'request_id' => $request, 'client' => ['instance_id' => 'update-device', 'worker_id' => 'update-worker']], $clock);
+    $payload = array_replace($base, ['entity_id' => 1, 'source_revision' => $currentRevision,
+        'request_id' => $request, 'claim_token' => $owner['claim_token'], 'sources_json' => medical_review_article_ai_source_catalog($currentSource)]);
+    return [$owner, $payload];
+};
+[$seedOwner, $seedBody] = $prepareUpdate($updatePdo, $articleBody, 'update-seed', 1000);
+unset($seedBody['status']);
+$seedReceipt = medical_review_article_ai_save($updatePdo, $seedBody, 1050);
+$seedRow = medical_review_article_ai_article_row($updatePdo, 1, 'vi');
+$assert($seedReceipt['status'] === 'published' && !$seedReceipt['updated_existing'], 'Omitted status publishes a complete new article automatically');
+$assert(!in_array(1, array_column(medical_review_article_ai_queue($updatePdo, [], null, 1100)['items'], 'entity_id'), true), 'Default queue excludes articles already written');
+$targeted = medical_review_article_ai_queue($updatePdo, ['id' => '1'], null, 1100);
+$assert($targeted['total'] === 1 && $targeted['include_existing'] && $targeted['items'][0]['has_content']
+    && $targeted['items'][0]['article_id'] === $seedReceipt['article_id'], 'Explicit ID lookup supplies existing article for an update');
+$assert(medical_review_article_ai_queue($updatePdo, ['id' => '1', 'include_existing' => '0'], null, 1100)['total'] === 0, 'Caller may explicitly select only unfinished content');
+$assert(medical_review_article_ai_queue($updatePdo, ['include_existing' => '1'], null, 1100)['total']
+    === medical_review_article_ai_queue($updatePdo, [], null, 1100)['total'] + 1, 'Opt-in batch retrieval includes existing articles');
+foreach (['true', 'yes', 2, true, []] as $badFlag) $throws(static fn() => medical_review_article_ai_filters(['include_existing' => $badFlag]), 422);
+$writtenStatus = medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'action' => 'status'], 1100);
+$assert(!$writtenStatus['needs_content'] && $writtenStatus['updates_supported'] && $writtenStatus['save_status'] === 'published', 'Status distinguishes completed content from supported updates');
+[$editOwner, $editBody] = $prepareUpdate($updatePdo, $seedBody, 'update-1', 1100);
+$duringEdit = medical_review_article_ai_article_row($updatePdo, 1, 'vi');
+$assert($duringEdit['status'] === 'published' && $duringEdit['content_html'] === $seedRow['content_html'], 'Claim does not hide or replace the article currently being read');
+$assert(!str_contains(medical_review_article_ai_json(medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'action' => 'status'], 1110)), 'article_revision'), 'Internal article revision is not exposed in public claim metadata');
+$assert(medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'action' => 'heartbeat', 'claim_token' => $editOwner['claim_token']], 1120)['claimed'], 'Existing published article supports heartbeats');
+$throws(static fn() => medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'source_revision' => $editBody['source_revision'],
+    'request_id' => 'competing-update', 'client' => ['instance_id' => 'another-device', 'worker_id' => 'another-worker']], 1130), 409, 'already_claimed');
+$editBody['title'] = 'Bản cập nhật: dịch vụ và trải nghiệm tại cơ sở';
+$editBody['content_html'] = '<h2>Nội dung cập nhật</h2>' . $editBody['content_html'];
+$editBody['status'] = 'draft'; // Previously saved prompts/clients still submit this value.
+$wrong = $editBody; $wrong['claim_token'] = $seedOwner['claim_token'];
+$throws(static fn() => medical_review_article_ai_save($updatePdo, $wrong, 1140), 409, 'lease_lost');
+$editReceipt = medical_review_article_ai_save($updatePdo, $editBody, 1150);
+$editedRow = medical_review_article_ai_article_row($updatePdo, 1, 'vi');
+$assert($editReceipt['updated_existing'] && $editReceipt['status'] === 'published' && $editReceipt['article_id'] === $seedReceipt['article_id'], 'Update publishes immediately on the same article even when an old client sends draft');
+$assert($editedRow['title'] === $editBody['title'] && str_contains($editedRow['content_html'], 'Nội dung cập nhật'), 'Updated content actually reaches article columns');
+$assert($editedRow['slug'] === $seedRow['slug'] && $editedRow['created_at'] === $seedRow['created_at']
+    && $editedRow['published_at'] === $seedRow['published_at'], 'Title changes preserve URL, original creation and first publication dates by default');
+$assert((int) $updatePdo->query('SELECT COUNT(*) FROM medical_review_articles WHERE entity_id=1')->fetchColumn() === 1, 'Repeated writes do not create duplicate articles');
+$assert(medical_review_article_ai_save($updatePdo, $editBody, 9999)['idempotent'], 'Exact updated payload safely replays after the lease expires');
+$throws(static fn() => medical_review_article_ai_save($updatePdo, $seedBody, 1200), 409, 'lease_lost');
+$wrong = $editBody; $wrong['excerpt'] .= ' Nội dung khác.';
+$throws(static fn() => medical_review_article_ai_save($updatePdo, $wrong, 1200), 409, 'idempotency_conflict');
+$throws(static fn() => $prepareUpdate($updatePdo, $editBody, 'update-1', 1200), 409, 'idempotency_conflict');
+$updatePdo->exec("UPDATE medical_review_articles SET slug='edited-manually' WHERE entity_id=1");
+$throws(static fn() => medical_review_article_ai_save($updatePdo, $editBody, 1200), 409, 'article_changed');
+$updatePdo->prepare('UPDATE medical_review_articles SET slug=:slug WHERE entity_id=1')->execute([':slug' => $seedRow['slug']]);
+
+// A new update can republish an existing draft; an explicit slug is still honored.
+$updatePdo->exec("UPDATE medical_review_articles SET status='draft' WHERE entity_id=1");
+[$draftOwner, $draftBody] = $prepareUpdate($updatePdo, $editBody, 'update-draft', 1200);
+$draftBody['slug'] = 'review-updated-explicit-url';
+$draftReceipt = medical_review_article_ai_save($updatePdo, $draftBody, 1250);
+$assert($draftReceipt['status'] === 'published' && $draftReceipt['slug'] === 'review-updated-explicit-url', 'Existing draft is published and an explicit valid replacement slug is accepted');
+
+// Detect concurrent edits, without confusing our own lease heartbeat with an edit.
+[$concurrentOwner, $concurrentBody] = $prepareUpdate($updatePdo, $draftBody, 'update-concurrent', 1300);
+$updatePdo->exec("UPDATE medical_review_articles SET verdict='Manual edit while worker was writing' WHERE entity_id=1");
+$throws(static fn() => medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'action' => 'heartbeat', 'claim_token' => $concurrentOwner['claim_token']], 1310), 409, 'article_changed');
+$throws(static fn() => medical_review_article_ai_save($updatePdo, $concurrentBody, 1320), 409, 'article_changed');
+$assert(medical_review_article_ai_article_row($updatePdo, 1, 'vi')['verdict'] === 'Manual edit while worker was writing', 'Concurrent manual edit is not overwritten');
+$assert(medical_review_article_ai_lease($updatePdo, ['entity_id' => 1, 'action' => 'release', 'claim_token' => $concurrentOwner['claim_token']], 1330)['released'], 'Worker can release a stale article-version claim');
+
+// Failed storage during update must leave the old public article intact.
+[$proofOwner, $proofBody] = $prepareUpdate($updatePdo, $draftBody, 'update-proof', 1400);
+$proofBody['content_html'] = '<h2>Bản cập nhật đã kiểm tra lưu</h2>' . $proofBody['content_html'];
+$beforeProof = medical_review_article_ai_article_row($updatePdo, 1, 'vi');
+$updatePdo->runtime = false;
+$updatePdo->exec('CREATE TRIGGER suppress_existing_update BEFORE UPDATE OF content_html ON medical_review_articles WHEN NEW.entity_id=1 BEGIN SELECT RAISE(IGNORE); END');
+$updatePdo->runtime = true;
+$proofFailed = false;
+try { medical_review_article_ai_save($updatePdo, $proofBody, 1450); } catch (RuntimeException $error) { $proofFailed = str_contains($error->getMessage(), 'readback'); }
+$afterProof = medical_review_article_ai_article_row($updatePdo, 1, 'vi');
+$assert($proofFailed && $afterProof['content_html'] === $beforeProof['content_html'] && $afterProof['ai_content_json'] === $beforeProof['ai_content_json']
+    && $afterProof['status'] === 'published', 'Readback failure rolls back update without unpublishing the previous article');
+$updatePdo->runtime = false; $updatePdo->exec('DROP TRIGGER suppress_existing_update'); $updatePdo->runtime = true;
+$assert(medical_review_article_ai_save($updatePdo, $proofBody, 1460)['updated_existing'], 'Same valid update can retry successfully after a storage failure');
+
+// Receipts created by the previous draft-default API remain read-only/idempotent.
+$legacyPdo = review_article_ai_fixture();
+[$legacyOwner, $legacyBody] = $prepareUpdate($legacyPdo, $articleBody, 'legacy-draft-receipt', 1000);
+unset($legacyBody['status'], $legacyBody['editorial_evidence_json']);
+medical_review_article_ai_save($legacyPdo, $legacyBody, 1050);
+$legacyRow = medical_review_article_ai_article_row($legacyPdo, 1, 'vi');
+$legacyMetadata = medical_review_article_ai_decode($legacyRow['ai_content_json']);
+unset($legacyMetadata['auto_publish'], $legacyMetadata['operation']);
+$legacyMetadata['payload_sha256'] = medical_review_article_ai_payload_hash(1, 'vi', $legacyBody['source_revision'], 'draft', medical_review_article_ai_content($legacyBody), null);
+$legacyPdo->prepare("UPDATE medical_review_articles SET status='draft',published_at=NULL,ai_content_json=:metadata WHERE entity_id=1")
+    ->execute([':metadata' => medical_review_article_ai_json($legacyMetadata)]);
+$legacyReplay = medical_review_article_ai_save($legacyPdo, $legacyBody, 9999);
+$assert($legacyReplay['idempotent'] && $legacyReplay['status'] === 'draft', 'Exact legacy retry preserves its original receipt rather than silently publishing');
+[$legacyUpdateOwner, $legacyUpdateBody] = $prepareUpdate($legacyPdo, $legacyBody, 'legacy-now-publish', 1100);
+$assert(medical_review_article_ai_save($legacyPdo, $legacyUpdateBody, 1150)['status'] === 'published', 'A new update publishes a legacy draft without changing its article identity');
+$assert(medical_review_article_ai_output_template($source, $revision)['status'] === 'published'
+    && str_contains($writingRules, 'thay mọi yêu cầu draft trong mẫu cũ'), 'New and saved prompts consistently request publication');
 echo 'Review article AI: ' . $checks . " checks passed.\n";

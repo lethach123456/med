@@ -152,8 +152,40 @@ function review_articles_view_toc(array $article, array $sections, string $local
         $toc[] = ['id' => 'review-observations', 'title' => review_articles_view_text('Điểm nổi bật & cần cân nhắc', 'Strengths & considerations', $locale)];
     }
     if (review_articles_view_list($article['suitable_for_json'] ?? []) !== []) $toc[] = ['id' => 'review-suitability', 'title' => review_articles_view_text('Phù hợp với nhu cầu nào?', 'Who may find it useful?', $locale)];
-    $toc[] = ['id' => 'review-sources', 'title' => review_articles_view_text('Nguồn & giới hạn dữ liệu', 'Sources & limitations', $locale)];
     return $toc;
+}
+
+/** Only explicitly consented customer media may cross into the public reading page. */
+function review_articles_view_customer_images(mixed $value): array
+{
+    require_once __DIR__ . '/medical_patient_images.php';
+    if (is_string($value)) $value = strlen($value) <= 1048576 ? json_decode($value, true, 32) : null;
+    if (!is_array($value) || !array_is_list($value)) return [];
+    $images = []; $seen = [];
+    foreach (array_slice($value, 0, 100) as $item) {
+        if (!is_array($item) || ($item['consent_confirmed'] ?? false) !== true) continue;
+        try { $url = medical_patient_images_url($item['url'] ?? null, 'url'); }
+        catch (InvalidArgumentException) { continue; }
+        $key = preg_replace('/#.*$/s', '', $url);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $images[] = ['url' => $url,
+            'alt' => review_articles_view_string($item['alt'] ?? '', 500),
+            'caption' => review_articles_view_string($item['caption'] ?? '', 500)];
+        if (count($images) >= 24) break;
+    }
+    return $images;
+}
+
+/** Detail-only SELECT: never add patient metadata to AI sources, lists or snapshots. */
+function review_articles_view_load_customer_images(PDO $pdo, int $facilityId, string $locale): array
+{
+    require_once __DIR__ . '/medical_patient_images.php';
+    if ($facilityId <= 0 || !medical_patient_images_has_column($pdo, 'facility')) return [];
+    $query = $pdo->prepare("SELECT patient_images_json FROM medical_facilities WHERE id=:id AND status='published'
+        AND COALESCE(NULLIF(LOWER(TRIM(language_code)),''),'vi')=:locale LIMIT 1");
+    $query->execute([':id' => $facilityId, ':locale' => $locale === 'en' ? 'en' : 'vi']);
+    return review_articles_view_customer_images($query->fetchColumn());
 }
 
 function review_articles_view_toc_html(array $toc): string

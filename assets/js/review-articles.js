@@ -3,6 +3,51 @@
   var page = document.querySelector('[data-review-articles]');
   if (!page) return;
 
+  var photos = Array.from(page.querySelectorAll('[data-review-photo]'));
+  var photoDialog = page.querySelector('[data-review-photo-dialog]');
+  if (photos.length && photoDialog && typeof photoDialog.showModal === 'function') {
+    var photoIndex = 0;
+    var photoTrigger = null;
+    var photoImage = photoDialog.querySelector('[data-review-photo-image]');
+    var oldOverflow = '';
+    var showPhoto = function (index) {
+      photoIndex = (index + photos.length) % photos.length;
+      var photo = photos[photoIndex];
+      photoImage.src = photo.href;
+      photoImage.alt = photo.querySelector('img').alt;
+      photoDialog.querySelector('[data-review-photo-caption]').textContent = photo.dataset.caption || '';
+      photoDialog.querySelector('[data-review-photo-counter]').textContent = (photoIndex + 1) + ' / ' + photos.length;
+    };
+    photos.forEach(function (photo, index) {
+      photo.addEventListener('click', function (event) {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault();
+        photoTrigger = photo;
+        showPhoto(index);
+        oldOverflow = document.body.style.overflow;
+        photoDialog.showModal();
+        document.body.style.overflow = 'hidden';
+      });
+    });
+    photoDialog.querySelector('[data-review-photo-close]').addEventListener('click', function () { photoDialog.close(); });
+    photoDialog.querySelector('[data-review-photo-prev]').addEventListener('click', function () { showPhoto(photoIndex - 1); });
+    photoDialog.querySelector('[data-review-photo-next]').addEventListener('click', function () { showPhoto(photoIndex + 1); });
+    photoDialog.querySelector('[data-review-photo-prev]').hidden = photos.length < 2;
+    photoDialog.querySelector('[data-review-photo-next]').hidden = photos.length < 2;
+    photoDialog.addEventListener('keydown', function (event) {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        showPhoto(photoIndex + (event.key === 'ArrowLeft' ? -1 : 1));
+      }
+    });
+    photoDialog.addEventListener('click', function (event) { if (event.target === photoDialog) photoDialog.close(); });
+    photoDialog.addEventListener('close', function () {
+      document.body.style.overflow = oldOverflow;
+      photoImage.removeAttribute('src');
+      if (photoTrigger) photoTrigger.focus();
+    });
+  }
+
   // A native details disclosure remains usable with JavaScript disabled.
   var filters = page.querySelector('[data-review-article-filters]');
   if (filters) {

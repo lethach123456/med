@@ -20,6 +20,7 @@ if ($type === 'review_article') {
         $resolved = medical_directory_resolve_ai_prompt($pdo, 'review_article', (string) ($source['facility']['category'] ?? ''), (string) $source['language_code']);
         $revision = medical_review_articles_source_revision($source);
         json_response(['ok' => true, 'type' => 'review_article', 'entity_id' => $id,
+            'save_status' => 'published', 'updates_supported' => true,
             'source_revision' => $revision, 'label' => $resolved['label'] ?: 'Viết bài review phân tích cơ sở',
             'prompt_source' => $resolved['source'], 'prompt_variant_id' => $resolved['variant_id'],
             'evidence_catalog' => medical_review_article_evidence_catalog($source),

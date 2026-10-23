@@ -17,16 +17,25 @@ php scripts/migrate_review_articles.php --apply
 
 `GET /api/medical/review-articles-needing-content.php?language=vi&page=1&limit=10`
 
-Bộ lọc tùy chọn: `language=vi|en`, `id=393`, hoặc `ids=393,394` (tối đa 25 ID), `limit=1..25`. ID là **ID cơ sở**, không phải ID bài review. GET chỉ đọc, không tự tạo bản nháp hoặc nhận quyền viết.
+Bộ lọc tùy chọn: `language=vi|en`, `id=393`, hoặc `ids=393,394` (tối đa 25 ID), `limit=1..25`, `include_existing=0|1`. ID là **ID cơ sở**, không phải ID bài review. GET chỉ đọc, không tự tạo bản nháp hoặc nhận quyền viết.
+
+Hàng đợi không lọc ID mặc định chỉ lấy bài chưa có nội dung, tránh viết lại liên
+tục. Khi chỉ định `id`/`ids`, mặc định lấy cả bài đã có nội dung để cập nhật;
+có thể gửi `include_existing=0` để chỉ lấy bài chưa viết. Muốn lấy cả bài cũ
+trong một lô không lọc ID, dùng `include_existing=1` một cách chủ động.
 
 Điều kiện:
 
 - Cơ sở đang xuất bản, đúng ngôn ngữ.
 - Hơn 40 đánh giá từ nguồn tổng hợp hợp lệ đã phân loại **hoặc** hơn 40 bản ghi đánh giá đã xuất bản trong hệ thống. Không dùng bộ đếm legacy chưa rõ nguồn.
 - `facility_insights_json` hợp lệ và có nội dung phân tích, không chỉ `{}`/thông tin phiên bản.
-- Chưa có bài viết có nội dung hoặc bài đã xuất bản; chưa có tác vụ khác giữ quyền còn hạn.
+- Chưa có tác vụ khác giữ quyền còn hạn. Điều kiện đã có nội dung chỉ áp dụng
+  cho hàng đợi mặc định, không chặn lượt cập nhật được chọn chủ động.
 
 Mỗi item trả `entity_id`, `language_code`, `source_revision`, `source`, `evidence_catalog`, `prompt`, `output_template`; hỗ trợ prompt `review_article` tùy biến trong admin theo danh mục/ngôn ngữ. Prompt tùy biến có thể đặt `{{evidence_catalog}}`; nếu bỏ, API vẫn bổ sung danh mục và quy tắc đối chiếu ở cuối.
+
+Thông tin cập nhật gồm `article_id`, `article_status`, `has_content` trong item;
+response có `updates_supported:true` và `save_status:"published"`.
 
 Nguồn AI gồm dữ liệu kinh doanh công khai, số đánh giá được chuẩn hóa, mẫu phản hồi đã bỏ tác giả/che thông tin liên hệ và phân tích `facility_insights_json`. Không gửi `full_json`, ảnh/ghi chú bệnh nhân, token, claim hoặc ghi chú riêng. Việc che thông tin không bảo đảm văn bản tự do hoàn toàn vô danh; prompt chỉ cho phép tổng hợp chủ đề, không lặp lại chi tiết nhận diện cá nhân.
 
@@ -156,7 +165,12 @@ giới hạn thông tin giữ ngắn ở phần riêng, không lặp trong từn
 }
 ```
 
-Lưu `claim_token` ngay trong tiện ích, **không đưa vào prompt**. DB chỉ giữ hash của token. Claim tạo bản nháp trống một lần, khóa theo cơ sở + ngôn ngữ; không thay đổi hồ sơ nguồn. Giữ quyền 900 giây, heartbeat mỗi 60 giây. Không dùng `request_id` của tác vụ cũ cho dữ liệu khác.
+Lưu `claim_token` ngay trong tiện ích, **không đưa vào prompt**. DB chỉ giữ hash của token. Với bài mới, claim tạo bản nháp trống nội bộ một lần; với bài đã có, claim giữ nguyên nội dung, trạng thái và URL để người dùng tiếp tục đọc. Khóa theo cơ sở + ngôn ngữ; không thay đổi hồ sơ nguồn. Giữ quyền 900 giây, heartbeat mỗi 60 giây. Mỗi lượt cập nhật phải có `request_id` mới; không dùng lại request đã lưu.
+
+Server giữ phiên bản nội dung bài tại thời điểm claim. Heartbeat không làm
+đổi phiên bản này. Nếu bài được biên tập trong lúc AI viết, heartbeat/POST trả
+`article_changed`; không ghi đè phần đã sửa. Trả quyền cũ, tải lại và claim mới
+để tiếp tục cập nhật theo phiên bản hiện tại.
 
 Các thao tác cùng endpoint:
 
@@ -182,7 +196,7 @@ AI trả một object trong một khối mã `json`. Tiện ích ghép `request_
   "source_revision": "SHA256_64_KY_TU_TU_GET",
   "claim_token": "TOKEN_DA_NHAN",
   "request_id": "unique-operation-393-20261022",
-  "status": "draft",
+  "status": "published",
   "title": "Review tên cơ sở: dịch vụ, tín hiệu đánh giá và điều cần cân nhắc",
   "excerpt": "Tóm tắt trung lập dựa trên dữ liệu công khai hiện có.",
   "verdict": "Kết luận cân bằng, không bảo đảm kết quả điều trị.",
@@ -285,13 +299,47 @@ nguyên như những nội dung khác của payload.
 Kiểm tra tham chiếu chỉ xác nhận cấu trúc, ID nguồn có tồn tại và điều kiện
 tham chiếu cho phản hồi đơn lẻ/lặp lại. Nó **không tự chứng minh** câu viết
 được nguồn hỗ trợ về ngữ nghĩa, các nguồn độc lập với nhau hoặc thông tin là
-đúng về mặt y khoa. Phần đối chiếu không làm tăng nhãn xác thực và không tự
-cho phép xuất bản. Biên tập viên vẫn cần đọc lại bài và các nguồn trước khi
-công khai; cơ chế trạng thái bên dưới không thay đổi.
+đúng về mặt y khoa. Phần đối chiếu không làm tăng nhãn xác thực; việc API xuất
+bản tự động bên dưới không đồng nghĩa nội dung đã được xác minh chuyên môn.
 
-Mặc định lưu **draft** để biên tập viên duyệt trong admin. Chỉ khi chủ API chủ động gửi `status:"published"` mới xuất bản; không coi AI tự viết là đã được duyệt. API kiểm tra quyền + revision, lưu toàn bộ bài viết và snapshot nguồn riêng trong giao dịch, đọc lại các cột để xác nhận trước khi trả `saved:true, storage_verified:true`. Đây là xác nhận lưu DB, không phải xác nhận chất lượng y khoa.
+Mỗi lượt lưu mới qua API, gồm **tạo bài và cập nhật bài đã có nội dung**, tự
+chuyển sang **published** sau khi kiểm tra và lưu thành công. Có thể bỏ `status`
+hoặc gửi `published`; để tương thích, payload từ mẫu cũ gửi `draft` vẫn được
+nhận nhưng cũng xuất bản. API không dùng trường này để đưa bài về nháp hoặc
+ẩn bài; nếu cần thao tác đó, dùng admin.
 
-Gửi lại đúng request/token/payload trả `idempotent:true`, không tạo bài mới. Dữ liệu khác dùng lại request ID báo 409; bản thảo đã được biên tập sau lần gửi đầu không bị ghi đè. Khi đã có nội dung, API không dùng tác vụ mới để ghi đè bài; chỉnh sửa trong admin.
+API cập nhật trên cùng `article_id`, không tạo bài trùng. Khi cập nhật, bỏ
+`slug` hoặc để chuỗi rỗng sẽ giữ URL cũ; chỉ đổi URL nếu gửi slug hợp lệ khác.
+Giữ `created_at` và mốc `published_at` đầu tiên nếu đã có; bài chưa từng đăng
+được gán mốc xuất bản khi lưu. Chọn cập nhật bài đang lưu trữ (`archived`) cũng
+là yêu cầu đăng lại bài đó sau khi lưu thành công.
+
+API kiểm tra quyền, source revision và phiên bản bài, lưu toàn bộ nội dung cùng
+snapshot/metadata trong giao dịch, đọc lại các cột trước khi trả
+`saved:true, storage_verified:true, status:"published"`. Receipt có
+`updated_existing:true` nếu thay nội dung bài cũ. Đây là xác nhận lưu DB và
+trạng thái đăng, không phải xác nhận chất lượng y khoa. Nếu kiểm tra hoặc lưu
+thất bại, bản đang đăng trước đó không bị thay thế hoặc đưa về nháp.
+
+Gửi lại đúng request/token/payload của lượt gần nhất trả `idempotent:true`, không
+ghi lại bài. Để thay đổi nội dung, GET theo ID, claim với `request_id` mới rồi
+POST bản hoàn chỉnh. Gửi payload khác bằng request đã dùng báo 409. Receipt cũ
+được tạo dưới cơ chế lưu nháp vẫn giữ kết quả cũ khi retry nguyên request; muốn
+đăng/cập nhật bài đó thì tạo lượt claim mới. Retry cũ không ghi đè nội dung đã
+được biên tập sau lần gửi trước.
+
+## Ảnh khách hàng trên trang bài review
+
+Gallery đọc riêng từ `medical_facilities.patient_images_json` của cơ sở đã
+xuất bản, đúng ngôn ngữ. `facility_insights_json` là dữ liệu phân tích, không
+phải thư viện ảnh khách. Chỉ ảnh có `consent_confirmed: true` được hiển thị;
+thiếu xác nhận hoặc `false` thì ẩn. Việc công khai trên mạng xã hội không tự
+được coi là sự đồng ý công khai ảnh bệnh nhân trên MedReview.
+
+Không có ảnh được xác nhận thì không hiện khối rỗng. Gallery không đưa ghi chú
+nội bộ, URL nguồn hay trạng thái riêng vào HTML, AI prompt, snapshot hoặc danh
+sách bài viết. Khối nguồn/giới hạn được ẩn trên giao diện đọc; dữ liệu căn cứ
+vẫn được lưu nội bộ, không bị xóa khỏi DB khi thay đổi giao diện.
 
 ## Mã lỗi cần xử lý
 
@@ -301,7 +349,7 @@ Gửi lại đúng request/token/payload trả `idempotent:true`, không tạo b
 | 409 | already_claimed | Worker khác đang giữ bài; không tự chiếm. |
 | 409 | lease_lost | Kiểm tra trạng thái, nhận quyền lại rồi đối chiếu nguồn. |
 | 409 | source_revision_changed | Lấy và nghiên cứu nguồn mới. |
-| 409 | already_written / article_changed | Bài đã có nội dung/đã được biên tập; không gửi đè. |
+| 409 | article_changed | Bài đã được sửa sau khi claim; trả quyền cũ, tải lại và nhận quyền mới. |
 | 409 | idempotency_conflict | Không tái sử dụng request ID với dữ liệu khác. |
 | 422 | unknown_source / invalid_payload / invalid_evidence | Sửa JSON/nguồn hoặc bản ghi bằng chứng theo danh mục và hợp đồng. |
 | 503 | schema_unavailable | Chạy migration riêng trên đúng DB; tiện ích không tự migration. |

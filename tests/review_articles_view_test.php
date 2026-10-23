@@ -50,7 +50,7 @@ $check(count($sections) === 1 && $sections[0]['id'] === 'review-analysis-1', 'Se
 $check(!str_contains($sections[0]['content_html'], '<script'), 'Section HTML is sanitized.');
 $check(count($sections[0]['sources']) === 1 && $sections[0]['sources'][0]['anchor'] === 'review-source-1', 'Section citations reference valid deduplicated known sources only.');
 $toc = review_articles_view_toc($fixture, $sections, 'vi');
-$check(array_column($toc, 'id') === ['review-overview', 'review-analysis-1', 'review-observations', 'review-suitability', 'review-sources'], 'TOC maps exactly to rendered editorial sections.');
+$check(array_column($toc, 'id') === ['review-overview', 'review-analysis-1', 'review-observations', 'review-suitability'], 'TOC omits hidden sources and maps to rendered sections.');
 $tocHtml = review_articles_view_toc_html($toc);
 $check(str_contains($tocHtml, 'Dịch vụ &amp; cơ sở vật chất') && !str_contains($tocHtml, 'onclick'), 'TOC labels and anchors are escaped.');
 $fallback = $fixture; $fallback['analysis_sections_json'] = [];
@@ -86,26 +86,57 @@ $check(str_contains($renderDirectory([], false, 'vi', ['q' => '<img src=x>']), '
 $check(str_contains($renderDirectory([], true), 'Chưa tải được các bài review'), 'Unavailable state is not misrepresented as no content.');
 $check(str_contains($renderDirectory([], false, 'en'), 'New perspectives are on the way') && !str_contains($renderDirectory([], false, 'en'), 'Những góc nhìn'), 'English empty list copy is localized.');
 
-$renderDetail = static function (array $article): string {
+$renderDetail = static function (array $article, array $photos = []): string {
     $locale = 'vi'; $isEnglish = false; $e = 'review_articles_view_escape';
+    $reviewArticleCustomerImages = $photos;
     $reviewArticle = $article; $reviewArticleFacility = $article['facility']; $reviewArticleImage = '';
     $reviewArticleSections = review_articles_view_sections($article, $locale); $reviewArticleToc = review_articles_view_toc($article, $reviewArticleSections, $locale); $reviewArticleRelated = [];
     ob_start(); require dirname(__DIR__) . '/Tem/review-article.php'; return (string) ob_get_clean();
 };
 $detail = $renderDetail($fixture);
 $check(str_contains($detail, 'Nội dung phân tích duy nhất.') && !str_contains($detail, 'PHẦN DỰ PHÒNG KHÔNG HIỂN THỊ LẶP'), 'Structured body replaces fallback HTML, preventing duplicate prose.');
-$check(str_contains($detail, 'Phân tích có hỗ trợ AI') && str_contains($detail, 'không phải trải nghiệm khám trực tiếp'), 'Editorial provenance does not pretend to be a patient visit.');
+$check(!str_contains($detail, 'Phân tích có hỗ trợ AI') && str_contains($detail, 'Review & đánh giá'), 'Detail uses requested review label without AI badge.');
 $check(!str_contains($detail, '1.248') && !str_contains($detail, '1248') && !str_contains($detail, '4.5 / 5'), 'Internal source counts and scores never appear in the customer article.');
 $check(!str_contains($detail, 'Điểm ghi nhận') && !str_contains($detail, 'Đánh giá tổng hợp') && !str_contains($detail, 'Review trên MedReview') && !str_contains($detail, 'ra-facility-facts'), 'Facility sidebar has no rating or review-count panel.');
 $check(str_contains($detail, 'Dịch vụ &amp; cơ sở vật chất') && str_contains($detail, 'Điểm nổi bật') && str_contains($detail, 'Điều cần cân nhắc') && str_contains($detail, 'Phù hợp với nhu cầu nào?'), 'Qualitative review sections remain the focus for customers.');
-$check(str_contains($detail, 'Bài viết tổng hợp thông tin từ hồ sơ cơ sở, nhận xét công khai') && !str_contains($detail, 'dữ liệu đánh giá được ghi nhận'), 'Methodology is concise, natural and not a statistics report.');
+$check(!str_contains($detail, 'ra-method') && str_contains($detail, 'Review & Đánh giá cơ sở'), 'Sidebar is renamed and methodology is hidden.');
 $check(str_contains($detail, '/co-so-y-te/co-so-test') && str_contains($detail, 'Xem hồ sơ cơ sở'), 'Article links directly to canonical facility profile.');
-$check(str_contains($detail, 'noopener noreferrer') && str_contains($detail, 'Giới thiệu &lt;cơ sở&gt;') && !str_contains($detail, 'javascript:'), 'Sources open safely with escaped labels and valid URLs only.');
-$check(str_contains($detail, 'href="#review-source-1"') && str_contains($detail, 'id="review-source-1"') && str_contains($detail, 'Nguồn đối chiếu:'), 'Readers can trace an analysis section to its exact cited source.');
-$check(str_contains($detail, 'Không đánh giá kết quả điều trị lâm sàng.') && str_contains($detail, '21/10/2026'), 'Limitations and actual research date are visible.');
+$check(!str_contains($detail, 'javascript:') && !str_contains($detail, 'Nguồn & giới hạn dữ liệu'), 'Hidden source section is not rendered.');
+$check(!str_contains($detail, 'href="#review-source-1"') && !str_contains($detail, 'Nguồn đối chiếu:'), 'Hidden sources leave no broken citation navigation.');
+$check(str_contains($detail, 'không thay thế tư vấn y khoa'), 'General medical disclaimer is retained.');
 $check(substr_count($detail, 'id="review-analysis-1"') === 1 && str_contains($detail, 'href="#review-analysis-1"'), 'TOC section target is unique despite desktop/mobile navigation.');
 $check(!str_contains($detail, 'patient_images_json') && !str_contains($detail, 'source_snapshot_json') && !str_contains($detail, 'ai_writer_claim'), 'Private editorial state is never shown.');
 $check(str_contains($detail, 'data-review-article-share hidden') && str_contains($detail, 'role="status"'), 'Share action progressively enhances with a screen-reader status.');
+
+$photos = review_articles_view_customer_images(json_encode([
+    ['url' => '/uploads/customer.webp', 'consent_confirmed' => true, 'caption' => '<b>Ảnh khách</b>', 'alt' => 'Ảnh <khách>', 'source_url' => 'PRIVATE_SOURCE', 'notes' => 'PRIVATE_NOTES'],
+    ['url' => '/uploads/private.webp', 'consent_confirmed' => false],
+    ['url' => '/uploads/missing-consent.webp'],
+    ['url' => '/uploads/string-consent.webp', 'consent_confirmed' => 'true'],
+    ['url' => 'javascript:alert(1)', 'consent_confirmed' => true],
+    ['url' => '/uploads/%2e%2e/secret.webp', 'consent_confirmed' => true],
+    ['url' => '/uploads/customer.webp#duplicate', 'consent_confirmed' => true],
+    ['url' => 'https://example.com/customer.jpg', 'consent_confirmed' => true],
+], JSON_THROW_ON_ERROR));
+$check(count($photos) === 2 && array_keys($photos[0]) === ['url', 'alt', 'caption'], 'Gallery keeps only consented safe media and exposes only public display fields.');
+$check(review_articles_view_customer_images('{bad') === [] && review_articles_view_customer_images(['url' => '/uploads/test.webp']) === [], 'Malformed gallery metadata fails closed.');
+$check(!str_contains($detail, 'id="review-customer-images"') && !str_contains($detail, '<dialog'), 'No consented photos means no empty gallery or modal.');
+$galleryDetail = $renderDetail($fixture, $photos);
+$check(str_contains($galleryDetail, 'id="review-customer-images"') && str_contains($galleryDetail, '<dialog') && str_contains($galleryDetail, 'loading="lazy"'), 'Customer gallery is progressively enhanced and lazy-loaded.');
+$check(str_contains($galleryDetail, '&lt;b&gt;Ảnh khách&lt;/b&gt;') && !str_contains($galleryDetail, 'PRIVATE_SOURCE') && !str_contains($galleryDetail, 'PRIVATE_NOTES'), 'Customer captions are escaped; private photo metadata never appears.');
+$check(str_contains($galleryDetail, 'data-review-photo-prev') && str_contains($galleryDetail, 'data-review-photo-close') && str_contains($galleryDetail, 'không đại diện cho kết quả điều trị'), 'Gallery includes viewer controls and a non-promissory treatment disclaimer.');
+$galleryDb = new PDO('sqlite::memory:');
+$galleryDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$galleryDb->exec('CREATE TABLE medical_facilities(id INTEGER, status TEXT, language_code TEXT)');
+$check(review_articles_view_load_customer_images($galleryDb, 1, 'vi') === [], 'Older schema without patient image column remains readable.');
+$galleryDb->exec('ALTER TABLE medical_facilities ADD COLUMN patient_images_json TEXT');
+$insertGallery = $galleryDb->prepare('INSERT INTO medical_facilities VALUES(?,?,?,?)');
+$testPhotos = json_encode([['url' => '/uploads/allowed.webp', 'consent_confirmed' => true]]);
+$insertGallery->execute([1, 'published', 'vi', $testPhotos]);
+$insertGallery->execute([2, 'draft', 'vi', $testPhotos]);
+$check(count(review_articles_view_load_customer_images($galleryDb, 1, 'vi')) === 1, 'Detail-only reader loads selected published-facility photos.');
+$check(review_articles_view_load_customer_images($galleryDb, 1, 'en') === [] && review_articles_view_load_customer_images($galleryDb, 2, 'vi') === [], 'Reader never crosses language or unpublished facility boundaries.');
+$check(review_articles_view_load_customer_images($galleryDb, 0, 'vi') === [], 'Invalid facility ID does not select media.');
 
 // Evidence is private whether stored as its own field or inside AI metadata.
 // These are row-shaped arrays only: no database connection or stored fixture.

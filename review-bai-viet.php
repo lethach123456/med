@@ -36,6 +36,11 @@ $GLOBALS['site_language_links'] = ['current' => $locale, 'vi' => $reviewArticleA
 $reviewArticleFacility = is_array($reviewArticle['facility'] ?? null) ? $reviewArticle['facility'] : [];
 $reviewArticleSections = review_articles_view_sections($reviewArticle, $locale);
 $reviewArticleToc = review_articles_view_toc($reviewArticle, $reviewArticleSections, $locale);
+$reviewArticleCustomerImages = [];
+try {
+    $reviewArticleCustomerImages = review_articles_view_load_customer_images(db(), (int) $reviewArticle['entity_id'], $locale);
+} catch (Throwable $error) { error_log('Review customer gallery unavailable: ' . get_class($error)); }
+if ($reviewArticleCustomerImages !== []) $reviewArticleToc[] = ['id' => 'review-customer-images', 'title' => $isEnglish ? 'Customer photos' : 'Hình ảnh khách hàng'];
 $reviewArticleRelated = [];
 try {
     $relatedPaging = medical_review_articles_directory_page(db(), $locale, ['category' => review_articles_view_string($reviewArticleFacility['category'] ?? '')], 1, 4);
