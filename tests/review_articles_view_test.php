@@ -151,22 +151,19 @@ foreach ([1, 2, 4, 5, 8, 100] as $photoCount) {
     $links = $photoDom->query($photoRoot . '//a[@data-review-photo]/@href');
     $actualUrls = [];
     foreach ($links as $link) $actualUrls[] = $link->nodeValue;
-    $check($actualUrls === array_column($storedPhotos, 'url'), $photoCount . '-photo gallery retains every original image href in stored order, including native disclosure content.');
-    $check($photoDom->query($photoRoot . '/div[contains(concat(" ", normalize-space(@class), " "), " ra-customer-grid ")]/figure')->length === min(4, $photoCount), $photoCount . '-photo gallery initially presents at most four preview cards.');
-    $more = $photoDom->query($photoRoot . '/details[contains(concat(" ", normalize-space(@class), " "), " ra-gallery-more ")]');
-    $check($more->length === ($photoCount > 4 ? 1 : 0), $photoCount . '-photo gallery only needs show-more when more than four stored photos exist.');
+    $check($actualUrls === array_column($storedPhotos, 'url'), $photoCount . '-photo slider retains every original image href in stored order.');
+    $check($photoDom->query($photoRoot . '/div[@data-review-photo-track]/figure')->length === $photoCount, $photoCount . '-photo slider keeps all cards in one native scroll track.');
+    $check($photoDom->query($photoRoot . '/details')->length === 0 && !str_contains($photoHtml, 'ra-gallery-more'), $photoCount . '-photo slider has no show-more disclosure.');
     $check($photoDom->query($photoRoot . '/div[contains(concat(" ", normalize-space(@class), " "), " ra-customer-grid--single ")]')->length === ($photoCount === 1 ? 1 : 0), $photoCount . '-photo gallery uses full-width single-photo framing only for one photo.');
     $check(trim($photoDom->query($photoRoot . '/div[contains(@class,"ra-gallery-heading")]/span[contains(@class,"ra-gallery-count")]')->item(0)->textContent) === $photoCount . ' ảnh', $photoCount . '-photo gallery displays the exact total, not the preview count.');
     $check($photoDom->query('//*[@id="review-customer-images"]')->length === 1 && $photoDom->query('//a[@href="#review-customer-images"]')->length === 2, $photoCount . '-photo gallery has a unique section target shared by mobile and desktop contents links.');
-    if ($photoCount > 4) {
-        $check($photoDom->query($photoRoot . '/details/summary')->length === 1 && $photoDom->query($photoRoot . '/details[@hidden or @open]')->length === 0, $photoCount . '-photo show-more uses a closed native details/summary, not a JavaScript-only hidden region.');
-        $check($photoDom->query($photoRoot . '/details/div/figure/a[@data-review-photo]')->length === $photoCount - 4, $photoCount . '-photo gallery places every remaining image inside the native disclosure.');
-        $check(str_contains($photoHtml, 'Xem thêm ' . ($photoCount - 4) . ' ảnh'), $photoCount . '-photo show-more names the exact remaining image count.');
-    }
+    $check($photoDom->query($photoRoot . '/div[@data-review-slider-controls and @hidden]')->length === ($photoCount > 2 ? 1 : 0), $photoCount . '-photo slider only enhances navigation for more than two photos.');
+    $check($photoDom->query($photoRoot . '/div[@data-review-photo-track and @tabindex="0" and @role="group"]')->length === 1, $photoCount . '-photo track is keyboard focusable and named.');
+    if ($photoCount > 2) $check($photoDom->query($photoRoot . '/div/button[@aria-controls="review-customer-track"]')->length === 2, $photoCount . '-photo navigation targets the real scroll track.');
 }
 $check(!str_contains($detail, 'href="#review-customer-images"'), 'No customer photos means neither a gallery nor a dead contents link.');
 $englishGallery = $renderDetail($fixture, $photos, 'en');
-$check(str_contains($englishGallery, 'Customer photos') && str_contains($englishGallery, 'A closer look') && str_contains($englishGallery, '5 photos') && str_contains($englishGallery, 'View 1 more photos') && str_contains($englishGallery, 'Show fewer photos'), 'English gallery headings, total and native show-more labels are localized.');
+$check(str_contains($englishGallery, 'Customer photos') && str_contains($englishGallery, 'A closer look') && str_contains($englishGallery, '5 photos') && str_contains($englishGallery, 'Previous two photos') && str_contains($englishGallery, 'Next two photos'), 'English slider headings, total and navigation labels are localized.');
 $check(str_contains($englishGallery, 'Customer photo viewer') && str_contains($englishGallery, 'Try again') && str_contains($englishGallery, 'Close photo') && !str_contains($englishGallery, 'Hình ảnh khách hàng'), 'English gallery viewer controls do not introduce Vietnamese UI labels.');
 $fallbackPhoto = review_articles_view_customer_images([['url' => '/uploads/no-caption.webp']]);
 $englishFallback = $renderDetail($fixture, $fallbackPhoto, 'en');
@@ -228,7 +225,8 @@ $check(str_contains($css, 'scroll-margin-top:') && str_contains($css, ':focus-vi
 $check(str_contains($detailController, '/assets/css/pages/review-article-detail.css') && !str_contains($directoryController, '/assets/css/pages/review-article-detail.css'), 'Detail polish is loaded only for the review article, leaving directory styles unchanged.');
 $check(str_contains($detailController, "['id' => 'review-customer-images'") && str_contains($detailController, 'if ($reviewArticleCustomerImages !== [])'), 'Detail controller appends customer photos to the contents only after stored photos have been loaded.');
 $check(str_contains($detailCss, '.ra-customer-gallery .ra-customer-card img') && str_contains($detailCss, 'object-fit:contain') && !str_contains($detailCss, 'object-fit:cover'), 'Detail photo polish contains rather than crops customer comparison images.');
-$check(str_contains($detailCss, 'grid-template-columns:repeat(2,minmax(0,1fr))') && str_contains($detailCss, '.ra-customer-grid--single{grid-template-columns:minmax(0,1fr)}') && str_contains($detailCss, '@media(max-width:620px)'), 'Customer grid has shrinkable two-column and single-image layouts with a mobile breakpoint.');
+$check(str_contains($detailCss, 'flex:0 0 calc((100% - var(--ra-slider-gap))/2)') && str_contains($detailCss, '.ra-customer-grid--single .ra-customer-card{flex-basis:100%}') && str_contains($detailCss, '@media(max-width:620px)'), 'Customer slider fits two photos per view and keeps one-photo framing responsive.');
+$check(str_contains($detailCss, 'overflow-x:auto') && str_contains($detailCss, 'flex-wrap:nowrap') && str_contains($detailCss, 'scroll-snap-type:x mandatory') && str_contains($detailCss, 'scroll-behavior:auto'), 'Native horizontal scroll snaps cards and respects reduced motion.');
 $check(str_contains($detailCss, '@media(max-width:900px){.ra-article .ra-article-side{grid-template-columns:minmax(0,1fr)}') && str_contains($detailCss, 'overflow-y:auto'), 'Tablet facility sidebar spans the available width and long desktop contents can scroll.');
 $check(str_contains($detailCss, '[data-photo-state="loading"]') && str_contains($detailCss, '[data-photo-state="error"]') && str_contains($detailCss, '[data-photo-state="ready"]') && str_contains($detailCss, 'prefers-reduced-motion'), 'Photo loading/error presentation and reduced-motion behavior are styled explicitly.');
 $check(str_contains($js, "event.key !== 'Escape'") && str_contains($js, 'summary.focus()') && str_contains($js, 'navigator.share') && str_contains($js, 'aria-current'), 'Enhancements have keyboard dismissal, sharing and active TOC state.');

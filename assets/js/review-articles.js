@@ -3,6 +3,76 @@
   var page = document.querySelector('[data-review-articles]');
   if (!page) return;
 
+  // The photo rail is a native horizontal scroller; controls only enhance it.
+  // Touch scrolling and the original image links also work without JavaScript.
+  var photoSlider = page.querySelector('[data-review-photo-slider]');
+  if (photoSlider) {
+    var photoTrack = photoSlider.querySelector('[data-review-photo-track]');
+    var sliderControls = photoSlider.querySelector('[data-review-slider-controls]');
+    var sliderPrevious = photoSlider.querySelector('[data-review-slider-prev]');
+    var sliderNext = photoSlider.querySelector('[data-review-slider-next]');
+    var sliderPosition = photoSlider.querySelector('[data-review-slider-position]');
+    var sliderCards = photoTrack ? Array.from(photoTrack.querySelectorAll('.ra-customer-card')) : [];
+    if (photoTrack && sliderCards.length > 2 && sliderControls && sliderPrevious && sliderNext && sliderPosition) {
+      var sliderStep = 0;
+      var sliderMaximum = 0;
+      var sliderFrame = false;
+      var updateSliderPosition = function () {
+        var offset = Math.max(0, Math.min(sliderMaximum, photoTrack.scrollLeft));
+        var first = sliderStep > 0 ? Math.min(sliderCards.length - 2, Math.round(offset / sliderStep)) : 0;
+        var label = (first + 1) + '–' + Math.min(first + 2, sliderCards.length) + ' / ' + sliderCards.length;
+        if (sliderPosition.textContent !== label) sliderPosition.textContent = label;
+        sliderPrevious.disabled = offset <= 1;
+        sliderNext.disabled = offset >= sliderMaximum - 1;
+      };
+      var measureSlider = function () {
+        sliderStep = Math.abs(sliderCards[1].offsetLeft - sliderCards[0].offsetLeft);
+        sliderMaximum = Math.max(0, photoTrack.scrollWidth - photoTrack.clientWidth);
+        sliderControls.hidden = sliderStep <= 0 || sliderMaximum <= 1;
+        updateSliderPosition();
+      };
+      var scheduleSliderPosition = function () {
+        if (sliderFrame) return;
+        if (typeof window.requestAnimationFrame !== 'function') { updateSliderPosition(); return; }
+        sliderFrame = true;
+        window.requestAnimationFrame(function () {
+          sliderFrame = false;
+          updateSliderPosition();
+        });
+      };
+      var moveSlider = function (direction) {
+        if (sliderControls.hidden) return;
+        var offset = Math.max(0, Math.min(sliderMaximum, photoTrack.scrollLeft));
+        var destination = Math.max(0, Math.min(sliderMaximum, offset + direction * sliderStep * 2));
+        var reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (typeof photoTrack.scrollTo === 'function') {
+          photoTrack.scrollTo({ left: destination, behavior: reduceMotion ? 'auto' : 'smooth' });
+        } else {
+          photoTrack.scrollLeft = destination;
+          updateSliderPosition();
+        }
+      };
+      sliderPrevious.addEventListener('click', function () { moveSlider(-1); });
+      sliderNext.addEventListener('click', function () { moveSlider(1); });
+      photoTrack.addEventListener('scroll', scheduleSliderPosition, { passive: true });
+      photoTrack.addEventListener('keydown', function (event) {
+        // Image links and the lightbox retain their own keyboard behavior.
+        if (event.target !== photoTrack || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || sliderControls.hidden) return;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          moveSlider(event.key === 'ArrowLeft' ? -1 : 1);
+        }
+      });
+      if (typeof window.ResizeObserver === 'function') {
+        var sliderResizeObserver = new window.ResizeObserver(measureSlider);
+        sliderResizeObserver.observe(photoTrack);
+      } else if (typeof window.addEventListener === 'function') {
+        window.addEventListener('resize', measureSlider, { passive: true });
+      }
+      measureSlider();
+    }
+  }
+
   var photos = Array.from(page.querySelectorAll('[data-review-photo]'));
   var photoDialog = page.querySelector('[data-review-photo-dialog]');
   if (photos.length && photoDialog && typeof photoDialog.showModal === 'function') {

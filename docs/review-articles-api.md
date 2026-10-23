@@ -342,11 +342,12 @@ nội bộ, URL nguồn hay trạng thái riêng vào HTML, AI prompt, snapshot 
 sách bài viết. Khối nguồn/giới hạn được ẩn trên giao diện đọc; dữ liệu căn cứ
 vẫn được lưu nội bộ, không bị xóa khỏi DB khi thay đổi giao diện.
 
-Giao diện xem trước 4 ảnh, các ảnh còn lại nằm trong khối “Xem thêm” dùng
-`details` vẫn mở được khi tắt JavaScript. Tất cả ảnh vẫn có trong trang và trong
-khung xem lớn; ảnh so sánh trước/sau được hiển thị trọn khung, không cắt nội
-dung. Khung xem lớn có trạng thái tải, thử lại khi ảnh lỗi và điều hướng bàn
-phím/điện thoại; ảnh chỉ tải khi cần, không tải trước cả thư viện.
+Gallery là slider ngang, mỗi lượt hiển thị 2 ảnh (1 ảnh thì dùng toàn khung),
+vuốt hoặc dùng nút trái/phải để xem tiếp; không tự chạy. Tất cả ảnh nằm trong
+cùng một hàng, vẫn cuộn được khi tắt JavaScript, không có khối “Xem thêm”. Ảnh
+so sánh trước/sau hiển thị trọn khung, không cắt nội dung. Bấm ảnh mở khung xem
+lớn có trạng thái tải, thử lại khi ảnh lỗi và điều hướng bàn phím/điện thoại;
+ảnh chỉ tải khi cần, không tải trước cả thư viện.
 
 ## Mã lỗi cần xử lý
 
