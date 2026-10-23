@@ -34,7 +34,7 @@
 .ra-article .ra-toc-list a{min-height:44px;border-radius:0 8px 8px 0;align-items:flex-start}
 .ra-article .ra-article-bottom{flex-wrap:wrap}
 
-/* Two uncropped photos per view; native horizontal scrolling also works without JS. */
+/* Two frame-filling photos per view; the lightbox retains the complete original. */
 .ra-article .ra-customer-gallery{padding:22px;border:1px solid var(--ra-line);border-radius:18px;background:linear-gradient(180deg,#f6f9ff,#fff 240px)}
 .ra-gallery-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
 .ra-gallery-kicker{display:flex;align-items:center;gap:6px;margin-bottom:7px;color:#4f6c94;font-size:11px;font-weight:600}
@@ -47,7 +47,7 @@
 .ra-customer-gallery .ra-customer-grid--single .ra-customer-card{flex-basis:100%}
 .ra-customer-gallery .ra-customer-card>a{border-radius:0;background:#eef2f7;cursor:zoom-in}
 .ra-customer-card>a:focus-visible{outline-offset:-4px}
-.ra-customer-gallery .ra-customer-card img{width:100%;aspect-ratio:4/3;object-fit:contain;transition:transform .22s ease;background:linear-gradient(145deg,#f3f6fa,#e9eef5)}
+.ra-customer-gallery .ra-customer-card img{width:100%;aspect-ratio:4/3;object-fit:cover;object-position:center;transition:transform .22s ease;background:linear-gradient(145deg,#f3f6fa,#e9eef5)}
 .ra-customer-grid--single .ra-customer-card img{max-height:430px;aspect-ratio:3/2}
 .ra-customer-gallery .ra-customer-number{top:10px;left:10px;right:auto;bottom:auto;width:auto;min-width:27px;height:24px;padding:0 6px;border:1px solid #ffffffb3;border-radius:6px;background:#ffffffed;color:var(--ra-ink);font-size:10px;font-weight:650;font-variant-numeric:tabular-nums}
 .ra-customer-gallery .ra-customer-zoom{bottom:10px;right:10px;top:auto;left:auto;width:30px;height:30px;background:#142d50d9;color:#fff;font-size:15px;transition:background .2s}

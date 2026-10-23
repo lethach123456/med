@@ -345,8 +345,8 @@ vẫn được lưu nội bộ, không bị xóa khỏi DB khi thay đổi giao 
 Gallery là slider ngang, mỗi lượt hiển thị 2 ảnh (1 ảnh thì dùng toàn khung),
 vuốt hoặc dùng nút trái/phải để xem tiếp; không tự chạy. Tất cả ảnh nằm trong
 cùng một hàng, vẫn cuộn được khi tắt JavaScript, không có khối “Xem thêm”. Ảnh
-so sánh trước/sau hiển thị trọn khung, không cắt nội dung. Bấm ảnh mở khung xem
-lớn có trạng thái tải, thử lại khi ảnh lỗi và điều hướng bàn phím/điện thoại;
+trong slider phủ kín khung, có thể cắt bớt mép nhưng không kéo méo. Bấm ảnh mở
+khung xem lớn giữ đầy đủ nội dung, có trạng thái tải, thử lại khi ảnh lỗi và điều hướng bàn phím/điện thoại;
 ảnh chỉ tải khi cần, không tải trước cả thư viện.
 
 ## Mã lỗi cần xử lý
