@@ -5,12 +5,10 @@ require_once __DIR__ . '/../../medical_search_cache.php';
 require_once __DIR__ . '/../../medical_facility_ratings.php';
 require_once __DIR__ . '/../../medical_patient_images.php';
 require_once __DIR__ . '/../../medical_facility_insights.php';
-// The worker module is optional during deployment.  Article updates must keep
-// working even if the background image worker has not been installed yet.
-$medicalMediaWorker = __DIR__ . '/../../medical_media_worker.php';
-if (is_file($medicalMediaWorker)) require_once $medicalMediaWorker;
+require_once __DIR__ . '/../../medical_facility_content_images.php';
 header('X-MedReview-Patient-Images-Contract: 2');
 header('X-MedReview-Facility-Insights-Contract: 1');
+header('X-MedReview-Facility-Images-Contract: 2');
 medical_api_auth();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_response(['ok' => false, 'message' => 'Method not allowed.'], 405);
 
@@ -60,7 +58,7 @@ function medical_api_content_normalize_urls(mixed $value): mixed
  *
  * Accepts both legacy `["https://..."]` payloads and the richer object form:
  * `[{"url":"...","angle":"...","caption":"...","source":"..."}]`.
- * Every stored item uses the latter form, allowing the media worker to replace
+ * Every stored item uses the latter form; synchronous image import replaces
  * only `url` with the owned local URL without discarding its context.
  *
  * @return array<int,array{url:string,angle?:string,caption?:string,source?:string}>
@@ -273,13 +271,15 @@ if ($facilityInsightsRequested) {
 $updated = [];
 $errors = [];
 $reviewsCreated = 0;
-// Image fetching/compression is deliberately asynchronous.  This endpoint
-// only persists the URLs supplied by the article generator so its response is
-// fast and a slow third-party image host cannot make article updates fail.
+// Import branded, compressed images before saving an item. Network work has
+// one shared budget for this request, not a fresh timeout for every URL.
+$imageDeadline = microtime(true) + 25;
 $imagesRequested = 0;
 $imagesQueued = 0;
+$imagesImported = 0;
 $galleryImagesRequested = 0;
 $galleryImagesQueued = 0;
+$galleryImagesImported = 0;
 $imageErrors = [];
 $processedItems = [];
 $patientImageUpdates = [];
@@ -319,9 +319,8 @@ try { foreach ($items as $item) {
     ];
     $urlColumns = array_fill_keys(['website_url', 'google_maps_url', 'booking_url'], true);
     $seoFieldLimits = ['seo_title' => 160, 'seo_description' => 300, 'seo_keywords' => 255];
-    // Keep the public AI payload in full_json. In particular, gallery image
-    // URLs remain the source URLs until the independent media worker has
-    // downloaded and replaced them with locally owned files.
+    // Keep public provenance, replacing image fields with owned, branded URLs
+    // before storing full_json. Private metadata stays in dedicated columns.
     $normalizedItem = medical_patient_images_redact($item);
     $normalizedItem = medical_facility_insights_redact($normalizedItem);
     $facilityInsightsProvided = array_key_exists('facility_insights_json', $item);
@@ -432,9 +431,8 @@ try { foreach ($items as $item) {
         $params[':review_summary_json'] = medical_api_json($reviewMetadata);
     }
 
-    // Save gallery URLs immediately.  The old flow downloaded and compressed
-    // each remote image inside this HTTP request, which caused 30-second
-    // extension timeouts whenever an image host was slow.
+    // Normalize metadata first; no original/remote image URL is published
+    // unless its branded local replacement has been successfully imported.
     $galleryProvided = false;
     $galleryItems = [];
     foreach (['gallery_json', 'gallery', 'images'] as $galleryKey) {
@@ -463,16 +461,40 @@ try { foreach ($items as $item) {
         if ($candidate !== '') $featureSources[$featureKey] = $candidate;
     }
 
+    $sourceUrls = array_values(array_unique(array_merge(array_values($featureSources), $gallerySources)));
+    $imagesRequested += count($sourceUrls);
+    $galleryImagesRequested += count($gallerySources);
+    try {
+        $imageMap = medical_facility_content_import_images($facilityId, $sourceUrls, $imageDeadline);
+    } catch (Throwable $imageError) {
+        $message = 'Không lưu bài ' . $facilityId . ': chưa xử lý xong ảnh. ' . $imageError->getMessage();
+        $errors[] = $message;
+        $imageErrors[] = ['facility_id' => $facilityId, 'message' => $message];
+        continue;
+    }
+    foreach ($galleryItems as &$galleryItem) $galleryItem['url'] = $imageMap[$galleryItem['url']];
+    unset($galleryItem);
+    foreach ($featureSources as $featureKey => $url) {
+        $featureSources[$featureKey] = $imageMap[$url];
+        $normalizedItem[$featureKey] = $imageMap[$url];
+    }
+    if ($galleryProvided) {
+        foreach (['gallery_json', 'gallery', 'images'] as $galleryKey) {
+            if (array_key_exists($galleryKey, $normalizedItem)) $normalizedItem[$galleryKey] = $galleryItems;
+        }
+        $normalizedItem['gallery_json'] = $galleryItems;
+    }
+    $gallerySources = array_column($galleryItems, 'url');
+
     // An explicitly supplied empty gallery clears the saved gallery.  A
-    // non-empty gallery is stored as-is, including remote URLs.
+    // non-empty gallery is saved only with its branded local URLs.
     if ($galleryProvided) {
         $set['gallery_json'] = ':gallery_json';
         $params[':gallery_json'] = medical_api_json($galleryItems);
     }
 
     // Prefer an explicit cover image.  When it is omitted, use the first
-    // image in the supplied gallery so the card can render before the worker
-    // finishes importing the local copies.
+    // locally imported image in the supplied gallery.
     $resolvedFeature = '';
     foreach (['image_url', 'featured_image_url'] as $featureKey) {
         if (!empty($featureSources[$featureKey])) {
@@ -490,13 +512,7 @@ try { foreach ($items as $item) {
         $params[':image_url'] = '';
     }
 
-    $queueSources = [
-        'image_url' => array_values($featureSources),
-        'gallery_json' => $gallerySources,
-    ];
-    $queueUrls = array_values(array_unique(array_merge($queueSources['image_url'], $queueSources['gallery_json'])));
-    $imagesRequested += count($queueUrls);
-    $galleryImagesRequested += count($gallerySources);
+    if (isset($params[':image_url'])) $normalizedItem['image_url'] = $params[':image_url'];
     foreach (['services'=>'services_json', 'featured_services'=>'featured_services_json', 'highlights'=>'highlights_json'] as $input => $column) {
         if (!array_key_exists($input, $item)) continue;
         $set[$column] = ':' . $column;
@@ -547,6 +563,19 @@ try { foreach ($items as $item) {
             continue;
         }
     }
+    $updated[] = $facilityId;
+    if (isset($params[':image_url']) || isset($params[':gallery_json'])) {
+        $imageReadback = $pdo->prepare('SELECT image_url,gallery_json FROM medical_facilities WHERE id=:id LIMIT 1');
+        $imageReadback->execute([':id' => $facilityId]);
+        $savedImages = $imageReadback->fetch(PDO::FETCH_ASSOC);
+        foreach (['image_url', 'gallery_json'] as $imageColumn) {
+            if (isset($params[':' . $imageColumn]) && ($savedImages[$imageColumn] ?? null) !== $params[':' . $imageColumn]) {
+                throw new RuntimeException('Chưa xác nhận lưu đúng cột ảnh ' . $imageColumn . '.');
+            }
+        }
+    }
+    $imagesImported += count($imageMap);
+    $galleryImagesImported += count($gallerySources);
     // Do not report success merely because the payload/full_json contains
     // these keys. Read the dedicated columns back from the same DB connection.
     $patientExpected = [];
@@ -561,27 +590,6 @@ try { foreach ($items as $item) {
     if ($facilityInsightsProvided) {
         $facilityInsightUpdates[] = medical_facility_insights_verify_saved($pdo, $facilityId, $params[':facility_insights_json']);
     }
-    $updated[] = $facilityId;
-    // Queue is a best-effort optimization.  A background scanner can still
-    // discover the remote URLs in gallery_json if queue storage is temporarily
-    // unavailable, so a queue error must never roll back the article update.
-    $queuedForEntity = count($queueSources);
-    if ($queueUrls !== [] && function_exists('medical_media_jobs_enqueue_entity_urls')) {
-        try {
-            $queueResult = medical_media_jobs_enqueue_entity_urls($pdo, 'facility', $facilityId, $queueSources);
-            if (is_array($queueResult)) {
-                $queuedForEntity = max(0, (int) ($queueResult['queued'] ?? $queueResult['queued_count'] ?? $queuedForEntity));
-            }
-        } catch (Throwable $queueError) {
-            $imageErrors[] = [
-                'facility_id' => $facilityId,
-                'input_field' => 'gallery_json',
-                'message' => 'Đã lưu URL ảnh; Worker sẽ quét lại sau. Chi tiết hàng đợi: ' . $queueError->getMessage(),
-            ];
-        }
-    }
-    $imagesQueued += $queuedForEntity;
-    $galleryImagesQueued += count($gallerySources);
     $reviewItems = $item['reviews'] ?? $item['reviews_list'] ?? $item['reivew'] ?? $item['review'] ?? [];
     if (!$insightsOnly && is_array($reviewItems)) {
         $reviewStmt = $pdo->prepare("INSERT INTO medical_reviews (slug, facility_slug, facility_id, facility_name, title, verified, rating, author_text, location_text, review_date_text, price_text, excerpt, likes_count, comments_count, service_text, method_text, duration_text, condition_text, source_text, status, display_order) VALUES (:slug,:facility_slug,:facility_id,:facility_name,:title,:verified,:rating,:author,:location,:date,:price,:excerpt,:likes,:comments,:service,:method,:duration,:condition,:source,'published',:display_order)");
@@ -627,9 +635,9 @@ try { foreach ($items as $item) {
     if ($updated !== []) {
         medical_search_cache_invalidate();
     }
-    json_response(['ok' => false, 'message' => 'Cập nhật thất bại: ' . $e->getMessage(), 'facility_insights_contract_version' => 1, 'facility_insights_updates' => $facilityInsightUpdates, 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems], 500);
+    json_response(['ok' => false, 'message' => 'Cập nhật thất bại: ' . $e->getMessage(), 'facility_insights_contract_version' => 1, 'facility_insights_updates' => $facilityInsightUpdates, 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'reviews_created' => $reviewsCreated, 'image_processing' => 'synchronous', 'images_branded' => $imagesImported, 'image_target_bytes' => 149999, 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => $imagesImported, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => $galleryImagesImported, 'image_errors' => $imageErrors, 'processed_items' => $processedItems], 500);
 }
 if ($updated !== []) {
     medical_search_cache_invalidate();
 }
-json_response(['ok' => $errors === [], 'facility_insights_contract_version' => 1, 'facility_insights_updates' => $facilityInsightUpdates, 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'updated_count' => count($updated), 'reviews_created' => $reviewsCreated, 'image_processing' => 'queued', 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => 0, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => 0, 'image_errors' => $imageErrors, 'processed_items' => $processedItems, 'errors' => $errors]);
+json_response(['ok' => $errors === [], 'facility_insights_contract_version' => 1, 'facility_insights_updates' => $facilityInsightUpdates, 'patient_images_contract_version' => 2, 'patient_images_updates' => $patientImageUpdates, 'updated_ids' => $updated, 'updated_count' => count($updated), 'reviews_created' => $reviewsCreated, 'image_processing' => 'synchronous', 'images_branded' => $imagesImported, 'image_target_bytes' => 149999, 'images_requested' => $imagesRequested, 'images_queued' => $imagesQueued, 'images_imported' => $imagesImported, 'gallery_images_requested' => $galleryImagesRequested, 'gallery_images_queued' => $galleryImagesQueued, 'gallery_images_imported' => $galleryImagesImported, 'image_errors' => $imageErrors, 'processed_items' => $processedItems, 'errors' => $errors]);

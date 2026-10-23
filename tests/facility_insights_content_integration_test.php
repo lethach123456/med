@@ -93,7 +93,7 @@ $assert(!array_key_exists('facility_insights_json', $omitted['set']), 'Omitted a
 
 // Follow metadata-only writes past the parameter-preparation boundary: old
 // aggregate evidence must not refresh ratings or finish an article writer lease.
-$ratingCode = $extract($endpoint, '$ratingSummary = $insightsOnly ? null', '// Save gallery URLs');
+$ratingCode = $extract($endpoint, '$ratingSummary = $insightsOnly ? null', '// Normalize metadata first;');
 $claimCode = $extract($endpoint, '$safeClaimJsonSql =', "$" . "sql = 'UPDATE medical_facilities SET '");
 $effects = static function (array $prepared, array $item, array $facilityRow, string $claimToken) use ($ratingCode, $claimCode): array {
     $set = $prepared['set'];
@@ -131,7 +131,7 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $after = $pdo->query('SELECT * FROM medical_facilities WHERE id=9')->fetch(PDO::FETCH_ASSOC);
     $assert($after['facility_insights_json'] === $encoded, 'Real SQL parameters persist dedicated insights, not just full_json');
     foreach ($before as $key => $value) if ($key !== 'facility_insights_json') $assert($after[$key] === $value, 'Insights-only write preserves ' . $key);
-    $verifyCode = $extract($endpoint, '$patientExpected = [];', '$updated[] = $facilityId;');
+    $verifyCode = $extract($endpoint, '$patientExpected = [];', '$reviewItems = ');
     $verify = static function (array $params, bool $facilityInsightsProvided = true) use ($verifyCode, $pdo): array {
         $facilityId = (int) $params[':id'];
         $patientImageUpdates = $facilityInsightUpdates = [];
