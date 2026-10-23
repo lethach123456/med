@@ -155,7 +155,7 @@ function review_articles_view_toc(array $article, array $sections, string $local
     return $toc;
 }
 
-/** Only explicitly consented customer media may cross into the public reading page. */
+/** Display stored customer photos; consent metadata remains unchanged in storage. */
 function review_articles_view_customer_images(mixed $value): array
 {
     require_once __DIR__ . '/medical_patient_images.php';
@@ -163,7 +163,7 @@ function review_articles_view_customer_images(mixed $value): array
     if (!is_array($value) || !array_is_list($value)) return [];
     $images = []; $seen = [];
     foreach (array_slice($value, 0, 100) as $item) {
-        if (!is_array($item) || ($item['consent_confirmed'] ?? false) !== true) continue;
+        if (!is_array($item)) continue;
         try { $url = medical_patient_images_url($item['url'] ?? null, 'url'); }
         catch (InvalidArgumentException) { continue; }
         $key = preg_replace('/#.*$/s', '', $url);
@@ -172,7 +172,6 @@ function review_articles_view_customer_images(mixed $value): array
         $images[] = ['url' => $url,
             'alt' => review_articles_view_string($item['alt'] ?? '', 500),
             'caption' => review_articles_view_string($item['caption'] ?? '', 500)];
-        if (count($images) >= 24) break;
     }
     return $images;
 }

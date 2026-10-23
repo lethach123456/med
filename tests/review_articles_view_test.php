@@ -118,9 +118,12 @@ $photos = review_articles_view_customer_images(json_encode([
     ['url' => '/uploads/customer.webp#duplicate', 'consent_confirmed' => true],
     ['url' => 'https://example.com/customer.jpg', 'consent_confirmed' => true],
 ], JSON_THROW_ON_ERROR));
-$check(count($photos) === 2 && array_keys($photos[0]) === ['url', 'alt', 'caption'], 'Gallery keeps only consented safe media and exposes only public display fields.');
+$check(count($photos) === 5 && array_keys($photos[0]) === ['url', 'alt', 'caption'], 'Gallery shows all valid stored photos regardless of consent metadata and exposes only display fields.');
+$check(in_array('/uploads/private.webp', array_column($photos, 'url'), true) && in_array('/uploads/missing-consent.webp', array_column($photos, 'url'), true), 'False or omitted consent metadata does not hide a stored photo.');
+$manyPhotos = array_map(static fn(int $i): array => ['url' => '/uploads/customer-' . $i . '.webp'], range(1, 100));
+$check(count(review_articles_view_customer_images($manyPhotos)) === 100, 'All 100 photos allowed by the storage schema remain visible, not just the first 24.');
 $check(review_articles_view_customer_images('{bad') === [] && review_articles_view_customer_images(['url' => '/uploads/test.webp']) === [], 'Malformed gallery metadata fails closed.');
-$check(!str_contains($detail, 'id="review-customer-images"') && !str_contains($detail, '<dialog'), 'No consented photos means no empty gallery or modal.');
+$check(!str_contains($detail, 'id="review-customer-images"') && !str_contains($detail, '<dialog'), 'No stored photos means no empty gallery or modal.');
 $galleryDetail = $renderDetail($fixture, $photos);
 $check(str_contains($galleryDetail, 'id="review-customer-images"') && str_contains($galleryDetail, '<dialog') && str_contains($galleryDetail, 'loading="lazy"'), 'Customer gallery is progressively enhanced and lazy-loaded.');
 $check(str_contains($galleryDetail, '&lt;b&gt;Ảnh khách&lt;/b&gt;') && !str_contains($galleryDetail, 'PRIVATE_SOURCE') && !str_contains($galleryDetail, 'PRIVATE_NOTES'), 'Customer captions are escaped; private photo metadata never appears.');
@@ -131,7 +134,7 @@ $galleryDb->exec('CREATE TABLE medical_facilities(id INTEGER, status TEXT, langu
 $check(review_articles_view_load_customer_images($galleryDb, 1, 'vi') === [], 'Older schema without patient image column remains readable.');
 $galleryDb->exec('ALTER TABLE medical_facilities ADD COLUMN patient_images_json TEXT');
 $insertGallery = $galleryDb->prepare('INSERT INTO medical_facilities VALUES(?,?,?,?)');
-$testPhotos = json_encode([['url' => '/uploads/allowed.webp', 'consent_confirmed' => true]]);
+$testPhotos = json_encode([['url' => '/uploads/allowed.webp', 'consent_confirmed' => false]]);
 $insertGallery->execute([1, 'published', 'vi', $testPhotos]);
 $insertGallery->execute([2, 'draft', 'vi', $testPhotos]);
 $check(count(review_articles_view_load_customer_images($galleryDb, 1, 'vi')) === 1, 'Detail-only reader loads selected published-facility photos.');

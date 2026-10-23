@@ -332,11 +332,12 @@ POST bản hoàn chỉnh. Gửi payload khác bằng request đã dùng báo 409
 
 Gallery đọc riêng từ `medical_facilities.patient_images_json` của cơ sở đã
 xuất bản, đúng ngôn ngữ. `facility_insights_json` là dữ liệu phân tích, không
-phải thư viện ảnh khách. Chỉ ảnh có `consent_confirmed: true` được hiển thị;
-thiếu xác nhận hoặc `false` thì ẩn. Việc công khai trên mạng xã hội không tự
-được coi là sự đồng ý công khai ảnh bệnh nhân trên MedReview.
+phải thư viện ảnh khách. Gallery hiển thị tất cả ảnh có URL hợp lệ trong danh
+sách (tối đa 100 ảnh theo schema), loại URL lỗi và ảnh trùng. Không lọc theo
+`consent_confirmed` và không sửa giá trị trường này trong DB. Quản trị viên chịu
+trách nhiệm lựa chọn ảnh phù hợp để đưa vào danh sách công khai.
 
-Không có ảnh được xác nhận thì không hiện khối rỗng. Gallery không đưa ghi chú
+Không có ảnh hợp lệ thì không hiện khối rỗng. Gallery không đưa ghi chú
 nội bộ, URL nguồn hay trạng thái riêng vào HTML, AI prompt, snapshot hoặc danh
 sách bài viết. Khối nguồn/giới hạn được ẩn trên giao diện đọc; dữ liệu căn cứ
 vẫn được lưu nội bộ, không bị xóa khỏi DB khi thay đổi giao diện.
