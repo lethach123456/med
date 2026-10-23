@@ -80,6 +80,7 @@ $e = 'review_articles_view_escape';
   <?= medical_public_shell_styles() ?>
   <link rel="stylesheet" href="<?= $e(medical_public_asset_url('/assets/css/core/shared-typography.css')) ?>">
   <link rel="stylesheet" href="<?= $e(medical_public_asset_url('/assets/css/pages/review-articles.css')) ?>">
+  <link rel="stylesheet" href="<?= $e(medical_public_asset_url('/assets/css/pages/review-article-detail.css')) ?>">
   <script src="<?= $e(medical_public_asset_url('/assets/js/review-articles.js')) ?>" defer></script>
 </head>
 <body class="review-articles-page">

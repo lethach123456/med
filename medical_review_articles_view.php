@@ -187,6 +187,22 @@ function review_articles_view_load_customer_images(PDO $pdo, int $facilityId, st
     return review_articles_view_customer_images($query->fetchColumn());
 }
 
+function review_articles_view_customer_photo_card(array $photo, int $index, string $locale): string
+{
+    $e = 'review_articles_view_escape';
+    $caption = review_articles_view_string($photo['caption'] ?? '');
+    $alt = review_articles_view_string($photo['alt'] ?? '') ?: ($caption ?: review_articles_view_text('Hình ảnh khách hàng tại cơ sở', 'Customer photo at the facility', $locale));
+    $attributes = function_exists('medical_media_image_attributes')
+        ? medical_media_image_attributes($photo['url'], '(max-width:620px) calc((100vw - 96px)/2), (max-width:900px) calc((100vw - 148px)/2), 350px', [240, 480, 768], 480)
+        : 'src="' . $e($photo['url']) . '"';
+    return '<figure class="ra-customer-card"><a href="' . $e($photo['url']) . '" data-review-photo data-caption="' . $e($caption) . '" aria-label="'
+        . $e(review_articles_view_text('Xem ảnh ', 'View photo ', $locale) . ($index + 1) . ': ' . $alt) . '">'
+        . '<img ' . $attributes . ' alt="' . $e($alt) . '" width="480" height="360" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
+        . '<span class="ra-customer-number" aria-hidden="true">' . str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) . '</span>'
+        . '<span class="ra-customer-zoom" aria-hidden="true"><i class="ph ph-arrows-out-simple"></i></span></a>'
+        . ($caption !== '' ? '<figcaption>' . $e($caption) . '</figcaption>' : '') . '</figure>';
+}
+
 function review_articles_view_toc_html(array $toc): string
 {
     $html = '<ol class="ra-toc-list">';

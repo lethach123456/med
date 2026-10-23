@@ -11,9 +11,26 @@ $reviewArticleCustomerImages = $reviewArticleCustomerImages ?? [];
 ?>
 <main class="ra-page ra-article site-typo" id="main-content" data-review-articles data-locale="<?= $e($locale) ?>">
   <div class="ra-container">
-    <nav class="ra-breadcrumb" aria-label="<?= $raText('Đường dẫn', 'Breadcrumb') ?>"><a href="<?= $isEnglish ? '/en' : '/' ?>"><?= $raText('Trang chủ', 'Home') ?></a><i class="ph ph-caret-right" aria-hidden="true"></i><a href="<?= $e(review_articles_view_path($locale)) ?>">Review</a><i class="ph ph-caret-right" aria-hidden="true"></i><span aria-current="page"><?= $raText('Bài phân tích', 'Analysis article') ?></span></nav>
+    <nav class="ra-breadcrumb" aria-label="<?= $raText('Đường dẫn', 'Breadcrumb') ?>"><a href="<?= $isEnglish ? '/en' : '/' ?>"><?= $raText('Trang chủ', 'Home') ?></a><i class="ph ph-caret-right" aria-hidden="true"></i><a href="<?= $e(review_articles_view_path($locale)) ?>">Review</a><i class="ph ph-caret-right" aria-hidden="true"></i><span aria-current="page"><?= $raText('Bài review', 'Review article') ?></span></nav>
     <article>
-      <header class="ra-article-header"><a class="ra-eyebrow" href="<?= $e(review_articles_view_path($locale)) ?>"><i class="ph ph-notebook" aria-hidden="true"></i><?= $raText('Review & đánh giá', 'Reviews & assessments') ?></a><h1><?= $e($reviewArticle['title']) ?></h1><?php if (review_articles_view_string($reviewArticle['excerpt'] ?? '') !== ''): ?><p class="ra-article-lead"><?= $e($reviewArticle['excerpt']) ?></p><?php endif; ?><div class="ra-article-meta"><span><i class="ph ph-pen-nib" aria-hidden="true"></i>MedReview</span><?php if ($reviewArticleUpdated !== []): ?><time datetime="<?= $e($reviewArticleUpdated['datetime']) ?>"><i class="ph ph-calendar-blank" aria-hidden="true"></i><?= $raText('Cập nhật', 'Updated') ?> <?= $e($reviewArticleUpdated['label']) ?></time><?php endif; ?><span><i class="ph ph-clock" aria-hidden="true"></i><?= max(1, (int) ($reviewArticle['reading_minutes'] ?? 1)) ?> <?= $raText('phút đọc', 'min read') ?></span></div></header>
+      <header class="ra-article-header">
+        <div class="ra-article-topline">
+          <a class="ra-eyebrow" href="<?= $e(review_articles_view_path($locale)) ?>"><i class="ph ph-notebook" aria-hidden="true"></i><?= $raText('Review & đánh giá', 'Reviews & assessments') ?></a>
+          <?php if (review_articles_view_string($reviewArticleFacility['category'] ?? '') !== '' || review_articles_view_string($reviewArticleFacility['city'] ?? '') !== ''): ?>
+            <div class="ra-article-context">
+              <?php if (review_articles_view_string($reviewArticleFacility['category'] ?? '') !== ''): ?><span><?= $e($reviewArticleFacility['category']) ?></span><?php endif; ?>
+              <?php if (review_articles_view_string($reviewArticleFacility['city'] ?? '') !== ''): ?><span><i class="ph ph-map-pin" aria-hidden="true"></i><?= $e($reviewArticleFacility['city']) ?></span><?php endif; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+        <h1><?= $e($reviewArticle['title']) ?></h1>
+        <?php if (review_articles_view_string($reviewArticle['excerpt'] ?? '') !== ''): ?><p class="ra-article-lead"><?= $e($reviewArticle['excerpt']) ?></p><?php endif; ?>
+        <div class="ra-article-meta">
+          <span class="ra-article-author"><i class="ph ph-pen-nib" aria-hidden="true"></i>MedReview</span>
+          <?php if ($reviewArticleUpdated !== []): ?><time datetime="<?= $e($reviewArticleUpdated['datetime']) ?>"><i class="ph ph-calendar-blank" aria-hidden="true"></i><?= $raText('Cập nhật', 'Updated') ?> <?= $e($reviewArticleUpdated['label']) ?></time><?php endif; ?>
+          <span><i class="ph ph-clock" aria-hidden="true"></i><?= max(1, (int) ($reviewArticle['reading_minutes'] ?? 1)) ?> <?= $raText('phút đọc', 'min read') ?></span>
+        </div>
+      </header>
       <div class="ra-article-layout">
         <div class="ra-reading">
           <?php if ($reviewArticleImage !== ''): ?><figure class="ra-cover"><img <?= medical_media_image_attributes($reviewArticleImage, '(max-width:620px) calc(100vw - 70px), (max-width:900px) calc(100vw - 116px), 760px', [480, 768, 960, 1280], 960) ?> width="960" height="600" alt="<?= $e(review_articles_view_string($reviewArticleFacility['name'] ?? '') ?: $reviewArticle['title']) ?>" decoding="async" fetchpriority="high"></figure><?php endif; ?>

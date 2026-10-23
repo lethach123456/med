@@ -9,42 +9,149 @@
     var photoIndex = 0;
     var photoTrigger = null;
     var photoImage = photoDialog.querySelector('[data-review-photo-image]');
+    var photoStatus = photoDialog.querySelector('[data-review-photo-status]');
+    var photoRetry = photoDialog.querySelector('[data-review-photo-retry]');
+    var photoCaption = photoDialog.querySelector('[data-review-photo-caption]');
+    var photoCounter = photoDialog.querySelector('[data-review-photo-counter]');
+    var photoStage = photoDialog.querySelector('[data-review-photo-stage]') || photoDialog.querySelector('figure');
+    var photoClose = photoDialog.querySelector('[data-review-photo-close]');
+    var photoPrevious = photoDialog.querySelector('[data-review-photo-prev]');
+    var photoNext = photoDialog.querySelector('[data-review-photo-next]');
+    var photoRequest = 0;
     var oldOverflow = '';
+    var overflowLocked = false;
+    var photoGesture = null;
+    var photoText = function (vi, en) { return page.dataset.locale === 'en' ? en : vi; };
+    var setPhotoState = function (state) {
+      photoDialog.dataset.photoState = state;
+      photoImage.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+      if (photoRetry) photoRetry.hidden = state !== 'error';
+      if (photoStatus) {
+        photoStatus.hidden = state === 'ready' || !state;
+        photoStatus.textContent = state === 'loading'
+          ? photoText('Đang tải ảnh…', 'Loading photo…')
+          : state === 'error' ? photoText('Chưa tải được ảnh. Bạn có thể thử lại.', 'This photo could not load. You can try again.') : '';
+      }
+    };
+    var stopPhotoLoad = function () {
+      photoRequest += 1;
+      photoImage.onload = null;
+      photoImage.onerror = null;
+      photoImage.removeAttribute('src');
+    };
     var showPhoto = function (index) {
       photoIndex = (index + photos.length) % photos.length;
       var photo = photos[photoIndex];
+      var thumbnail = photo.querySelector('img');
+      stopPhotoLoad();
+      var request = photoRequest;
+      // A separate image node makes late events from the previous URL harmless.
+      var nextImage = photoImage.cloneNode(false);
+      nextImage.removeAttribute('src');
+      nextImage.removeAttribute('srcset');
+      photoImage.replaceWith(nextImage);
+      photoImage = nextImage;
+      photoImage.alt = thumbnail ? thumbnail.alt : '';
+      photoCaption.textContent = photo.dataset.caption || '';
+      photoCounter.textContent = (photoIndex + 1) + ' / ' + photos.length;
+      photoGesture = null;
+      setPhotoState('loading');
+      photoImage.onload = function () {
+        if (request !== photoRequest) return;
+        setPhotoState(photoImage.naturalWidth > 0 ? 'ready' : 'error');
+      };
+      photoImage.onerror = function () {
+        if (request === photoRequest) setPhotoState('error');
+      };
       photoImage.src = photo.href;
-      photoImage.alt = photo.querySelector('img').alt;
-      photoDialog.querySelector('[data-review-photo-caption]').textContent = photo.dataset.caption || '';
-      photoDialog.querySelector('[data-review-photo-counter]').textContent = (photoIndex + 1) + ' / ' + photos.length;
+      if (photoImage.complete) photoImage.onload();
     };
     photos.forEach(function (photo, index) {
       photo.addEventListener('click', function (event) {
-        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
-        event.preventDefault();
-        photoTrigger = photo;
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
         showPhoto(index);
-        oldOverflow = document.body.style.overflow;
-        photoDialog.showModal();
-        document.body.style.overflow = 'hidden';
+        if (!photoDialog.open) {
+          try {
+            photoDialog.showModal();
+          } catch (error) {
+            stopPhotoLoad();
+            setPhotoState('');
+            return; // The original image link remains usable if a modal cannot open.
+          }
+          oldOverflow = document.body.style.overflow;
+          document.body.style.overflow = 'hidden';
+          overflowLocked = true;
+        }
+        photoTrigger = photo;
+        event.preventDefault();
       });
     });
-    photoDialog.querySelector('[data-review-photo-close]').addEventListener('click', function () { photoDialog.close(); });
-    photoDialog.querySelector('[data-review-photo-prev]').addEventListener('click', function () { showPhoto(photoIndex - 1); });
-    photoDialog.querySelector('[data-review-photo-next]').addEventListener('click', function () { showPhoto(photoIndex + 1); });
-    photoDialog.querySelector('[data-review-photo-prev]').hidden = photos.length < 2;
-    photoDialog.querySelector('[data-review-photo-next]').hidden = photos.length < 2;
+    photoClose.addEventListener('click', function () { photoDialog.close(); });
+    photoPrevious.addEventListener('click', function () { showPhoto(photoIndex - 1); });
+    photoNext.addEventListener('click', function () { showPhoto(photoIndex + 1); });
+    photoPrevious.hidden = photos.length < 2;
+    photoNext.hidden = photos.length < 2;
+    if (photoRetry) photoRetry.addEventListener('click', function () {
+      showPhoto(photoIndex);
+      photoClose.focus({ preventScroll: true }); // Retry is now hidden; keep keyboard focus in the viewer.
+    });
     photoDialog.addEventListener('keydown', function (event) {
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      var target = event.target;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))) return;
+      if (photos.length > 1 && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
         event.preventDefault();
         showPhoto(photoIndex + (event.key === 'ArrowLeft' ? -1 : 1));
       }
     });
+    // Only a deliberate horizontal touch gesture changes photos. Browser scrolling
+    // and pinch-to-zoom stay native; no touch event is cancelled or captured.
+    var isPhotoZoomed = function () { return window.visualViewport && window.visualViewport.scale > 1.01; };
+    var beginPhotoGesture = function (id, x, y) {
+      photoGesture = photoDialog.open && photos.length > 1 && !isPhotoZoomed()
+        ? { id: id, x: x, y: y, time: Date.now() } : null;
+    };
+    var endPhotoGesture = function (id, x, y) {
+      var gesture = photoGesture;
+      photoGesture = null;
+      if (!gesture || gesture.id !== id || isPhotoZoomed() || !photoDialog.open) return;
+      var dx = x - gesture.x;
+      var dy = y - gesture.y;
+      if (Date.now() - gesture.time < 900 && Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+        showPhoto(photoIndex + (dx < 0 ? 1 : -1));
+      }
+    };
+    if (photoStage && 'PointerEvent' in window) {
+      photoStage.addEventListener('pointerdown', function (event) {
+        if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+        if (event.isPrimary === false || event.button !== 0) { photoGesture = null; return; }
+        beginPhotoGesture(event.pointerId, event.clientX, event.clientY);
+      }, { passive: true });
+      photoStage.addEventListener('pointerup', function (event) { endPhotoGesture(event.pointerId, event.clientX, event.clientY); }, { passive: true });
+      photoStage.addEventListener('pointercancel', function () { photoGesture = null; }, { passive: true });
+    } else if (photoStage) {
+      photoStage.addEventListener('touchstart', function (event) {
+        if (event.touches.length !== 1) { photoGesture = null; return; }
+        var touch = event.touches[0];
+        beginPhotoGesture(touch.identifier, touch.clientX, touch.clientY);
+      }, { passive: true });
+      photoStage.addEventListener('touchmove', function (event) { if (event.touches.length !== 1) photoGesture = null; }, { passive: true });
+      photoStage.addEventListener('touchend', function (event) {
+        if (event.changedTouches.length !== 1) { photoGesture = null; return; }
+        var touch = event.changedTouches[0];
+        endPhotoGesture(touch.identifier, touch.clientX, touch.clientY);
+      }, { passive: true });
+      photoStage.addEventListener('touchcancel', function () { photoGesture = null; }, { passive: true });
+    }
     photoDialog.addEventListener('click', function (event) { if (event.target === photoDialog) photoDialog.close(); });
     photoDialog.addEventListener('close', function () {
-      document.body.style.overflow = oldOverflow;
-      photoImage.removeAttribute('src');
-      if (photoTrigger) photoTrigger.focus();
+      if (overflowLocked) document.body.style.overflow = oldOverflow;
+      overflowLocked = false;
+      photoGesture = null;
+      stopPhotoLoad();
+      setPhotoState('');
+      if (photoTrigger && photoTrigger.isConnected !== false) photoTrigger.focus({ preventScroll: true });
+      photoTrigger = null;
     });
   }
 

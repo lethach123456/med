@@ -86,11 +86,12 @@ $check(str_contains($renderDirectory([], false, 'vi', ['q' => '<img src=x>']), '
 $check(str_contains($renderDirectory([], true), 'Chưa tải được các bài review'), 'Unavailable state is not misrepresented as no content.');
 $check(str_contains($renderDirectory([], false, 'en'), 'New perspectives are on the way') && !str_contains($renderDirectory([], false, 'en'), 'Những góc nhìn'), 'English empty list copy is localized.');
 
-$renderDetail = static function (array $article, array $photos = []): string {
-    $locale = 'vi'; $isEnglish = false; $e = 'review_articles_view_escape';
+$renderDetail = static function (array $article, array $photos = [], string $language = 'vi'): string {
+    $locale = $language; $isEnglish = $locale === 'en'; $e = 'review_articles_view_escape';
     $reviewArticleCustomerImages = $photos;
     $reviewArticle = $article; $reviewArticleFacility = $article['facility']; $reviewArticleImage = '';
     $reviewArticleSections = review_articles_view_sections($article, $locale); $reviewArticleToc = review_articles_view_toc($article, $reviewArticleSections, $locale); $reviewArticleRelated = [];
+    if ($photos !== []) $reviewArticleToc[] = ['id' => 'review-customer-images', 'title' => $isEnglish ? 'Customer photos' : 'Hình ảnh khách hàng'];
     ob_start(); require dirname(__DIR__) . '/Tem/review-article.php'; return (string) ob_get_clean();
 };
 $detail = $renderDetail($fixture);
@@ -128,6 +129,49 @@ $galleryDetail = $renderDetail($fixture, $photos);
 $check(str_contains($galleryDetail, 'id="review-customer-images"') && str_contains($galleryDetail, '<dialog') && str_contains($galleryDetail, 'loading="lazy"'), 'Customer gallery is progressively enhanced and lazy-loaded.');
 $check(str_contains($galleryDetail, '&lt;b&gt;Ảnh khách&lt;/b&gt;') && !str_contains($galleryDetail, 'PRIVATE_SOURCE') && !str_contains($galleryDetail, 'PRIVATE_NOTES'), 'Customer captions are escaped; private photo metadata never appears.');
 $check(str_contains($galleryDetail, 'data-review-photo-prev') && str_contains($galleryDetail, 'data-review-photo-close') && str_contains($galleryDetail, 'không đại diện cho kết quả điều trị'), 'Gallery includes viewer controls and a non-promissory treatment disclaimer.');
+$check(str_contains($galleryDetail, 'alt="Ảnh &lt;khách&gt;"') && !str_contains($galleryDetail, 'alt="Ảnh <khách>"'), 'Customer image alt text remains escaped in the polished card.');
+$check(str_contains($galleryDetail, 'data-review-photo-stage') && str_contains($galleryDetail, 'data-review-photo-status') && str_contains($galleryDetail, 'data-review-photo-retry hidden'), 'Photo viewer has a loading/status stage and a progressively revealed retry action.');
+
+$galleryXpath = static function (string $html): DOMXPath {
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    $previousErrors = libxml_use_internal_errors(true);
+    try {
+        $dom->loadHTML('<!doctype html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>');
+    } finally {
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+    }
+    return new DOMXPath($dom);
+};
+foreach ([1, 2, 4, 5, 8, 100] as $photoCount) {
+    $storedPhotos = review_articles_view_customer_images(array_slice($manyPhotos, 0, $photoCount));
+    $photoHtml = $renderDetail($fixture, $storedPhotos);
+    $photoDom = $galleryXpath($photoHtml);
+    $photoRoot = '//section[@id="review-customer-images"]';
+    $links = $photoDom->query($photoRoot . '//a[@data-review-photo]/@href');
+    $actualUrls = [];
+    foreach ($links as $link) $actualUrls[] = $link->nodeValue;
+    $check($actualUrls === array_column($storedPhotos, 'url'), $photoCount . '-photo gallery retains every original image href in stored order, including native disclosure content.');
+    $check($photoDom->query($photoRoot . '/div[contains(concat(" ", normalize-space(@class), " "), " ra-customer-grid ")]/figure')->length === min(4, $photoCount), $photoCount . '-photo gallery initially presents at most four preview cards.');
+    $more = $photoDom->query($photoRoot . '/details[contains(concat(" ", normalize-space(@class), " "), " ra-gallery-more ")]');
+    $check($more->length === ($photoCount > 4 ? 1 : 0), $photoCount . '-photo gallery only needs show-more when more than four stored photos exist.');
+    $check($photoDom->query($photoRoot . '/div[contains(concat(" ", normalize-space(@class), " "), " ra-customer-grid--single ")]')->length === ($photoCount === 1 ? 1 : 0), $photoCount . '-photo gallery uses full-width single-photo framing only for one photo.');
+    $check(trim($photoDom->query($photoRoot . '/div[contains(@class,"ra-gallery-heading")]/span[contains(@class,"ra-gallery-count")]')->item(0)->textContent) === $photoCount . ' ảnh', $photoCount . '-photo gallery displays the exact total, not the preview count.');
+    $check($photoDom->query('//*[@id="review-customer-images"]')->length === 1 && $photoDom->query('//a[@href="#review-customer-images"]')->length === 2, $photoCount . '-photo gallery has a unique section target shared by mobile and desktop contents links.');
+    if ($photoCount > 4) {
+        $check($photoDom->query($photoRoot . '/details/summary')->length === 1 && $photoDom->query($photoRoot . '/details[@hidden or @open]')->length === 0, $photoCount . '-photo show-more uses a closed native details/summary, not a JavaScript-only hidden region.');
+        $check($photoDom->query($photoRoot . '/details/div/figure/a[@data-review-photo]')->length === $photoCount - 4, $photoCount . '-photo gallery places every remaining image inside the native disclosure.');
+        $check(str_contains($photoHtml, 'Xem thêm ' . ($photoCount - 4) . ' ảnh'), $photoCount . '-photo show-more names the exact remaining image count.');
+    }
+}
+$check(!str_contains($detail, 'href="#review-customer-images"'), 'No customer photos means neither a gallery nor a dead contents link.');
+$englishGallery = $renderDetail($fixture, $photos, 'en');
+$check(str_contains($englishGallery, 'Customer photos') && str_contains($englishGallery, 'A closer look') && str_contains($englishGallery, '5 photos') && str_contains($englishGallery, 'View 1 more photos') && str_contains($englishGallery, 'Show fewer photos'), 'English gallery headings, total and native show-more labels are localized.');
+$check(str_contains($englishGallery, 'Customer photo viewer') && str_contains($englishGallery, 'Try again') && str_contains($englishGallery, 'Close photo') && !str_contains($englishGallery, 'Hình ảnh khách hàng'), 'English gallery viewer controls do not introduce Vietnamese UI labels.');
+$fallbackPhoto = review_articles_view_customer_images([['url' => '/uploads/no-caption.webp']]);
+$englishFallback = $renderDetail($fixture, $fallbackPhoto, 'en');
+$check(str_contains($englishFallback, 'alt="Customer photo at the facility"') && str_contains($englishFallback, 'aria-label="View photo 1: Customer photo at the facility"'), 'Missing caption and alt use an accessible localized image description.');
+$check(!str_contains($englishFallback, '<figcaption>') && !str_contains($englishFallback, 'ra-gallery-more'), 'One image without a caption creates neither an empty card caption nor an unnecessary show-more control.');
 $galleryDb = new PDO('sqlite::memory:');
 $galleryDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $galleryDb->exec('CREATE TABLE medical_facilities(id INTEGER, status TEXT, language_code TEXT)');
@@ -172,6 +216,7 @@ $root = dirname(__DIR__);
 $directoryController = (string) file_get_contents($root . '/review.php');
 $detailController = (string) file_get_contents($root . '/review-bai-viet.php');
 $css = (string) file_get_contents($root . '/assets/css/pages/review-articles.css');
+$detailCss = (string) file_get_contents($root . '/assets/css/pages/review-article-detail.css');
 $js = (string) file_get_contents($root . '/assets/js/review-articles.js');
 $check(str_contains($directoryController, 'medical_review_articles_directory_page') && !str_contains($directoryController, 'review_view_directory('), 'The review menu now queries editorial articles only.');
 $check(str_contains($detailController, "'@type' => 'Article'") && !str_contains($detailController, 'aggregateRating'), 'Article schema does not manufacture a review or aggregate rating.');
@@ -180,6 +225,12 @@ $check(str_contains($css, '@media(max-width:620px)') && str_contains($css, '@med
 $check(str_contains($css, 'min-height:44px') && str_contains($css, 'font-size:16px') && str_contains($css, 'prefers-reduced-motion'), 'Mobile targets, readable body and reduced-motion handling exist.');
 $check(!str_contains($css, 'fonts.googleapis.com') && str_contains($css, 'var(--med-font-sans'), 'No new font dependency is introduced.');
 $check(str_contains($css, 'scroll-margin-top:') && str_contains($css, ':focus-visible'), 'Anchor offsets and visible keyboard focus are retained.');
+$check(str_contains($detailController, '/assets/css/pages/review-article-detail.css') && !str_contains($directoryController, '/assets/css/pages/review-article-detail.css'), 'Detail polish is loaded only for the review article, leaving directory styles unchanged.');
+$check(str_contains($detailController, "['id' => 'review-customer-images'") && str_contains($detailController, 'if ($reviewArticleCustomerImages !== [])'), 'Detail controller appends customer photos to the contents only after stored photos have been loaded.');
+$check(str_contains($detailCss, '.ra-customer-gallery .ra-customer-card img') && str_contains($detailCss, 'object-fit:contain') && !str_contains($detailCss, 'object-fit:cover'), 'Detail photo polish contains rather than crops customer comparison images.');
+$check(str_contains($detailCss, 'grid-template-columns:repeat(2,minmax(0,1fr))') && str_contains($detailCss, '.ra-customer-grid--single{grid-template-columns:minmax(0,1fr)}') && str_contains($detailCss, '@media(max-width:620px)'), 'Customer grid has shrinkable two-column and single-image layouts with a mobile breakpoint.');
+$check(str_contains($detailCss, '@media(max-width:900px){.ra-article .ra-article-side{grid-template-columns:minmax(0,1fr)}') && str_contains($detailCss, 'overflow-y:auto'), 'Tablet facility sidebar spans the available width and long desktop contents can scroll.');
+$check(str_contains($detailCss, '[data-photo-state="loading"]') && str_contains($detailCss, '[data-photo-state="error"]') && str_contains($detailCss, '[data-photo-state="ready"]') && str_contains($detailCss, 'prefers-reduced-motion'), 'Photo loading/error presentation and reduced-motion behavior are styled explicitly.');
 $check(str_contains($js, "event.key !== 'Escape'") && str_contains($js, 'summary.focus()') && str_contains($js, 'navigator.share') && str_contains($js, 'aria-current'), 'Enhancements have keyboard dismissal, sharing and active TOC state.');
 $check(!str_contains($js, 'fetch(') && !str_contains($js, 'innerHTML'), 'Reading-page JavaScript does not require network or insert untrusted HTML.');
 echo 'review_articles_view_test: ' . $assertions . " assertions passed.\n";
