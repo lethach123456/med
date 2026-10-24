@@ -28,6 +28,7 @@ $handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
 ?><!doctype html>
 <html lang="<?= handbook_view_escape($locale) ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($locale, !$handbookNoindex && $handbookPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
   <?= site_favicon_tags() ?>
@@ -48,6 +49,7 @@ $handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
   <link rel="stylesheet" href="<?= handbook_view_escape(medical_public_asset_url('/assets/css/pages/handbook.css')) ?>">
 </head>
 <body class="handbook-page">
+<?= site_tag_manager_body() ?>
 <?php require __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/handbook-directory.php'; ?>
 <?php require __DIR__ . '/Tem/footer.php'; ?>

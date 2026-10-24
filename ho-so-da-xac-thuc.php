@@ -29,6 +29,7 @@ $faq = [
 <!doctype html>
 <html lang="<?php echo $en ? 'en' : 'vi'; ?>">
 <head>
+<?php echo site_tag_manager_head(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,6 +45,7 @@ $faq = [
     <link rel="stylesheet" href="/assets/css/pages/verified-profile.css?v=<?php echo (int) filemtime(__DIR__ . '/assets/css/pages/verified-profile.css'); ?>">
 </head>
 <body class="site-verification">
+<?php echo site_tag_manager_body(); ?>
 <?php require __DIR__ . '/Tem/header.php'; ?>
 <main class="verification">
     <section class="vf-hero" aria-labelledby="verification-title">

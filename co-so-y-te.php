@@ -237,6 +237,7 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
 <!doctype html>
 <html lang="<?= $isEnglish ? 'en' : 'vi' ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <meta charset="utf-8">
   <?= site_language_metadata_tags($locale, ['vi', 'en']) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -260,6 +261,7 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
   <link rel="stylesheet" href="/assets/css/pages/facility-directory-mobile.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/pages/facility-directory-mobile.css') ?>">
 </head>
 <body class="fd-page">
+<?= site_tag_manager_body() ?>
 <a class="fd-skip-link" href="#fdResultsHeading"><?= $isEnglish ? 'Skip to facilities' : 'Đến danh sách cơ sở' ?></a>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php include __DIR__ . '/Tem/facility-directory.php'; ?>

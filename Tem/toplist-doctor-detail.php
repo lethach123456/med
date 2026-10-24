@@ -15,6 +15,7 @@ foreach ($tdMembers as $index=>$member) {
 <!doctype html>
 <html lang="<?= $tdEscape($toplistLanguage) ?>">
 <head>
+<?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($toplistLanguage, !empty($toplistLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []) ?>
   <title><?= $tdEscape($title) ?> | MedReview</title>
@@ -35,6 +36,7 @@ foreach ($tdMembers as $index=>$member) {
   <script src="/assets/js/toplist-doctor-detail.js?v=<?= filemtime(__DIR__ . '/../assets/js/toplist-doctor-detail.js') ?>" defer></script>
 </head>
 <body class="doctor-toplist-page">
+<?= site_tag_manager_body() ?>
 <a class="td-skip-link" href="#td-main"><?= $tdEscape($tdLabels['skip']) ?></a>
 <?php include __DIR__ . '/header.php'; ?>
 <?php require __DIR__ . '/toplist-doctor-detail-content.php'; ?>

@@ -55,6 +55,7 @@ $homeSchema = [
 <!doctype html>
 <html lang="<?php echo $locale === 'en' ? 'en' : 'vi'; ?>">
   <head>
+    <?= site_tag_manager_head() ?>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
@@ -77,6 +78,7 @@ $homeSchema = [
 
   </head>
   <body class="site-home">
+    <?= site_tag_manager_body() ?>
     <?php include __DIR__ . '/Tem/header.php'; ?>
     <?php include __DIR__ . '/Tem/home.php'; ?>
     <?php if (function_exists('front_editor_render')) { front_editor_render('home'); } ?>

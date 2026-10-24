@@ -12,6 +12,7 @@ $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, 
 <!doctype html>
 <html lang="<?= $escapeNotFound($notFoundLocale) ?>">
 <head>
+<?= site_tag_manager_head() ?>
   <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
   <?= site_language_metadata_tags($notFoundLocale) ?>
@@ -149,6 +150,7 @@ $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, 
   </style>
 </head>
 <body>
+<?= site_tag_manager_body() ?>
   <?php include __DIR__ . '/header.php'; ?>
   <main class="public-404 site-typo">
     <section class="public-404__layout" aria-labelledby="public-404-title">

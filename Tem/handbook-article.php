@@ -5,6 +5,7 @@ $handbookImage = handbook_view_image_url($featured);
 ?><!doctype html>
 <html lang="<?= handbook_view_escape($handbookLocale) ?>">
 <head>
+<?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($handbookLocale, array_keys($handbookArticleAlternates ?? [])) ?>
   <?= site_favicon_tags() ?>
@@ -29,6 +30,7 @@ $handbookImage = handbook_view_image_url($featured);
   <link rel="stylesheet" href="<?= handbook_view_escape(medical_public_asset_url('/assets/css/pages/handbook-article.css')) ?>">
 </head>
 <body class="handbook-page">
+<?= site_tag_manager_body() ?>
 <?php require __DIR__ . '/header.php'; ?>
 <main class="hb-article site-typo" id="main">
   <div class="hb-container">

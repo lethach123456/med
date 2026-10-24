@@ -77,6 +77,7 @@ $escape = static fn(mixed $value): string => htmlspecialchars(medical_doctor_pro
 <!doctype html>
 <html lang="<?= $escape($doctorLanguage) ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <meta charset="utf-8">
   <?= site_language_metadata_tags($doctorLanguage, !empty($doctorLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -101,6 +102,7 @@ $escape = static fn(mixed $value): string => htmlspecialchars(medical_doctor_pro
   <script src="/assets/js/doctor-profile.js?v=<?= filemtime(__DIR__ . '/assets/js/doctor-profile.js') ?>" defer></script>
 </head>
 <body class="doctor-profile-page">
+<?= site_tag_manager_body() ?>
 <a class="dp-skip-link" href="#doctor-main"><?= $english ? 'Skip to doctor profile' : 'Đến nội dung hồ sơ bác sĩ' ?></a>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/doctor-profile.php'; ?>

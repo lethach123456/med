@@ -108,6 +108,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
 <!doctype html>
 <html lang="<?php echo $isEnglish ? 'en' : 'vi'; ?>">
 <head>
+  <?= site_tag_manager_head() ?>
     <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8">
   <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
@@ -132,6 +133,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <link rel="stylesheet" href="/assets/css/core/directory-service-labels.css?v=<?= (int) filemtime(__DIR__ . '/assets/css/core/directory-service-labels.css') ?>">
 </head>
 <body class="doctor-directory-page">
+<?= site_tag_manager_body() ?>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/doctor-directory.php'; ?>
 <?php include __DIR__ . '/Tem/footer.php'; ?>

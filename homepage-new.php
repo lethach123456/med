@@ -20,6 +20,7 @@ header('X-Robots-Tag: noindex, follow');
 ?><!doctype html>
 <html lang="<?= home_next_escape($locale) ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($locale) ?>
   <?= site_favicon_tags() ?>
@@ -33,6 +34,7 @@ header('X-Robots-Tag: noindex, follow');
   <script src="/assets/js/home-next.js?v=<?= home_next_escape($homeNextJsVersion) ?>" defer></script>
 </head>
 <body class="site-home site-home-next">
+<?= site_tag_manager_body() ?>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <link rel="stylesheet" href="/assets/css/pages/home-next.css?v=<?= home_next_escape($homeNextCssVersion) ?>">
 <?php require __DIR__ . '/Tem/home-next.php'; ?>

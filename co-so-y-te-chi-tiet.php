@@ -1057,6 +1057,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
 <!doctype html>
 <html lang="<?php echo htmlspecialchars($facilityLanguage, ENT_QUOTES, 'UTF-8'); ?>">
   <head>
+    <?= site_tag_manager_head() ?>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags($facilityLanguage, !empty($facilityLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []); ?>
@@ -2385,6 +2386,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
     <link rel="stylesheet" href="/assets/css/pages/facility-detail-nav.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-nav.css'); ?>">
   </head>
   <body>
+    <?= site_tag_manager_body() ?>
     <?php include __DIR__ . '/Tem/header.php'; ?>
     <main class="facility-detail site-typo">
       <section class="container">

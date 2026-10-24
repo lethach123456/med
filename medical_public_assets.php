@@ -12,6 +12,7 @@ function medical_public_shell_sources(string $type = 'shell'): array
         '/assets/css/pages/brand-header-match.css',
         '/assets/css/core/public-pages-refresh.css',
         '/assets/css/core/public-components.css',
+        '/assets/css/core/content-links.css',
     ];
     return $type === 'home' ? array_merge([
         '/assets/css/core/shared-typography.css',

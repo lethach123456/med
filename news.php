@@ -83,6 +83,7 @@ try {
 <!doctype html>
 <html lang="en">
   <head>
+    <?php echo site_tag_manager_head(); ?>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags('en'); ?>
@@ -430,6 +431,7 @@ try {
     </style>
   </head>
   <body>
+    <?php echo site_tag_manager_body(); ?>
     <?php include __DIR__ . '/Tem/header.php'; ?>
     <section class="hero">
       <div class="hero-slider" id="heroSlider">

@@ -119,6 +119,7 @@ function money_vnd_text(?int $value, ?string $text): string {
 <!doctype html>
 <html lang="vi">
   <head>
+    <?php echo site_tag_manager_head(); ?>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags('vi'); ?>
@@ -651,6 +652,7 @@ function money_vnd_text(?int $value, ?string $text): string {
     </style>
   </head>
   <body>
+    <?php echo site_tag_manager_body(); ?>
     <?php include __DIR__ . '/Tem/header.php'; ?>
     <section class="hero">
       <div class="hero-bg" aria-hidden="true" data-hero-bg="1"></div>

@@ -725,6 +725,7 @@ HTML;
 });
 ?>
 <!doctype html><html lang="<?=htmlspecialchars($toplistLanguage,ENT_QUOTES,'UTF-8')?>"><head>
+    <?= site_tag_manager_head() ?>
     <?= site_language_metadata_tags($toplistLanguage, !empty($toplistLanguageLinks['has_counterpart']) ? ['vi', 'en'] : []) ?>
     <?php if ($toplistNotFound): ?><meta name="robots" content="noindex,follow"><?php else: ?>
     <link rel="canonical" href="<?=htmlspecialchars($canonicalUrl,ENT_QUOTES,'UTF-8')?>">

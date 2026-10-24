@@ -68,6 +68,7 @@ $e = 'review_articles_view_escape';
 ?><!doctype html>
 <html lang="<?= $e($locale) ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($locale, array_keys($reviewArticleAlternates)) ?>
   <?= site_favicon_tags() ?>
@@ -84,6 +85,7 @@ $e = 'review_articles_view_escape';
   <script src="<?= $e(medical_public_asset_url('/assets/js/review-articles.js')) ?>" defer></script>
 </head>
 <body class="review-articles-page">
+<?= site_tag_manager_body() ?>
 <a class="ra-skip" href="#main-content"><?= $isEnglish ? 'Skip to article' : 'Đến nội dung bài viết' ?></a>
 <?php require __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/review-article.php'; ?>

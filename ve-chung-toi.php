@@ -125,6 +125,7 @@ $aboutScriptVersion = (string) filemtime(__DIR__ . '/assets/js/about-medreview.j
 <!doctype html>
 <html lang="<?php echo $aboutEscape($locale); ?>">
 <head>
+    <?php echo site_tag_manager_head(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags($locale, ['vi', 'en']); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -150,6 +151,7 @@ $aboutScriptVersion = (string) filemtime(__DIR__ . '/assets/js/about-medreview.j
     <script defer src="/assets/js/about-medreview.js?v=<?php echo $aboutEscape($aboutScriptVersion); ?>"></script>
 </head>
 <body class="site-about">
+<?php echo site_tag_manager_body(); ?>
 <?php require __DIR__ . '/Tem/header.php'; ?>
 <main class="mr-about">
     <section class="mr-about__hero" aria-labelledby="about-title">

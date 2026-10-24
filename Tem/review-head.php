@@ -1,3 +1,4 @@
+<?= site_tag_manager_head() ?>
 <?php echo site_favicon_tags(); ?>
 <meta charset="utf-8">
 <?= site_language_metadata_tags($locale, !empty($reviewDirectoryScript) ? ['vi', 'en'] : []) ?>

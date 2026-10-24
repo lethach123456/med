@@ -44,6 +44,7 @@ $reviewStylesheet = 'review-detail.css';
 <html lang="<?= $isEnglish ? 'en' : 'vi' ?>">
 <head><?php require __DIR__ . '/Tem/review-head.php'; ?></head>
 <body class="review-page">
+<?= site_tag_manager_body() ?>
 <a class="rv-skip" href="#main-content"><?= $isEnglish ? 'Skip to review' : 'Đến nội dung review' ?></a>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/review-detail.php'; ?>

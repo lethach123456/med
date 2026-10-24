@@ -1,0 +1,134 @@
+/* Reading links only: navigation, action buttons and linked photos keep their UI.
+   content-links.js identifies real text links and all-link lists without changing URLs. */
+body .med-prose-links{
+  --med-link-ink:#2457a6;
+  --med-link-hover:#1747b2;
+  --med-link-line:#dde7f4;
+  --med-link-surface:#f7faff;
+  --med-link-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232457a6' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14m-6-6 6 6-6 6'/%3E%3C/svg%3E");
+}
+body .med-prose-links a[href].med-content-link{
+  color:var(--med-link-ink);
+  font-weight:550;
+  text-decoration:underline;
+  text-decoration-color:#abc2e2;
+  text-decoration-thickness:1px;
+  text-underline-offset:.2em;
+  text-decoration-skip-ink:auto;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  border-radius:3px;
+  transition:color .18s ease,background-color .18s ease,text-decoration-color .18s ease,border-color .18s ease;
+}
+body .med-prose-links a[href].med-content-link:focus-visible{
+  outline:2px solid #2d63ff;
+  outline-offset:4px;
+  background:#edf4ff;
+  color:var(--med-link-hover);
+  text-decoration-color:currentColor;
+}
+body .med-prose-links a[href].med-content-link:active{
+  color:var(--med-link-hover);
+  background:#e8f0ff;
+}
+/* Only lists made entirely of standalone links lose their bullets. Mixed prose
+   and numbered instructions retain their original list markers and rhythm. */
+body .med-prose-links ul.med-link-list{
+  display:grid;
+  gap:8px;
+  /* Legacy facility rules set a high-specificity list indent. This explicit
+     component reset must win so link cards align with the reading column. */
+  padding:0!important;
+  margin:16px 0 22px;
+  list-style:none;
+}
+body .med-prose-links .med-link-list>li.med-link-item{
+  min-width:0;
+  padding:0;
+  margin:0;
+  list-style:none;
+}
+body .med-prose-links .med-link-list>li.med-link-item::before,
+body .med-prose-links .med-link-list>li.med-link-item::marker{content:none}
+body .med-prose-links .med-link-item>p{
+  max-width:none;
+  margin:0;
+}
+body .med-prose-links a[href].med-content-link.med-link-block{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 28px;
+  align-items:center;
+  gap:12px;
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  min-height:48px;
+  padding:12px 14px;
+  border:1px solid var(--med-link-line);
+  border-radius:11px;
+  background:var(--med-link-surface);
+  color:#29496f;
+  font-family:inherit;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.65;
+  text-align:start;
+  text-decoration:none;
+  box-shadow:none;
+}
+body .med-prose-links .med-link-label{
+  display:block;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+body .med-prose-links .med-link-label :where(span,strong,b,em){color:inherit}
+body .med-prose-links a[href].med-link-block::after{
+  content:"";
+  display:block;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background-color:#e8f0ff;
+  background-image:var(--med-link-arrow);
+  background-size:17px;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+body .med-prose-links a[href].med-link-block.is-external-link{
+  --med-link-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232457a6' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M7 7h10v10'/%3E%3C/svg%3E");
+}
+@media(hover:hover){
+  body .med-prose-links a[href].med-content-link:hover{
+    color:var(--med-link-hover);
+    background-color:#edf4ff;
+    text-decoration-color:currentColor;
+  }
+  body .med-prose-links a[href].med-content-link.med-link-block:hover{
+    border-color:#bdcff0;
+    background-color:#edf4ff;
+    text-decoration:none;
+  }
+}
+@media(max-width:760px){
+  body .med-prose-links ul.med-link-list{gap:8px;margin-block:14px 18px}
+  body .med-prose-links a[href].med-content-link.med-link-block{
+    gap:10px;
+    min-height:48px;
+    padding:11px 12px;
+    font-size:14px;
+    line-height:1.6;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  body .med-prose-links a[href].med-content-link{transition:none}
+}
+@media print{
+  body .med-prose-links a[href].med-content-link.med-link-block{
+    display:block;
+    min-height:0;
+    padding:4px 0;
+    border:0;
+    background:none;
+  }
+  body .med-prose-links a[href].med-link-block::after{display:none}
+}

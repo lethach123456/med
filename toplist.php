@@ -72,6 +72,7 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
 ?><!doctype html>
 <html lang="<?= $isEnglish ? 'en' : 'vi' ?>">
 <head>
+  <?= site_tag_manager_head() ?>
   <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <?= site_language_metadata_tags($locale, !$toplistNoindex && $toplistPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
@@ -91,6 +92,7 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
   <script src="/assets/js/toplist-directory.js?v=<?= toplist_view_escape($toplistScriptVersion) ?>" defer></script>
 </head>
 <body class="toplist-directory-page">
+<?= site_tag_manager_body() ?>
 <?php include __DIR__ . '/Tem/header.php'; ?>
 <?php require __DIR__ . '/Tem/toplist-directory.php'; ?>
 <?php include __DIR__ . '/Tem/footer.php'; ?>

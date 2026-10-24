@@ -122,6 +122,7 @@ $contactScriptVersion = (string) filemtime(dirname(__DIR__) . '/assets/js/contac
 <!doctype html>
 <html lang="<?php echo $contactEscape($contactLocale); ?>">
 <head>
+<?= site_tag_manager_head() ?>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <?php echo site_language_metadata_tags($contactLocale, ['vi', 'en']); ?>
     <?php echo site_favicon_tags(); ?>
@@ -139,6 +140,7 @@ $contactScriptVersion = (string) filemtime(dirname(__DIR__) . '/assets/js/contac
     <script defer src="/assets/js/contact-medreview.js?v=<?php echo $contactEscape($contactScriptVersion); ?>"></script>
 </head>
 <body class="site-contact">
+<?= site_tag_manager_body() ?>
 <?php require __DIR__ . '/header.php'; ?>
 <main class="mr-contact">
     <section class="mr-contact__hero" aria-labelledby="contact-title">

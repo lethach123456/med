@@ -37,6 +37,7 @@ $categories = [
 <!doctype html>
 <html lang="vi">
   <head>
+    <?php echo site_tag_manager_head(); ?>
     <?php echo site_favicon_tags(); ?>
     <meta charset="utf-8">
     <?php echo site_language_metadata_tags('vi'); ?>
@@ -258,6 +259,7 @@ $categories = [
     </style>
   </head>
   <body>
+    <?php echo site_tag_manager_body(); ?>
     <?php include __DIR__ . '/Tem/header.php'; ?>
     <main class="categories-page site-typo">
       <section class="container">

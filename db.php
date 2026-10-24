@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/site_social_metadata.php';
+require_once __DIR__ . '/site_analytics.php';
 require_once __DIR__ . '/medical_public_links.php';
 
 /**

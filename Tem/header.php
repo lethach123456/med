@@ -69,7 +69,9 @@ $navItems = $isEnglish
       ['label' => 'Về chúng tôi', 'href' => $aboutPath, 'match' => parse_url($aboutPath, PHP_URL_PATH) ?: $aboutPath],
     ];
 ?>
+<?php echo site_tag_manager_body(); // Idempotent fallback for the legacy Toplist document. ?>
 <?php echo medical_public_shell_styles(); ?>
+<script src="<?php echo htmlspecialchars(medical_public_asset_url('/assets/js/content-links.js'), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
 <!-- Shared navigation and motion CSS are cached in the public shell bundle. -->
 <div class="medical-header-utility">
   <div class="container">
