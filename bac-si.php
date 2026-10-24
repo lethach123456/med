@@ -85,7 +85,15 @@ try {
     natcasesort($specialties);
     $specialties = array_slice(array_values($specialties), 0, 60);
 } catch (Throwable $e) {
-    error_log('doctor directory page failed: ' . $e->getMessage());
+    error_log('doctor directory page failed: ' . get_class($e));
+    http_response_code(503);
+    header('Retry-After: 300');
+    header('Cache-Control: no-store');
+    $notFoundLocale = $locale;
+    $notFoundTitle = $isEnglish ? 'Doctor profiles could not be loaded' : 'Chưa tải được danh sách bác sĩ';
+    $notFoundDescription = $isEnglish ? 'Please try again in a few minutes.' : 'Vui lòng thử lại sau ít phút.';
+    require __DIR__ . '/Tem/public-404.php';
+    exit;
 }
 $canonicalPage = (int) ($initial['paging']['page'] ?? 1);
 $canonicalQuery = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'recommended'), ARRAY_FILTER_USE_BOTH);

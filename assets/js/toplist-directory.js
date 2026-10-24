@@ -106,6 +106,9 @@
       const canonical = document.querySelector('link[rel="canonical"]');
       const nextCanonical = doc.querySelector('link[rel="canonical"]');
       if (canonical && nextCanonical) canonical.href = nextCanonical.href;
+      document.querySelectorAll('meta[name="robots"]').forEach(meta => meta.remove());
+      const nextRobots = doc.querySelector('meta[name="robots"]');
+      if (nextRobots) document.head.append(document.importNode(nextRobots, true));
       document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(link => link.remove());
       doc.querySelectorAll('link[rel="alternate"][hreflang]').forEach(link => document.head.append(document.importNode(link, true)));
       const range = results().querySelector('.tl-page-range');

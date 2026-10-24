@@ -31,6 +31,8 @@ if ($reviewData['review'] === null) {
     exit;
 }
 $review = $reviewData['review'];
+$reviewNoindex = empty($review['seo_indexable']);
+if ($reviewNoindex) header('X-Robots-Tag: noindex, follow');
 $relatedReviews = $reviewData['related'];
 $reviewFacility = $reviewData['facility'];
 $title = $review['title'] . ' • MedReview';

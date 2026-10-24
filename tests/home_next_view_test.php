@@ -44,7 +44,7 @@ $english = render_home_next(medical_home_next_empty(), 'en');
 $assert(str_contains($english, 'data-locale="en"') && str_contains($english, 'href="/en/co-so-y-te?q=dental"'), 'Localized directory links');
 $assert(str_contains($english, 'Illustrative image') && str_contains($english, 'Your health.'), 'English hero and image disclosure');
 $data = medical_home_next_empty();
-$facility = medical_home_next_facility_row(['id'=>7,'slug'=>'clinic','name'=>'Clinic <script>alert(1)</script>','city'=>'Hanoi','subtitle'=>'<p>Plain text</p>','rating'=>4.7,'reviews_count'=>9,'verified'=>1,'image_url'=>'/uploads/a.jpg']);
+$facility = medical_home_next_facility_row(['id'=>7,'slug'=>'clinic','name'=>'Clinic <script>alert(1)</script>','city'=>'Hanoi','subtitle'=>'<p>Plain text</p>','stored_rating'=>4.7,'stored_reviews_count'=>9,'verified'=>1,'image_url'=>'/uploads/a.jpg']);
 $data['facilities'] = array_fill(0, 4, $facility);
 $data['doctors'] = [medical_home_next_doctor_row(['id'=>8,'slug'=>'doctor','name'=>'Doctor <b>name</b>','specialty_text'=>'Eyes','title_text'=>'Specialist'])];
 $data['toplists'] = [medical_home_next_toplist_row(['id'=>9,'slug'=>'list','title'=>'List <img src=x onerror=alert(1)>','excerpt'=>'<p>Real details</p>','entity_type'=>'mixed','facility_count'=>1,'doctor_count'=>1])];

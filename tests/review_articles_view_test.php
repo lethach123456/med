@@ -143,6 +143,46 @@ $galleryXpath = static function (string $html): DOMXPath {
     }
     return new DOMXPath($dom);
 };
+
+$repeatedHeadings = $fixture;
+$repeatedHeadings['analysis_sections_json'] = [
+    ['title' => 'Lưu ý ngắn', 'content_html' => '<h2>Lưu ý ngắn</h2><p>Xác nhận địa chỉ và chi phí trước khi đến.</p><h3>Trước buổi hẹn</h3><p>Mang theo hồ sơ đang có.</p>'],
+    ['title' => 'Phù hợp với ai và kết luận', 'content_html' => '<h2>Phù hợp với ai và kết luận</h2><p>Phù hợp với nhu cầu được mô tả trong bài.</p>'],
+];
+$repeatedDetail = $galleryXpath($renderDetail($repeatedHeadings));
+foreach ([1 => 'Lưu ý ngắn', 2 => 'Phù hợp với ai và kết luận'] as $sectionNumber => $sectionTitle) {
+    $sectionPath = '//section[@id="review-analysis-' . $sectionNumber . '"]';
+    $check($repeatedDetail->query($sectionPath . '//h2')->length === 1
+        && trim($repeatedDetail->query($sectionPath . '/h2')->item(0)->textContent) === $sectionTitle,
+        'A repeated section title renders once, with its template heading retained: ' . $sectionTitle);
+    $check($repeatedDetail->query($sectionPath . '[@aria-labelledby="review-analysis-' . $sectionNumber . '-title"]')->length === 1
+        && $repeatedDetail->query('//a[@href="#review-analysis-' . $sectionNumber . '"]')->length === 2,
+        'Deduplicated heading retains its accessible label and desktop/mobile contents links.');
+}
+$check($repeatedDetail->query('//section[@id="review-analysis-1"]//h3')->item(0)->textContent === 'Trước buổi hẹn', 'Distinct subheadings and body paragraphs survive title deduplication.');
+foreach ([
+    ['Dịch vụ & cơ sở vật chất', '<h2><strong>DỊCH VỤ &amp; CƠ SỞ&nbsp;VẬT CHẤT</strong></h2><p>Nội dung còn nguyên.</p>'],
+    ['Lưu ý ngắn', '<p>&nbsp;<br></p><!-- spacing --><h3>Lưu ý ngắn</h3><h2>Lưu ý ngắn</h2><p>Nội dung còn nguyên.</p>'],
+    ['Who is it for?', '<h4><em>WHO IS IT FOR?</em></h4><p>Nội dung còn nguyên.</p>'],
+] as [$sectionTitle, $sectionHtml]) {
+    $check(review_articles_view_section_html($sectionHtml, $sectionTitle) === '<p>Nội dung còn nguyên.</p>',
+        'Leading duplicates normalize entities, whitespace, inline formatting and case without changing the body.');
+}
+foreach ([
+    '<h3>Chi phí cần xác nhận</h3><p>Nội dung khác.</p>',
+    '<p>Nội dung mở đầu.</p><h2>Lưu ý ngắn</h2>',
+    '<blockquote><h2>Lưu ý ngắn</h2><p>Nội dung trích dẫn.</p></blockquote>',
+    '<ul><li><h3>Lưu ý ngắn</h3></li></ul>',
+] as $sectionHtml) {
+    $check(review_articles_view_section_html($sectionHtml, 'Lưu ý ngắn') === review_articles_view_html($sectionHtml),
+        'Nonmatching, later and nested headings are preserved.');
+}
+$headingOnly = $repeatedHeadings;
+$headingOnly['analysis_sections_json'][0]['content_html'] = '<h2>Lưu ý ngắn</h2>';
+$headingOnlySections = review_articles_view_sections($headingOnly, 'vi');
+$check(count($headingOnlySections) === 1 && $headingOnlySections[0]['title'] === 'Phù hợp với ai và kết luận'
+    && $headingOnlySections[0]['id'] === 'review-analysis-1', 'Title-only sections are skipped and surviving contents targets stay consecutive.');
+
 foreach ([1, 2, 4, 5, 8, 100] as $photoCount) {
     $storedPhotos = review_articles_view_customer_images(array_slice($manyPhotos, 0, $photoCount));
     $photoHtml = $renderDetail($fixture, $storedPhotos);

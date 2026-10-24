@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/front_admin.php';
+require_once __DIR__ . '/medical_public_stats.php';
 if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $locale = site_page_locale('about');
 site_language_response_header($locale);
@@ -85,21 +86,15 @@ $aboutCopy = $isEnglish ? [
     'closing' => 'Thêm thấu hiểu hôm nay. Thêm an tâm khi lựa chọn.', 'closingLink' => 'Tìm cơ sở y tế',
 ];
 
-$aboutCount = static function (string $table): int {
-    try {
-        $pdo = db();
-        if (medical_directory_table_exists($pdo, $table)) {
-            return (int) $pdo->query("SELECT COUNT(*) FROM {$table} WHERE status = 'published'")->fetchColumn();
-        }
-    } catch (Throwable $e) {
-        // Counts are optional; never substitute invented statistics.
-    }
-    return 0;
-};
 $aboutStats = [];
-foreach (['medical_facilities' => 'facilities', 'medical_doctors' => 'doctors', 'medical_reviews' => 'reviews', 'medical_toplists' => 'lists'] as $table => $label) {
-    $count = $aboutCount($table);
-    if ($count > 0) $aboutStats[] = ['value' => $count, 'label' => $aboutCopy[$label]];
+try {
+    $publicStats = medical_public_stats($locale);
+    foreach (['facilities' => 'facilities', 'doctors' => 'doctors', 'reviews' => 'reviews', 'toplists' => 'lists'] as $key => $label) {
+        $count = (int) ($publicStats[$key] ?? 0);
+        if ($count > 0) $aboutStats[] = ['value' => $count, 'label' => $aboutCopy[$label]];
+    }
+} catch (Throwable $e) {
+    // Statistics are optional when no public directory snapshot is available.
 }
 $aboutValues = [
     ['icon' => 'ph-text-align-left', 'title' => 'valueOne', 'copy' => 'valueOneCopy', 'tone' => 'blue'],

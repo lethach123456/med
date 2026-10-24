@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_review_seo.php';
 
 // Public review presentation and SELECT-only queries. No seeding or migrations.
 function review_view_escape(mixed $value): string
@@ -49,6 +50,7 @@ function review_view_row(array $row, string $locale = 'vi'): array
     $item['is_verified'] = (int) ($row['verified'] ?? $row['is_verified'] ?? 0) === 1;
     $item['is_editorial'] = $item['condition'] === 'Nội dung biên tập, không phải đánh giá khách hàng'
         || ($item['author'] === 'Ban biên tập MedReview' && $item['method'] === 'Thông tin tổng hợp');
+    $item['seo_indexable'] = medical_review_seo_indexable($row);
     $item['source_url'] = review_view_safe_url($item['source'], false);
     if ($item['source_url'] !== '') $item['source'] = (string) (parse_url($item['source_url'], PHP_URL_HOST) ?: $item['source']);
     $item['story'] = array_values(array_filter(array_map('review_view_string', review_view_array($row['story_json'] ?? $row['story'] ?? [])), static fn(string $text): bool => $text !== ''));
@@ -214,8 +216,13 @@ function review_view_detail(PDO $pdo, string $slug, string $locale = 'vi'): arra
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!is_array($row)) return $empty;
     $review = review_view_row($row, $locale);
-    $related = $pdo->prepare("SELECT * FROM medical_reviews WHERE {$where} AND slug<>:slug ORDER BY (facility_slug=:facility) DESC, created_at DESC, id DESC LIMIT 3");
-    $related->execute($params + [':facility' => $review['facility_slug']]);
+    $relatedRows = [];
+    if (array_diff(medical_review_seo_required_columns(), $columns) === []) {
+        $relatedWhere = medical_review_seo_indexable_where();
+        $related = $pdo->prepare("SELECT * FROM medical_reviews WHERE {$where} AND {$relatedWhere} AND slug<>:slug ORDER BY (facility_slug=:facility) DESC, created_at DESC, id DESC LIMIT 3");
+        $related->execute($params + [':facility' => $review['facility_slug']]);
+        $relatedRows = $related->fetchAll(PDO::FETCH_ASSOC);
+    }
     $facility = $review['facility_name'] !== '' ? ['name' => $review['facility_name'], 'url' => '', 'location' => $review['location'], 'rating' => 0.0, 'review_count' => 0, 'image' => ''] : null;
     if ($review['facility_slug'] !== '') {
         $facilityColumns = review_view_columns($pdo, 'medical_facilities');
@@ -230,5 +237,5 @@ function review_view_detail(PDO $pdo, string $slug, string $locale = 'vi'): arra
                 'review_count' => max(0, (int) $facilityRow['reviews_count']), 'image' => review_view_safe_url($facilityRow['image_url'])];
         }
     }
-    return ['review' => $review, 'related' => array_map(static fn(array $value): array => review_view_row($value, $locale), $related->fetchAll(PDO::FETCH_ASSOC)), 'facility' => $facility];
+    return ['review' => $review, 'related' => array_map(static fn(array $value): array => review_view_row($value, $locale), $relatedRows), 'facility' => $facility];
 }

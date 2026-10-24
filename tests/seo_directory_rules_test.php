@@ -14,18 +14,14 @@ foreach (["site_localized_path('/bac-si', 'vi')", "site_localized_path('/bac-si'
 foreach (["'/bac-si.php'", "'/review.php'", "'/ve-chung-toi.php'", "'/danh-muc-y-te.php'"] as $legacyPath) {
     $assert(!str_contains($sitemap, $legacyPath), 'Legacy PHP route removed from sitemap: ' . $legacyPath);
 }
-$assert(str_contains($sitemap, "LENGTH(TRIM(COALESCE(excerpt,'')))>=80")
-    && str_contains($sitemap, "LENGTH(TRIM(COALESCE(story_json,'')))>=120")
-    && str_contains($sitemap, "COALESCE(rating,0)>0")
-    && str_contains($sitemap, "COALESCE(author_text,'')<>'Ban biên tập MedReview'"),
-    'Thin and explicitly editorial review records are excluded from standalone review sitemap entries');
-$assert(str_contains($sitemap, "medical_toplist_facilities tf")
-    && str_contains($sitemap, "medical_toplist_doctors td")
-    && str_contains($sitemap, "f.status<>'published'")
-    && str_contains($sitemap, "d.status<>'published'")
-    && str_contains($sitemap, "f.language_code")
-    && str_contains($sitemap, "d.language_code"),
-    'Toplist sitemap requires linked profiles that remain published in the same language');
+$assert(str_contains($sitemap, "medical_review_seo_indexable_where('r.')"),
+    'Standalone review sitemap uses the same eligibility predicate as its detail page');
+$assert(str_contains($sitemap, "'medical_toplist_facilities'")
+    && str_contains($sitemap, "'medical_toplist_doctors'")
+    && str_contains($sitemap, "medreview_sitemap_locale_sql(\$pdo, \$table, \$alias)")
+    && str_contains($sitemap, "LEFT JOIN {\$table} {\$alias}")
+    && str_contains($sitemap, "COALESCE({\$alias}.status,'')<>'published'"),
+    'Toplist sitemap validates available linked profile schemas before checking public content and language');
 foreach (['bac-si.php', 'co-so-y-te.php'] as $file) {
     $source = (string) file_get_contents($root . '/' . $file);
     $assert(str_contains($source, 'noindex,follow') && str_contains($source, 'index,follow')

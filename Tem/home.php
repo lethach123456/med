@@ -108,7 +108,13 @@ if (!function_exists('medical_home_description')) {
 
 $facilities = [];
 $toplists = [];
-$stats = ['facilities' => 0];
+$stats = null;
+try {
+    // The same directory snapshot remains usable even if featured-card DB reads fail.
+    $stats = medical_public_stats($locale);
+} catch (Throwable $error) {
+    // Omit an unavailable counter instead of presenting it as a real zero.
+}
 
 try {
     $pdo = db();
@@ -335,7 +341,7 @@ $featuredFacilities = array_values($featuredFacilities);
         </div>
         <div class="quick-search"><span><?= htmlspecialchars($isEnglish ? 'Try:' : 'Thử tìm:', ENT_QUOTES, 'UTF-8') ?></span><?php foreach ($popularTerms as $term): ?><button type="button" data-home-query="<?= htmlspecialchars($term, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($term, ENT_QUOTES, 'UTF-8') ?></button><?php endforeach; ?></div>
         <div class="hero-proof">
-          <span><svg class="icon" aria-hidden="true"><use href="#i-building"/></svg><strong><?= number_format($stats['facilities'], 0, ',', '.') ?></strong> <?= htmlspecialchars($labels['heroProof'], ENT_QUOTES, 'UTF-8') ?></span>
+          <?php if ($stats !== null): ?><span><svg class="icon" aria-hidden="true"><use href="#i-building"/></svg><strong><?= number_format($stats['facilities'], 0, ',', '.') ?></strong> <?= htmlspecialchars($labels['heroProof'], ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
           <span><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><?= htmlspecialchars($labels['heroProofVerified'], ENT_QUOTES, 'UTF-8') ?></span>
           <span><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><?= htmlspecialchars($isEnglish ? 'For the community' : 'Vì cộng đồng', ENT_QUOTES, 'UTF-8') ?></span>
         </div>

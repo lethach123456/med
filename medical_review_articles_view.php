@@ -114,6 +114,26 @@ function review_articles_view_sources(array $article): array
     return $sources;
 }
 
+/** The template owns the section heading; old AI HTML can repeat it at the start. */
+function review_articles_view_section_html(mixed $value, string $title): string
+{
+    $html = review_articles_view_html($value);
+    $headingKey = static function (string $text): string {
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[\p{Z}\s\x{200B}-\x{200D}\x{FEFF}]+/u', ' ', $text) ?? $text;
+        return mb_strtolower(trim($text), 'UTF-8');
+    };
+    $expected = $headingKey($title);
+    // Match only a leading top-level heading, optionally after empty spacing
+    // markup. Distinct subheadings and headings after real prose stay intact.
+    $leadingHeading = '~^(?:\s|<br\s*/?>|<p>(?:\s|&nbsp;|&#160;|<br\s*/?>)*</p>)*<h([2-4])\b[^>]*>(.*?)</h\1>\s*~isu';
+    while ($expected !== '' && preg_match($leadingHeading, $html, $match) === 1
+        && $headingKey($match[2]) === $expected) {
+        $html = substr($html, strlen($match[0]));
+    }
+    return trim($html);
+}
+
 /** Stable anchors are generated here; arbitrary incoming section IDs are not trusted. */
 function review_articles_view_sections(array $article, string $locale): array
 {
@@ -125,7 +145,7 @@ function review_articles_view_sections(array $article, string $locale): array
     foreach (is_array($values) ? $values : [] as $section) {
         if (!is_array($section)) continue;
         $title = review_articles_view_string($section['title'] ?? '');
-        $html = review_articles_view_html($section['content_html'] ?? '');
+        $html = review_articles_view_section_html($section['content_html'] ?? '', $title);
         if ($title === '' || trim(strip_tags($html)) === '') continue;
         $references = [];
         foreach (review_articles_view_list($section['source_ids'] ?? []) as $sourceId) {

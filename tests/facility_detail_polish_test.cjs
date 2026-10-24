@@ -19,7 +19,7 @@ const digest = source => crypto.createHash('sha256').update(source).digest('hex'
 const documentStart = page.indexOf('\n<!doctype html>\n');
 const bodyStart = page.indexOf('  <body>');
 check(documentStart > 0 && bodyStart > documentStart, 'Original document boundaries remain intact');
-check(page.includes("'reviewCount' => $facilityPublicReviewCount") && page.includes("'ratingValue' => $facilityRatingValue"), 'Structured rating uses the same local score and count as the profile header');
+check(!page.includes("$facilitySchema['aggregateRating']") && page.includes('$facilityPublicReviewCount'), 'Unclassified imported ratings stay visible without claiming first-party rating structured data');
 check(!page.includes("$facility['rating'] = (string) ($facility['review_summary']") && !page.includes("$facilityReviewCount = max(0, (int) ($facility['reviews_count']"), 'Stored sample averages and verification counts cannot overwrite canonical totals');
 check(digest(layout) === '45c14e8635da61b6c1a7ac63d6e47136bf0c68e427cb72143f78b587ab99edb2', 'The original layout stylesheet is unchanged');
 const polishHook = "    <link rel=\"stylesheet\" href=\"/assets/css/pages/facility-detail-polish.css?v=<?php echo filemtime(__DIR__ . '/assets/css/pages/facility-detail-polish.css'); ?>\">";
@@ -57,8 +57,8 @@ for (const binding of [
   'medical_directory_facility_row_by_slug($slug, true)',
   'medical_directory_facility_rows(true, $facilityLanguage)',
   '$facility = facility_detail_normalize($facility);',
-  '$facilityPriceTableHtml = facility_detail_compact_price_html(',
-  "'@type' => 'MedicalClinic'", "'@type' => 'PostalAddress'", "'@type' => 'AggregateRating'",
+  '$facilityPriceTableHtml = medical_normalize_facility_links_html(facility_detail_compact_price_html(',
+  "'@type' => 'MedicalClinic'", "'@type' => 'PostalAddress'",
   'site_json_ld($facilitySchema)', 'site_localized_path(',
   '/api/medical/facility-reviews.php?', 'facility_id: list.dataset.facilityId',
   'facility_slug: list.dataset.facilitySlug', 'has_images: imageOnly?.checked',

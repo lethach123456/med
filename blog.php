@@ -1,9 +1,16 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/medical_handbook_routes.php';
 $GLOBALS['site_forced_locale'] = 'vi';
 site_language_response_header('vi');
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
+$legacyTemplatePreview = isset($_GET['edit_template']) && (string) $_GET['edit_template'] === '1'
+  && function_exists('admin_front_is_logged_in') && admin_front_is_logged_in();
+if (!$legacyTemplatePreview) {
+  header('Location: ' . handbook_view_page_url('vi', $_GET, handbook_view_requested_page($_GET)), true, 301);
+  exit;
+}
 if (!isset($_GET['slug']) || trim((string) ($_GET['slug'] ?? '')) === '') {
   front_editor_page_maybe_redirect('blog');
 }

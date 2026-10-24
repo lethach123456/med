@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/medical_facility_ratings.php';
+require_once __DIR__ . '/medical_public_stats.php';
 
 /** Read-only homepage selection. Never fall back to another language. */
-function medical_home_data(PDO $pdo, string $locale): array
+function medical_home_data(PDO $pdo, string $locale, ?array $publicIndex = null): array
 {
     $locale = $locale === 'en' ? 'en' : 'vi';
-    $count = $pdo->prepare("SELECT COUNT(*) FROM medical_facilities WHERE status = 'published' AND language_code = :locale");
-    $count->execute([':locale' => $locale]);
+    $publicStats = medical_public_stats($locale, $pdo, $publicIndex);
     $ratingSql = medical_facility_stored_rating_sql();
     $facilities = $pdo->prepare(
         "SELECT f.id, f.slug, f.language_code, f.name, f.category, f.city, f.subtitle, f.verified,
@@ -39,5 +39,5 @@ function medical_home_data(PDO $pdo, string $locale): array
     }, $facilities->fetchAll(PDO::FETCH_ASSOC));
     return ['facilities' => $facilityRows,
         'toplists' => $toplists->fetchAll(PDO::FETCH_ASSOC),
-        'stats' => ['facilities' => (int) $count->fetchColumn()]];
+        'stats' => ['facilities' => $publicStats['facilities']]];
 }

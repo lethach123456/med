@@ -157,7 +157,7 @@ $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, 
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.25 14.4 5l3-.15.9 2.85 2.45 1.75-.9 2.85.9 2.85-2.45 1.75-.9 2.85-3-.15L12 21.5l-2.4-1.9-3 .15-.9-2.85-2.45-1.75.9-2.85-.9-2.85L5.7 7.9l.9-2.85 3 .15L12 3.25Z" fill="currentColor"/><path d="m9 12.1 2 2 4.25-4.3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <?= $notFoundEnglish ? 'MedReview · Page unavailable' : 'MedReview · Trang không khả dụng' ?>
         </span>
-        <p class="public-404__number" aria-hidden="true">404</p>
+        <p class="public-404__number" aria-hidden="true"><?= http_response_code() === 503 ? '503' : '404' ?></p>
         <h1 id="public-404-title"><?php echo $escapeNotFound($notFoundTitle); ?></h1>
         <p class="public-404__description"><?php echo $escapeNotFound($notFoundDescription); ?></p>
         <nav class="public-404__actions" aria-label="<?= $notFoundEnglish ? 'Suggested links' : 'Liên kết gợi ý' ?>">

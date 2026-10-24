@@ -1050,15 +1050,9 @@ $facilityGalleryCount = $facilityHeroGallery['count'];
 $facilityGalleryLabel = $facilityLanguage === 'en'
   ? $formatFacilityCount($facilityGalleryCount) . ' ' . ($facilityGalleryCount === 1 ? 'photo' : 'photos')
   : $formatFacilityCount($facilityGalleryCount) . ' ảnh';
-if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0) {
-  $facilitySchema['aggregateRating'] = [
-    '@type' => 'AggregateRating',
-    'ratingValue' => $facilityRatingValue,
-    'bestRating' => 5,
-    'worstRating' => 1,
-    'reviewCount' => $facilityPublicReviewCount,
-  ];
-}
+// Current review storage mixes imports with unclassified records and has no
+// server-owned evidence of first-party collection. Keep the visible rating,
+// but omit rating structured data until that provenance can be established.
 ?>
 <!doctype html>
 <html lang="<?php echo htmlspecialchars($facilityLanguage, ENT_QUOTES, 'UTF-8'); ?>">

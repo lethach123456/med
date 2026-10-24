@@ -76,32 +76,48 @@ final class HomeNextTestStatement extends PDOStatement
         }
         return [];
     }
-    public function fetchColumn(int $column = 0): mixed { return $this->fixture()['count'] ?? 0; }
     public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array { return $this->fixture()['rows'] ?? []; }
 }
 $pdo = new HomeNextTestPDO([
-    'medical_facilities' => ['count' => 12, 'rows' => array_fill(0, 9, ['id' => 7, 'slug' => 'clinic', 'name' => 'Real clinic'])],
-    'medical_doctors' => ['count' => 5, 'rows' => array_fill(0, 5, ['id' => 11, 'slug' => 'doctor', 'name' => 'Real doctor'])],
-    'medical_toplists' => ['count' => 4, 'rows' => array_fill(0, 5, ['id' => 3, 'slug' => 'list', 'title' => 'Real list', 'language_code' => 'en', 'entity_type' => 'mixed', 'facility_count' => 2, 'doctor_count' => 1])],
+    'medical_facilities' => ['rows' => array_fill(0, 9, ['id' => 7, 'slug' => 'clinic', 'name' => 'Real clinic'])],
+    'medical_doctors' => ['rows' => array_fill(0, 5, ['id' => 11, 'slug' => 'doctor', 'name' => 'Real doctor'])],
+    'medical_toplists' => ['rows' => array_fill(0, 5, ['id' => 3, 'slug' => 'list', 'title' => 'Real list', 'language_code' => 'en', 'entity_type' => 'mixed', 'facility_count' => 2, 'doctor_count' => 1])],
 ]);
-$data = medical_home_next_data($pdo, ' EN ');
-$assert($data['stats'] === ['facilities' => 12, 'doctors' => 5, 'toplists' => 4], 'Statistics use database values');
+$emptyIndex = ['facilities' => [], 'doctors' => [], 'toplists' => [], 'cities' => [], 'counts' => []];
+$publicIndex = array_replace($emptyIndex, [
+    'facilities' => [
+        ['id' => 1, 'language_code' => 'en', 'has_content' => true, 'reviews_count' => 4],
+        ['id' => 2, 'language_code' => 'en', 'has_content' => true, 'reviews_count' => 3],
+        ['id' => 3, 'language_code' => 'en', 'has_content' => false, 'reviews_count' => 1000],
+        ['id' => 4, 'language_code' => 'vi', 'has_content' => true, 'reviews_count' => 1000],
+    ],
+    'doctors' => [
+        ['id' => 5, 'language_code' => 'en', 'has_content' => true],
+        ['id' => 6, 'language_code' => 'en', 'has_content' => false],
+        ['id' => 7, 'language_code' => 'vi', 'has_content' => true],
+    ],
+    'toplists' => [['id' => 8, 'language_code' => 'en'], ['id' => 9, 'language_code' => 'vi']],
+]);
+$data = medical_home_next_data($pdo, ' EN ', $publicIndex);
+$assert($data['stats'] === ['facilities' => 2, 'doctors' => 1, 'toplists' => 1], 'Statistics match written localized directory profiles from the shared snapshot');
 $assert(count($data['facilities']) === 6 && count($data['doctors']) === 3 && count($data['toplists']) === 3, 'Defensive per-section result limits');
-$assert(count($pdo->executed) === 6, 'Exactly six read-only main queries');
-$facilitySql = $pdo->executed[3]['sql'];
+$assert(count($pdo->executed) === 3, 'Shared statistics need no separate database count queries');
+$facilitySql = $pdo->executed[0]['sql'];
 $assert(str_contains($facilitySql, 'LEFT JOIN (') && str_contains($facilitySql, 'AS stored_rating')
     && str_contains($facilitySql, 'AS stored_reviews_count')
     && str_contains($facilitySql, 'ORDER BY stored_rating DESC, stored_reviews_count DESC'),
     'Stored review scores and counts arrive in the facility query without per-row requests');
 foreach ($pdo->executed as $query) {
     $assert(str_starts_with(ltrim($query['sql']), 'SELECT ') && !preg_match('/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|TRUNCATE|DROP|REPLACE)\b/i', $query['sql']), 'Only SELECT statements execute');
-    $assert(str_contains($query['sql'], "status = 'published'") && str_contains($query['sql'], 'language_code = :locale') && $query['params'] === [':locale' => 'en'], 'Every section and statistic filters published locale');
+    $assert(str_contains($query['sql'], "status = 'published'") && str_contains($query['sql'], 'language_code = :locale') && $query['params'] === [':locale' => 'en'], 'Every featured section filters published locale');
 }
 $assert($data['toplists'][0]['member_count'] === 3, 'Loader normalizes actual Toplist member total');
-$assert(medical_home_next_data(new HomeNextTestPDO(), 'vi') === medical_home_next_empty(), 'Empty database stays genuinely empty');
-$assert(medical_home_next_data(new HomeNextTestPDO([], true), 'vi') === medical_home_next_empty(), 'Database errors return a stable empty payload');
+$assert(medical_home_next_data(new HomeNextTestPDO(), 'vi', $emptyIndex) === medical_home_next_empty(), 'Empty database and snapshot stay genuinely empty');
+$assert(medical_home_next_data(new HomeNextTestPDO([], true), 'vi', $emptyIndex) === medical_home_next_empty(), 'Database errors return a stable empty payload');
+$offline = medical_home_next_data(new HomeNextTestPDO([], true), 'en', $publicIndex);
+$assert($offline['stats'] === $data['stats'] && $offline['facilities'] === [] && $offline['doctors'] === [] && $offline['toplists'] === [], 'Cached statistics survive failures in the featured-content database queries');
 $fallback = new HomeNextTestPDO();
-medical_home_next_data($fallback, 'unknown');
+medical_home_next_data($fallback, 'unknown', $emptyIndex);
 $assert($fallback->executed[0]['params'] === [':locale' => 'vi'], 'Unsupported locale defaults safely to Vietnamese');
 
 echo "Home next data: {$checks} checks passed. No DB connection or records modified.\n";

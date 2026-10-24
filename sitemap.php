@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_handbook.php';
 require_once __DIR__ . '/medical_review_articles.php';
+require_once __DIR__ . '/medical_review_seo.php';
 
 const MEDREVIEW_SITEMAP_PAGE_SIZE = 10000;
 
@@ -20,50 +21,67 @@ function medreview_sitemap_escape(string $value): string
     return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
 }
 
+/** @return array<string,list<string>> */
+function medreview_sitemap_schema(PDO $pdo): array
+{
+    static $cache;
+    $cache ??= new WeakMap();
+    $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+    // SQLite fixtures can create tables on an existing connection. Production
+    // requests never migrate a schema while rendering a sitemap.
+    $version = $sqlite ? (int) $pdo->query('PRAGMA schema_version')->fetchColumn() : 0;
+    if (isset($cache[$pdo]) && $cache[$pdo]['version'] === $version) {
+        return $cache[$pdo]['tables'];
+    }
+    $allowed = [
+        'medical_facilities', 'medical_doctors', 'medical_reviews',
+        'medical_toplists', 'medical_toplist_facilities', 'medical_toplist_doctors',
+        'medical_review_articles', 'posts', 'categories', 'products', 'front_editor_page_profiles',
+    ];
+    $tables = [];
+    if ($sqlite) {
+        foreach ($allowed as $table) {
+            $columns = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
+            if ($columns !== []) $tables[$table] = array_column($columns, 'name');
+        }
+    } else {
+        $names = implode(',', array_map(static fn (string $name): string => "'{$name}'", $allowed));
+        $rows = $pdo->query('SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (' . $names . ')')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) $tables[(string) $row['TABLE_NAME']][] = (string) $row['COLUMN_NAME'];
+    }
+    $cache[$pdo] = ['version' => $version, 'tables' => $tables];
+    return $tables;
+}
+
 function medreview_sitemap_table_exists(PDO $pdo, string $table): bool
 {
-    static $allowed = [
-        'medical_facilities', 'medical_doctors', 'medical_reviews',
-        'medical_toplists', 'medical_review_articles', 'posts', 'categories', 'products', 'front_editor_page_profiles',
-    ];
-    if (!in_array($table, $allowed, true)) {
-        return false;
-    }
-    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-        $stmt = $pdo->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :table LIMIT 1");
-        $stmt->execute([':table' => $table]);
-        return (bool) $stmt->fetchColumn();
-    }
-    $stmt = $pdo->prepare(
-        'SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table LIMIT 1'
-    );
-    $stmt->execute([':table' => $table]);
-    return (bool) $stmt->fetchColumn();
+    return isset(medreview_sitemap_schema($pdo)[$table]);
 }
 
 function medreview_sitemap_column_exists(PDO $pdo, string $table, string $column): bool
 {
-    static $cache = [];
-    $key = $table . '.' . $column;
-    if (array_key_exists($key, $cache)) {
-        return $cache[$key];
+    return in_array($column, medreview_sitemap_schema($pdo)[$table] ?? [], true);
+}
+
+function medreview_sitemap_has_columns(PDO $pdo, string $table, array $columns): bool
+{
+    return array_diff($columns, medreview_sitemap_schema($pdo)[$table] ?? []) === [];
+}
+
+function medreview_sitemap_locale_sql(PDO $pdo, string $table, string $alias, string $column = 'language_code'): string
+{
+    return medreview_sitemap_column_exists($pdo, $table, $column)
+        ? "COALESCE(NULLIF(LOWER(TRIM({$alias}.{$column})),''),'vi')"
+        : "'vi'";
+}
+
+function medreview_sitemap_updated_sql(PDO $pdo, string $table, string $alias): string
+{
+    foreach (['updated_at', 'created_at'] as $column) {
+        if (medreview_sitemap_column_exists($pdo, $table, $column)) return "{$alias}.{$column}";
     }
-    try {
-        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            $rows = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
-            $cols = array_column($rows, 'name');
-            return $cache[$key] = in_array($column, $cols, true);
-        }
-        $stmt = $pdo->prepare(
-            'SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column LIMIT 1'
-        );
-        $stmt->execute([':table' => $table, ':column' => $column]);
-        return $cache[$key] = (bool) $stmt->fetchColumn();
-    } catch (Throwable) {
-        return $cache[$key] = false;
-    }
+    return "''";
 }
 
 function medreview_sitemap_handbook_where(PDO $pdo, string $lang): string
@@ -82,7 +100,7 @@ function medreview_sitemap_handbook_where(PDO $pdo, string $lang): string
 
 function medreview_sitemap_handbook_count(PDO $pdo, string $lang): int
 {
-    if (!medreview_sitemap_table_exists($pdo, 'posts') || !medreview_sitemap_table_exists($pdo, 'categories')) {
+    if (!medreview_sitemap_posts_ready($pdo)) {
         return 0;
     }
     $where = medreview_sitemap_handbook_where($pdo, $lang);
@@ -94,13 +112,14 @@ function medreview_sitemap_handbook_count(PDO $pdo, string $lang): int
 /** @return list<array{path:string,updated_at:string}> */
 function medreview_sitemap_handbook_items(PDO $pdo, string $lang, int $page): array
 {
-    if (!medreview_sitemap_table_exists($pdo, 'posts') || !medreview_sitemap_table_exists($pdo, 'categories')) {
+    if (!medreview_sitemap_posts_ready($pdo)) {
         return [];
     }
     $lang = $lang === 'en' ? 'en' : 'vi';
     $where = medreview_sitemap_handbook_where($pdo, $lang);
+    $updated = medreview_sitemap_updated_sql($pdo, 'posts', 'p');
     $stmt = $pdo->prepare(
-        "SELECT p.slug, p.updated_at
+        "SELECT p.slug, {$updated} AS updated_at
          FROM posts p
          INNER JOIN categories c ON c.id = p.category_id
          WHERE {$where}
@@ -137,7 +156,7 @@ function medreview_sitemap_lastmod($value): string
     }
 }
 
-function medreview_sitemap_static_paths(string $language = 'vi'): array
+function medreview_sitemap_static_paths(string $language = 'vi', ?PDO $pdo = null): array
 {
     $paths = [
         '/',
@@ -161,13 +180,13 @@ function medreview_sitemap_static_paths(string $language = 'vi'): array
     $paths = array_values(array_filter($paths, static fn (string $path): bool =>
         (preg_match('~^/en(?:/|$)~', $path) === 1) === ($language === 'en')));
     $pageKeys = [
-        'about', 'contact', 'blog', 'blog-en', 'about-en', 'contact-en',
+        'about', 'contact', 'about-en', 'contact-en',
         'products', 'dich-vu', 'services-en',
     ];
     $catalog = front_editor_page_catalog();
     $customSlugs = [];
     try {
-        $pdo = db();
+        $pdo ??= db();
         if (medreview_sitemap_table_exists($pdo, 'front_editor_page_profiles')) {
             $rows = $pdo->query(
                 "SELECT page_key, slug FROM front_editor_page_profiles
@@ -194,70 +213,111 @@ function medreview_sitemap_static_paths(string $language = 'vi'): array
     return array_values(array_unique($paths));
 }
 
-function medreview_sitemap_sources(): array
+function medreview_sitemap_posts_ready(PDO $pdo): bool
 {
+    return medreview_sitemap_has_columns($pdo, 'posts', ['id', 'category_id', 'slug', 'status', 'content'])
+        && medreview_sitemap_has_columns($pdo, 'categories', ['id', 'slug']);
+}
+
+function medreview_sitemap_query_source(string $table, string $alias, string $where, string $projection, callable $path, string $join = ''): array
+{
+    $from = " FROM {$table} {$alias}{$join} WHERE {$where}";
     return [
-        'facilities' => [
-            'table' => 'medical_facilities',
-            'count' => "SELECT COUNT(*) FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0",
-            'rows' => "SELECT slug, language_code, updated_at FROM medical_facilities WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0 ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_public_entity_path('facility', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
-        ],
-        'doctors' => [
-            'table' => 'medical_doctors',
-            'count' => "SELECT COUNT(*) FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0",
-            'rows' => "SELECT slug, language_code, updated_at FROM medical_doctors WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND LENGTH(TRIM(COALESCE(content,'')))>0 ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_public_entity_path('doctor', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
-        ],
-        'reviews' => [
-            'table' => 'medical_reviews',
-            // Editorial profile/help entries live in medical_reviews for legacy
-            // display purposes. Keep them out of patient-review search URLs.
-            // Their explicit seed markers are also recognized by review_view_row().
-            'count' => "SELECT COUNT(*) FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND COALESCE(rating,0)>0 AND COALESCE(author_text,'')<>'Ban biên tập MedReview' AND COALESCE(method_text,'')<>'Thông tin tổng hợp' AND COALESCE(condition_text,'')<>'Nội dung biên tập, không phải đánh giá khách hàng' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120)",
-            'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND COALESCE(rating,0)>0 AND COALESCE(author_text,'')<>'Ban biên tập MedReview' AND COALESCE(method_text,'')<>'Thông tin tổng hợp' AND COALESCE(condition_text,'')<>'Nội dung biên tập, không phải đánh giá khách hàng' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120) ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => '/review-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']),
-        ],
-        'review-articles' => [
-            'table' => 'medical_review_articles',
-            'count' => "SELECT COUNT(*) FROM medical_review_articles a WHERE a.entity_type='facility' AND a.status='published' AND TRIM(a.slug)<>'' AND TRIM(a.title)<>'' AND TRIM(a.content_html)<>'' AND EXISTS (SELECT 1 FROM medical_facilities f WHERE f.id=a.entity_id AND f.status='published' AND COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')=a.language_code)",
-            'rows' => "SELECT a.slug, a.language_code, a.updated_at FROM medical_review_articles a WHERE a.entity_type='facility' AND a.status='published' AND TRIM(a.slug)<>'' AND TRIM(a.title)<>'' AND TRIM(a.content_html)<>'' AND EXISTS (SELECT 1 FROM medical_facilities f WHERE f.id=a.entity_id AND f.status='published' AND COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')=a.language_code) ORDER BY a.id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_review_articles_path((string) $row['language_code'], (string) $row['slug']),
-        ],
-        'toplists' => [
-            'table' => 'medical_toplists',
-            // A published listing is indexable only when it has at least one
-            // linked profile and every linked profile is itself public, in the
-            // same language, and has authored content. This also keeps stale
-            // relations from surfacing broken/empty ranking pages in the sitemap.
-            'count' => "SELECT COUNT(*) FROM medical_toplists t
-                WHERE t.status='published' AND TRIM(COALESCE(t.slug,''))<>''
-                  AND ((t.entity_type='facility' AND EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
-                    OR (t.entity_type='doctor' AND EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))
-                    OR (t.entity_type='mixed' AND (EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) OR EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))))
-                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf LEFT JOIN medical_facilities f ON f.id=tf.facility_id
-                    WHERE tf.toplist_id=t.id AND (f.id IS NULL OR f.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(f.content,'')))=0))
-                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td LEFT JOIN medical_doctors d ON d.id=td.doctor_id
-                    WHERE td.toplist_id=t.id AND (d.id IS NULL OR d.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(d.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(d.content,'')))=0))",
-            'rows' => "SELECT t.slug, t.language_code, t.updated_at FROM medical_toplists t
-                WHERE t.status='published' AND TRIM(COALESCE(t.slug,''))<>''
-                  AND ((t.entity_type='facility' AND EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
-                    OR (t.entity_type='doctor' AND EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))
-                    OR (t.entity_type='mixed' AND (EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) OR EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))))
-                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf LEFT JOIN medical_facilities f ON f.id=tf.facility_id
-                    WHERE tf.toplist_id=t.id AND (f.id IS NULL OR f.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(f.content,'')))=0))
-                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td LEFT JOIN medical_doctors d ON d.id=td.doctor_id
-                    WHERE td.toplist_id=t.id AND (d.id IS NULL OR d.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(d.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(d.content,'')))=0))
-                ORDER BY t.id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => medical_public_entity_path('toplist', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
-        ],
-        'products' => [
-            'table' => 'products',
-            'count' => "SELECT COUNT(*) FROM products WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, updated_at FROM products WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
-            'path' => static fn (array $row): string => '/san-pham/' . rawurlencode((string) $row['slug']),
-        ],
+        'table' => $table,
+        'count' => 'SELECT COUNT(*)' . $from,
+        'rows' => 'SELECT ' . $projection . $from . " ORDER BY {$alias}.id ASC LIMIT :limit OFFSET :offset",
+        'path' => $path,
     ];
+}
+
+/** Build the same capability-aware queries for root, locale, and leaf maps. */
+function medreview_sitemap_sources(PDO $pdo, string $language = 'vi'): array
+{
+    $language = $language === 'en' ? 'en' : 'vi';
+    $sources = [];
+    foreach (['facilities' => ['medical_facilities', 'facility', 'f'], 'doctors' => ['medical_doctors', 'doctor', 'd']] as $name => [$table, $type, $alias]) {
+        if (!medreview_sitemap_has_columns($pdo, $table, ['id', 'slug', 'status', 'content'])) continue;
+        $locale = medreview_sitemap_locale_sql($pdo, $table, $alias);
+        $updated = medreview_sitemap_updated_sql($pdo, $table, $alias);
+        $where = "{$alias}.status='published' AND TRIM(COALESCE({$alias}.slug,''))<>''
+            AND LENGTH(TRIM(COALESCE({$alias}.content,'')))>0 AND {$locale}='{$language}'";
+        $sources[$name] = medreview_sitemap_query_source($table, $alias, $where,
+            "{$alias}.slug, {$locale} AS language_code, {$updated} AS updated_at",
+            static fn (array $row): string => medical_public_entity_path($type, (string) $row['slug'], (string) $row['language_code']));
+    }
+
+    // Older installations can omit newer sources without breaking every sitemap.
+    if ($language === 'vi' && medreview_sitemap_has_columns($pdo, 'medical_reviews',
+        ['id', 'slug', 'title', 'status', 'rating', 'author_text', 'method_text', 'condition_text', 'excerpt', 'story_json'])) {
+        $updated = medreview_sitemap_updated_sql($pdo, 'medical_reviews', 'r');
+        $sources['reviews'] = medreview_sitemap_query_source('medical_reviews', 'r', medical_review_seo_indexable_where('r.'),
+            "r.slug, {$updated} AS updated_at",
+            static fn (array $row): string => '/review-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']));
+    }
+
+    if (medreview_sitemap_has_columns($pdo, 'medical_review_articles', ['id', 'entity_type', 'entity_id', 'status', 'slug', 'title', 'content_html'])
+        && medreview_sitemap_has_columns($pdo, 'medical_facilities', ['id', 'status'])) {
+        $locale = medreview_sitemap_locale_sql($pdo, 'medical_review_articles', 'a');
+        $facilityLocale = medreview_sitemap_locale_sql($pdo, 'medical_facilities', 'f');
+        $updated = medreview_sitemap_updated_sql($pdo, 'medical_review_articles', 'a');
+        $where = "a.entity_type='facility' AND a.status='published' AND TRIM(a.slug)<>'' AND TRIM(a.title)<>'' AND TRIM(a.content_html)<>''
+            AND {$locale}='{$language}' AND EXISTS (SELECT 1 FROM medical_facilities f WHERE f.id=a.entity_id
+                AND f.status='published' AND {$facilityLocale}={$locale})";
+        $sources['review-articles'] = medreview_sitemap_query_source('medical_review_articles', 'a', $where,
+            "a.slug, {$locale} AS language_code, {$updated} AS updated_at",
+            static fn (array $row): string => medical_review_articles_path((string) $row['language_code'], (string) $row['slug']));
+    }
+
+    if (medreview_sitemap_has_columns($pdo, 'medical_toplists', ['id', 'slug', 'status'])) {
+        $locale = medreview_sitemap_locale_sql($pdo, 'medical_toplists', 't');
+        $type = medreview_sitemap_column_exists($pdo, 'medical_toplists', 'entity_type') ? 't.entity_type' : "'facility'";
+        $members = [];
+        $guards = [];
+        foreach (['facility' => ['medical_toplist_facilities', 'facility_id', 'medical_facilities', 'tf', 'f'],
+                  'doctor' => ['medical_toplist_doctors', 'doctor_id', 'medical_doctors', 'td', 'd']] as $entity => [$links, $foreignKey, $table, $linkAlias, $alias]) {
+            if (!medreview_sitemap_has_columns($pdo, $links, ['toplist_id', $foreignKey])) continue;
+            $linked = "SELECT 1 FROM {$links} {$linkAlias} WHERE {$linkAlias}.toplist_id=t.id";
+            if (!medreview_sitemap_has_columns($pdo, $table, ['id', 'status', 'content'])) {
+                // Any link to an unsupported profile must keep the list out.
+                $guards[] = 'NOT EXISTS (' . $linked . ')';
+                continue;
+            }
+            $memberLocale = medreview_sitemap_locale_sql($pdo, $table, $alias);
+            $members[$entity] = 'EXISTS (' . $linked . ')';
+            $guards[] = "NOT EXISTS (SELECT 1 FROM {$links} {$linkAlias} LEFT JOIN {$table} {$alias} ON {$alias}.id={$linkAlias}.{$foreignKey}
+                WHERE {$linkAlias}.toplist_id=t.id AND ({$alias}.id IS NULL OR COALESCE({$alias}.status,'')<>'published'
+                    OR {$memberLocale}<>{$locale} OR LENGTH(TRIM(COALESCE({$alias}.content,'')))=0))";
+        }
+        $types = [];
+        foreach ($members as $entity => $exists) $types[] = "({$type}='{$entity}' AND {$exists})";
+        if (isset($members['facility'], $members['doctor'])) {
+            $types[] = "({$type}='mixed' AND ({$members['facility']} OR {$members['doctor']}))";
+        }
+        if ($types !== []) {
+            $updated = medreview_sitemap_updated_sql($pdo, 'medical_toplists', 't');
+            $where = "t.status='published' AND TRIM(COALESCE(t.slug,''))<>'' AND {$locale}='{$language}'
+                AND (" . implode(' OR ', $types) . ') AND ' . implode(' AND ', $guards);
+            $sources['toplists'] = medreview_sitemap_query_source('medical_toplists', 't', $where,
+                "t.slug, {$locale} AS language_code, {$updated} AS updated_at",
+                static fn (array $row): string => medical_public_entity_path('toplist', (string) $row['slug'], (string) $row['language_code']));
+        }
+    }
+
+    if ($language === 'vi' && medreview_sitemap_has_columns($pdo, 'products', ['id', 'slug', 'status'])) {
+        $updated = medreview_sitemap_updated_sql($pdo, 'products', 'p');
+        $sources['products'] = medreview_sitemap_query_source('products', 'p', "p.status='published' AND TRIM(COALESCE(p.slug,''))<>''",
+            "p.slug, {$updated} AS updated_at", static fn (array $row): string => '/san-pham/' . rawurlencode((string) $row['slug']));
+    }
+
+    if (medreview_sitemap_posts_ready($pdo)) {
+        // Blog categories are served only by the canonical handbook map.
+        $category = $language === 'en' ? 'dich-vu-en' : 'dich-vu';
+        $updated = medreview_sitemap_updated_sql($pdo, 'posts', 'p');
+        $where = "p.status='published' AND TRIM(COALESCE(p.slug,''))<>'' AND LENGTH(TRIM(COALESCE(p.content,'')))>0 AND c.slug='{$category}'";
+        $sources['articles'] = medreview_sitemap_query_source('posts', 'p', $where, "p.slug, {$updated} AS updated_at",
+            static fn (array $row): string => '/' . rawurlencode((string) $row['slug']), ' JOIN categories c ON c.id=p.category_id');
+    }
+    return $sources;
 }
 
 function medreview_sitemap_source_count(PDO $pdo, array $source): int
@@ -267,6 +327,9 @@ function medreview_sitemap_source_count(PDO $pdo, array $source): int
     }
     return (int) $pdo->query((string) $source['count'])->fetchColumn();
 }
+
+// Allows isolated query fixtures to load the same builders without opening db().
+if (defined('MEDREVIEW_SITEMAP_FUNCTIONS_ONLY') && MEDREVIEW_SITEMAP_FUNCTIONS_ONLY) return;
 
 $map = strtolower(trim((string) ($_GET['map'] ?? 'index')));
 $language = 'vi';
@@ -283,32 +346,7 @@ $origin = site_canonical_origin();
 
 try {
     $pdo = db();
-    $translationReady = [];
-    foreach (['medical_facilities', 'medical_doctors', 'medical_toplists'] as $table) {
-        if (medreview_sitemap_table_exists($pdo, $table)) $translationReady[$table] = medreview_translation_schema_ready($pdo, $table);
-    }
-    $sources = medreview_sitemap_sources();
-    $articleLocaleFilter = " AND a.language_code='" . $language . "'";
-    $sources['review-articles']['count'] .= $articleLocaleFilter;
-    $sources['review-articles']['rows'] = str_replace(' ORDER BY', $articleLocaleFilter . ' ORDER BY', $sources['review-articles']['rows']);
-    foreach (['facilities' => 'medical_facilities', 'doctors' => 'medical_doctors', 'toplists' => 'medical_toplists'] as $sourceName => $table) {
-        if (isset($sources[$sourceName]) && !($translationReady[$table] ?? false)) {
-            $sources[$sourceName]['rows'] = str_replace('language_code, ', '', $sources[$sourceName]['rows']);
-        }
-        $filter = ($translationReady[$table] ?? false)
-            ? " AND COALESCE(NULLIF(TRIM(language_code),''),'vi') = '" . $language . "'"
-            : ($language === 'en' ? ' AND 1=0' : '');
-        $sources[$sourceName]['count'] .= $filter;
-        $sources[$sourceName]['rows'] = str_replace(' ORDER BY', $filter . ' ORDER BY', $sources[$sourceName]['rows']);
-    }
-    // Review/product tables have no localized content column.
-    if ($language === 'en') {
-        foreach (['reviews', 'products'] as $name) {
-            $sources[$name]['count'] .= ' AND 1=0';
-            $sources[$name]['rows'] = str_replace(' ORDER BY', ' AND 1=0 ORDER BY', $sources[$name]['rows']);
-        }
-    }
-    $articleCategories = $language === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
+    $sources = medreview_sitemap_sources($pdo, $language);
 
     if ($rootIndex) {
         $xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
@@ -316,26 +354,14 @@ try {
             // Keep the master index flat: its children must be URL sitemaps,
             // not nested sitemap indexes.
             $parts = ['pages' => 1];
-            foreach (medreview_sitemap_sources() as $name => $source) {
-                if ($name === 'products' || $lang === 'en' && $name === 'reviews') continue;
-                if (in_array($name, ['facilities', 'doctors', 'toplists'], true)) {
-                    $source['count'] .= ($translationReady[$source['table']] ?? false)
-                        ? " AND COALESCE(NULLIF(TRIM(language_code),''),'vi') = '{$lang}'"
-                        : ($lang === 'en' ? ' AND 1=0' : '');
-                }
-                if ($name === 'review-articles') $source['count'] .= " AND a.language_code='{$lang}'";
+            foreach (medreview_sitemap_sources($pdo, $lang) as $name => $source) {
+                if ($name === 'products') continue;
                 $count = medreview_sitemap_source_count($pdo, $source);
                 if ($count > 0) $parts[$name] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }
             $handbookCount = medreview_sitemap_handbook_count($pdo, $lang);
             if ($handbookCount > 0) {
                 $parts['handbook'] = (int) ceil($handbookCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
-            }
-            if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
-                $categories = $lang === 'en' ? "'blog-en','dich-vu-en'" : "'blog','dich-vu'";
-                $count = (int) $pdo->query("SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
-                    WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>'' AND LENGTH(TRIM(COALESCE(p.content,'')))>0 AND c.slug IN ({$categories})")->fetchColumn();
-                if ($count > 0) $parts['articles'] = (int) ceil($count / MEDREVIEW_SITEMAP_PAGE_SIZE);
             }
             foreach ($parts as $name => $partCount) {
                 for ($part = 1; $part <= $partCount; $part++) {
@@ -366,17 +392,6 @@ try {
         if ($handbookCount > 0) {
             $entries['handbook'] = (int) ceil($handbookCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
         }
-        if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
-            $articleCount = (int) $pdo->query(
-                "SELECT COUNT(*) FROM posts p JOIN categories c ON c.id=p.category_id
-                 WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
-                   AND LENGTH(TRIM(COALESCE(p.content,'')))>0
-                   AND c.slug IN ({$articleCategories})"
-            )->fetchColumn();
-            if ($articleCount > 0) {
-                $entries['articles'] = (int) ceil($articleCount / MEDREVIEW_SITEMAP_PAGE_SIZE);
-            }
-        }
 
         $xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
         foreach ($entries as $name => $partCount) {
@@ -391,37 +406,12 @@ try {
 
     $items = [];
     if ($map === 'pages') {
-        foreach (medreview_sitemap_static_paths($language) as $path) {
+        foreach (medreview_sitemap_static_paths($language, $pdo) as $path) {
             $items[] = ['path' => $path, 'updated_at' => ''];
         }
     } elseif ($map === 'handbook') {
         $items = medreview_sitemap_handbook_items($pdo, $language, $page);
-    } elseif ($map === 'articles') {
-        $pdo = db();
-        if (medreview_sitemap_table_exists($pdo, 'posts') && medreview_sitemap_table_exists($pdo, 'categories')) {
-            $stmt = $pdo->prepare(
-                "SELECT p.slug, p.updated_at, c.slug AS category_slug
-                 FROM posts p JOIN categories c ON c.id=p.category_id
-                 WHERE p.status='published' AND TRIM(COALESCE(p.slug,''))<>''
-                   AND LENGTH(TRIM(COALESCE(p.content,'')))>0
-                   AND c.slug IN ({$articleCategories})
-                 ORDER BY p.id ASC LIMIT :limit OFFSET :offset"
-            );
-            $stmt->bindValue(':limit', MEDREVIEW_SITEMAP_PAGE_SIZE, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', ($page - 1) * MEDREVIEW_SITEMAP_PAGE_SIZE, PDO::PARAM_INT);
-            $stmt->execute();
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $categorySlug = (string) ($row['category_slug'] ?? '');
-                $path = match ($categorySlug) {
-                    'blog' => '/blog/' . rawurlencode((string) $row['slug']),
-                    'blog-en' => '/news/' . rawurlencode((string) $row['slug']),
-                    default => '/' . rawurlencode((string) $row['slug']),
-                };
-                $items[] = ['path' => $path, 'updated_at' => (string) $row['updated_at']];
-            }
-        }
     } elseif (isset($sources[$map])) {
-        $pdo = db();
         $source = $sources[$map];
         if (medreview_sitemap_table_exists($pdo, (string) $source['table'])) {
             $stmt = $pdo->prepare((string) $source['rows']);
@@ -432,7 +422,8 @@ try {
                 $items[] = ['path' => $source['path']($row), 'updated_at' => (string) ($row['updated_at'] ?? '')];
             }
         }
-    } else {
+    } elseif (!in_array($map, ['facilities', 'doctors', 'reviews', 'review-articles', 'toplists', 'products', 'articles'], true)) {
+        http_response_code(404);
         medreview_sitemap_xml('<?xml version="1.0" encoding="UTF-8"?><error>Not found</error>');
     }
 

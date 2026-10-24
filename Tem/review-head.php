@@ -4,6 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= review_view_escape($title) ?></title>
 <meta name="description" content="<?= review_view_escape($description) ?>">
+<?php if (!empty($reviewNoindex)): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
 <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= review_view_escape($seoKeywords) ?>"><?php endif; ?>
 <link rel="canonical" href="<?= review_view_escape(site_absolute_url($canonicalPath)) ?>">
 <?= site_social_meta_tags([

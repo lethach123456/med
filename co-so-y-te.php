@@ -210,7 +210,15 @@ try {
     natcasesort($services);
     $services = array_values($services);
 } catch (Throwable $e) {
-    // Render the page shell even if cache storage and DB are both unavailable.
+    error_log('facility directory page failed: ' . get_class($e));
+    http_response_code(503);
+    header('Retry-After: 300');
+    header('Cache-Control: no-store');
+    $notFoundLocale = $locale;
+    $notFoundTitle = $isEnglish ? 'Healthcare facilities could not be loaded' : 'Chưa tải được danh sách cơ sở y tế';
+    $notFoundDescription = $isEnglish ? 'Please try again in a few minutes.' : 'Vui lòng thử lại sau ít phút.';
+    require __DIR__ . '/Tem/public-404.php';
+    exit;
 }
 
 $hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['category'] !== ''

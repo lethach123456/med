@@ -11,7 +11,7 @@ final class ReviewViewTestPDO extends PDO
     public function __construct(
         public array $rows = [],
         public array $facilities = [],
-        public array $reviewColumns = ['id', 'slug', 'title', 'status'],
+        public array $reviewColumns = ['id', 'slug', 'title', 'status', 'rating', 'author_text', 'method_text', 'condition_text', 'excerpt', 'story_json'],
         public array $facilityColumns = ['name', 'slug', 'status', 'address_text'],
     ) {}
 
@@ -52,6 +52,7 @@ final class ReviewViewTestPDO extends PDO
                 $same = ($row['slug'] ?? '') === $params[':slug'];
                 if (str_contains($sql, 'slug<>:slug') ? $same : !$same) return false;
             }
+            if (str_contains($sql, medical_review_seo_indexable_where()) && !medical_review_seo_indexable($row)) return false;
             if (isset($params[':rating']) && ((float) ($row['rating'] ?? 0) < $params[':rating'] || (float) ($row['rating'] ?? 0) > 5)) return false;
             if (isset($params[':q0'])) {
                 $literal = preg_replace_callback('/!([!%_])/', static fn(array $m): string => $m[1], substr($params[':q0'], 1, -1));
@@ -213,9 +214,14 @@ $assert(count($partialData['items']) === 1 && $partialData['pagination']['total'
 $assert(count($partialPdo->calls) === 3 && !str_contains(implode(' ', array_column($partialPdo->calls, 'sql')), 'AVG('), 'Partial update skips unchanged global summary aggregation');
 
 $facilityRaw = ['slug' => 'phong-kham', 'name' => 'Cơ sở <A>', 'status' => 'published', 'city' => 'Hà Nội', 'address_text' => '95 Nguyễn Lương Bằng', 'rating' => 4.8, 'reviews_count' => 37, 'image_url' => '/uploads/facility.webp'];
-$detailPdo = new ReviewViewTestPDO([$raw, array_replace($raw, ['id' => 2, 'slug' => 'related', 'facility_slug' => 'phong-kham'])], [$facilityRaw]);
+$detailPdo = new ReviewViewTestPDO([$raw,
+    array_replace($raw, ['id' => 2, 'slug' => 'related', 'facility_slug' => 'phong-kham', 'excerpt' => str_repeat('Customer experience. ', 8)]),
+    array_replace($raw, ['id' => 3, 'slug' => 'thin-related', 'facility_slug' => 'phong-kham']),
+    array_replace($raw, ['id' => 4, 'slug' => 'editorial-related', 'facility_slug' => 'phong-kham', 'author_text' => 'Ban biên tập MedReview', 'excerpt' => str_repeat('Editorial information. ', 8)]),
+], [$facilityRaw]);
 $detail = review_view_detail($detailPdo, 'chia-se');
 $assert($detail['review']['title'] === $raw['title'] && array_column($detail['related'], 'slug') === ['related'], 'Detail preserves actual article and excludes itself from related list');
+$assert(!$detail['review']['seo_indexable'] && $detail['related'][0]['seo_indexable'], 'Thin review remains readable while only eligible customer reviews are linked as related');
 $assert($detail['facility']['location'] === '95 Nguyễn Lương Bằng' && $detail['facility']['url'] === '/co-so-y-te/phong-kham', 'Actual address_text and published facility link preserved');
 $assert($detail['facility']['review_count'] === 37 && $detail['facility']['rating'] === 4.8, 'Facility aggregate data is separate from individual review score');
 $cityOnly = review_view_detail(new ReviewViewTestPDO([$raw], [array_replace($facilityRaw, ['address_text' => ''])]), 'chia-se');

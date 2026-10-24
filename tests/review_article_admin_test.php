@@ -2,6 +2,8 @@
 declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__) . '/medical_review_article_admin.php';
+define('MEDREVIEW_SITEMAP_FUNCTIONS_ONLY', true);
+require_once dirname(__DIR__) . '/sitemap.php';
 $checks = 0;
 $assert = static function (bool $ok, string $label) use (&$checks): void { $checks++; if (!$ok) throw new RuntimeException('FAIL: ' . $label); };
 $throws = static function (callable $call, string $label) use ($assert): void {
@@ -53,14 +55,11 @@ $assert(str_contains($controller,'name="version"') && str_contains($controller,'
 $htaccess=file_get_contents(dirname(__DIR__).'/.htaccess');
 foreach (['^review/([^/]+)/?$', '^en/review/([^/]+)/?$'] as $route) $assert(str_contains($htaccess,$route), 'Canonical article route exists: '.$route);
 $sitemap=file_get_contents(dirname(__DIR__).'/sitemap.php');
-$assert(str_contains($sitemap,"'review-articles' => [") && str_contains($sitemap,"a.status='published'") && str_contains($sitemap,'medical_review_articles_path('), 'Sitemap includes published editorial article canonical routes');
-$assert(str_contains($sitemap, '$articleLocaleFilter') && str_contains($sitemap, '{$lang}'), 'Article sitemaps split locales in both leaf and root indexes');
-$sourceStart = strpos($sitemap, 'function medreview_sitemap_sources(): array');
-$sourceEnd = strpos($sitemap, 'function medreview_sitemap_source_count(', $sourceStart);
-eval(substr($sitemap, $sourceStart, $sourceEnd - $sourceStart));
-$articleMap = medreview_sitemap_sources()['review-articles'];
+$assert(str_contains($sitemap,"\$sources['review-articles']") && str_contains($sitemap,"a.status='published'") && str_contains($sitemap,'medical_review_articles_path('), 'Sitemap includes published editorial article canonical routes');
+$assert(str_contains($sitemap, 'medreview_sitemap_sources($pdo, $language)') && str_contains($sitemap, 'medreview_sitemap_sources($pdo, $lang)'), 'Article sitemaps use the same locale-aware builder in leaf and root indexes');
 $pdo->exec("CREATE TABLE medical_facilities(id INTEGER PRIMARY KEY,status TEXT,language_code TEXT,content TEXT)");
 $pdo->exec("INSERT INTO medical_facilities VALUES(393,'published',NULL,'<p>Profile</p>')");
+$articleMap = medreview_sitemap_sources($pdo)['review-articles'];
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes archived articles');
 $pdo->exec("UPDATE medical_review_articles SET status='published' WHERE id=1");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap matches public Vietnamese facility with NULL legacy locale');
@@ -68,9 +67,9 @@ $pdo->exec("UPDATE medical_facilities SET language_code='' WHERE id=393");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap normalizes blank legacy facility locale to Vietnamese');
 $pdo->exec("UPDATE medical_review_articles SET title='' WHERE id=1");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes malformed blank-title article');
-$reviewMap = medreview_sitemap_sources()['reviews'];
 $pdo->exec("CREATE TABLE medical_reviews (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, excerpt TEXT, story_json TEXT, updated_at TEXT,
-    rating REAL DEFAULT 5, author_text TEXT DEFAULT '', method_text TEXT DEFAULT '', condition_text TEXT DEFAULT '')");
+    title TEXT DEFAULT 'Review fixture', rating REAL DEFAULT 5, author_text TEXT DEFAULT '', method_text TEXT DEFAULT '', condition_text TEXT DEFAULT '')");
+$reviewMap = medreview_sitemap_sources($pdo)['reviews'];
 $reviewInsert = $pdo->prepare('INSERT INTO medical_reviews (id,slug,status,excerpt,story_json,updated_at) VALUES(?,?,?,?,?,?)');
 foreach ([
     [1, 'review-rich', 'published', str_repeat('x', 80), null, '2026-10-01'],
@@ -86,11 +85,11 @@ $reviewRowsQuery->bindValue(':limit', 100, PDO::PARAM_INT);
 $reviewRowsQuery->bindValue(':offset', 0, PDO::PARAM_INT);
 $reviewRowsQuery->execute();
 $assert(count($reviewRowsQuery->fetchAll(PDO::FETCH_ASSOC))===2, 'Sitemap review count and page query share the same quality floor');
-$toplistMap = medreview_sitemap_sources()['toplists'];
 $pdo->exec("CREATE TABLE medical_toplists (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, entity_type TEXT, language_code TEXT, updated_at TEXT)");
 $pdo->exec("CREATE TABLE medical_toplist_facilities (toplist_id INTEGER, facility_id INTEGER)");
 $pdo->exec("CREATE TABLE medical_toplist_doctors (toplist_id INTEGER, doctor_id INTEGER)");
 $pdo->exec("CREATE TABLE medical_doctors (id INTEGER PRIMARY KEY, status TEXT, language_code TEXT, content TEXT)");
+$toplistMap = medreview_sitemap_sources($pdo)['toplists'];
 $pdo->exec("INSERT INTO medical_toplists VALUES (1,'ready-facilities','published','facility','vi','2026-10-06'),
     (2,'empty-toplist','published','facility','vi','2026-10-06'),(3,'draft-member','published','doctor','vi','2026-10-06'),
     (4,'wrong-locale','published','facility','en','2026-10-06')");

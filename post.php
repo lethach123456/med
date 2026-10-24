@@ -3,19 +3,23 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_directory.php';
+require_once __DIR__ . '/medical_handbook_routes.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 require_once __DIR__ . '/front_admin.php';
 
-$slug = isset($_GET['slug']) ? trim((string) $_GET['slug']) : '';
-$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-$routeContext = isset($_GET['route']) ? trim((string) $_GET['route']) : '';
+$slug = isset($_GET['slug']) && is_string($_GET['slug']) ? trim($_GET['slug']) : '';
+$id = isset($_GET['id']) && is_scalar($_GET['id']) ? (int) $_GET['id'] : 0;
+$requestRoute = handbook_detail_route((string) ($_SERVER['REQUEST_URI'] ?? ''));
+$routeContext = $requestRoute['context'];
+if ($requestRoute['slug'] !== null) {
+    $slug = $requestRoute['slug'];
+    $id = 0;
+}
 $editTemplate = isset($_GET['edit_template']) && (string) $_GET['edit_template'] === '1';
 $canEditTemplate = $editTemplate && function_exists('admin_front_is_logged_in') && admin_front_is_logged_in();
-$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-$requestPath = is_string($requestPath) ? trim($requestPath) : '';
-$isHandbookDetailRoute = $routeContext === 'handbook'
-    || preg_match('~^/(?:en/)?cam-nang/[^/]+/?$~', $requestPath) === 1;
-$handbookLocale = str_starts_with($requestPath, '/en/') ? 'en' : 'vi';
+$requestPath = $requestRoute['path'];
+$isHandbookDetailRoute = $routeContext === 'handbook';
+$handbookLocale = $requestRoute['locale'];
 $handbookScope = $isHandbookDetailRoute
     ? " AND c.slug IN ('blog', 'blog-en') AND COALESCE(NULLIF(LOWER(TRIM(p.language)),''),'vi') = :handbook_locale"
         . " AND p.status = 'published' AND TRIM(COALESCE(p.content,'')) <> '' AND TRIM(COALESCE(p.slug,'')) <> ''"
@@ -24,9 +28,7 @@ if ($isHandbookDetailRoute) {
     $GLOBALS['site_page_key'] = 'handbook';
     $GLOBALS['site_forced_locale'] = $handbookLocale;
 }
-$isBlogDetailRoute = $routeContext === 'blog'
-    || $routeContext === 'news'
-    || preg_match('~^/(?:blog|news)/[^/]+/?$~', $requestPath) === 1;
+$isBlogDetailRoute = in_array($routeContext, ['blog', 'news'], true);
 
 $pdo = db();
 
@@ -67,6 +69,20 @@ if ($slug !== '') {
     if ($isHandbookDetailRoute) $params[':handbook_locale'] = $handbookLocale;
     $stmt->execute($params);
     $post = $stmt->fetch();
+}
+
+if (is_array($post) && !$canEditTemplate
+    && in_array((string) ($post['category_slug'] ?? ''), ['blog', 'blog-en'], true)) {
+    // Legacy PHP/blog/news URLs must not expose blank templates or another article's fallback.
+    if (handbook_public_article_path($post) === '') {
+        $post = null;
+    } else {
+        $handbookRedirect = handbook_article_redirect_target($post, (string) ($_SERVER['REQUEST_URI'] ?? ''));
+        if ($handbookRedirect !== '') {
+            header('Location: ' . $handbookRedirect, true, 301);
+            exit;
+        }
+    }
 }
 
 if (!$post) {
@@ -129,12 +145,8 @@ $isIndexableArticle = is_array($post) && (string) ($post['status'] ?? '') === 'p
 $articleCanonicalPath = '';
 if ($isIndexableArticle) {
     $articleSlug = rawurlencode((string) ($post['slug'] ?? ''));
-    if ($isHandbookDetailRoute) {
-        $articleCanonicalPath = site_localized_path('/cam-nang/' . $articleSlug, $handbookLocale);
-    } elseif ($postCategorySlug === 'blog-en') {
-        $articleCanonicalPath = '/news/' . $articleSlug;
-    } elseif ($postCategorySlug === 'blog') {
-        $articleCanonicalPath = '/blog/' . $articleSlug;
+    if (in_array($postCategorySlug, ['blog', 'blog-en'], true)) {
+        $articleCanonicalPath = handbook_public_article_path($post);
     } else {
         $articleCanonicalPath = $requestPath !== '' && $requestPath !== '/' ? $requestPath : '/' . $articleSlug;
     }

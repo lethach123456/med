@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/medical_facility_ratings.php';
+require_once __DIR__ . '/medical_public_stats.php';
 
 /**
  * Read-only homepage data. Dependencies are supplied by the calling page;
@@ -113,21 +114,20 @@ function medical_home_next_toplist_row(array $row, array $linkedRows = [], ?call
     ];
 }
 
-function medical_home_next_data(PDO $pdo, string $locale): array
+function medical_home_next_data(PDO $pdo, string $locale, ?array $publicIndex = null): array
 {
     $locale = strtolower(trim($locale)) === 'en' ? 'en' : 'vi';
     $data = medical_home_next_empty();
     $resolveMedia = function_exists('site_absolute_media_url') ? 'site_absolute_media_url' : null;
 
     // Statistics and sections fail independently, preserving available data.
-    foreach (['facilities' => 'medical_facilities', 'doctors' => 'medical_doctors', 'toplists' => 'medical_toplists'] as $key => $table) {
-        try {
-            $count = $pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE status = 'published' AND language_code = :locale");
-            if ($count === false || !$count->execute([':locale' => $locale])) continue;
-            $data['stats'][$key] = max(0, (int) $count->fetchColumn());
-        } catch (Throwable $error) {
-            // An uninitialized or temporarily unavailable table remains empty.
+    try {
+        $stats = medical_public_stats($locale, $pdo, $publicIndex);
+        foreach (array_keys($data['stats']) as $key) {
+            $data['stats'][$key] = max(0, (int) ($stats[$key] ?? 0));
         }
+    } catch (Throwable $error) {
+        // Statistics remain optional if no public directory snapshot is available.
     }
 
     try {
