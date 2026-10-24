@@ -59,8 +59,8 @@ $sourceStart = strpos($sitemap, 'function medreview_sitemap_sources(): array');
 $sourceEnd = strpos($sitemap, 'function medreview_sitemap_source_count(', $sourceStart);
 eval(substr($sitemap, $sourceStart, $sourceEnd - $sourceStart));
 $articleMap = medreview_sitemap_sources()['review-articles'];
-$pdo->exec("CREATE TABLE medical_facilities(id INTEGER PRIMARY KEY,status TEXT,language_code TEXT)");
-$pdo->exec("INSERT INTO medical_facilities VALUES(393,'published',NULL)");
+$pdo->exec("CREATE TABLE medical_facilities(id INTEGER PRIMARY KEY,status TEXT,language_code TEXT,content TEXT)");
+$pdo->exec("INSERT INTO medical_facilities VALUES(393,'published',NULL,'<p>Profile</p>')");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes archived articles');
 $pdo->exec("UPDATE medical_review_articles SET status='published' WHERE id=1");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap matches public Vietnamese facility with NULL legacy locale');
@@ -69,18 +69,38 @@ $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===1, 'Sitemap norm
 $pdo->exec("UPDATE medical_review_articles SET title='' WHERE id=1");
 $assert((int)$pdo->query($articleMap['count'])->fetchColumn()===0, 'Sitemap excludes malformed blank-title article');
 $reviewMap = medreview_sitemap_sources()['reviews'];
-$pdo->exec('CREATE TABLE medical_reviews (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, excerpt TEXT, story_json TEXT, updated_at TEXT)');
-$reviewInsert = $pdo->prepare('INSERT INTO medical_reviews VALUES(?,?,?,?,?,?)');
+$pdo->exec("CREATE TABLE medical_reviews (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, excerpt TEXT, story_json TEXT, updated_at TEXT,
+    rating REAL DEFAULT 5, author_text TEXT DEFAULT '', method_text TEXT DEFAULT '', condition_text TEXT DEFAULT '')");
+$reviewInsert = $pdo->prepare('INSERT INTO medical_reviews (id,slug,status,excerpt,story_json,updated_at) VALUES(?,?,?,?,?,?)');
 foreach ([
     [1, 'review-rich', 'published', str_repeat('x', 80), null, '2026-10-01'],
     [2, 'review-story', 'published', '', str_repeat('y', 120), '2026-10-02'],
     [3, 'review-thin', 'published', str_repeat('x', 79), null, '2026-10-03'],
     [4, 'review-draft', 'draft', str_repeat('x', 200), null, '2026-10-04'],
 ] as $reviewFixture) $reviewInsert->execute($reviewFixture);
-$assert((int)$pdo->query($reviewMap['count'])->fetchColumn()===2, 'Sitemap only includes published individual reviews with a minimum amount of narrative');
+$pdo->exec("INSERT INTO medical_reviews (id,slug,status,excerpt,story_json,updated_at,rating,author_text,method_text,condition_text)
+    VALUES (5,'editorial-info','published','" . str_repeat('x', 80) . "',NULL,'2026-10-05',0,'Ban biên tập MedReview','Thông tin tổng hợp','Nội dung biên tập, không phải đánh giá khách hàng')");
+$assert((int)$pdo->query($reviewMap['count'])->fetchColumn()===2, 'Sitemap only includes published rated customer reviews with a minimum amount of narrative; excludes editorial profile entries');
 $reviewRowsQuery = $pdo->prepare($reviewMap['rows']);
 $reviewRowsQuery->bindValue(':limit', 100, PDO::PARAM_INT);
 $reviewRowsQuery->bindValue(':offset', 0, PDO::PARAM_INT);
 $reviewRowsQuery->execute();
 $assert(count($reviewRowsQuery->fetchAll(PDO::FETCH_ASSOC))===2, 'Sitemap review count and page query share the same quality floor');
+$toplistMap = medreview_sitemap_sources()['toplists'];
+$pdo->exec("CREATE TABLE medical_toplists (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, entity_type TEXT, language_code TEXT, updated_at TEXT)");
+$pdo->exec("CREATE TABLE medical_toplist_facilities (toplist_id INTEGER, facility_id INTEGER)");
+$pdo->exec("CREATE TABLE medical_toplist_doctors (toplist_id INTEGER, doctor_id INTEGER)");
+$pdo->exec("CREATE TABLE medical_doctors (id INTEGER PRIMARY KEY, status TEXT, language_code TEXT, content TEXT)");
+$pdo->exec("INSERT INTO medical_toplists VALUES (1,'ready-facilities','published','facility','vi','2026-10-06'),
+    (2,'empty-toplist','published','facility','vi','2026-10-06'),(3,'draft-member','published','doctor','vi','2026-10-06'),
+    (4,'wrong-locale','published','facility','en','2026-10-06')");
+$pdo->exec("INSERT INTO medical_toplist_facilities VALUES (1,393),(4,393)");
+$pdo->exec("INSERT INTO medical_toplist_doctors VALUES (3,7)");
+$pdo->exec("INSERT INTO medical_doctors VALUES (7,'draft','vi','<p>Profile</p>')");
+$assert((int)$pdo->query($toplistMap['count'])->fetchColumn()===1, 'Toplist sitemap excludes empty lists, unpublished members, and wrong-language member profiles');
+$toplistRowsQuery = $pdo->prepare($toplistMap['rows']);
+$toplistRowsQuery->bindValue(':limit', 100, PDO::PARAM_INT);
+$toplistRowsQuery->bindValue(':offset', 0, PDO::PARAM_INT);
+$toplistRowsQuery->execute();
+$assert(array_column($toplistRowsQuery->fetchAll(PDO::FETCH_ASSOC), 'slug')===['ready-facilities'], 'Toplist sitemap page query mirrors its validated count query');
 echo 'Review article admin: '.$checks." checks passed; isolated SQLite only.\n";

@@ -211,10 +211,11 @@ function medreview_sitemap_sources(): array
         ],
         'reviews' => [
             'table' => 'medical_reviews',
-            // Thin imported review records stay readable on facility profiles,
-            // but should not be promoted as standalone sitemap landing pages.
-            'count' => "SELECT COUNT(*) FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120)",
-            'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120) ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            // Editorial profile/help entries live in medical_reviews for legacy
+            // display purposes. Keep them out of patient-review search URLs.
+            // Their explicit seed markers are also recognized by review_view_row().
+            'count' => "SELECT COUNT(*) FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND COALESCE(rating,0)>0 AND COALESCE(author_text,'')<>'Ban biên tập MedReview' AND COALESCE(method_text,'')<>'Thông tin tổng hợp' AND COALESCE(condition_text,'')<>'Nội dung biên tập, không phải đánh giá khách hàng' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120)",
+            'rows' => "SELECT slug, updated_at FROM medical_reviews WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' AND COALESCE(rating,0)>0 AND COALESCE(author_text,'')<>'Ban biên tập MedReview' AND COALESCE(method_text,'')<>'Thông tin tổng hợp' AND COALESCE(condition_text,'')<>'Nội dung biên tập, không phải đánh giá khách hàng' AND (LENGTH(TRIM(COALESCE(excerpt,'')))>=80 OR LENGTH(TRIM(COALESCE(story_json,'')))>=120) ORDER BY id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => '/review-chi-tiet.php?slug=' . rawurlencode((string) $row['slug']),
         ],
         'review-articles' => [
@@ -225,8 +226,29 @@ function medreview_sitemap_sources(): array
         ],
         'toplists' => [
             'table' => 'medical_toplists',
-            'count' => "SELECT COUNT(*) FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>''",
-            'rows' => "SELECT slug, language_code, updated_at FROM medical_toplists WHERE status='published' AND TRIM(COALESCE(slug,''))<>'' ORDER BY id ASC LIMIT :limit OFFSET :offset",
+            // A published listing is indexable only when it has at least one
+            // linked profile and every linked profile is itself public, in the
+            // same language, and has authored content. This also keeps stale
+            // relations from surfacing broken/empty ranking pages in the sitemap.
+            'count' => "SELECT COUNT(*) FROM medical_toplists t
+                WHERE t.status='published' AND TRIM(COALESCE(t.slug,''))<>''
+                  AND ((t.entity_type='facility' AND EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
+                    OR (t.entity_type='doctor' AND EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))
+                    OR (t.entity_type='mixed' AND (EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) OR EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))))
+                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf LEFT JOIN medical_facilities f ON f.id=tf.facility_id
+                    WHERE tf.toplist_id=t.id AND (f.id IS NULL OR f.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(f.content,'')))=0))
+                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td LEFT JOIN medical_doctors d ON d.id=td.doctor_id
+                    WHERE td.toplist_id=t.id AND (d.id IS NULL OR d.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(d.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(d.content,'')))=0))",
+            'rows' => "SELECT t.slug, t.language_code, t.updated_at FROM medical_toplists t
+                WHERE t.status='published' AND TRIM(COALESCE(t.slug,''))<>''
+                  AND ((t.entity_type='facility' AND EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id))
+                    OR (t.entity_type='doctor' AND EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))
+                    OR (t.entity_type='mixed' AND (EXISTS (SELECT 1 FROM medical_toplist_facilities tf WHERE tf.toplist_id=t.id) OR EXISTS (SELECT 1 FROM medical_toplist_doctors td WHERE td.toplist_id=t.id))))
+                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_facilities tf LEFT JOIN medical_facilities f ON f.id=tf.facility_id
+                    WHERE tf.toplist_id=t.id AND (f.id IS NULL OR f.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(f.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(f.content,'')))=0))
+                  AND NOT EXISTS (SELECT 1 FROM medical_toplist_doctors td LEFT JOIN medical_doctors d ON d.id=td.doctor_id
+                    WHERE td.toplist_id=t.id AND (d.id IS NULL OR d.status<>'published' OR COALESCE(NULLIF(LOWER(TRIM(d.language_code)),''),'vi')<>COALESCE(NULLIF(LOWER(TRIM(t.language_code)),''),'vi') OR LENGTH(TRIM(COALESCE(d.content,'')))=0))
+                ORDER BY t.id ASC LIMIT :limit OFFSET :offset",
             'path' => static fn (array $row): string => medical_public_entity_path('toplist', (string) $row['slug'], (string) ($row['language_code'] ?? 'vi')),
         ],
         'products' => [

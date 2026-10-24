@@ -15,7 +15,17 @@ foreach (["'/bac-si.php'", "'/review.php'", "'/ve-chung-toi.php'", "'/danh-muc-y
     $assert(!str_contains($sitemap, $legacyPath), 'Legacy PHP route removed from sitemap: ' . $legacyPath);
 }
 $assert(str_contains($sitemap, "LENGTH(TRIM(COALESCE(excerpt,'')))>=80")
-    && str_contains($sitemap, "LENGTH(TRIM(COALESCE(story_json,'')))>=120"), 'Thin individual review records are excluded from sitemap entries');
+    && str_contains($sitemap, "LENGTH(TRIM(COALESCE(story_json,'')))>=120")
+    && str_contains($sitemap, "COALESCE(rating,0)>0")
+    && str_contains($sitemap, "COALESCE(author_text,'')<>'Ban biên tập MedReview'"),
+    'Thin and explicitly editorial review records are excluded from standalone review sitemap entries');
+$assert(str_contains($sitemap, "medical_toplist_facilities tf")
+    && str_contains($sitemap, "medical_toplist_doctors td")
+    && str_contains($sitemap, "f.status<>'published'")
+    && str_contains($sitemap, "d.status<>'published'")
+    && str_contains($sitemap, "f.language_code")
+    && str_contains($sitemap, "d.language_code"),
+    'Toplist sitemap requires linked profiles that remain published in the same language');
 foreach (['bac-si.php', 'co-so-y-te.php'] as $file) {
     $source = (string) file_get_contents($root . '/' . $file);
     $assert(str_contains($source, 'noindex,follow') && str_contains($source, 'index,follow')
