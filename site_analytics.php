@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-/** Presentation-only GTM integration. Never queries the DB or sends visitor data. */
+/** Presentation-only GA4 markup. No DB calls or server-side tracking requests.
+ * Historical hook names remain compatible with all existing public templates.
+ */
 function site_tag_manager_enabled(?array $server = null, ?array $query = null): bool
 {
     $server ??= $_SERVER;
@@ -25,27 +27,21 @@ function site_tag_manager_head(): string
     if (!site_tag_manager_enabled() || !empty($GLOBALS['site_tag_manager_head_emitted'])) return '';
     $GLOBALS['site_tag_manager_head_emitted'] = true;
     return <<<'HTML'
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-WQKB3F22');</script>
-<!-- End Google Tag Manager -->
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-RS82TMHNPT"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-RS82TMHNPT');
+</script>
 
 HTML;
 }
 
-/** Render once immediately after the public document's opening body tag. */
+/** Compatibility hook: direct GA4 has no GTM noscript iframe in the body. */
 function site_tag_manager_body(): string
 {
-    if (!site_tag_manager_enabled() || !empty($GLOBALS['site_tag_manager_body_emitted'])) return '';
-    $GLOBALS['site_tag_manager_body_emitted'] = true;
-    return <<<'HTML'
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WQKB3F22"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-
-HTML;
+    return '';
 }
