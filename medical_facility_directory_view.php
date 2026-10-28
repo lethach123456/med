@@ -45,7 +45,8 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
     $hasRating = $rating > 0 && (float) ($item['rating'] ?? 0) <= 5 && (int) ($item['reviews_count'] ?? 0) > 0;
     $ratingLabel = facility_directory_rating_label($item, $locale);
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? [])), static fn(string $s): bool => trim($s) !== ''));
-    $showServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
+    $showDesktopServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
+    $showServiceDisclosure = $showDesktopServiceDisclosure || count($services) > 1;
     ob_start(); ?>
     <article class="fd-card">
       <a class="fd-media" href="<?= $e($url) ?>" aria-label="<?= $e(($en ? 'View ' : 'Xem ') . $name) ?>">
@@ -57,12 +58,12 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
         <div class="fd-card-category"><?= $e($item['category'] ?? ($en ? 'Healthcare facility' : 'Cơ sở y tế')) ?><?php if (!empty($item['city'])): ?><span aria-hidden="true">·</span><?= $e($item['city']) ?><?php endif; ?></div>
         <h2><a href="<?= $e($url) ?>"><?= $e($name) ?></a><?php if (!empty($item['verified'])): ?><a class="fd-verified facility-verification-link facility-verification-icon" href="<?= $en ? '/en/ho-so-da-xac-thuc' : '/ho-so-da-xac-thuc' ?>" aria-label="<?= $en ? 'Understand the verified facility profile label' : 'Tìm hiểu hồ sơ cơ sở đã xác thực' ?>" title="<?= $en ? 'Verified facility profile' : 'Hồ sơ cơ sở đã xác thực' ?>"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></a><?php endif; ?></h2>
         <?php if (!empty($item['address'])): ?><p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span><?= $e($item['address']) ?></span></p><?php endif; ?>
-        </div>
         <?php if (!empty($item['subtitle'])): ?><p class="fd-summary"><?= $e($item['subtitle']) ?></p><?php endif; ?>
         <?php if ($services !== []): ?><div class="fd-services" data-service-tags>
           <?php foreach ($services as $i => $service): ?><span class="fd-service<?= $i > 2 ? ' fd-service-extra' : '' ?>"<?= $i > 2 ? ' hidden' : '' ?> title="<?= $e($service) ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?= $e($service) ?></span></span><?php endforeach; ?>
-          <?php if ($showServiceDisclosure): ?><button class="fd-service-more" type="button" data-service-tags-more data-extra-count="<?= max(0, count($services) - 3) ?>" aria-expanded="false" aria-label="<?= $en ? 'Show full services' : 'Xem đầy đủ dịch vụ' ?>"><?= count($services) > 3 ? '+' . (count($services) - 3) : ($en ? 'Details' : 'Xem đủ') ?><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
+          <?php if ($showServiceDisclosure): ?><button class="fd-service-more<?= !$showDesktopServiceDisclosure ? ' fd-service-more-mobile-only' : '' ?>" type="button" data-service-tags-more data-extra-count="<?= max(0, count($services) - 3) ?>" data-mobile-extra-count="<?= max(0, count($services) - 1) ?>" aria-expanded="false" aria-label="<?= $en ? 'Show full services' : 'Xem đầy đủ dịch vụ' ?>"><span class="fd-service-count-desktop"><?= count($services) > 3 ? '+' . (count($services) - 3) : ($en ? 'Details' : 'Xem đủ') ?></span><span class="fd-service-count-mobile"><?= count($services) > 1 ? '+' . (count($services) - 1) : ($en ? 'Details' : 'Xem đủ') ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
         </div><?php endif; ?>
+        </div>
         <div class="fd-card-footer">
           <div class="fd-rating" title="<?= $e($ratingLabel) ?>"><?php if ($hasRating): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>) <small class="fd-rating-source">· <?= $e($ratingLabel) ?></small></span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
           <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>

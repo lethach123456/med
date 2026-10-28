@@ -17,9 +17,16 @@ $assert(str_contains($html, 'Clinic &lt;Test&gt;') && str_contains($html, 'A &am
 $assert(str_contains($html, '4.3<span>/5</span>') && !str_contains($html, '★★★★★'), 'Rating not represented as five gold stars');
 $assert(str_contains($html, '1.200 đánh giá'), 'Vietnamese count format');
 $assert(str_contains($html, 'loading="lazy"') && str_contains($html, 'width="360" height="300"'), 'Images lazy with reserved dimensions');
-$assert(substr_count($html, 'fd-service-extra') === 0 && !str_contains($html, 'data-service-tags-more'), 'Three short services visible without redundant disclosure');
+$assert(substr_count($html, 'fd-service-extra') === 0 && str_contains($html, 'fd-service-more-mobile-only')
+    && str_contains($html, 'data-mobile-extra-count="2"'), 'Three short services retain a mobile-only +2 disclosure without changing desktop visibility');
+$two = facility_directory_card(array_replace($item, ['services' => ['Khám', 'Tư vấn']]));
+$assert(str_contains($two, 'fd-service-more-mobile-only') && str_contains($two, 'data-mobile-extra-count="1"'), 'Two short services provide a mobile-only +1 disclosure');
+$single = facility_directory_card(array_replace($item, ['services' => ['Khám']]));
+$assert(!str_contains($single, 'data-service-tags-more'), 'One short service has no redundant disclosure');
 $many = facility_directory_card(array_replace($item, ['services' => ['Niềng răng', 'Bọc sứ', 'Implant', 'Khám tổng quát', 'Dịch vụ thứ năm']]));
-$assert(substr_count($many, 'fd-service-extra" hidden') === 2 && str_contains($many, 'data-extra-count="2"'), 'Three visible services and accurate remaining count');
+$assert(substr_count($many, 'fd-service-extra" hidden') === 2 && str_contains($many, 'data-extra-count="2"')
+    && str_contains($many, 'data-mobile-extra-count="4"') && str_contains($many, 'fd-service-count-desktop')
+    && str_contains($many, 'fd-service-count-mobile'), 'Five services preserve desktop +2 and mobile +4 counts');
 $long = facility_directory_card(array_replace($item, ['services' => ['Niềng răng thẩm mỹ với mắc cài cá nhân hóa & khay trong suốt']]));
 $assert(str_contains($long, 'data-extra-count="0"') && str_contains($long, 'Xem đủ') && str_contains($long, '&amp;'), 'Long single label retains full escaped text with touch disclosure');
 $assert(str_contains($html, 'Giá tham khảo: 250.000 VND'), 'Actual price retained');
@@ -88,17 +95,19 @@ foreach (['vi', 'en'] as $locale) {
     $assert($xpath->query('//*[@id="fdResultsHeading"][@tabindex="-1"]')->length === 1, $prefix . 'existing focus and scroll target is retained');
     $cardPath = '//article[' . $hasClass('fd-card') . ']/*[' . $hasClass('fd-card-content') . ']';
     $mainPath = $cardPath . '/*[' . $hasClass('fd-card-main') . ']';
-    $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 3
+    $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 5
         && $xpath->query($mainPath . '/*[1][' . $hasClass('fd-card-category') . ']')->length === 1
         && $xpath->query($mainPath . '/*[2][self::h2]')->length === 1
         && $xpath->query($mainPath . '/*[3][' . $hasClass('fd-address') . ']')->length === 1
+        && $xpath->query($mainPath . '/*[4][' . $hasClass('fd-summary') . ']')->length === 1
+        && $xpath->query($mainPath . '/*[5][' . $hasClass('fd-services') . ']')->length === 1
         && $xpath->query($mainPath . '/h2/a[not(' . $hasClass('fd-verified') . ')]')->length === 1
         && $xpath->query($mainPath . '/h2/a[' . $hasClass('fd-verified') . ']')->length === 1, $prefix . 'mobile identity groups category, title and address beside the image with a separate verification link');
     $assert($xpath->query($mainPath . '/*[' . $hasClass('fd-address') . ']')->length === 1
         && $xpath->query($cardPath . '/*[' . $hasClass('fd-address') . ']')->length === 0
-        && $xpath->query($cardPath . '/*[' . $hasClass('fd-summary') . ']')->length === 1
-        && $xpath->query($cardPath . '/*[' . $hasClass('fd-services') . ']')->length === 1
-        && $xpath->query($cardPath . '/*[' . $hasClass('fd-card-footer') . ']')->length === 1, $prefix . 'address stays in the image identity row while summary, services and footer retain full mobile width');
+        && $xpath->query($mainPath . '/*[' . $hasClass('fd-summary') . ']')->length === 1
+        && $xpath->query($mainPath . '/*[' . $hasClass('fd-services') . ']')->length === 1
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-card-footer') . ']')->length === 1, $prefix . 'address and services stay beside the photo while the footer retains full width');
     $assert($xpath->query('//*[' . $hasClass('fd-description-desktop') . ']')->length === 1
         && $xpath->query('//*[' . $hasClass('fd-description-mobile') . ']')->length === 1, $prefix . 'responsive hero copy has both localized variants');
     $assert($xpath->query('//details')->length === 1 && $xpath->query('//summary')->length === 1, $prefix . 'one native filter disclosure');
@@ -158,7 +167,7 @@ $assert(str_contains($pageSource, $mobileAsset)
     && strpos($pageSource, $mobileAsset) > strpos($pageSource, '/assets/css/core/directory-service-labels.css?v='), 'Cache-busted mobile refinement follows shared service chip styling');
 $jsSource = file_get_contents(dirname(__DIR__) . '/assets/js/facility-directory.js');
 $assert(str_contains($jsSource, '<div class="fd-card-main">')
-    && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*\$\{item\.address.*?</p>.*?\}\s*</div>\s*\$\{item\.subtitle~s', $jsSource) === 1, 'AJAX cards keep the SSR category, title and address identity group before the full-width summary');
+    && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*\$\{item\.address.*?\$\{item\.subtitle.*?class="fd-services".*?\n\s*</div>\s*<div class="fd-card-footer">~s', $jsSource) === 1, 'AJAX cards keep the SSR identity/summary/services group before the footer');
 $assert(str_contains($jsSource, 'sortSlot.append(sortGroup)') && str_contains($jsSource, 'resultTools.insertBefore(sortGroup, disclosure)')
     && str_contains($jsSource, "compact.addEventListener('change', arrangeControls)") && !str_contains($jsSource, 'cloneNode('), 'Responsive sorting moves the original form control, never a duplicate');
 $assert(str_contains($jsSource, 'if (hadFocus && !disclosure.open) setPanel(true)')
@@ -175,10 +184,12 @@ $assert(preg_match('~\.fd-media\{[^}]*height:auto;[^}]*min-height:132px;[^}]*ali
     'Mobile photo grows with the adjacent identity instead of staying a fixed square');
 $assert(preg_match('~\.fd-card-main\{[^}]*min-height:132px~', $mobileCss) === 1,
     'Photo and category/name/address group share a readable minimum height');
-$assert(preg_match('~\.fd-address\{[^}]*font-size:12px;[^}]*line-height:1\.55~', $mobileCss) === 1
+$assert(preg_match('~\.fd-address\{[^}]*font-size:12px;~', $mobileCss) === 1
     && !preg_match('~\.fd-address(?:>span)?\{[^}]*(?:line-clamp|text-overflow)~', $mobileCss),
     'Compact address remains fully wrapped and is not clipped');
-$assert(preg_match('~\.fd-service\{[^}]*max-width:calc\(50% - 4px\)~', $mobileCss) === 1
-    && str_contains($mobileCss, '.fd-services.is-expanded .fd-service{max-width:100%}'),
-    'Mobile service chips use compact half-width slots and can still expand fully');
+$assert(str_contains($mobileCss, '.fd-summary{display:none}')
+    && str_contains($mobileCss, 'fd-service-count-mobile') && str_contains($mobileCss, 'fd-service-count-desktop'),
+    'Mobile hides the summary and switches to the accurate mobile service count');
+$assert(str_contains($mobileCss, '.fd-services:not(.is-expanded)') && str_contains($mobileCss, 'white-space:nowrap')
+    && str_contains($mobileCss, '.fd-services.is-expanded'), 'Mobile services collapse to one line and can still expand');
 echo "Facility directory view: {$checks} checks passed. No DB records modified.\n";

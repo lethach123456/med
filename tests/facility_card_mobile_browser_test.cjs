@@ -11,6 +11,12 @@ const fixtures = [
   {name: 'Nha Khoa Hoàn Mỹ Hải Phòng', slug: 'hoan-my-fixture', category: 'Nha khoa', city: 'Hải Phòng', address: '120 Lý Thường Kiệt, Hồng Bàng, Hải Phòng', subtitle: 'Hệ thống nha khoa kỹ thuật cao uy tín lâu năm tại Hải Phòng', image: '/fixture/clinic.webp', verified: true, rating: 5, reviews_count: 55, rating_basis: 'stored_reviews', services: ['Chỉnh nha - Niềng răng kỹ thuật số không nhổ răng', 'Cấy ghép Implant phục hình mất răng chịu lực tức thì', 'Thẩm mỹ răng sứ và mặt dán sứ Veneer bảo tồn men răng', 'Nhổ răng khôn bằng công nghệ siêu âm']},
   {name: 'Trung tâm chăm sóc răng hàm mặt chuyên sâu & phục hình thẩm mỹ quốc tế', slug: 'long-fixture', category: 'Nha khoa chuyên sâu', city: 'Thành phố Hồ Chí Minh', address: 'Tầng 2, số 123 đường Nguyễn Thị Minh Khai, phường Bến Thành, Thành phố Hồ Chí Minh', subtitle: 'Thông tin dài để kiểm tra khả năng xuống dòng mà không làm tràn ngang thẻ hoặc cắt mất địa chỉ của cơ sở.', image: '/fixture/broken.webp', verified: true, rating: 4.5, reviews_count: 128, rating_basis: 'external_aggregates', services: ['Khám chuyên sâu', 'Niềng răng', 'Bọc răng sứ']},
   {name: 'Phòng khám', slug: 'sparse-fixture', category: 'Cơ sở y tế', services: [], rating: 0, reviews_count: 0},
+  {name: 'Spa Dương Nguyễn', slug: 'spa-fixture', category: 'Spa chăm sóc da - Chăm sóc sức khỏe', city: 'Đồng Nai', address: '339 Lý Thái Tổ, Bến Sắn, Nhơn Trạch, Đồng Nai', subtitle: 'Cơ sở chuyên chăm sóc da điều trị mụn và dưỡng sinh tại Nhơn Trạch', image: '/fixture/clinic.webp', verified: true, rating: 5, reviews_count: 55, rating_basis: 'stored_reviews', services: ['Chăm sóc và điều trị da mụn chuyên sâu', 'Gội đầu dưỡng sinh thảo dược', 'Hấp trắng da mặt & cấy căng bóng', 'Massage dưỡng sinh']},
+  {name: 'Năm dịch vụ', slug: 'five-services', category: 'Nha khoa', services: ['Khám', 'Tư vấn', 'Niềng răng', 'Bọc sứ', 'Implant']},
+  {name: 'Hai dịch vụ', slug: 'two-services', category: 'Nha khoa', services: ['Khám', 'Tư vấn']},
+  {name: 'Ba dịch vụ', slug: 'three-services', category: 'Nha khoa', services: ['Khám', 'Tư vấn', 'Bọc sứ']},
+  {name: 'Một dịch vụ', slug: 'single-service', category: 'Nha khoa', services: ['Khám']},
+  {name: 'Một nhãn dài', slug: 'single-long-service', category: 'Nha khoa', services: ['Điều trị phục hồi răng hàm mặt và chỉnh nha chuyên sâu']},
 ];
 const php = `
   require 'medical_facility_directory_view.php';
@@ -22,7 +28,7 @@ const php = `
   $filters=['q'=>'','city'=>'','category'=>'','service'=>'','min_rating'=>'','sort'=>'recommended'];
   $cities=['Hải Phòng'];$categories=['Nha khoa'];$services=[];$cityCounts=['Hải Phòng'=>3];
   $directoryStats=['facilities'=>3,'reviews'=>183];
-  $initial=['items'=>$items,'total'=>3,'page'=>1,'total_pages'=>1];
+  $initial=['items'=>$items,'total'=>count($items),'page'=>1,'total_pages'=>1];
   echo '<!doctype html><html lang="'.$locale.'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
   foreach (['/assets/css/core/shared-typography.css','/assets/css/pages/facility-directory.css','/assets/css/core/directory-service-labels.css','/assets/css/pages/facility-directory-mobile.css','/assets/vendor/@phosphor-icons/web/2.1.1/phosphor.css', ...medical_public_shell_sources()] as $css) echo '<link rel="stylesheet" href="'.$css.'">';
   echo '</head><body class="fd-page">';
@@ -42,7 +48,7 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
     let locale = 'vi';
     const serve = route => {
       const url = new URL(route.request().url());
-      if (url.pathname === '/api/medical/facilities.php') return route.fulfill({json:{ok:true,items:fixtures,paging:{page:1,total:3,total_pages:1}}});
+      if (url.pathname === '/api/medical/facilities.php') return route.fulfill({json:{ok:true,items:fixtures,paging:{page:1,total:fixtures.length,total_pages:1}}});
       if (route.request().isNavigationRequest()) return route.fulfill({contentType:'text/html',body:html(locale)});
       if (url.pathname === '/fixture/clinic.webp') return route.fulfill({contentType:'image/webp',body:photo});
       const file = path.resolve(root, '.' + url.pathname);
@@ -52,7 +58,9 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
     await page.route('**/*', serve);
     const geometry = card => card.evaluate(el => {
       const measure = selector => {const node=el.querySelector(selector);if(!node)return null;const r=node.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};};
-      return {media:measure('.fd-media'),main:measure('.fd-card-main'),title:measure('h2'),address:measure('.fd-address'),category:measure('.fd-card-category'),summary:measure('.fd-summary'),footer:measure('.fd-card-footer'),card:{w:el.clientWidth,scroll:el.scrollWidth}};
+      const title=el.querySelector('h2');
+      const nameRange=document.createRange();nameRange.selectNodeContents(title.querySelector('a'));
+      return {media:measure('.fd-media'),main:measure('.fd-card-main'),title:measure('h2'),address:measure('.fd-address'),category:measure('.fd-card-category'),summary:measure('.fd-summary'),services:measure('.fd-services'),footer:measure('.fd-card-footer'),titleLineHeight:parseFloat(getComputedStyle(title).lineHeight),nameLines:nameRange.getClientRects().length,card:{w:el.clientWidth,scroll:el.scrollWidth}};
     });
     for (locale of process.env.FACILITY_CARD_PREVIEW ? ['vi'] : ['vi','en']) {
       for (const width of process.env.FACILITY_CARD_PREVIEW ? [390] : [320,360,375,390,430,600]) {
@@ -62,29 +70,44 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
         for (const phase of ['SSR','AJAX']) {
           if (phase==='AJAX') {
             await page.locator('#facilityDirectoryFilter').evaluate(form => form.requestSubmit());
-            await page.waitForFunction(() => document.getElementById('facilityDirectoryStatus').textContent.includes('3'));
+            await page.waitForFunction(total => document.getElementById('facilityDirectoryStatus').textContent.includes(String(total)),fixtures.length);
           }
           const cards = page.locator('.fd-card');
-          check(await cards.count()===3, `${locale}/${width}/${phase}: real renderer displays all fixture cards`);
-          for (let index=0;index<3;index++) {
+          check(await cards.count()===fixtures.length, `${locale}/${width}/${phase}: real renderer displays all fixture cards`);
+          for (let index=0;index<fixtures.length;index++) {
             const card = cards.nth(index);
             const g = await geometry(card);
             check(Math.abs(g.media.y-g.main.y)<1 && Math.abs(g.media.h-g.main.h)<1, `${locale}/${width}/${phase}/${index}: image and identity have matching top/bottom`);
             check(g.media.h>=128 && g.media.w<=104.5, `${locale}/${width}/${phase}/${index}: taller, compact portrait`);
             if (g.address) check(g.address.x>g.media.right && g.address.bottom<=g.media.bottom+1 && g.address.y>=g.title.bottom-1, `${locale}/${width}/${phase}/${index}: full address stays to the right below name`);
-            if (g.summary) check(g.summary.y>=g.media.bottom && g.summary.x<g.main.x, `${locale}/${width}/${phase}/${index}: summary uses full row below identity`);
+            if (g.summary) check(await card.locator('.fd-summary').isVisible()===false, `${locale}/${width}/${phase}/${index}: subtitle is hidden on mobile only`);
+            check(g.title.h<=g.titleLineHeight*g.nameLines+1, `${locale}/${width}/${phase}/${index}: verification badge cannot inflate title line spacing`);
+            if (g.services) {
+              check(g.services.x>=g.main.x-1 && g.services.right<=g.main.right+1 && g.services.bottom<=g.media.bottom+8, `${locale}/${width}/${phase}/${index}: one-line services sit beside the photo within the identity column`);
+              check(await card.locator('.fd-service:visible').count()===1, `${locale}/${width}/${phase}/${index}: collapsed mobile shows exactly one service`);
+              const count=fixtures[index].services.length-1;
+              if(count>0) check((await card.locator('.fd-service-count-mobile').textContent()).trim()==='+'+count, `${locale}/${width}/${phase}/${index}: +N counts every remaining service`);
+            }
             check(g.card.scroll<=g.card.w+1, `${locale}/${width}/${phase}/${index}: no card overflow`);
             check(await card.locator('.fd-profile-link').evaluate(el => el.getBoundingClientRect().height>=44), `${locale}/${width}/${phase}/${index}: profile action is touch friendly`);
           }
           const first=cards.first();
-          check(await first.locator('.fd-service:visible').count()===3, `${locale}/${width}/${phase}: only three services before expansion`);
+          check(await first.locator('.fd-service:visible').count()===1, `${locale}/${width}/${phase}: one service before expansion`);
           const more=first.locator('[data-service-tags-more]');
           await more.click();
           check(await more.getAttribute('aria-expanded')==='true' && await first.locator('.fd-service:visible').count()===4, `${locale}/${width}/${phase}: +N reveals all services`);
           await more.click();
-          check(await more.getAttribute('aria-expanded')==='false' && await first.locator('.fd-service:visible').count()===3, `${locale}/${width}/${phase}: collapse hides extras again`);
+          check(await more.getAttribute('aria-expanded')==='false' && await first.locator('.fd-service:visible').count()===1
+            && (await more.locator('.fd-service-count-mobile').textContent()).trim()==='+3', `${locale}/${width}/${phase}: collapse returns to one service and the correct +3`);
+          const five=cards.nth(4);
+          check((await five.locator('.fd-service-count-mobile').textContent()).trim()==='+4', `${locale}/${width}/${phase}: five services show +4, not the desktop +2`);
+          for (const index of [5,6]) check(await cards.nth(index).locator('.fd-service-more-mobile-only').isVisible(), `${locale}/${width}/${phase}/${index}: two/three short services still have an operable overflow button`);
+          check(await cards.nth(7).locator('[data-service-tags-more]').count()===0, `${locale}/${width}/${phase}: one short service needs no button`);
           check(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth+1), `${locale}/${width}/${phase}: no viewport overflow`);
-          if (process.env.FACILITY_CARD_SCREENSHOT && locale==='vi' && phase==='SSR' && [375,390,600].includes(width)) await first.screenshot({path:`${process.env.FACILITY_CARD_SCREENSHOT}-${width}.png`});
+          if (process.env.FACILITY_CARD_SCREENSHOT && locale==='vi' && phase==='SSR' && [375,390,600].includes(width)) {
+            await first.screenshot({path:`${process.env.FACILITY_CARD_SCREENSHOT}-${width}.png`});
+            await cards.nth(3).screenshot({path:`${process.env.FACILITY_CARD_SCREENSHOT}-spa-${width}.png`});
+          }
         }
       }
     }
@@ -94,12 +117,29 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
       await page.goto('https://medreview.test/co-so-y-te');
       await page.evaluate(() => document.fonts.ready);
       const card=page.locator('.fd-card').first();
+      check(await card.locator('.fd-summary').isVisible() && await card.locator('.fd-service:visible').count()===3, `${width}: desktop retains subtitle and three initial services`);
+      check((await card.locator('.fd-service-count-desktop').textContent()).trim()==='+1', `${width}: four services retain desktop +1`);
+      for(const index of [5,6]) check(await page.locator('.fd-card').nth(index).locator('.fd-service-more-mobile-only').isVisible()===false, `${width}/${index}: mobile-only overflow control does not change desktop`);
       const current=await geometry(card);
       check(await card.locator('.fd-card-main').evaluate(el => getComputedStyle(el).display==='contents'), `${width}: desktop identity wrapper stays layout-transparent`);
-      await card.evaluate(el => {const main=el.querySelector('.fd-card-main');main.after(main.querySelector('.fd-address'));});
+      await card.evaluate(el => {const main=el.querySelector('.fd-card-main');main.after(...['.fd-address','.fd-summary','.fd-services'].map(selector=>main.querySelector(selector)).filter(Boolean));});
       const previous=await geometry(card);
       for (const key of ['media','title','address','category','summary','footer']) check(['x','y','w','h'].every(axis=>Math.abs(current[key][axis]-previous[key][axis])<1), `${width}/${key}: desktop geometry identical to previous DOM`);
     }
+    // A single mounted card must switch counts and visibility on resize without
+    // re-fetching, cloning tags or losing its expanded/collapsed state.
+    await page.setViewportSize({width:390,height:1000});
+    await page.goto('https://medreview.test/co-so-y-te');
+    const resized=page.locator('.fd-card').first();
+    await resized.locator('[data-service-tags-more]').click();
+    await page.setViewportSize({width:900,height:1000});
+    check(await resized.locator('.fd-service:visible').count()===4, 'Resize preserves the expanded services without a fetch');
+    await resized.locator('[data-service-tags-more]').click();
+    check(await resized.locator('.fd-service:visible').count()===3 && (await resized.locator('.fd-service-count-desktop').textContent()).trim()==='+1', 'Collapse after resize restores the desktop count');
+    await page.setViewportSize({width:390,height:1000});
+    check(await resized.locator('.fd-service:visible').count()===1 && (await resized.locator('.fd-service-count-mobile').textContent()).trim()==='+3', 'Resize back restores one mobile service and +3 without stale text');
+    const shortResized=page.locator('.fd-card').nth(5);
+    check(await shortResized.locator('.fd-service-more-mobile-only').isVisible(), 'Two-service overflow button returns when resizing to mobile');
     const touch = await browser.newPage({viewport:{width:390,height:1000},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
     await touch.route('**/*',serve);
     await touch.goto('https://medreview.test/co-so-y-te');
