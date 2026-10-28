@@ -7,6 +7,7 @@
 .facility-detail .hero-gallery[data-gallery-layout] .hero-gallery-main{position:relative;min-width:0;height:var(--gallery-height)}
 .facility-detail .hero-gallery[data-gallery-layout] .hero-image{height:100%;min-height:0;margin:0;border-radius:16px}
 .facility-detail .hero-gallery[data-gallery-layout] .hero-image img{display:block;width:100%;height:100%;object-fit:cover}
+.facility-detail .hero-gallery[data-gallery-layout] .hero-image [data-hero-drag-panel]{display:none}
 .facility-detail .hero-gallery[data-gallery-layout] .thumb-strip{
  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));
  grid-auto-rows:auto;gap:10px;height:var(--gallery-height);max-height:none;min-width:0;margin:0;padding:0;overflow:visible;
@@ -49,6 +50,26 @@
 @media(max-width:767px){
  .facility-detail .hero-grid>.hero-gallery[data-gallery-layout]{grid-template-columns:minmax(0,1fr);gap:8px;--gallery-height:clamp(210px,62vw,360px)}
  .facility-detail .hero-gallery[data-gallery-layout] .hero-image{border-radius:12px;touch-action:pan-y pinch-zoom}
+ /* Keep overlays still; only the three image planes follow the finger. */
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready]{overflow:hidden;isolation:isolate;background:#edf2f7;touch-action:pan-y pinch-zoom;transform:none;filter:none;transition:none}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready]>img{
+  position:absolute;inset:0;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;
+  opacity:1;transform:translate3d(var(--hero-drag-x,0px),0,0);transition:none;
+ }
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready]>[data-hero-drag-panel="-1"]{transform:translate3d(calc(-100% + var(--hero-drag-x,0px)),0,0)}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready]>[data-hero-drag-panel="1"]{transform:translate3d(calc(100% + var(--hero-drag-x,0px)),0,0)}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready].is-settling>img{transition:transform .24s cubic-bezier(.22,.68,0,1)}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready].is-dragging>img{will-change:transform}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready]>.view-all{z-index:2}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready].is-awaiting-image::before{
+  content:"";position:absolute;z-index:2;top:calc(50% - 16px);left:calc(50% - 12px);width:24px;height:24px;
+  border:3px solid #c1cfee;border-top-color:#2d63ff;border-radius:50%;pointer-events:none;animation:heroGalleryLoading .8s linear infinite;
+ }
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image[data-hero-drag-ready].is-awaiting-image::after{
+  content:attr(data-hero-drag-loading);position:absolute;inset:auto;z-index:2;top:calc(50% + 20px);left:50%;
+  width:max-content;max-width:80%;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.94);color:#142d50;
+  font-size:12px;line-height:1.4;text-align:center;opacity:1;transform:translateX(-50%);pointer-events:none;transition:none;
+ }
  .facility-detail .hero-gallery[data-gallery-layout] .thumb-strip{
   grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:72px;
   gap:8px;height:72px;max-height:none;overflow:visible;scroll-snap-type:none;
@@ -78,7 +99,9 @@
  .facility-detail .hero-gallery[data-gallery-layout="single"] .hero-gallery-count{display:none}
  .facility-detail .hero-gallery[data-gallery-layout] .hero-gallery-empty{min-height:140px;padding:22px 16px}
 }
+@keyframes heroGalleryLoading{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){
  .facility-detail .hero-gallery[data-gallery-layout] :is(.gallery-trigger,.hero-gallery-nav,.hero-image img){transition:none!important}
- .facility-detail .hero-gallery[data-gallery-layout] .hero-image.is-changing img{opacity:1;transform:none}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image.is-changing:not([data-hero-drag-ready]) img{opacity:1;transform:none}
+ .facility-detail .hero-gallery[data-gallery-layout] .hero-image.is-awaiting-image::before{animation:none}
 }

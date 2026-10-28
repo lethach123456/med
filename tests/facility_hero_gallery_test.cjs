@@ -14,8 +14,7 @@ const between = (start, end) => {
 const variables = between('const galleryTriggers =', '// Facility hero gallery functions.');
 const functions = between('// Facility hero gallery functions.', '// End facility hero gallery functions.');
 const navigation = between('// Facility hero gallery navigation.', '// End facility hero gallery navigation.');
-const clicks = between('if (galleryReady) {\n          galleryTriggers.forEach', '// On a phone,');
-const swipe = between('// the cover and never steals normal vertical page scrolling.', "previousImage.addEventListener('click'");
+const clicks = between('if (galleryReady) {\n          galleryTriggers.forEach', "previousImage.addEventListener('click'");
 let checks = 0;
 const check = (condition, label) => { checks++; assert.ok(condition, label); };
 const same = (actual, expected, label) => { checks++; assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, label); };
@@ -44,7 +43,7 @@ class Element {
   scrollIntoView(options) { this.scrolls.push(options); }
 }
 
-function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroken = false, noControls = false, noCounter = false, noStatus = false } = {}) {
+function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroken = false, noControls = false, noCounter = false, noStatus = false, drag = null } = {}) {
   const images = Array.from({ length: count }, (_, index) => `/images/facility-${index + 1}.jpg`);
   const image = count ? new Element({ src: images[heroIndex] }) : null;
   if (initialBroken) image.naturalWidth = 0;
@@ -69,6 +68,7 @@ function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroke
     setTimeout: (callback, delay = 0) => { const id = nextTimer++; timers.set(id, { callback, due: now + delay }); return id; },
     clearTimeout: id => timers.delete(id),
     matchMedia: query => ({ matches: query.includes('prefers-reduced-motion') ? reducedMotion : true }),
+    MedReviewHeroDrag: drag ? { create: options => { drag.options = options; return drag; } } : undefined,
   };
   class MockImage {
     constructor() { pending.push(this); this.src = ''; this.decode = () => Promise.resolve(); }
@@ -76,10 +76,10 @@ function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroke
   const metadata = Object.fromEntries(images.map((url, index) => [url, index === 0 ? { alt: 'Mặt tiền thực tế' } : index === 1 ? { caption: 'Phòng chờ sáng' } : { angle: 'Phòng điều trị' }]));
   const uiText = { photo: 'Ảnh', photoOf: ' của ', viewPhoto: 'Xem ảnh ', photoInGallery: ' trong ', photoInCollection: ' trong bộ sưu tập của ', photoLoadFailed: 'Không thể tải ảnh này.' };
   const declarations = ('const galleryTriggers =' + variables).replace(/<\?php[\s\S]*?\?>/g, JSON.stringify('Cơ sở thử nghiệm'));
-  // Reuse exact click/swipe handlers while replacing unrelated lightbox behavior.
+  // Reuse exact loading/click handlers; real gestures are browser-tested separately.
   const clickBindings = 'galleryTriggers.forEach' + clicks;
-  const program = declarations + functions + navigation + '\nif (galleryReady) {' + clickBindings + swipe + '\n}\n' +
-    'globalThis.heroApi = {syncHeroGallery, moveHeroGallery, updateHeroGalleryUI, state: () => ({committed:heroGalleryIndex,requested:heroGalleryRequestedIndex,request:heroImageRequest,suppress:heroSwipeSuppressClick})};';
+  const program = declarations + functions + navigation + '\nif (galleryReady) {' + clickBindings + '\n}\n' +
+    'globalThis.heroApi = {syncHeroGallery, moveHeroGallery, updateHeroGalleryUI, state: () => ({committed:heroGalleryIndex,requested:heroGalleryRequestedIndex,request:heroImageRequest})};';
   const context = { document, window, Image: MockImage, gallerySources: images, galleryMetadata: metadata, uiText,
     openGallery: (index, trigger) => opened.push({ index, trigger }) };
   vm.runInNewContext(program, context, { filename: 'co-so-y-te-chi-tiet.php (isolated hero gallery)' });
@@ -95,10 +95,6 @@ function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroke
   return { images, image, hero, counter, status, previous, next, thumbs, lightbox, pending, timers, opened, api: context.heroApi, tick,
     load: async (index = pending.length - 1) => { await pending[index].onload(); await settle(); },
     fail: async (index = pending.length - 1) => { pending[index].onerror(); await settle(); },
-    swipe: (deltaX, deltaY = 0) => {
-      hero.emit('touchstart', { touches: [{ clientX: 120, clientY: 120 }] });
-      return hero.emit('touchend', { changedTouches: [{ clientX: 120 + deltaX, clientY: 120 + deltaY }] });
-    },
   };
 }
 
@@ -179,18 +175,31 @@ function harness({ count = 6, heroIndex = 0, reducedMotion = false, initialBroke
   keyboard.lightbox.classList.remove('is-open');
   const unrelated = keyboard.hero.emit('keydown', { key: 'Escape' }); check(!unrelated.defaultPrevented, 'Unrelated keys are not stolen');
 
-  const gesture = harness();
-  const vertical = gesture.swipe(20, 100); check(!vertical.defaultPrevented && gesture.pending.length === 0, 'Vertical page gesture is neither blocked nor interpreted as gallery navigation');
-  gesture.swipe(-35); same(gesture.pending.length, 0, 'Tiny horizontal gesture does not change photo');
-  const horizontal = gesture.swipe(-100, 5);
-  check(!horizontal.defaultPrevented && gesture.pending.length === 1, 'Horizontal swipe advances without cancelling native scrolling');
-  check(gesture.hero.listeners.get('touchstart')[0].options.passive && gesture.hero.listeners.get('touchend')[0].options.passive, 'Touch observers remain passive');
-  const suppressed = gesture.hero.emit('click'); check(suppressed.defaultPrevented && gesture.opened.length === 0, 'Synthetic click after swipe does not open the lightbox');
-  await gesture.load(); await gesture.tick(420);
-  gesture.hero.emit('click'); same(gesture.opened[0].index, 1, 'Normal tap opens the successfully displayed swiped photo after suppression expires');
-  const cancelledTouch = harness();
-  cancelledTouch.hero.emit('touchstart', { touches: [{ clientX: 100, clientY: 100 }] }); cancelledTouch.hero.emit('touchcancel');
-  cancelledTouch.hero.emit('touchend', { changedTouches: [{ clientX: 0, clientY: 100 }] }); same(cancelledTouch.pending.length, 0, 'Cancelled touch cannot later trigger a stale swipe');
+  let suppressedClick = true, dragSyncs = 0, dragCancels = 0;
+  const drag = { sync: () => { dragSyncs++; }, cancel: () => { dragCancels++; }, consumeClick: () => suppressedClick };
+  const gesture = harness({ drag });
+  const suppressed = gesture.hero.emit('click');
+  check(suppressed.defaultPrevented && gesture.opened.length === 0, 'Finger-drag suppression prevents synthetic lightbox clicks');
+  suppressedClick = false;
+  gesture.hero.emit('click'); same(gesture.opened[0].index, 0, 'A normal tap still opens the displayed photo');
+  let finishSnap;
+  const snap = new Promise(resolve => { finishSnap = resolve; });
+  const selected = drag.options.selectIndex(1, snap);
+  check(!gesture.hero.classList.contains('is-changing'), 'Finger-following movement never adds the old fading/zoom effect');
+  const decoding = gesture.pending[0].onload(); await settle();
+  same(gesture.counter.textContent, '1 / 6', 'A loaded neighbor waits for the snap before committing index and counter');
+  finishSnap(); await decoding; await selected;
+  same(gesture.counter.textContent, '2 / 6', 'The final snapped bitmap, counter and lightbox index commit together');
+  same(dragSyncs, 1, 'A committed photo recenters all drag panels synchronously');
+  gesture.next.emit('click'); same(dragCancels, 1, 'Explicit navigation interrupts any finger-following motion');
+  drag.options.cancelPending(); await gesture.load();
+  same(gesture.counter.textContent, '2 / 6', 'Cancellation rejects the stale photo still loading after gesture interruption');
+
+  const slow = harness();
+  const timedOut = slow.api.syncHeroGallery(1, true, { beforeCommit: Promise.resolve() });
+  await slow.tick(15000); same(await timedOut, false, 'A stalled image request eventually resolves as failure');
+  same(slow.hero.getAttribute('aria-busy'), 'false', 'Timeout releases loading state');
+  await slow.load(); same(slow.counter.textContent, '1 / 6', 'Late bitmap load after deadline cannot commit a timed-out photo');
 
   const single = harness({ count: 1 });
   check(single.previous.disabled && single.next.disabled, 'Single-image fixture disables extra navigation defensively');

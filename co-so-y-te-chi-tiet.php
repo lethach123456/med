@@ -2777,6 +2777,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
     </div>
     <script src="/assets/js/facility-profile-disclosure.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-profile-disclosure.js'); ?>" defer></script>
     <script src="/assets/js/facility-detail-nav.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-detail-nav.js'); ?>" defer></script>
+    <script src="/assets/js/facility-hero-drag.js?v=<?php echo filemtime(__DIR__ . '/assets/js/facility-hero-drag.js'); ?>"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
       if (window.lucide) {
@@ -2828,8 +2829,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
         let galleryImageRequest = 0;
         let swipeStart = null;
         let heroGalleryIndex = Number(heroGalleryTrigger?.dataset.galleryIndex || 0);
-        let heroSwipeStart = null;
-        let heroSwipeSuppressClick = false;
+        let heroGalleryDrag = null;
         let heroImageRequest = 0;
         let heroGalleryRequestedIndex = heroGalleryIndex;
 
@@ -2850,10 +2850,11 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
             thumb.classList.toggle('is-active', isActive);
             thumb.setAttribute('aria-current', isActive ? 'true' : 'false');
           });
+          heroGalleryDrag?.sync();
         }
 
-        function syncHeroGallery(index, shouldRevealThumb = false) {
-          if (!heroGalleryTrigger || !heroGalleryImage || gallerySources.length === 0) return;
+        function syncHeroGallery(index, shouldRevealThumb = false, options = {}) {
+          if (!heroGalleryTrigger || !heroGalleryImage || gallerySources.length === 0) return Promise.resolve(false);
           const nextIndex = normalizeGalleryIndex(index);
           heroGalleryRequestedIndex = nextIndex;
           const requestId = ++heroImageRequest;
@@ -2864,35 +2865,47 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
             heroGalleryTrigger.classList.remove('is-changing');
             heroGalleryTrigger.setAttribute('aria-busy', 'false');
             updateHeroGalleryUI(shouldRevealThumb);
-            return;
+            return Promise.resolve(true);
           }
           const source = gallerySources[nextIndex];
           const preload = new Image();
-          heroGalleryTrigger.classList.add('is-changing');
+          if (!options.beforeCommit) heroGalleryTrigger.classList.add('is-changing');
           heroGalleryTrigger.setAttribute('aria-busy', 'true');
-          preload.onload = async () => {
-            try { await preload.decode(); } catch (_) {}
-            if (requestId !== heroImageRequest) return;
-            heroGalleryIndex = nextIndex;
-            heroGalleryImage.src = source;
-            heroGalleryTrigger.setAttribute('aria-busy', 'false');
-            if (heroGalleryStatus) heroGalleryStatus.textContent = `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoInGallery}${gallerySources.length}`;
-            updateHeroGalleryUI(shouldRevealThumb);
-            window.setTimeout(() => {
-              if (requestId === heroImageRequest) heroGalleryTrigger.classList.remove('is-changing');
-            }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
-          };
-          preload.onerror = () => {
-            if (requestId !== heroImageRequest) return;
-            heroGalleryTrigger.classList.remove('is-changing');
-            heroGalleryTrigger.setAttribute('aria-busy', 'false');
-            if (heroGalleryStatus) heroGalleryStatus.textContent = uiText.photoLoadFailed;
-          };
-          preload.src = source;
+          return new Promise((resolve) => {
+            const fail = () => {
+              window.clearTimeout(timeout);
+              if (requestId !== heroImageRequest) { resolve(false); return; }
+              // Invalidate a decode that finishes after the network deadline.
+              ++heroImageRequest;
+              heroGalleryTrigger.classList.remove('is-changing');
+              heroGalleryTrigger.setAttribute('aria-busy', 'false');
+              if (heroGalleryStatus) heroGalleryStatus.textContent = uiText.photoLoadFailed;
+              resolve(false);
+            };
+            const timeout = window.setTimeout(fail, 15000);
+            preload.onload = async () => {
+              try { await preload.decode(); } catch (_) {}
+              if (options.beforeCommit) await options.beforeCommit;
+              window.clearTimeout(timeout);
+              if (requestId !== heroImageRequest) { resolve(false); return; }
+              heroGalleryIndex = nextIndex;
+              heroGalleryImage.src = source;
+              heroGalleryTrigger.setAttribute('aria-busy', 'false');
+              if (heroGalleryStatus) heroGalleryStatus.textContent = `${uiText.photo} ${heroGalleryIndex + 1}${uiText.photoInGallery}${gallerySources.length}`;
+              updateHeroGalleryUI(shouldRevealThumb);
+              window.setTimeout(() => {
+                if (requestId === heroImageRequest) heroGalleryTrigger.classList.remove('is-changing');
+              }, options.beforeCommit || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180);
+              resolve(true);
+            };
+            preload.onerror = fail;
+            preload.src = source;
+          });
         }
 
         function moveHeroGallery(direction) {
           if (gallerySources.length < 2) return;
+          heroGalleryDrag?.cancel();
           // Rapid input can advance beyond a pending/failed photo, while the
           // committed image, counter and lightbox target stay unchanged.
           syncHeroGallery(heroGalleryRequestedIndex + direction, true);
@@ -3030,6 +3043,15 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
           heroGalleryIndex = normalizeGalleryIndex(heroGalleryIndex);
           heroGalleryRequestedIndex = heroGalleryIndex;
           updateHeroGalleryUI();
+          heroGalleryDrag = window.MedReviewHeroDrag?.create({
+            element: heroGalleryTrigger,
+            sources: gallerySources,
+            getIndex: () => heroGalleryIndex,
+            selectIndex: (index, beforeCommit) => syncHeroGallery(index, true, { beforeCommit }),
+            cancelPending: () => syncHeroGallery(heroGalleryIndex),
+            isDisabled: galleryIsOpen,
+            loadingText: uiText.loadingPhoto,
+          }) || null;
           heroGalleryPrevious?.addEventListener('click', () => moveHeroGallery(-1));
           heroGalleryNext?.addEventListener('click', () => moveHeroGallery(1));
           [heroGalleryTrigger, heroGalleryPrevious, heroGalleryNext].forEach((control) => {
@@ -3051,7 +3073,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
         if (galleryReady) {
           galleryTriggers.forEach((trigger) => {
             trigger.addEventListener('click', (event) => {
-              if (trigger === heroGalleryTrigger && heroSwipeSuppressClick) {
+              if (trigger === heroGalleryTrigger && heroGalleryDrag?.consumeClick()) {
                 event.preventDefault();
                 return;
               }
@@ -3059,27 +3081,6 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
               openGallery(Number(trigger.dataset.galleryIndex || 0), trigger);
             });
           });
-
-          // On a phone, the cover photo acts as a lightweight carousel first.
-          // A tap still opens the full viewer; a horizontal swipe only changes
-          // the cover and never steals normal vertical page scrolling.
-          heroGalleryTrigger?.addEventListener('touchstart', (event) => {
-            if (gallerySources.length < 2 || event.touches.length !== 1) return;
-            const touch = event.touches[0];
-            heroSwipeStart = { x: touch.clientX, y: touch.clientY };
-          }, { passive: true });
-          heroGalleryTrigger?.addEventListener('touchend', (event) => {
-            if (!heroSwipeStart || event.changedTouches.length !== 1) return;
-            const touch = event.changedTouches[0];
-            const deltaX = touch.clientX - heroSwipeStart.x;
-            const deltaY = touch.clientY - heroSwipeStart.y;
-            heroSwipeStart = null;
-            if (Math.abs(deltaX) < 42 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
-            heroSwipeSuppressClick = true;
-            window.setTimeout(() => { heroSwipeSuppressClick = false; }, 420);
-            moveHeroGallery(deltaX < 0 ? 1 : -1);
-          }, { passive: true });
-          heroGalleryTrigger?.addEventListener('touchcancel', () => { heroSwipeStart = null; }, { passive: true });
 
           previousImage.addEventListener('click', () => moveGallery(-1));
           nextImage.addEventListener('click', () => moveGallery(1));
