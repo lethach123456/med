@@ -88,14 +88,17 @@ foreach (['vi', 'en'] as $locale) {
     $assert($xpath->query('//*[@id="fdResultsHeading"][@tabindex="-1"]')->length === 1, $prefix . 'existing focus and scroll target is retained');
     $cardPath = '//article[' . $hasClass('fd-card') . ']/*[' . $hasClass('fd-card-content') . ']';
     $mainPath = $cardPath . '/*[' . $hasClass('fd-card-main') . ']';
-    $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 2
-        && $xpath->query($mainPath . '/*[' . $hasClass('fd-card-category') . ']')->length === 1
+    $assert($xpath->query($mainPath)->length === 1 && $xpath->query($mainPath . '/*')->length === 3
+        && $xpath->query($mainPath . '/*[1][' . $hasClass('fd-card-category') . ']')->length === 1
+        && $xpath->query($mainPath . '/*[2][self::h2]')->length === 1
+        && $xpath->query($mainPath . '/*[3][' . $hasClass('fd-address') . ']')->length === 1
         && $xpath->query($mainPath . '/h2/a[not(' . $hasClass('fd-verified') . ')]')->length === 1
-        && $xpath->query($mainPath . '/h2/a[' . $hasClass('fd-verified') . ']')->length === 1, $prefix . 'mobile identity groups category and title with a separate verification link');
-    $assert($xpath->query($mainPath . '/following-sibling::*[1][' . $hasClass('fd-address') . ']')->length === 1
+        && $xpath->query($mainPath . '/h2/a[' . $hasClass('fd-verified') . ']')->length === 1, $prefix . 'mobile identity groups category, title and address beside the image with a separate verification link');
+    $assert($xpath->query($mainPath . '/*[' . $hasClass('fd-address') . ']')->length === 1
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-address') . ']')->length === 0
         && $xpath->query($cardPath . '/*[' . $hasClass('fd-summary') . ']')->length === 1
         && $xpath->query($cardPath . '/*[' . $hasClass('fd-services') . ']')->length === 1
-        && $xpath->query($cardPath . '/*[' . $hasClass('fd-card-footer') . ']')->length === 1, $prefix . 'address and details remain independently laid out at full mobile width');
+        && $xpath->query($cardPath . '/*[' . $hasClass('fd-card-footer') . ']')->length === 1, $prefix . 'address stays in the image identity row while summary, services and footer retain full mobile width');
     $assert($xpath->query('//*[' . $hasClass('fd-description-desktop') . ']')->length === 1
         && $xpath->query('//*[' . $hasClass('fd-description-mobile') . ']')->length === 1, $prefix . 'responsive hero copy has both localized variants');
     $assert($xpath->query('//details')->length === 1 && $xpath->query('//summary')->length === 1, $prefix . 'one native filter disclosure');
@@ -155,7 +158,7 @@ $assert(str_contains($pageSource, $mobileAsset)
     && strpos($pageSource, $mobileAsset) > strpos($pageSource, '/assets/css/core/directory-service-labels.css?v='), 'Cache-busted mobile refinement follows shared service chip styling');
 $jsSource = file_get_contents(dirname(__DIR__) . '/assets/js/facility-directory.js');
 $assert(str_contains($jsSource, '<div class="fd-card-main">')
-    && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*</div>\s*\$\{item\.address~s', $jsSource) === 1, 'AJAX cards keep the SSR identity and full-width address structure');
+    && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*\$\{item\.address.*?</p>.*?\}\s*</div>\s*\$\{item\.subtitle~s', $jsSource) === 1, 'AJAX cards keep the SSR category, title and address identity group before the full-width summary');
 $assert(str_contains($jsSource, 'sortSlot.append(sortGroup)') && str_contains($jsSource, 'resultTools.insertBefore(sortGroup, disclosure)')
     && str_contains($jsSource, "compact.addEventListener('change', arrangeControls)") && !str_contains($jsSource, 'cloneNode('), 'Responsive sorting moves the original form control, never a duplicate');
 $assert(str_contains($jsSource, 'if (hadFocus && !disclosure.open) setPanel(true)')
@@ -163,7 +166,19 @@ $assert(str_contains($jsSource, 'if (hadFocus && !disclosure.open) setPanel(true
 $mobileCss = file_get_contents(dirname(__DIR__) . '/assets/css/pages/facility-directory-mobile.css');
 $assert(str_contains($mobileCss, 'body.fd-page main.fd-directory .fd-card-main{display:contents}'), 'Desktop card identity stays layout-transparent');
 foreach (['@media(max-width:800px)', '@media(max-width:600px)', 'grid-template-columns:minmax(0,1fr) auto',
-    'min-height:44px', 'font-size:16px', '.fd-address{grid-column:1/-1;grid-row:auto', '.fd-sort-slot:empty{display:none}', '.fd-sort-slot .fd-sort label{display:block'] as $rule) {
+    'min-height:44px', 'font-size:16px', 'grid-template-columns:104px minmax(0,1fr)',
+    'grid-template-columns:90px minmax(0,1fr)', 'min-height:132px', 'min-height:128px',
+    '.fd-sort-slot:empty{display:none}', '.fd-sort-slot .fd-sort label{display:block'] as $rule) {
     $assert(str_contains($mobileCss, $rule), 'Mobile refinement retains ' . $rule);
 }
+$assert(preg_match('~\.fd-media\{[^}]*height:auto;[^}]*min-height:132px;[^}]*align-self:stretch~', $mobileCss) === 1,
+    'Mobile photo grows with the adjacent identity instead of staying a fixed square');
+$assert(preg_match('~\.fd-card-main\{[^}]*min-height:132px~', $mobileCss) === 1,
+    'Photo and category/name/address group share a readable minimum height');
+$assert(preg_match('~\.fd-address\{[^}]*font-size:12px;[^}]*line-height:1\.55~', $mobileCss) === 1
+    && !preg_match('~\.fd-address(?:>span)?\{[^}]*(?:line-clamp|text-overflow)~', $mobileCss),
+    'Compact address remains fully wrapped and is not clipped');
+$assert(preg_match('~\.fd-service\{[^}]*max-width:calc\(50% - 4px\)~', $mobileCss) === 1
+    && str_contains($mobileCss, '.fd-services.is-expanded .fd-service{max-width:100%}'),
+    'Mobile service chips use compact half-width slots and can still expand fully');
 echo "Facility directory view: {$checks} checks passed. No DB records modified.\n";

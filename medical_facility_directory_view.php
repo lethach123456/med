@@ -56,8 +56,8 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
         <div class="fd-card-main">
         <div class="fd-card-category"><?= $e($item['category'] ?? ($en ? 'Healthcare facility' : 'Cơ sở y tế')) ?><?php if (!empty($item['city'])): ?><span aria-hidden="true">·</span><?= $e($item['city']) ?><?php endif; ?></div>
         <h2><a href="<?= $e($url) ?>"><?= $e($name) ?></a><?php if (!empty($item['verified'])): ?><a class="fd-verified facility-verification-link facility-verification-icon" href="<?= $en ? '/en/ho-so-da-xac-thuc' : '/ho-so-da-xac-thuc' ?>" aria-label="<?= $en ? 'Understand the verified facility profile label' : 'Tìm hiểu hồ sơ cơ sở đã xác thực' ?>" title="<?= $en ? 'Verified facility profile' : 'Hồ sơ cơ sở đã xác thực' ?>"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></a><?php endif; ?></h2>
-        </div>
         <?php if (!empty($item['address'])): ?><p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span><?= $e($item['address']) ?></span></p><?php endif; ?>
+        </div>
         <?php if (!empty($item['subtitle'])): ?><p class="fd-summary"><?= $e($item['subtitle']) ?></p><?php endif; ?>
         <?php if ($services !== []): ?><div class="fd-services" data-service-tags>
           <?php foreach ($services as $i => $service): ?><span class="fd-service<?= $i > 2 ? ' fd-service-extra' : '' ?>"<?= $i > 2 ? ' hidden' : '' ?> title="<?= $e($service) ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?= $e($service) ?></span></span><?php endforeach; ?>

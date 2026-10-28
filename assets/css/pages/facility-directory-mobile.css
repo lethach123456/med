@@ -91,7 +91,7 @@ body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-widt
   body.fd-page main.fd-directory .fd-active-filters .fd-clear-all{background:transparent}
   body.fd-page main.fd-directory .fd-list{gap:12px}
   body.fd-page main.fd-directory .fd-card{
-    grid-template-columns:92px minmax(0,1fr);
+    grid-template-columns:104px minmax(0,1fr);
     align-items:start;
     gap:12px;
     padding:12px;
@@ -100,18 +100,20 @@ body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-widt
     background:#fff;
     box-shadow:0 4px 16px #142b4905;
   }
-  body.fd-page main.fd-directory .fd-media{grid-column:1;grid-row:1;height:96px;min-height:0;border-radius:12px}
-  body.fd-page main.fd-directory .fd-card-main{display:flex;flex-direction:column;justify-content:center;align-self:stretch;min-width:0;grid-column:2;grid-row:1;gap:6px}
+  /* One shared grid row keeps the portrait and complete identity equal in
+     height, including wrapped names/addresses and missing-field fallbacks. */
+  body.fd-page main.fd-directory .fd-media{grid-column:1;grid-row:1;height:auto;min-height:132px;align-self:stretch;border-radius:12px}
+  body.fd-page main.fd-directory .fd-card-main{display:flex;flex-direction:column;justify-content:center;align-self:stretch;min-width:0;min-height:132px;grid-column:2;grid-row:1;gap:7px}
   body.fd-page main.fd-directory .fd-card-category{font-size:12px;line-height:1.5;margin:0;gap:5px;overflow-wrap:anywhere}
-  body.fd-page main.fd-directory .fd-card h2{font-size:17px;line-height:1.4;margin:0;letter-spacing:-.025em;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory .fd-card h2{font-size:16px;line-height:1.45;margin:0;letter-spacing:-.025em;overflow-wrap:anywhere}
   body.fd-page main.fd-directory .fd-verified{font-size:17px;margin-left:5px}
-  body.fd-page main.fd-directory .fd-address{grid-column:1/-1;grid-row:auto;gap:7px;margin:0;font-size:13px;line-height:1.55}
-  body.fd-page main.fd-directory .fd-address>i{flex-shrink:0;font-size:16px;margin-top:2px}
+  body.fd-page main.fd-directory .fd-address{gap:5px;margin:0;font-size:12px;line-height:1.55}
+  body.fd-page main.fd-directory .fd-address>i{flex-shrink:0;font-size:14px;margin-top:2px}
   body.fd-page main.fd-directory .fd-address>span{min-width:0;overflow-wrap:anywhere}
   body.fd-page main.fd-directory .fd-summary{margin:0;font-size:14px;line-height:1.6}
-  body.fd-page main.fd-directory .fd-services{margin:0;gap:8px}
-  body.fd-page main.fd-directory .fd-service{max-width:calc(100% - 58px)}
-  body.fd-page main.fd-directory .fd-service>span{max-width:20ch}
+  body.fd-page main.fd-directory .fd-services{margin:0;gap:7px 8px}
+  body.fd-page main.fd-directory .fd-service{max-width:calc(50% - 4px);padding-right:8px}
+  body.fd-page main.fd-directory .fd-service>span{max-width:none}
   body.fd-page main.fd-directory .fd-services.is-expanded .fd-service{max-width:100%}
   body.fd-page main.fd-directory .fd-services.is-expanded .fd-service>span{max-width:none}
   body.fd-page main.fd-directory .fd-card-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin:0;padding-top:12px}
@@ -131,8 +133,8 @@ body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-widt
 @media(max-width:360px){
   body.fd-page main.fd-directory .fd-hero{padding:18px 14px 20px}
   body.fd-page main.fd-directory .fd-hero h1{font-size:27px}
-  body.fd-page main.fd-directory .fd-card{grid-template-columns:80px minmax(0,1fr);gap:10px}
-  body.fd-page main.fd-directory .fd-media{height:88px}
+  body.fd-page main.fd-directory .fd-card{grid-template-columns:90px minmax(0,1fr);gap:10px}
+  body.fd-page main.fd-directory :is(.fd-media,.fd-card-main){min-height:128px}
   body.fd-page main.fd-directory .fd-card h2{font-size:16px}
   body.fd-page main.fd-directory .fd-results-top{gap:6px}
   body.fd-page main.fd-directory .fd-results-copy h2{font-size:16px}
