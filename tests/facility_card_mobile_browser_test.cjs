@@ -17,6 +17,7 @@ const fixtures = [
   {name: 'Ba dịch vụ', slug: 'three-services', category: 'Nha khoa', services: ['Khám', 'Tư vấn', 'Bọc sứ']},
   {name: 'Một dịch vụ', slug: 'single-service', category: 'Nha khoa', services: ['Khám']},
   {name: 'Một nhãn dài', slug: 'single-long-service', category: 'Nha khoa', services: ['Điều trị phục hồi răng hàm mặt và chỉnh nha chuyên sâu']},
+  {name: 'Nhiều đánh giá', slug: 'large-review-count', category: 'Nha khoa', rating: 4.8, reviews_count: 12845, rating_basis: 'stored_reviews', services: ['Khám']},
 ];
 const php = `
   require 'medical_facility_directory_view.php';
@@ -60,7 +61,7 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
       const measure = selector => {const node=el.querySelector(selector);if(!node)return null;const r=node.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};};
       const title=el.querySelector('h2');
       const nameRange=document.createRange();nameRange.selectNodeContents(title.querySelector('a'));
-      return {media:measure('.fd-media'),main:measure('.fd-card-main'),title:measure('h2'),address:measure('.fd-address'),category:measure('.fd-card-category'),summary:measure('.fd-summary'),services:measure('.fd-services'),footer:measure('.fd-card-footer'),titleLineHeight:parseFloat(getComputedStyle(title).lineHeight),nameLines:nameRange.getClientRects().length,card:{w:el.clientWidth,scroll:el.scrollWidth}};
+      return {media:measure('.fd-media'),main:measure('.fd-card-main'),title:measure('h2'),address:measure('.fd-address'),category:measure('.fd-card-category'),summary:measure('.fd-summary'),services:measure('.fd-services'),footer:measure('.fd-card-footer'),rating:measure('.fd-rating'),titleLineHeight:parseFloat(getComputedStyle(title).lineHeight),nameLines:nameRange.getClientRects().length,card:{w:el.clientWidth,scroll:el.scrollWidth}};
     });
     for (locale of process.env.FACILITY_CARD_PREVIEW ? ['vi'] : ['vi','en']) {
       for (const width of process.env.FACILITY_CARD_PREVIEW ? [390] : [320,360,375,390,430,600]) {
@@ -81,6 +82,26 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
             check(g.media.h>=128 && g.media.w<=104.5, `${locale}/${width}/${phase}/${index}: taller, compact portrait`);
             if (g.address) check(g.address.x>g.media.right && g.address.bottom<=g.media.bottom+1 && g.address.y>=g.title.bottom-1, `${locale}/${width}/${phase}/${index}: full address stays to the right below name`);
             if (g.summary) check(await card.locator('.fd-summary').isVisible()===false, `${locale}/${width}/${phase}/${index}: subtitle is hidden on mobile only`);
+            check(g.rating.x>=g.main.x-1 && g.rating.right<=g.main.right+1 && g.rating.bottom<=g.media.bottom+1,
+              `${locale}/${width}/${phase}/${index}: rating is contained in the identity column beside the photo`);
+            check(g.rating.y>=(g.address?.bottom || g.title.bottom)-1 && (!g.services || g.rating.bottom<=g.services.y+1),
+              `${locale}/${width}/${phase}/${index}: compact rating follows address and precedes services`);
+            check(await card.locator('.fd-card-footer').evaluate(el => {const css=getComputedStyle(el);return parseFloat(css.borderTopWidth)===0&&parseFloat(css.paddingTop)===0;}),
+              `${locale}/${width}/${phase}/${index}: rating has no leftover full-width divider or footer spacing`);
+            check(await card.locator('.fd-profile-link').isVisible()===false, `${locale}/${width}/${phase}/${index}: redundant profile CTA is hidden on mobile`);
+            check(await card.locator('.fd-rating-source:visible').count()===0, `${locale}/${width}/${phase}/${index}: rating source wording is hidden on mobile`);
+            const profile=card.locator('h2>a:not(.fd-verified)');
+            check(await profile.isVisible() && await card.locator('.fd-media').isVisible()
+              && await profile.getAttribute('href')===await card.locator('.fd-media').getAttribute('href'),
+              `${locale}/${width}/${phase}/${index}: visible name and photo retain the same profile destination`);
+            if (fixtures[index].rating>0 && fixtures[index].reviews_count>0) {
+              const expectedCount=new Intl.NumberFormat(locale==='en'?'en-US':'vi-VN').format(fixtures[index].reviews_count);
+              check(await card.locator('.fd-rating>strong').textContent()===Number(fixtures[index].rating).toFixed(1)+'/5'
+                && (await card.locator('.fd-review-count').textContent()).includes(expectedCount),
+                `${locale}/${width}/${phase}/${index}: exact rating and localized review count remain available`);
+              check(g.rating.h<43, `${locale}/${width}/${phase}/${index}: rating and even large review counts stay compact`);
+            } else check(await card.locator('.fd-unrated').isVisible() && await card.locator('.fd-rating .ph-star').count()===0,
+              `${locale}/${width}/${phase}/${index}: missing ratings stay honest instead of inventing a star score`);
             check(g.title.h<=g.titleLineHeight*g.nameLines+1, `${locale}/${width}/${phase}/${index}: verification badge cannot inflate title line spacing`);
             if (g.services) {
               check(g.services.x>=g.main.x-1 && g.services.right<=g.main.right+1 && g.services.bottom<=g.media.bottom+8, `${locale}/${width}/${phase}/${index}: one-line services sit beside the photo within the identity column`);
@@ -89,7 +110,6 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
               if(count>0) check((await card.locator('.fd-service-count-mobile').textContent()).trim()==='+'+count, `${locale}/${width}/${phase}/${index}: +N counts every remaining service`);
             }
             check(g.card.scroll<=g.card.w+1, `${locale}/${width}/${phase}/${index}: no card overflow`);
-            check(await card.locator('.fd-profile-link').evaluate(el => el.getBoundingClientRect().height>=44), `${locale}/${width}/${phase}/${index}: profile action is touch friendly`);
           }
           const first=cards.first();
           check(await first.locator('.fd-service:visible').count()===1, `${locale}/${width}/${phase}: one service before expansion`);
@@ -118,13 +138,14 @@ const types = {'.css':'text/css','.js':'application/javascript','.woff2':'font/w
       await page.evaluate(() => document.fonts.ready);
       const card=page.locator('.fd-card').first();
       check(await card.locator('.fd-summary').isVisible() && await card.locator('.fd-service:visible').count()===3, `${width}: desktop retains subtitle and three initial services`);
+      check(await card.locator('.fd-profile-link').isVisible() && await card.locator('.fd-rating-source').isVisible(), `${width}: desktop retains profile CTA and rating source label`);
       check((await card.locator('.fd-service-count-desktop').textContent()).trim()==='+1', `${width}: four services retain desktop +1`);
       for(const index of [5,6]) check(await page.locator('.fd-card').nth(index).locator('.fd-service-more-mobile-only').isVisible()===false, `${width}/${index}: mobile-only overflow control does not change desktop`);
       const current=await geometry(card);
       check(await card.locator('.fd-card-main').evaluate(el => getComputedStyle(el).display==='contents'), `${width}: desktop identity wrapper stays layout-transparent`);
-      await card.evaluate(el => {const main=el.querySelector('.fd-card-main');main.after(...['.fd-address','.fd-summary','.fd-services'].map(selector=>main.querySelector(selector)).filter(Boolean));});
+      await card.evaluate(el => {const main=el.querySelector('.fd-card-main');main.after(...['.fd-address','.fd-summary','.fd-services','.fd-card-footer'].map(selector=>main.querySelector(selector)).filter(Boolean));});
       const previous=await geometry(card);
-      for (const key of ['media','title','address','category','summary','footer']) check(['x','y','w','h'].every(axis=>Math.abs(current[key][axis]-previous[key][axis])<1), `${width}/${key}: desktop geometry identical to previous DOM`);
+      for (const key of ['media','title','address','category','summary','footer','rating']) check(['x','y','w','h'].every(axis=>Math.abs(current[key][axis]-previous[key][axis])<1), `${width}/${key}: desktop geometry identical to previous DOM`);
     }
     // A single mounted card must switch counts and visibility on resize without
     // re-fetching, cloning tags or losing its expanded/collapsed state.

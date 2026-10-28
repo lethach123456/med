@@ -113,7 +113,7 @@ body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-widt
   body.fd-page main.fd-directory .fd-address>i{flex-shrink:0;font-size:14px;margin-top:2px}
   body.fd-page main.fd-directory .fd-address>span{min-width:0;overflow-wrap:anywhere}
   body.fd-page main.fd-directory .fd-summary{display:none}
-  body.fd-page main.fd-directory .fd-services{margin:2px 0 0;gap:6px;min-width:0;max-width:100%}
+  body.fd-page main.fd-directory .fd-services{order:2;margin:2px 0 0;gap:6px;min-width:0;max-width:100%}
   body.fd-page main.fd-directory .fd-services:not(.is-expanded){flex-wrap:nowrap}
   body.fd-page main.fd-directory .fd-services:not(.is-expanded)>.fd-service:nth-child(n+2){display:none}
   body.fd-page main.fd-directory .fd-service{flex:1 1 auto;max-width:none;padding-right:8px}
@@ -123,14 +123,15 @@ body.fd-page main.fd-directory .fd-sort-slot .fd-sort select{width:100%;max-widt
   body.fd-page main.fd-directory .fd-service-more-mobile-only{display:inline-flex}
   body.fd-page main.fd-directory .fd-services.is-expanded .fd-service{flex-basis:100%;max-width:100%}
   body.fd-page main.fd-directory .fd-services.is-expanded .fd-service>span{max-width:none}
-  body.fd-page main.fd-directory .fd-card-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin:0;padding-top:10px}
-  body.fd-page main.fd-directory .fd-rating{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;gap:1px 5px;min-width:0}
-  body.fd-page main.fd-directory .fd-rating>i{font-size:17px}
-  body.fd-page main.fd-directory .fd-rating strong{font-size:16px;line-height:1.4}
-  body.fd-page main.fd-directory .fd-review-count{grid-column:1/-1;color:var(--fd-muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+  /* Rating belongs to the identity, not a second footer row. Photo and name
+     remain the profile links, so a duplicate mobile CTA is unnecessary. */
+  body.fd-page main.fd-directory .fd-card-footer{display:block;order:1;min-height:0;margin:2px 0 0;padding:0;border:0}
+  body.fd-page main.fd-directory .fd-rating{display:flex;flex-wrap:wrap;align-items:center;gap:3px 5px;min-width:0;line-height:1.4}
+  body.fd-page main.fd-directory .fd-rating>i{font-size:14px}
+  body.fd-page main.fd-directory .fd-rating strong{font-size:14px;line-height:1.4}
+  body.fd-page main.fd-directory .fd-review-count{color:var(--fd-muted);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+  body.fd-page main.fd-directory :is(.fd-rating-source,.fd-profile-link){display:none}
   body.fd-page main.fd-directory .fd-unrated{grid-column:1/-1;font-size:12px;line-height:1.5}
-  body.fd-page main.fd-directory .fd-profile-link{min-height:44px;padding:8px 11px;border:1px solid #dce7fb;border-radius:12px;background:#f3f7ff;font-size:13px;font-weight:600;gap:6px;white-space:nowrap}
-  body.fd-page main.fd-directory .fd-profile-link i{font-size:17px}
   body.fd-page main.fd-directory .fd-price{margin:0;font-size:12px;line-height:1.6}
   body.fd-page main.fd-directory .fd-page-note{max-width:none;font-size:12px;line-height:1.65}
   body.fd-page main.fd-directory .fd-pagination{gap:8px;margin:22px 0 16px}

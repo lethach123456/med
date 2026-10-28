@@ -186,8 +186,8 @@
       ${item.address ? `<p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>${escape(item.address)}</span></p>` : ''}
       ${item.subtitle ? `<p class="fd-summary">${escape(item.subtitle)}</p>` : ''}
       ${services.length ? `<div class="fd-services" data-service-tags>${services.map((s, i) => `<span class="fd-service${i > 2 ? ' fd-service-extra' : ''}"${i > 2 ? ' hidden' : ''} title="${escape(s)}"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${escape(s)}</span></span>`).join('')}${desktopServiceDisclosure || services.length > 1 ? `<button class="fd-service-more${!desktopServiceDisclosure ? ' fd-service-more-mobile-only' : ''}" type="button" data-service-tags-more data-extra-count="${Math.max(0, services.length - 3)}" data-mobile-extra-count="${Math.max(0, services.length - 1)}" aria-expanded="false" aria-label="${words.more}"><span class="fd-service-count-desktop">${services.length > 3 ? '+' + (services.length - 3) : (en ? 'Details' : 'Xem đủ')}</span><span class="fd-service-count-mobile">${services.length > 1 ? '+' + (services.length - 1) : (en ? 'Details' : 'Xem đủ')}</span><i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : ''}
-      </div>
       <div class="fd-card-footer"><div class="fd-rating" title="${escape(ratingLabel)}">${hasRating ? `<i class="ph-fill ph-star" aria-hidden="true"></i><strong>${rating.toFixed(1)}<span>/5</span></strong><span class="fd-review-count">(${number.format(reviewsCount)} ${words.reviews}) <small class="fd-rating-source">· ${escape(ratingLabel)}</small></span>` : `<span class="fd-unrated">${words.unrated}</span>`}</div><a class="fd-profile-link" href="${escape(url)}">${words.profile}<i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+      </div>
       ${item.price ? `<p class="fd-price">${words.price}${escape(item.price)}</p>` : ''}</div></article>`;
   }
   function renderPagination(page, pages) {

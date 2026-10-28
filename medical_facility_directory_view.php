@@ -63,10 +63,10 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
           <?php foreach ($services as $i => $service): ?><span class="fd-service<?= $i > 2 ? ' fd-service-extra' : '' ?>"<?= $i > 2 ? ' hidden' : '' ?> title="<?= $e($service) ?>"><i class="ph ph-stethoscope" aria-hidden="true"></i><span><?= $e($service) ?></span></span><?php endforeach; ?>
           <?php if ($showServiceDisclosure): ?><button class="fd-service-more<?= !$showDesktopServiceDisclosure ? ' fd-service-more-mobile-only' : '' ?>" type="button" data-service-tags-more data-extra-count="<?= max(0, count($services) - 3) ?>" data-mobile-extra-count="<?= max(0, count($services) - 1) ?>" aria-expanded="false" aria-label="<?= $en ? 'Show full services' : 'Xem đầy đủ dịch vụ' ?>"><span class="fd-service-count-desktop"><?= count($services) > 3 ? '+' . (count($services) - 3) : ($en ? 'Details' : 'Xem đủ') ?></span><span class="fd-service-count-mobile"><?= count($services) > 1 ? '+' . (count($services) - 1) : ($en ? 'Details' : 'Xem đủ') ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
         </div><?php endif; ?>
-        </div>
         <div class="fd-card-footer">
           <div class="fd-rating" title="<?= $e($ratingLabel) ?>"><?php if ($hasRating): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>) <small class="fd-rating-source">· <?= $e($ratingLabel) ?></small></span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
           <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        </div>
         </div>
         <?php if (!empty($item['price'])): ?><p class="fd-price"><?= $en ? 'Reference price: ' : 'Giá tham khảo: ' ?><?= $e($item['price']) ?></p><?php endif; ?>
       </div>
