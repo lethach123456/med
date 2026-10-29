@@ -57,6 +57,18 @@ try {
         $assert($status === 200 && str_contains($body, 'Saved profile fixture'), $path . ' keeps serving a valid stale snapshot during the same DB outage');
         $assert(str_contains($body, 'name="robots" content="index,follow"') && !str_contains($headers, 'Retry-After:'), $path . ' remains indexable when real cached content is available');
     }
+    foreach (['/bac-si?city=H%C3%A0+N%E1%BB%99i', '/co-so-y-te?city=H%C3%A0+N%E1%BB%99i',
+              '/bac-si?q=Saved&sort=newest', '/co-so-y-te?q=Saved&sort=rating'] as $path) {
+        [$status, , $body] = $request($path);
+        $assert($status === 200 && str_contains($body, 'name="robots" content="index,follow"'), $path . ' explicitly allows indexing filters and searches');
+        $assert(!str_contains($body, 'rel="alternate" hreflang='), $path . ' does not claim an unfiltered URL is its translation');
+        preg_match('~<link rel="canonical" href="([^"]+)"~', $body, $canonicalMatch);
+        $canonical = html_entity_decode($canonicalMatch[1] ?? '', ENT_QUOTES, 'UTF-8');
+        parse_str((string) parse_url($path, PHP_URL_QUERY), $expectedQuery);
+        parse_str((string) parse_url($canonical, PHP_URL_QUERY), $actualQuery);
+        $assert(parse_url($canonical, PHP_URL_PATH) === parse_url($path, PHP_URL_PATH)
+            && $actualQuery === $expectedQuery, $path . ' retains its normalized filter canonical');
+    }
     [$homeStatus, , $homeHtml] = $request('/');
     [$aboutStatus, , $aboutHtml] = $request('/ve-chung-toi');
     $assert($homeStatus === 200 && $aboutStatus === 200, 'Home/about remain readable using public counters from the saved snapshot');

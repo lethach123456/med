@@ -24,7 +24,7 @@ try {
 $handbookCanonical = handbook_view_page_url($locale, $handbookFilters, $handbookPaging['page']);
 $handbookTitle = $handbookCopy['seoTitle'];
 if ($handbookPaging['page'] > 1) $handbookTitle .= ' — ' . $handbookCopy['page'] . $handbookPaging['page'];
-$handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
+$handbookNoindex = $handbookFailed;
 ?><!doctype html>
 <html lang="<?= handbook_view_escape($locale) ?>">
 <head>
@@ -37,7 +37,7 @@ $handbookNoindex = $handbookFailed || $handbookFilters['q'] !== '';
   <?php if ($handbookNoindex): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
   <link rel="canonical" href="<?= handbook_view_escape(site_absolute_url($handbookCanonical)) ?>">
   <?= site_social_meta_tags(['title' => $handbookTitle, 'description' => $handbookCopy['seoDescription'], 'url' => $handbookCanonical, 'type' => 'website']) ?>
-  <?php if (!$handbookNoindex && $handbookPaging['page'] === 1): ?>
+  <?php if (!$handbookNoindex && $handbookFilters['q'] === '' && $handbookPaging['page'] === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?= handbook_view_escape(site_absolute_url(handbook_view_path('vi'))) ?>">
   <link rel="alternate" hreflang="en" href="<?= handbook_view_escape(site_absolute_url(handbook_view_path('en'))) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= handbook_view_escape(site_absolute_url(handbook_view_path('vi'))) ?>">

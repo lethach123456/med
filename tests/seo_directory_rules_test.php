@@ -24,9 +24,15 @@ $assert(str_contains($sitemap, "'medical_toplist_facilities'")
     'Toplist sitemap validates available linked profile schemas before checking public content and language');
 foreach (['bac-si.php', 'co-so-y-te.php'] as $file) {
     $source = (string) file_get_contents($root . '/' . $file);
-    $assert(str_contains($source, 'noindex,follow') && str_contains($source, 'index,follow')
-        && str_contains($source, '$hasSeoFilters'), $file . ' marks filtered listings noindex');
+    $assert(str_contains($source, '$isIndexableDirectoryPage = true;')
+        && str_contains($source, '$hasSeoFilters'), $file . ' allows indexing filtered listings');
+    $assert(str_contains($source, 'if (!$hasSeoFilters && $canonicalPage === 1)'), $file . ' does not label a filtered page as a translated unfiltered listing');
     $assert(str_contains($source, "if (\$canonicalPage > 1) \$canonicalQuery['page'] = \$canonicalPage"), $file . ' uses a page-specific canonical URL');
 }
 $assert(str_contains((string) file_get_contents($root . '/bac-si.php'), "medical_redirect_legacy_path('/bac-si.php'") , 'Legacy doctor listing redirects to clean route');
+foreach (['review.php' => '$reviewArticleNoindex = $reviewArticleUnavailable;',
+          'cam-nang.php' => '$handbookNoindex = $handbookFailed;',
+          'toplist.php' => '$toplistNoindex = false;'] as $file => $policy) {
+    $assert(str_contains((string) file_get_contents($root . '/' . $file), $policy), $file . ' does not noindex search or filter URLs');
+}
 echo "SEO directory rules: {$checks} checks passed. Static checks only; no network or production data touched.\n";

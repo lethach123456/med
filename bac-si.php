@@ -37,7 +37,7 @@ $filters = [
 $directoryPage = max(1, (int) ($_GET['page'] ?? 1));
 $hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['specialty'] !== ''
     || $filters['min_rating'] !== '' || $filters['sort'] !== 'recommended';
-$isIndexableDirectoryPage = !$hasSeoFilters;
+$isIndexableDirectoryPage = true;
 $canonicalPath = site_localized_path('/bac-si', $locale);
 $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $number = static fn(int $value): string => number_format(max(0, $value), 0, $isEnglish ? '.' : ',', $isEnglish ? ',' : '.');
@@ -121,7 +121,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
   <?php echo site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']); ?>
-  <?php if ($isIndexableDirectoryPage && $directoryPage === 1): ?>
+  <?php if (!$hasSeoFilters && $canonicalPage === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?php echo $escape(site_absolute_url('/bac-si')); ?>">
   <link rel="alternate" hreflang="en" href="<?php echo $escape(site_absolute_url(site_localized_path('/bac-si', 'en'))); ?>">
   <link rel="alternate" hreflang="x-default" href="<?php echo $escape(site_absolute_url('/bac-si')); ?>">

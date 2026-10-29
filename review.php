@@ -27,7 +27,8 @@ $title = $isEnglish ? 'Healthcare facility reviews & analysis | MedReview' : 'Re
 $description = $isEnglish ? 'Read clear, source-based analysis of healthcare facilities, services and public feedback. Understand the evidence and its limitations before choosing.' : 'Đọc bài phân tích cơ sở y tế từ thông tin hồ sơ, đánh giá và nguồn công khai. Hiểu điểm nổi bật, điều cần cân nhắc và giới hạn dữ liệu trước khi lựa chọn.';
 if ($reviewArticlePaging['page'] > 1) $title .= ($isEnglish ? ' — Page ' : ' — Trang ') . $reviewArticlePaging['page'];
 $canonicalPath = review_articles_view_page_url($locale, $reviewArticleFilters, $reviewArticlePaging['page']);
-$reviewArticleNoindex = $reviewArticleUnavailable || count(array_filter($reviewArticleFilters)) > 0;
+$reviewArticleHasFilters = count(array_filter($reviewArticleFilters)) > 0;
+$reviewArticleNoindex = $reviewArticleUnavailable;
 $e = 'review_articles_view_escape';
 ?><!doctype html>
 <html lang="<?= $e($locale) ?>">
@@ -41,7 +42,7 @@ $e = 'review_articles_view_escape';
   <?php if ($reviewArticleNoindex): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
   <link rel="canonical" href="<?= $e(site_absolute_url($canonicalPath)) ?>">
   <?= site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']) ?>
-  <?php if (!$reviewArticleNoindex && $reviewArticlePaging['page'] === 1): ?>
+  <?php if (!$reviewArticleNoindex && !$reviewArticleHasFilters && $reviewArticlePaging['page'] === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?= $e(site_absolute_url('/review')) ?>">
   <link rel="alternate" hreflang="en" href="<?= $e(site_absolute_url('/en/review')) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= $e(site_absolute_url('/review')) ?>">
