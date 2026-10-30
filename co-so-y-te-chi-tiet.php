@@ -832,7 +832,7 @@ foreach ((array) ($facility['doctors'] ?? []) as $doctor) {
 }
 
 $facilityRatingSources = [];
-foreach ((array) ($facility['rating_sources'] ?? []) as $ratingSource) {
+foreach ((array) ($facility['aggregate_rating_sources'] ?? []) as $ratingSource) {
   if (!is_array($ratingSource) || trim((string) ($ratingSource['source'] ?? '')) === '') {
     continue;
   }

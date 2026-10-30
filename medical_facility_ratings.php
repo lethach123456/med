@@ -148,8 +148,51 @@ function medical_facility_rating_summary(array $row, ?array $reviewSummary = nul
     return ['rating' => 0.0, 'reviews_count' => 0, 'basis' => 'none', 'sources' => []];
 }
 
+/** Shared literal patterns keep SQL aggregation and detail classification aligned. */
+function medical_rating_source_patterns(): array
+{
+    static $patterns;
+    if ($patterns !== null) return $patterns;
+    $patterns = ['google' => [], 'facebook' => []];
+    foreach (['google' => ['google', 'google maps', 'google map', 'google reviews', 'google review', 'google business profile'],
+              'facebook' => ['facebook', 'fb', 'facebook reviews']] as $kind => $labels) {
+        foreach ($labels as $label) {
+            array_push($patterns[$kind], $label, $label . ' %', $label . ':%', $label . '-%', $label . '(%');
+        }
+    }
+    foreach (['google' => ['google.com', 'www.google.com', 'maps.google.com', 'google.com.vn', 'www.google.com.vn', 'maps.google.com.vn', 'maps.app.goo.gl', 'g.page'],
+              'facebook' => ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'web.facebook.com', 'fb.com', 'www.fb.com', 'fb.me']] as $kind => $hosts) {
+        foreach ($hosts as $host) foreach (['http://', 'https://'] as $scheme) {
+            $base = $scheme . $host;
+            array_push($patterns[$kind], $base, $base . '/%', $base . '?%', $base . '#%');
+        }
+    }
+    foreach (['http://goo.gl/maps%', 'https://goo.gl/maps%'] as $pattern) $patterns['google'][] = $pattern;
+    return $patterns;
+}
+
+function medical_rating_source_kind(mixed $value): string
+{
+    if (!is_string($value) || ($value = strtolower(trim($value))) === '') return '';
+    foreach (medical_rating_source_patterns() as $kind => $patterns) foreach ($patterns as $pattern) {
+        $regex = str_replace('%', '.*', preg_quote($pattern, '~'));
+        if (preg_match('~^' . $regex . '$~sD', $value)) return $kind;
+    }
+    return preg_match('~^https?://[^\s]+$~D', $value) ? 'website' : '';
+}
+
+/** @return list<array{source:string,kind:string}> */
+function medical_rating_sources_from_kinds(array $kinds): array
+{
+    $sources = [];
+    foreach (['google' => 'Google', 'facebook' => 'Facebook', 'website' => 'Website'] as $kind => $name) {
+        if (in_array($kind, $kinds, true)) $sources[] = ['source' => $name, 'kind' => $kind];
+    }
+    return $sources;
+}
+
 /**
- * Public score/count describe the same published review records on MedReview.
+ * Public score/count and sources describe the same published review records.
  * Never substitute a source's total or an unclassified legacy scalar here.
  * @return array{rating:float,reviews_count:int,basis:string,sources:array}
  */
@@ -162,7 +205,9 @@ function medical_facility_public_rating_summary(array $row, ?array $reviewSummar
     if ($score === null || $count === null) {
         return ['rating' => 0.0, 'reviews_count' => 0, 'basis' => 'none', 'sources' => []];
     }
-    return ['rating' => round($score, 1), 'reviews_count' => $count, 'basis' => 'stored_reviews', 'sources' => []];
+    $sources = $reviewSummary !== null ? (array) ($reviewSummary['rating_sources'] ?? [])
+        : medical_rating_sources_from_kinds(explode(',', (string) ($row['stored_review_source_kinds'] ?? '')));
+    return ['rating' => round($score, 1), 'reviews_count' => $count, 'basis' => 'stored_reviews', 'sources' => $sources];
 }
 
 /**
@@ -172,13 +217,23 @@ function medical_facility_public_rating_summary(array $row, ?array $reviewSummar
  */
 function medical_facility_stored_rating_sql(): string
 {
+    $value = "LOWER(TRIM(COALESCE(stored_reviews.source_text,'')))";
+    $cases = [];
+    foreach (medical_rating_source_patterns() as $kind => $patterns) {
+        $matches = array_map(static fn(string $pattern): string => $value . " LIKE '" . str_replace("'", "''", $pattern) . "'", $patterns);
+        $cases[] = 'WHEN (' . implode(' OR ', $matches) . ") THEN '{$kind}'";
+    }
+    $sourceKind = 'CASE ' . implode(' ', $cases) . " WHEN ({$value} LIKE 'http://_%' OR {$value} LIKE 'https://_%')
+        AND {$value} NOT LIKE '% %' AND INSTR({$value}, CHAR(9))=0 AND INSTR({$value}, CHAR(10))=0 AND INSTR({$value}, CHAR(13))=0
+        THEN 'website' ELSE NULL END";
     return "SELECT stored_reviews.facility_id, AVG(stored_reviews.rating) AS stored_rating,
-                   COUNT(*) AS stored_reviews_count
+                   COUNT(*) AS stored_reviews_count,
+                   GROUP_CONCAT(DISTINCT {$sourceKind}) AS stored_review_source_kinds
             FROM (
-                SELECT facility_id, rating FROM medical_reviews
+                SELECT facility_id, rating, source_text FROM medical_reviews
                 WHERE facility_id IS NOT NULL AND status = 'published' AND rating > 0 AND rating <= 5
                 UNION ALL
-                SELECT f.id AS facility_id, r.rating FROM medical_reviews r
+                SELECT f.id AS facility_id, r.rating, r.source_text FROM medical_reviews r
                 JOIN medical_facilities f ON f.slug = r.facility_slug
                 WHERE r.facility_id IS NULL AND r.status = 'published' AND r.rating > 0 AND r.rating <= 5
             ) stored_reviews

@@ -78,7 +78,7 @@ $pdo->exec("CREATE TABLE medical_facilities (
 $pdo->exec("CREATE TABLE medical_reviews (
     id INTEGER PRIMARY KEY, slug TEXT, facility_id INTEGER, facility_slug TEXT, rating REAL,
     status TEXT DEFAULT 'published', verified INTEGER DEFAULT 0, display_order INTEGER DEFAULT 0,
-    excerpt TEXT DEFAULT 'Public review excerpt'
+    excerpt TEXT DEFAULT 'Public review excerpt', source_text TEXT DEFAULT ''
 )");
 $insertFacility = $pdo->prepare('INSERT INTO medical_facilities (id, slug, name, rating, reviews_count, aggregate_ratings_json) VALUES (:id, :slug, :name, :rating, :reviews_count, :aggregate_ratings_json)');
 foreach ([$canonical, $legacy, $unrated] as $row) $insertFacility->execute($row);
@@ -93,6 +93,10 @@ $insertReview->execute([22, 'wrong-owner', 999, 'sample-only-clinic', 1, 'publis
 $insertReview->execute([23, 'unpublished', 3, 'sample-only-clinic', 1, 'draft', 0]);
 $insertReview->execute([24, 'editorial-info', 3, 'sample-only-clinic', 0, 'published', 0]);
 $insertReview->execute([26, 'invalid-rating', 3, 'sample-only-clinic', 8, 'published', 1]);
+$pdo->exec("UPDATE medical_reviews SET source_text='Google Maps' WHERE id IN (1,2,3)");
+$pdo->exec("UPDATE medical_reviews SET source_text='https://www.facebook.com/clinic/reviews' WHERE id IN (4,5)");
+$pdo->exec("UPDATE medical_reviews SET source_text='https://clinic.example/reviews' WHERE id=6");
+$pdo->exec("UPDATE medical_reviews SET source_text='Google Maps' WHERE id IN (22,23,24,26)");
 
 // Search index and directory must agree before a background aggregate repair.
 $indexed = medical_search_cache_facilities($pdo);
@@ -103,7 +107,11 @@ $pair($byId[2], 3.0, 1, 'Search JSON never uses legacy source totals as local re
 // Detail uses the same published review population as the JSON snapshot.
 $linked = medical_directory_facility_with_linked_reviews($mapped, true, $pdo);
 $pair($linked, 5.0, 6, 'Detail header agrees with cached local score/count, not external 5287-review totals');
-$assert(($linked['rating_sources'][0]['count'] ?? 0) === 5287, 'External totals remain available separately on detail');
+$detailKinds = array_column($linked['rating_sources'], 'kind'); sort($detailKinds);
+$indexKinds = array_column($byId[1]['rating_sources'], 'kind'); sort($indexKinds);
+$assert($detailKinds === ['facebook', 'google', 'website'] && $detailKinds === $indexKinds,
+    'Detail and JSON identify the same actual stored-review sources rather than external aggregates');
+$assert(($linked['aggregate_rating_sources'][0]['count'] ?? 0) === 5287, 'External totals remain available separately as aggregate evidence');
 $assert((int) ($linked['review_summary']['count'] ?? -1) === 6,
     'Review distribution reports the six stored samples rather than the external total');
 $assert(abs((float) ($linked['review_summary']['rating'] ?? -1) - 5.0) < .0001,
@@ -121,6 +129,7 @@ $assert((int) $sampleLinked['review_summary']['count'] === 2,
 $assert((int) $sampleLinked['review_summary']['verified_count'] === 1
     && (int) $sampleLinked['review_summary']['verified_percent'] === 50,
     'Invalid ratings above five do not enter the sample count or verification ratio');
+$assert(($sampleLinked['rating_sources'] ?? []) === [], 'Draft, invalid and wrong-owner reviews do not invent Google provenance on detail');
 
 $readFacility = static function (int $id) use ($pdo): array {
     $statement = $pdo->prepare('SELECT * FROM medical_facilities WHERE id = ?');
@@ -159,6 +168,8 @@ foreach (['vi' => 'Chưa có đánh giá', 'en' => 'Not rated yet'] as $locale =
         $locale . ' directory card never renders a score with zero reviews');
 }
 $card = facility_directory_card(array_replace($linked, ['image' => '']));
-$assert(str_contains($card, 'Review trên MedReview') && str_contains($card, '6 đánh giá') && !str_contains($card, '5.287'), 'The directory card displays the same local count without external totals');
+$assert(str_contains($card, 'Review trên ') && str_contains($card, 'review-source-google.svg')
+    && str_contains($card, 'review-source-facebook.svg') && str_contains($card, '6 đánh giá')
+    && !str_contains($card, '5.287'), 'The directory card displays actual source icons and the same local count without external totals');
 
 echo "Facility rating integration: {$checks} checks passed. Isolated SQLite; no live DB, network or cache writes.\n";

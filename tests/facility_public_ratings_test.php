@@ -28,7 +28,17 @@ $summary = medical_facility_public_rating_summary(array_replace($externalRow, [
 ]), ['rating' => 4.25, 'count' => 4]);
 $pair($summary, 4.3, 4, 'An explicitly loaded review summary overrides older SQL aliases');
 $assert($summary['basis'] === 'stored_reviews' && $summary['sources'] === [],
-    'Public summary identifies stored reviews, never external source provenance');
+    'Unknown stored-review provenance stays empty rather than using unrelated aggregate sources');
+$provenance = medical_facility_public_rating_summary([
+    'stored_rating' => 4.5, 'stored_reviews_count' => 3,
+    'stored_review_source_kinds' => 'google,facebook,google,website',
+]);
+$kinds = array_column($provenance['sources'], 'kind'); sort($kinds);
+$assert($kinds === ['facebook', 'google', 'website'], 'Summary exposes bounded distinct stored-review source kinds');
+$explicit = medical_facility_public_rating_summary([
+    'stored_rating' => 5, 'stored_reviews_count' => 99, 'stored_review_source_kinds' => 'facebook',
+], ['rating' => 4, 'count' => 1, 'rating_sources' => [['source' => 'Google', 'kind' => 'google']]]);
+$assert(array_column($explicit['sources'], 'kind') === ['google'], 'Explicit review population overrides stale SQL provenance together with its score/count');
 $pair(medical_facility_public_rating_summary($externalRow, ['rating' => '3.5', 'reviews_count' => '2']), 3.5, 2,
     'A loaded summary accepts the reviews_count alias');
 $pair(medical_facility_public_rating_summary(array_replace($externalRow, [
@@ -102,7 +112,7 @@ $pdo->exec("CREATE TABLE medical_facilities (
 )");
 $pdo->exec("CREATE TABLE medical_reviews (
     id INTEGER PRIMARY KEY, facility_id INTEGER, facility_slug TEXT, rating REAL,
-    status TEXT DEFAULT 'published'
+    status TEXT DEFAULT 'published', source_text TEXT DEFAULT ''
 )");
 $insertFacility = $pdo->prepare('INSERT INTO medical_facilities (id, slug, name, rating, reviews_count, aggregate_ratings_json) VALUES (?, ?, ?, ?, ?, ?)');
 $insertFacility->execute([1, 'alpha-clinic', 'Alpha clinic', 5, 3474, json_encode([$source], JSON_THROW_ON_ERROR)]);
@@ -125,6 +135,11 @@ foreach ([
     [13, 1, 'alpha-clinic', null, 'published'],
     [14, 1, 'alpha-clinic', -1, 'published'],
 ] as $review) $insertReview->execute($review);
+$pdo->exec("UPDATE medical_reviews SET source_text='Google Maps' WHERE id IN (1,3)");
+$pdo->exec("UPDATE medical_reviews SET source_text='https://www.facebook.com/clinic/reviews' WHERE id=2");
+$pdo->exec("UPDATE medical_reviews SET source_text='https://clinic.example/reviews' WHERE id=9");
+$pdo->exec("UPDATE medical_reviews SET source_text='Google Maps' WHERE id IN (5,6,7,13,14)");
+$pdo->exec("UPDATE medical_reviews SET source_text='Facebook' WHERE id IN (8,10)");
 
 $sql = medical_facility_stored_rating_sql();
 $assert(is_string($sql) && trim($sql) !== '', 'Stored rating SQL can be composed into one facility load');
@@ -138,6 +153,12 @@ $assert((int) $storedById[2]['stored_reviews_count'] === 3
     'A review with an ID belongs to that ID even when its legacy slug names another facility');
 $assert(!isset($storedById[3]) || (int) $storedById[3]['stored_reviews_count'] === 0,
     'A facility without stored rated reviews never inherits legacy scalar totals');
+$sqlKinds = explode(',', (string) $storedById[1]['stored_review_source_kinds']);
+$sqlKinds = array_values(array_filter($sqlKinds)); sort($sqlKinds);
+$assert($sqlKinds === ['facebook', 'google', 'website'], 'Single grouped SQL query also returns the three actual published source platforms');
+$betaKinds = array_filter(explode(',', (string) $storedById[2]['stored_review_source_kinds']));
+$assert(!in_array('google', $betaKinds, true) && !in_array('facebook', $betaKinds, true),
+    'Sources with another explicit owner, missing owner, invalid score or draft status cannot leak into a facility');
 
 $pdo->statements = [];
 $items = medical_search_cache_facilities($pdo);
@@ -147,6 +168,8 @@ $pair($byId[2], 3.5, 3, 'Cache generation replaces a legacy 2446-review scalar w
 $pair($byId[3], 0, 0, 'Cached facilities without published rated reviews are unrated');
 $assert(($byId[1]['rating_basis'] ?? null) === 'stored_reviews',
     'Cache JSON records the local review provenance');
+$jsonKinds = array_column($byId[1]['rating_sources'], 'kind'); sort($jsonKinds);
+$assert($jsonKinds === ['facebook', 'google', 'website'], 'Cache carries actual review source icons alongside the unchanged score/count');
 $dataQueries = array_filter($pdo->statements, static fn(string $statement): bool =>
     !str_contains($statement, 'INFORMATION_SCHEMA') && !preg_match('/\bLIMIT\s+0\b/i', $statement)
         && str_contains($statement, 'medical_facilities'));
@@ -158,6 +181,8 @@ $jsonById = array_column($snapshot['facilities'], null, 'id');
 $pair($jsonById[1], 3.5, 4, 'The same JSON payload carries correct score and count without a later rating request');
 $directoryItem = medical_search_cache_directory_item($jsonById[1]);
 $pair($directoryItem, 3.5, 4, 'Directory serialization preserves the public cached score/count pair');
+$assert($directoryItem['rating_sources'] === $jsonById[1]['rating_sources'],
+    'Directory serialization preserves the source metadata without a second source query');
 
 $pdo->exec('DELETE FROM medical_reviews WHERE facility_id = 1 OR facility_id IS NULL AND facility_slug = \'alpha-clinic\'');
 $afterDelete = array_column(medical_search_cache_facilities($pdo), null, 'id');

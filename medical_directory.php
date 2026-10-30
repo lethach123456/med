@@ -3380,7 +3380,8 @@ function medical_directory_facility_rows(bool $publishedOnly = true, string $loc
     if (!$hasLanguageColumn && $locale === 'en') return [];
     $ratingSql = medical_facility_stored_rating_sql();
     $sql = "SELECT f.*, COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
-                   COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count
+                   COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count,
+                   facility_reviews.stored_review_source_kinds
             FROM medical_facilities f
             LEFT JOIN ({$ratingSql}) facility_reviews ON facility_reviews.facility_id = f.id";
     $params = [];
@@ -3454,6 +3455,7 @@ function medical_directory_facility_review_summary_from_reviews(array $reviews):
             'rating' => '0.0',
             'reviews' => '0 đánh giá',
             'count' => 0,
+            'rating_sources' => [],
             'verified_count' => 0,
             'verified_percent' => 0,
             'breakdown' => [
@@ -3469,7 +3471,9 @@ function medical_directory_facility_review_summary_from_reviews(array $reviews):
     $sum = 0.0;
     $starsCount = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
     $verifiedCount = 0;
+    $sourceKinds = [];
     foreach ($ratedReviews as $review) {
+        $sourceKinds[] = medical_rating_source_kind($review['source'] ?? $review['source_text'] ?? '');
         $rating = (float) ($review['rating'] ?? 0);
         $sum += $rating;
         $star = (int) round($rating);
@@ -3491,6 +3495,7 @@ function medical_directory_facility_review_summary_from_reviews(array $reviews):
         'rating' => $avg,
         'reviews' => medical_directory_format_int($count) . ' đánh giá',
         'count' => $count,
+        'rating_sources' => medical_rating_sources_from_kinds($sourceKinds),
         'verified_count' => $verifiedCount,
         'verified_percent' => (int) round(($verifiedCount / max(1, $count)) * 100),
         'breakdown' => $breakdown,
@@ -3570,7 +3575,8 @@ function medical_directory_facility_with_linked_reviews(array $facility, bool $p
     $facility['reviews_count'] = $ratingSummary['reviews_count'];
     $facility['reviews'] = medical_directory_format_int($ratingSummary['reviews_count']) . ' đánh giá';
     $facility['rating_basis'] = $ratingSummary['basis'];
-    $facility['rating_sources'] = medical_facility_rating_normalize_aggregates($facility['aggregate_ratings'] ?? []);
+    $facility['rating_sources'] = $ratingSummary['sources'];
+    $facility['aggregate_rating_sources'] = medical_facility_rating_normalize_aggregates($facility['aggregate_ratings'] ?? []);
     $facility['reviews_list'] = medical_directory_facility_reviews_list_from_reviews($reviews, 3);
     return $facility;
 }

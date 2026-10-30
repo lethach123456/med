@@ -47,6 +47,13 @@ try {
     $snapshot['facilities'][0] = array_replace($snapshot['facilities'][0], [
         'rating' => 4.5, 'reviews_count' => 4, 'rating_basis' => 'stored_reviews', 'rating_sources' => []]);
     $assert(medical_search_cache_write($snapshot), 'Write the current JSON snapshot atomically');
+    $oldSources = medical_search_cache_read();
+    $assert(!medical_search_cache_is_fresh($oldSources), 'Pre-source snapshots automatically rebuild even while their rating policy and TTL are current');
+    $assert($oldSources['facilities'][0]['rating'] === 4.5 && $oldSources['facilities'][0]['reviews_count'] === 4,
+        'Missing source metadata never erases an already-correct local rating/count');
+    $snapshot['facility_rating_sources_version'] = 1;
+    $snapshot['facilities'][0]['rating_sources'] = [['source' => 'Google', 'kind' => 'google']];
+    $assert(medical_search_cache_write($snapshot), 'Write source-aware current JSON atomically');
     $pdo = new RatingCacheUnavailablePDO();
     $warm = medical_search_cache_index($pdo);
     $assert($warm['source'] === 'json-ttl' && !$warm['stale'] && $pdo->queries === 0,
@@ -54,6 +61,8 @@ try {
     $assert($warm['index']['facilities'][0]['rating'] === 4.5
         && $warm['index']['facilities'][0]['reviews_count'] === 4,
         'Current JSON returns the score/count together unchanged');
+    $assert(($warm['index']['facilities'][0]['rating_sources'][0]['kind'] ?? '') === 'google',
+        'Warm JSON includes the review platform without any database request');
 } finally {
     foreach ([medical_search_cache_path(), medical_search_cache_lock_path(), medical_search_cache_invalidation_path()] as $file) {
         if (is_file($file)) unlink($file);

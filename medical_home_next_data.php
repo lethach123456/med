@@ -137,7 +137,8 @@ function medical_home_next_data(PDO $pdo, string $locale, ?array $publicIndex = 
                     f.rating, f.reviews_count, f.aggregate_ratings_json, f.review_summary_json,
                     f.address_text, f.image_url, f.gallery_json,
                     COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
-                    COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count
+                    COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count,
+                    facility_reviews.stored_review_source_kinds
              FROM medical_facilities f
              LEFT JOIN ({$ratingSql}) facility_reviews ON facility_reviews.facility_id = f.id
              WHERE f.status = 'published' AND f.language_code = :locale

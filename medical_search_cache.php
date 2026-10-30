@@ -180,7 +180,8 @@ function medical_search_cache_is_fresh(array $index): bool
 {
     $generatedAt = (int) ($index['generated_at'] ?? 0);
     $expiresAt = (int) ($index['expires_at'] ?? 0);
-    if ($generatedAt <= 0 || $expiresAt < time() || (int) ($index['facility_ratings_version'] ?? 0) !== 2) {
+    if ($generatedAt <= 0 || $expiresAt < time() || (int) ($index['facility_ratings_version'] ?? 0) !== 2
+        || (int) ($index['facility_rating_sources_version'] ?? 0) !== 1) {
         return false;
     }
     $invalidatedAt = @filemtime(medical_search_cache_invalidation_path());
@@ -249,6 +250,7 @@ function medical_search_cache_facilities(PDO $pdo): array
         "SELECT f.id, f.slug, {$languageSelect}, f.name, f.subtitle, f.content, f.category, f.city, f.address_text, f.image_url, f.gallery_json,
                 f.verified, COALESCE(facility_reviews.stored_rating, 0) AS stored_rating,
                 COALESCE(facility_reviews.stored_reviews_count, 0) AS stored_reviews_count,
+                facility_reviews.stored_review_source_kinds,
                 f.followers_count, f.price_text, f.hours_text, f.images_label,
                 f.featured_services_json, f.services_json, f.tags_json, f.highlights_json, f.display_order, f.updated_at
          FROM medical_facilities f
@@ -497,6 +499,7 @@ function medical_search_cache_rebuild(PDO $pdo): array
     return [
         'schema' => 3,
         'facility_ratings_version' => 2,
+        'facility_rating_sources_version' => 1,
         'generated_at' => $generatedAt,
         'expires_at' => $generatedAt + medical_search_cache_ttl(),
         'facilities' => $facilities,
