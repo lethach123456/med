@@ -176,6 +176,17 @@
     const ratingLabel = item.rating_basis === 'stored_reviews' ? (en ? 'Reviews on MedReview' : 'Review trên MedReview') : item.rating_basis === 'external_aggregates'
       ? (sources.length === 1 ? String(sources[0]?.source || '') : (en ? 'Combined sources' : 'Nguồn tổng hợp'))
       : (item.rating_basis === 'imported_reviews' ? (en ? 'Stored reviews' : 'Review đã lưu') : (en ? 'Profile rating' : 'Điểm hồ sơ'));
+    const sourceKinds = [...new Set(sources.filter(s => s && typeof s === 'object').map(s => {
+      const name = String(s.source || '').trim().toLowerCase();
+      let host = ''; try { host = new URL(String(s.url || '')).hostname.toLowerCase(); } catch (_) {}
+      return /(^|\.)(facebook\.com|fb\.com)$/.test(host) || ['facebook', 'fb'].includes(name) ? 'facebook'
+        : /(^|\.)(google\.com|google\.com\.vn|maps\.app\.goo\.gl)$/.test(host) || ['google', 'google maps', 'google map'].includes(name) ? 'google' : 'website';
+    }))];
+    if (!sourceKinds.length) sourceKinds.push('website');
+    const ratingSourceHtml = (en ? 'Reviews on ' : 'Review trên ') + '<span class="review-source-icons" style="display:inline-flex;align-items:center;gap:5px;vertical-align:middle">' + sourceKinds.map(kind => {
+      const label = kind === 'google' ? 'Google' : kind === 'facebook' ? 'Facebook' : sources.length ? 'Website' : (en ? 'Stored reviews; source unspecified' : 'Review đã lưu; chưa xác định nguồn');
+      return `<img src="/assets/icons/review-source-${kind}.svg" width="16" height="16" alt="${escape(label)}" title="${escape(label)}" style="display:inline-block;width:16px;height:16px;object-fit:contain;flex:none">`;
+    }).join('') + '</span>';
     const services = (Array.isArray(item.services) ? item.services : []).map(String).filter((s) => s.trim());
     const desktopServiceDisclosure = services.length > 3 || services.some(s => Array.from(s).length > 14);
     const media = `<span class="fd-media-fallback" aria-hidden="true"><i class="ph ph-hospital"></i><span>MedReview</span></span>${image ? `<img src="${escape(image)}" alt="${escape(item.name)}" width="360" height="300" loading="lazy" decoding="async">` : ''}`;
@@ -186,7 +197,7 @@
       ${item.address ? `<p class="fd-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>${escape(item.address)}</span></p>` : ''}
       ${item.subtitle ? `<p class="fd-summary">${escape(item.subtitle)}</p>` : ''}
       ${services.length ? `<div class="fd-services" data-service-tags>${services.map((s, i) => `<span class="fd-service${i > 2 ? ' fd-service-extra' : ''}"${i > 2 ? ' hidden' : ''} title="${escape(s)}"><i class="ph ph-stethoscope" aria-hidden="true"></i><span>${escape(s)}</span></span>`).join('')}${desktopServiceDisclosure || services.length > 1 ? `<button class="fd-service-more${!desktopServiceDisclosure ? ' fd-service-more-mobile-only' : ''}" type="button" data-service-tags-more data-extra-count="${Math.max(0, services.length - 3)}" data-mobile-extra-count="${Math.max(0, services.length - 1)}" aria-expanded="false" aria-label="${words.more}"><span class="fd-service-count-desktop">${services.length > 3 ? '+' + (services.length - 3) : (en ? 'Details' : 'Xem đủ')}</span><span class="fd-service-count-mobile">${services.length > 1 ? '+' + (services.length - 1) : (en ? 'Details' : 'Xem đủ')}</span><i class="ph ph-caret-down" aria-hidden="true"></i></button>` : ''}</div>` : ''}
-      <div class="fd-card-footer"><div class="fd-rating" title="${escape(ratingLabel)}">${hasRating ? `<i class="ph-fill ph-star" aria-hidden="true"></i><strong>${rating.toFixed(1)}<span>/5</span></strong><span class="fd-review-count">(${number.format(reviewsCount)} ${words.reviews}) <small class="fd-rating-source">· ${escape(ratingLabel)}</small></span>` : `<span class="fd-unrated">${words.unrated}</span>`}</div><a class="fd-profile-link" href="${escape(url)}">${words.profile}<i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+      <div class="fd-card-footer"><div class="fd-rating" title="${escape(ratingLabel)}">${hasRating ? `<i class="ph-fill ph-star" aria-hidden="true"></i><strong>${rating.toFixed(1)}<span>/5</span></strong><span class="fd-review-count">(${number.format(reviewsCount)} ${words.reviews}) <small class="fd-rating-source">· ${ratingSourceHtml}</small></span>` : `<span class="fd-unrated">${words.unrated}</span>`}</div><a class="fd-profile-link" href="${escape(url)}">${words.profile}<i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
       </div>
       ${item.price ? `<p class="fd-price">${words.price}${escape(item.price)}</p>` : ''}</div></article>`;
   }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/medical_directory.php';
 require_once __DIR__ . '/medical_facility_gallery_view.php';
+require_once __DIR__ . '/medical_rating_source_icons.php';
 if (function_exists('admin_front_session_boot')) { admin_front_session_boot(); }
 
 $incomingFacilitySlug = trim((string) ($_GET['slug'] ?? ''));
@@ -2418,7 +2419,7 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
                 <?php if ($facilityPublicReviewCount > 0 && $facilityRatingValue > 0): ?>
                 <span class="rating-main"><?php echo htmlspecialchars($facility['rating'], ENT_QUOTES, 'UTF-8'); ?></span>
                 <span class="stars rating-stars-text" aria-label="<?php echo htmlspecialchars($facility['rating'] . ' ' . $tr('trên 5', 'out of 5'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $facilityRatingStars; ?></span>
-                <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($facilityMainRatingCaption, ENT_QUOTES, 'UTF-8'); ?>)</span>
+                <span class="rating-meta">(<?php echo htmlspecialchars($facilityTopReviewsLabel, ENT_QUOTES, 'UTF-8'); ?> • <?= $tr('Review trên ', 'Reviews on ') . medical_rating_source_icons((array) ($facility['rating_sources'] ?? []), $facilityLanguage) ?>)</span>
                 <?php else: ?><span class="rating-meta"><?php echo htmlspecialchars($tr('Chưa có dữ liệu đánh giá', 'No rating data yet'), ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
               </div>
 

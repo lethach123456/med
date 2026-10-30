@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/medical_rating_source_icons.php';
 
 // Presentation only: no DB queries, schema changes or cache rebuilding.
 function facility_directory_escape($value): string
@@ -44,6 +45,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
     $reviews = facility_directory_number((int) ($item['reviews_count'] ?? 0), $locale);
     $hasRating = $rating > 0 && (float) ($item['rating'] ?? 0) <= 5 && (int) ($item['reviews_count'] ?? 0) > 0;
     $ratingLabel = facility_directory_rating_label($item, $locale);
+    $ratingSourceHtml = ($en ? 'Reviews on ' : 'Review trên ') . medical_rating_source_icons((array) ($item['rating_sources'] ?? []), $locale);
     $services = array_values(array_filter(array_map('strval', (array) ($item['services'] ?? [])), static fn(string $s): bool => trim($s) !== ''));
     $showDesktopServiceDisclosure = count($services) > 3 || count(array_filter($services, static fn(string $s): bool => mb_strlen($s, 'UTF-8') > 14)) > 0;
     $showServiceDisclosure = $showDesktopServiceDisclosure || count($services) > 1;
@@ -64,7 +66,7 @@ function facility_directory_card(array $item, string $locale = 'vi'): string
           <?php if ($showServiceDisclosure): ?><button class="fd-service-more<?= !$showDesktopServiceDisclosure ? ' fd-service-more-mobile-only' : '' ?>" type="button" data-service-tags-more data-extra-count="<?= max(0, count($services) - 3) ?>" data-mobile-extra-count="<?= max(0, count($services) - 1) ?>" aria-expanded="false" aria-label="<?= $en ? 'Show full services' : 'Xem đầy đủ dịch vụ' ?>"><span class="fd-service-count-desktop"><?= count($services) > 3 ? '+' . (count($services) - 3) : ($en ? 'Details' : 'Xem đủ') ?></span><span class="fd-service-count-mobile"><?= count($services) > 1 ? '+' . (count($services) - 1) : ($en ? 'Details' : 'Xem đủ') ?></span><i class="ph ph-caret-down" aria-hidden="true"></i></button><?php endif; ?>
         </div><?php endif; ?>
         <div class="fd-card-footer">
-          <div class="fd-rating" title="<?= $e($ratingLabel) ?>"><?php if ($hasRating): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>) <small class="fd-rating-source">· <?= $e($ratingLabel) ?></small></span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
+          <div class="fd-rating" title="<?= $e($ratingLabel) ?>"><?php if ($hasRating): ?><i class="ph-fill ph-star" aria-hidden="true"></i><strong><?= number_format($rating, 1, '.', '') ?><span>/5</span></strong><span class="fd-review-count">(<?= $reviews ?> <?= $en ? 'reviews' : 'đánh giá' ?>) <small class="fd-rating-source">· <?= $ratingSourceHtml ?></small></span><?php else: ?><span class="fd-unrated"><?= $en ? 'Not rated yet' : 'Chưa có đánh giá' ?></span><?php endif; ?></div>
           <a class="fd-profile-link" href="<?= $e($url) ?>"><?= $en ? 'View profile' : 'Xem hồ sơ' ?><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
         </div>
         </div>
