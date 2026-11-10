@@ -693,9 +693,6 @@ $facility = $slug !== '' && isset($facilityIndex[$slug]) ? $facilityIndex[$slug]
 
 $defaults = $facilities[0];
 $facility = array_replace_recursive($defaults, $facility);
-$relatedFacilities = array_values(array_filter($facilities, static function (array $item) use ($facility): bool {
-  return $item['slug'] !== $facility['slug'];
-}));
 
 $dbFacility = medical_directory_facility_row_by_slug($slug, true);
 $facilityNotFound = !is_array($dbFacility) || $dbFacility === [];
@@ -738,10 +735,6 @@ if (is_array($dbFacility) && $dbFacility !== []) {
   // Không dùng các nhãn mẫu của hồ sơ mặc định cho cơ sở lấy từ DB.
   $facility['tags'] = [];
   $facility['images_label'] = count((array) ($facility['gallery'] ?? [])) . ' ảnh';
-  $dbFacilityRows = medical_directory_facility_rows(true, $facilityLanguage);
-  $relatedFacilities = array_values(array_filter($dbFacilityRows, static function (array $item) use ($facility): bool {
-    return (string) ($item['slug'] ?? '') !== (string) ($facility['slug'] ?? '');
-  }));
 }
 
   $facility = facility_detail_normalize($facility);
@@ -765,7 +758,6 @@ if (is_array($dbFacility) && $dbFacility !== []) {
   if (trim((string) ($facility['content'] ?? '')) !== '') {
     $facility['intro'] = [(string) $facility['content']];
   }
-$relatedFacilities = array_map('facility_detail_normalize', $relatedFacilities);
 $facilityPriceTableHtml = medical_normalize_facility_links_html(facility_detail_compact_price_html((string) ($facility['price_table_html'] ?? '')), site_canonical_origin());
 
 $facilityReviewSummary = (array) ($facility['review_summary'] ?? []);

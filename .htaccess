@@ -1,5 +1,16 @@
 RewriteEngine On
 
+# Verified moved profile: match only the old English slug and send both
+# production hosts to its current canonical URL in one hop.
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{HTTP_HOST} ^(?:www\.)?medreview\.vn(?::[0-9]+)?$ [NC]
+RewriteRule ^en/co-so-y-te/specialist-eye-clinic-dr-duong-anh-quan/?$ https://medreview.vn/en/co-so-y-te/specialist-eye-clinic-dr-duong-anh-quan-81-dinh-tien-hoang-hue [R=301,L,NE]
+
+# Consolidate public page aliases only; leave writes, admin, APIs and assets alone.
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{HTTP_HOST} ^www\.medreview\.vn(?::[0-9]+)?$ [NC]
+RewriteRule ^(?:$|en/?$|(?:en/)?(?:co-so-y-te|bac-si|review|toplist|cam-nang|ve-chung-toi|ho-so-da-xac-thuc)(?:/|$)|(?:danh-muc-y-te|lien-he|about-us|contact-us|dich-vu|services)/?$) https://medreview.vn%{REQUEST_URI} [R=301,L,NE]
+
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]

@@ -8,10 +8,22 @@ require_once __DIR__ . '/medical_review_seo.php';
 
 const MEDREVIEW_SITEMAP_PAGE_SIZE = 10000;
 
+/** @return list<string> */
+function medreview_sitemap_cache_headers(int $status): array
+{
+    if ($status >= 200 && $status < 300) {
+        return ['Cache-Control: public, max-age=300, s-maxage=900, stale-while-revalidate=3600'];
+    }
+    // An outage must not replace a usable sitemap with a cached error response.
+    return $status === 503 ? ['Cache-Control: no-store', 'Retry-After: 300'] : ['Cache-Control: no-store'];
+}
+
 function medreview_sitemap_xml(string $xml): never
 {
     header('Content-Type: application/xml; charset=UTF-8');
-    header('Cache-Control: public, max-age=300, s-maxage=900, stale-while-revalidate=3600');
+    foreach (medreview_sitemap_cache_headers(http_response_code() ?: 200) as $value) {
+        header($value);
+    }
     echo $xml;
     exit;
 }

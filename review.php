@@ -9,6 +9,9 @@ require_once __DIR__ . '/medical_media_variants.php';
 if (function_exists('admin_front_session_boot')) admin_front_session_boot();
 $GLOBALS['site_page_key'] = 'reviews';
 $locale = site_page_locale('reviews');
+if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+    medical_redirect_legacy_path('/review.php', site_localized_path('/review', $locale), ['lang']);
+}
 site_language_response_header($locale);
 $isEnglish = $locale === 'en';
 $GLOBALS['site_forced_locale'] = $locale;
