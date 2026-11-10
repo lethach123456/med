@@ -223,12 +223,11 @@ try {
 
 $hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['category'] !== ''
     || $filters['service'] !== '' || $filters['min_rating'] !== '' || $filters['sort'] !== 'recommended';
-$isIndexableDirectoryPage = true;
 $canonicalPage = (int) ($initial['page'] ?? 1);
 $canonicalQuery = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'recommended'), ARRAY_FILTER_USE_BOTH);
 if ($canonicalPage > 1) $canonicalQuery['page'] = $canonicalPage;
 $canonicalPath = site_localized_path(medical_public_facility_path(), $locale, $canonicalQuery);
-if ($isIndexableDirectoryPage && $canonicalPage > 1) {
+if ($canonicalPage > 1) {
     $title .= $isEnglish ? ' — Page ' . $canonicalPage : ' — Trang ' . $canonicalPage;
 }
 
@@ -244,7 +243,7 @@ require_once __DIR__ . '/medical_facility_directory_view.php';
   <?= site_favicon_tags() ?>
   <title><?= facility_directory_escape($title) ?></title>
   <meta name="description" content="<?= facility_directory_escape($description) ?>">
-  <meta name="robots" content="<?= $isIndexableDirectoryPage ? 'index,follow' : 'noindex,follow' ?>">
+  <meta name="robots" content="index,follow">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= facility_directory_escape($seoKeywords) ?>"><?php endif; ?>
   <link rel="canonical" href="<?= facility_directory_escape(site_absolute_url($canonicalPath)) ?>">
   <?= site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']) ?>

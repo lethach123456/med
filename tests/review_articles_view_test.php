@@ -257,7 +257,7 @@ $detailCss = (string) file_get_contents($root . '/assets/css/pages/review-articl
 $js = (string) file_get_contents($root . '/assets/js/review-articles.js');
 $check(str_contains($directoryController, 'medical_review_articles_directory_page') && !str_contains($directoryController, 'review_view_directory('), 'The review menu now queries editorial articles only.');
 $check(str_contains($detailController, "'@type' => 'Article'") && !str_contains($detailController, 'aggregateRating'), 'Article schema does not manufacture a review or aggregate rating.');
-$check(str_contains($directoryController, 'noindex,follow') && str_contains($directoryController, 'site_language_metadata_tags') && str_contains($detailController, "['alternates']"), 'SEO handles filtered pages and actual language counterparts.');
+$check(!str_contains($directoryController, 'noindex') && str_contains($directoryController, 'site_language_metadata_tags') && str_contains($detailController, "['alternates']"), 'SEO allows filtered pages and uses actual language counterparts.');
 $check(str_contains($css, '@media(max-width:620px)') && str_contains($css, '@media(max-width:900px)') && str_contains($css, 'minmax(0,1fr)'), 'Phone/tablet layout is adaptive and shrinkable.');
 $check(str_contains($css, 'min-height:44px') && str_contains($css, 'font-size:16px') && str_contains($css, 'prefers-reduced-motion'), 'Mobile targets, readable body and reduced-motion handling exist.');
 $check(!str_contains($css, 'fonts.googleapis.com') && str_contains($css, 'var(--med-font-sans'), 'No new font dependency is introduced.');

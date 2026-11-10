@@ -28,21 +28,19 @@ $description = $isEnglish ? 'Read clear, source-based analysis of healthcare fac
 if ($reviewArticlePaging['page'] > 1) $title .= ($isEnglish ? ' — Page ' : ' — Trang ') . $reviewArticlePaging['page'];
 $canonicalPath = review_articles_view_page_url($locale, $reviewArticleFilters, $reviewArticlePaging['page']);
 $reviewArticleHasFilters = count(array_filter($reviewArticleFilters)) > 0;
-$reviewArticleNoindex = $reviewArticleUnavailable;
 $e = 'review_articles_view_escape';
 ?><!doctype html>
 <html lang="<?= $e($locale) ?>">
 <head>
   <?= site_tag_manager_head() ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <?= site_language_metadata_tags($locale, !$reviewArticleNoindex && $reviewArticlePaging['page'] === 1 ? ['vi', 'en'] : []) ?>
+  <?= site_language_metadata_tags($locale, !$reviewArticleUnavailable && $reviewArticlePaging['page'] === 1 ? ['vi', 'en'] : []) ?>
   <?= site_favicon_tags() ?>
   <title><?= $e($title) ?></title>
   <meta name="description" content="<?= $e($description) ?>">
-  <?php if ($reviewArticleNoindex): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
   <link rel="canonical" href="<?= $e(site_absolute_url($canonicalPath)) ?>">
   <?= site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']) ?>
-  <?php if (!$reviewArticleNoindex && !$reviewArticleHasFilters && $reviewArticlePaging['page'] === 1): ?>
+  <?php if (!$reviewArticleUnavailable && !$reviewArticleHasFilters && $reviewArticlePaging['page'] === 1): ?>
   <link rel="alternate" hreflang="vi" href="<?= $e(site_absolute_url('/review')) ?>">
   <link rel="alternate" hreflang="en" href="<?= $e(site_absolute_url('/en/review')) ?>">
   <link rel="alternate" hreflang="x-default" href="<?= $e(site_absolute_url('/review')) ?>">

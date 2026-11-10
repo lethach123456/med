@@ -64,13 +64,12 @@
     }
     return window.location.pathname + (params.size ? `?${params}` : '');
   };
-  const syncSeoState = page => {
-    const params = parameters(page);
-    const filtered = ['q', 'city', 'specialty', 'min_rating'].some(key => Boolean(params.get(key))) || (params.get('sort') || 'recommended') !== 'recommended';
+  const syncCanonical = page => {
     const canonical = document.querySelector('link[rel="canonical"]');
-    const robots = document.querySelector('meta[name="robots"]');
-    if (canonical) canonical.href = `${window.location.origin}${pageURL(page)}`;
-    if (robots) robots.content = filtered ? 'noindex,follow' : 'index,follow';
+    if (!canonical?.href) return;
+    const url = new URL(canonical.href);
+    url.search = new URL(pageURL(page), url).search;
+    canonical.href = url.href;
   };
   const syncFilterCount = () => {
     const active = selectFilters.filter(select => select.name !== 'sort' && select.value !== '').length;
@@ -105,7 +104,7 @@
         const page = Number(paging.page || 1);
         const url = pageURL(page);
         history.replaceState({}, '', url);
-        syncSeoState(page);
+        syncCanonical(page);
       }
     } catch (error) {
       if (id !== requestId) return;

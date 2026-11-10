@@ -17,7 +17,6 @@ $escapeNotFound = static fn (string $value): string => htmlspecialchars($value, 
   <meta charset="utf-8">
   <?= site_language_metadata_tags($notFoundLocale) ?>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex,follow">
   <title><?php echo $escapeNotFound($notFoundTitle); ?> | MedReview</title>
   <meta name="description" content="<?php echo $escapeNotFound($notFoundDescription); ?>">
   <link rel="stylesheet" href="/assets/css/core/shared-typography.css">

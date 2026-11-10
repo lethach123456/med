@@ -90,14 +90,12 @@
     }
     return form.getAttribute('action') + (params.size ? '?' + params : '');
   }
-  function syncSeoState(page) {
-    const params = parameters(page);
-    const filtered = ['q', 'city', 'category', 'service', 'min_rating'].some((key) => Boolean(params.get(key)))
-      || (params.get('sort') || 'recommended') !== 'recommended';
+  function syncCanonical(page) {
     const canonical = document.querySelector('link[rel="canonical"]');
-    const robots = document.querySelector('meta[name="robots"]');
-    if (canonical) canonical.href = `${location.origin}${pageURL(page)}`;
-    if (robots) robots.content = filtered ? 'noindex,follow' : 'index,follow';
+    if (!canonical?.href) return;
+    const url = new URL(canonical.href);
+    url.search = new URL(pageURL(page), url).search;
+    canonical.href = url.href;
   }
   function syncFilters() {
     const params = parameters();
@@ -255,7 +253,7 @@
         const url = pageURL(currentPage);
         if (url !== location.pathname + location.search) history[historyMode === 'replace' ? 'replaceState' : 'pushState']({}, '', url);
       }
-      syncSeoState(currentPage);
+      syncCanonical(currentPage);
       revealCards();
       if (scroll) scrollResults();
     } catch (error) {

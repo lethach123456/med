@@ -37,7 +37,6 @@ $filters = [
 $directoryPage = max(1, (int) ($_GET['page'] ?? 1));
 $hasSeoFilters = $filters['q'] !== '' || $filters['city'] !== '' || $filters['specialty'] !== ''
     || $filters['min_rating'] !== '' || $filters['sort'] !== 'recommended';
-$isIndexableDirectoryPage = true;
 $canonicalPath = site_localized_path('/bac-si', $locale);
 $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $number = static fn(int $value): string => number_format(max(0, $value), 0, $isEnglish ? '.' : ',', $isEnglish ? ',' : '.');
@@ -99,7 +98,7 @@ $canonicalPage = (int) ($initial['paging']['page'] ?? 1);
 $canonicalQuery = array_filter($filters, static fn($value, $key): bool => $value !== '' && !($key === 'sort' && $value === 'recommended'), ARRAY_FILTER_USE_BOTH);
 if ($canonicalPage > 1) $canonicalQuery['page'] = $canonicalPage;
 $canonicalPath = site_localized_path('/bac-si', $locale, $canonicalQuery);
-if ($isIndexableDirectoryPage && $canonicalPage > 1) {
+if ($canonicalPage > 1) {
     $title .= $isEnglish ? ' — Page ' . $canonicalPage : ' — Trang ' . $canonicalPage;
 }
 
@@ -115,9 +114,7 @@ require_once __DIR__ . '/medical_doctor_directory_view.php';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?php echo $escape($title); ?></title>
   <meta name="description" content="<?php echo $escape($description); ?>">
-  <?php if (!$isIndexableDirectoryPage): ?><meta name="robots" content="noindex,follow">
-  <?php else: ?><meta name="robots" content="index,follow">
-  <?php endif; ?>
+  <meta name="robots" content="index,follow">
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo $escape($seoKeywords); ?>"><?php endif; ?>
   <link rel="canonical" href="<?php echo $escape(site_absolute_url($canonicalPath)); ?>">
   <?php echo site_social_meta_tags(['title' => $title, 'description' => $description, 'url' => $canonicalPath, 'type' => 'website']); ?>

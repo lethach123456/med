@@ -16,7 +16,6 @@ $homeNextCopy = medical_home_next_copy($locale);
 $heroImage = '/uploads/library/2026/07/38252346e52a7957cc10da6fe61849dc.jpg';
 $homeNextCssVersion = (string) filemtime(__DIR__ . '/assets/css/pages/home-next.css');
 $homeNextJsVersion = (string) filemtime(__DIR__ . '/assets/js/home-next.js');
-header('X-Robots-Tag: noindex, follow');
 ?><!doctype html>
 <html lang="<?= home_next_escape($locale) ?>">
 <head>
@@ -26,7 +25,6 @@ header('X-Robots-Tag: noindex, follow');
   <?= site_favicon_tags() ?>
   <title><?= home_next_escape($homeNextCopy['pageTitle']) ?></title>
   <meta name="description" content="<?= home_next_escape($homeNextCopy['heroCopy']) ?>">
-  <meta name="robots" content="noindex,follow">
   <link rel="canonical" href="<?= home_next_escape(site_absolute_url(site_localized_path('/', $locale))) ?>">
   <?= site_social_meta_tags(['title' => $homeNextCopy['pageTitle'], 'description' => $homeNextCopy['heroCopy'], 'url' => site_localized_path('/', $locale), 'type' => 'website', 'image' => $heroImage, 'image_alt' => $homeNextCopy['pageTitle']]) ?>
   <link rel="preload" as="image" href="<?= home_next_escape($heroImage) ?>" fetchpriority="high">

@@ -172,6 +172,9 @@ $mobileAsset = '/assets/css/pages/facility-directory-mobile.css?v=';
 $assert(str_contains($pageSource, $mobileAsset)
     && strpos($pageSource, $mobileAsset) > strpos($pageSource, '/assets/css/core/directory-service-labels.css?v='), 'Cache-busted mobile refinement follows shared service chip styling');
 $jsSource = file_get_contents(dirname(__DIR__) . '/assets/js/facility-directory.js');
+$assert(str_contains($jsSource, 'syncCanonical(currentPage)') && str_contains($jsSource, 'new URL(canonical.href)')
+    && str_contains($jsSource, 'url.search = new URL(pageURL(page), url).search')
+    && !str_contains($jsSource, 'meta[name="robots"]') && !str_contains($jsSource, 'noindex'), 'AJAX updates canonical query without changing the configured origin, route or crawl directives');
 $assert(str_contains($jsSource, '<div class="fd-card-main">')
     && preg_match('~<div class="fd-card-main">\s*<div class="fd-card-category">.*?<h2>.*?</h2>\s*\$\{item\.address.*?\$\{item\.subtitle.*?class="fd-services".*?<div class="fd-card-footer">.*?\n\s*</div>\s*\$\{item\.price~s', $jsSource) === 1, 'AJAX cards keep the SSR identity, services and footer inside the same layout-transparent group');
 $assert(str_contains($jsSource, 'sortSlot.append(sortGroup)') && str_contains($jsSource, 'resultTools.insertBefore(sortGroup, disclosure)')

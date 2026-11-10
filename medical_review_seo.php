@@ -6,7 +6,7 @@ function medical_review_seo_required_columns(): array
     return ['status', 'slug', 'title', 'rating', 'author_text', 'method_text', 'condition_text', 'excerpt', 'story_json'];
 }
 
-/** Shared standalone-review eligibility for sitemap, robots and related links. */
+/** Eligibility for sitemap and related links; not a directive on the public page. */
 function medical_review_seo_indexable_where(string $prefix = ''): string
 {
     if ($prefix !== '' && !preg_match('/^[A-Za-z_][A-Za-z0-9_]*\.?$/D', $prefix)) {
@@ -23,7 +23,7 @@ function medical_review_seo_indexable_where(string $prefix = ''): string
         . " AND (LENGTH(" . $text('excerpt') . ")>=80 OR LENGTH(" . $text('story_json') . ")>=120)";
 }
 
-/** Accept a raw medical_reviews row; missing data fails closed for indexing. */
+/** Accept a raw medical_reviews row; missing data fails sitemap/related eligibility. */
 function medical_review_seo_indexable(array $row): bool
 {
     if (array_diff(medical_review_seo_required_columns(), array_keys($row)) !== []) return false;

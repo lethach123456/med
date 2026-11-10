@@ -262,7 +262,8 @@ if (!$post) {
     <?php echo site_language_metadata_tags($htmlLang); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo $safeTitle; ?></title>
-    <?php if (!$isIndexableArticle): ?><meta name="robots" content="noindex,follow"><?php else: ?>
+    <?php if ($canEditTemplate): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
+    <?php if ($isIndexableArticle): ?>
     <meta name="description" content="<?php echo htmlspecialchars($seoDescription, ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="canonical" href="<?php echo htmlspecialchars(site_absolute_url($articleCanonicalPath), ENT_QUOTES, 'UTF-8'); ?>">
     <?php echo site_social_meta_tags([

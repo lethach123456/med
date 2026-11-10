@@ -56,7 +56,9 @@ $assert(str_contains($template, 'doctor-hero-note') && str_contains($template, '
 $assert(str_contains($template, 'doctor-city-art') && str_contains($template, 'data-doctor-open-filters'), 'Illustrated location card has a working filter shortcut');
 $assert(str_contains($template, 'class="doctor-result-heading"') && str_contains($template, 'Bác sĩ dành cho bạn'), 'Compact results toolbar has a consistent mobile heading');
 $assert(str_contains($template, 'doctor_directory_pagination($doctorDirectoryPath') && str_contains($js,'<a href="${esc(pageURL(page))}" data-page='), 'Doctor pagination remains crawlable before and after enhancement');
-$assert(str_contains($js, "syncSeoState(page)") && str_contains($js, "robots.content = filtered ? 'noindex,follow'"), 'AJAX filter state updates robots/canonical hints');
+$assert(str_contains($js, 'syncCanonical(page)') && str_contains($js, 'new URL(canonical.href)')
+    && str_contains($js, 'url.search = new URL(pageURL(page), url).search')
+    && !str_contains($js, 'meta[name="robots"]') && !str_contains($js, 'noindex'), 'AJAX updates canonical query without changing the configured origin, route or crawl directives');
 $assert(str_contains($template, 'Lọc và sắp xếp bác sĩ') && str_contains($template, 'aria-controls="doctorFilterOptions"'), 'Shortened filter control retains a complete accessible name and disclosure relationship');
 $assert(str_contains($js, "focus({preventScroll:true})") && str_contains($js, "doctor-enhanced"), 'Shortcut focuses its real location control and only shows with enhancement');
 $css=(string)file_get_contents(dirname(__DIR__).'/assets/css/pages/doctor-directory.css');

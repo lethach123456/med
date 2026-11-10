@@ -2,6 +2,7 @@
 declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__) . '/medical_review_view.php';
+require_once dirname(__DIR__) . '/site_analytics.php';
 
 $checks = 0;
 $assert = static function (bool $ok, string $label) use (&$checks): void {
@@ -43,19 +44,19 @@ foreach ($cases as $offset => [$name, $changes, $expected]) {
     $row = ['id' => $offset + 1] + array_replace($base, $changes);
     $insert->execute($row);
     if ($expected) $expectedIds[] = $row['id'];
-    $assert(medical_review_seo_indexable($row) === $expected, $name . ' uses expected detail indexability');
-    $assert(review_view_row($row)['seo_indexable'] === $expected, $name . ' keeps indexability on the view DTO');
+    $assert(medical_review_seo_indexable($row) === $expected, $name . ' uses expected sitemap/related eligibility');
+    $assert(review_view_row($row)['seo_indexable'] === $expected, $name . ' keeps eligibility on the view DTO');
 }
 foreach (['', 'r', 'r.'] as $prefix) {
     $alias = $prefix === '' ? '' : ' r';
     $ids = array_map('intval', $pdo->query('SELECT id FROM medical_reviews' . $alias . ' WHERE ' . medical_review_seo_indexable_where($prefix) . ' ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
-    $assert($ids === $expectedIds, 'Shared SQL and detail PHP agree for table prefix ' . ($prefix ?: '(none)'));
+    $assert($ids === $expectedIds, 'Shared SQL and PHP eligibility agree for table prefix ' . ($prefix ?: '(none)'));
 }
 $assert(!medical_review_seo_indexable([]), 'Legacy/missing data fails closed without changing content');
 foreach (medical_review_seo_required_columns() as $column) {
     $missingField = $base;
     unset($missingField[$column]);
-    $assert(!medical_review_seo_indexable($missingField), 'Missing ' . $column . ' data cannot be assumed indexable');
+    $assert(!medical_review_seo_indexable($missingField), 'Missing ' . $column . ' data is ineligible for sitemap/related selection');
 }
 $threw = false;
 try { medical_review_seo_indexable_where('r; DROP TABLE medical_reviews'); } catch (InvalidArgumentException) { $threw = true; }
@@ -88,21 +89,23 @@ foreach ([['method_text'], ['condition_text'], ['method_text', 'condition_text']
     $legacy->prepare('INSERT INTO medical_reviews (' . implode(',', $columns) . ') VALUES (' . implode(',', array_map(static fn(string $column): string => ':' . $column, $columns)) . ')')->execute($legacyRow);
     $detail = review_view_detail($legacy, $base['slug']);
     $assert($detail['review'] !== null && $detail['review']['title'] === $base['title'], 'Legacy detail stays readable without ' . implode('/', $missingColumns));
-    $assert(!$detail['review']['seo_indexable'] && $detail['related'] === [], 'Legacy markers remain noindex and do not promote unclassified related entries');
+    $assert(!$detail['review']['seo_indexable'] && $detail['related'] === [], 'Legacy reviews remain ineligible for sitemap/related selection');
     $assert(!str_contains(implode('\n', $legacy->preparedSql), 'slug<>:slug'), 'No incompatible related SELECT runs against the old table');
 }
 
-// Render the real shared head for indexable and noindex review details.
+// A published detail remains crawlable even when the review is omitted from the sitemap.
 function site_favicon_tags(): string { return ''; }
 function site_language_metadata_tags(string $locale, array $alternates = []): string { return ''; }
 function site_absolute_url(string $path): string { return 'https://medreview.example' . $path; }
 function site_social_meta_tags(array $meta): string { return ''; }
 $locale = 'vi'; $title = 'A review'; $description = 'A customer experience'; $seoKeywords = '';
 $canonicalPath = '/review-chi-tiet.php?slug=customer-review'; $reviewStylesheet = 'review-detail.css';
-$review = review_view_row($base);
-foreach ([true, false] as $reviewNoindex) {
+foreach ([$base, array_replace($base, ['excerpt' => 'Short'])] as $row) {
+    $review = review_view_row($row);
     ob_start(); require dirname(__DIR__) . '/Tem/review-head.php'; $html = (string) ob_get_clean();
-    $assert(str_contains($html, 'name="robots" content="noindex,follow"') === $reviewNoindex, 'Rendered head applies noindex only when ineligible');
-    $assert(str_contains($html, 'rel="canonical"') && str_contains($html, '<title>A review</title>'), 'Noindex keeps readable detail metadata');
+    $assert(!preg_match('/\b(?:noindex|nofollow)\b/i', $html), 'Published detail has no restrictive robots meta regardless of sitemap eligibility');
+    $assert(str_contains($html, 'rel="canonical"') && str_contains($html, '<title>A review</title>'), 'Public detail keeps readable canonical metadata');
 }
+$controller = file_get_contents(dirname(__DIR__) . '/review-chi-tiet.php');
+$assert(is_string($controller) && !str_contains($controller, 'X-Robots-Tag'), 'Public review controller does not send a restrictive robots header');
 echo "Review SEO: {$checks} fixture checks passed. No network or production data modified.\n";

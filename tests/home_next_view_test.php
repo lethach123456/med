@@ -59,6 +59,6 @@ $data['facilities'] = [$data['facilities'][0]];
 $unrated = render_home_next($data);
 $assert(str_contains($unrated, 'Chưa có đánh giá') && !str_contains($unrated, '<strong>4.7</strong>'), 'No rating rendered without reviews');
 $entry = file_get_contents(dirname(__DIR__) . '/homepage-new.php');
-$assert(str_contains($entry, 'noindex,follow') && str_contains($entry, 'X-Robots-Tag: noindex, follow'), 'Preview is excluded from indexing');
+$assert(!str_contains($entry, 'noindex') && !str_contains($entry, 'X-Robots-Tag'), 'Public alternate homepage has no restrictive indexing directive');
 $assert(!str_contains($entry, "'/index.php'") && !str_contains($entry, "'/Tem/home.php'"), 'Preview does not replace/include old homepage');
 echo "Home next view: {$checks} checks passed. No DB connection or records modified.\n";

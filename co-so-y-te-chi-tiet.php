@@ -1065,7 +1065,6 @@ $facilityGalleryLabel = $facilityLanguage === 'en'
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($facilityNotFound): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
     <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?php echo htmlspecialchars($seoKeywords, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if (!$facilityNotFound): ?><link rel="canonical" href="<?php echo htmlspecialchars($canonicalUrl, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
     <?php if (!empty($facilityLanguageLinks['has_counterpart'])): ?>

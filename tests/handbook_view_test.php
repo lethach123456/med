@@ -126,10 +126,10 @@ $handbookFailed = true;
 ob_start(); require dirname(__DIR__) . '/Tem/handbook-directory.php'; $html = (string) ob_get_clean();
 $assert(str_contains($html, 'Tạm thời chưa thể tải bài viết') && !str_contains($html, 'Chưa có bài viết được xuất bản'), 'Failure is not represented as zero publication');
 $main = (string) file_get_contents(dirname(__DIR__) . '/cam-nang.php');
-foreach (['site_favicon_tags()', 'medical_public_shell_styles()', 'site_page_locale(\'handbook\')', 'noindex,follow', 'hreflang="vi"', 'hreflang="en"', "Tem/header.php", "Tem/footer.php"] as $required) {
+foreach (['site_favicon_tags()', 'medical_public_shell_styles()', 'site_page_locale(\'handbook\')', 'hreflang="vi"', 'hreflang="en"', "Tem/header.php", "Tem/footer.php"] as $required) {
     $assert(str_contains($main, $required), 'Public shell/metadata integration: ' . $required);
 }
-$assert(str_contains($main, '$handbookPaging[\'page\'] === 1') && str_contains($main, '!$handbookNoindex'), 'No invented translated search/pagination hreflang');
+$assert(str_contains($main, '$handbookPaging[\'page\'] === 1') && str_contains($main, '!$handbookFailed') && !str_contains($main, 'noindex'), 'No invented translated search/pagination hreflang or restrictive directive');
 $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/pages/handbook.css');
 foreach (['1248px', 'calc(100% - 32px)', '--med-ui-control-height,40px', 'min-height:44px', ':focus-visible', 'prefers-reduced-motion:reduce'] as $required) {
     $assert(str_contains($css, $required), 'Compact responsive accessible styling: ' . $required);

@@ -40,7 +40,7 @@ try {
         [$status, $headers, $body] = $request($path);
         $assert($status === 503, $path . ' reports a temporary outage rather than an empty HTTP 200');
         $assert(str_contains($headers, 'Retry-After: 300') && str_contains($headers, 'no-store'), $path . ' advises retry without caching the outage');
-        $assert(str_contains($body, 'name="robots" content="noindex,follow"'), $path . ' cannot index the temporary error page');
+        $assert(!preg_match('/\b(?:noindex|nofollow)\b/i', $body), $path . ' uses the temporary HTTP status instead of a restrictive meta directive');
         $assert(str_contains($body, 'aria-hidden="true">503</p>') && !str_contains($body, 'SQLSTATE')
             && !str_contains($body, 'not-a-real-password'), $path . ' displays a truthful error without connection details');
         $assert(str_contains($body, str_starts_with($path, '/en/') ? 'could not be loaded' : 'Chưa tải được'), $path . ' uses the requested language');

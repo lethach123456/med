@@ -11,7 +11,8 @@ $handbookImage = handbook_view_image_url($featured);
   <?= site_favicon_tags() ?>
   <title><?= handbook_view_escape($seoTitle) ?></title>
   <meta name="description" content="<?= handbook_view_escape($seoDescription) ?>">
-  <?php if (!$isIndexableArticle): ?><meta name="robots" content="noindex,follow"><?php else: ?>
+  <?php if ($canEditTemplate): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
+  <?php if ($isIndexableArticle): ?>
   <link rel="canonical" href="<?= handbook_view_escape(site_absolute_url($articleCanonicalPath)) ?>">
   <?php foreach (($handbookArticleAlternates ?? []) as $alternateLanguage=>$alternatePath): ?>
   <link rel="alternate" hreflang="<?= handbook_view_escape($alternateLanguage) ?>" href="<?= handbook_view_escape(site_absolute_url($alternatePath)) ?>">

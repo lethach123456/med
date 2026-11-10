@@ -27,7 +27,6 @@ foreach ($rows as &$row) {
 unset($row);
 $toplistFilters = toplist_view_filters($_GET);
 $toplistHasFilters = $toplistFilters['q'] !== '' || $toplistFilters['type'] !== '' || $toplistFilters['sort'] !== 'updated';
-$toplistNoindex = false;
 $toplistPaging = toplist_view_paginate($rows, $toplistFilters, toplist_view_requested_page($_GET));
 $toplistPageItems = $toplistPaging['items'];
 // Build image collages only for the visible page, not for every published list.
@@ -76,10 +75,9 @@ $toplistScriptVersion = (string) filemtime(__DIR__ . '/assets/js/toplist-directo
   <?= site_tag_manager_head() ?>
   <?php echo site_favicon_tags(); ?>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <?= site_language_metadata_tags($locale, !$toplistNoindex && $toplistPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
+  <?= site_language_metadata_tags($locale, $toplistPaging['page'] === 1 ? ['vi', 'en'] : []) ?>
   <title><?= toplist_view_escape($seoTitle) ?></title>
   <meta name="description" content="<?= toplist_view_escape($seoDescription) ?>">
-  <?php if ($toplistNoindex): ?><meta name="robots" content="noindex,follow"><?php endif; ?>
   <?php if ($seoKeywords !== ''): ?><meta name="keywords" content="<?= toplist_view_escape($seoKeywords) ?>"><?php endif; ?>
   <link rel="canonical" href="<?= toplist_view_escape(site_absolute_url($seoCanonical)) ?>">
   <?= site_social_meta_tags(['title' => $seoTitle, 'description' => $seoDescription, 'url' => $seoCanonical, 'type' => 'website']) ?>
